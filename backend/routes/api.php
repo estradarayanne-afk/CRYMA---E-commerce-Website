@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\RegistrationController;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json([
@@ -37,5 +38,10 @@ Route::middleware('auth:sanctum')->group(function () {
         RegistrationController::class,
         'reject'
     ]);
+
+    // User management — view & update
+    Route::get('/admin/users', [RegistrationController::class, 'users']);
+    Route::patch('/admin/users/{id}', [RegistrationController::class, 'updateUser']);
+    Route::patch('/admin/users/{id}/status', [RegistrationController::class, 'updateStatus']);
 
 });
