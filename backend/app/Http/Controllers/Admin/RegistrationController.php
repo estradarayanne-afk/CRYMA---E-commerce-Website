@@ -14,6 +14,14 @@ class RegistrationController extends Controller
     public function index(Request $request)
     {
         $query = User::query()
+            ->with([
+                'addresses',
+                'documents',
+                'buyerProfile',
+                'sellerProfile',
+                'courierProfile.vehicles',
+            ])
+            ->with('documents')
             ->where('status', 'pending')
             ->whereIn('role', ['seller', 'buyer', 'rider']);
 

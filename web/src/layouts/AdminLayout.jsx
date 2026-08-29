@@ -1,16 +1,26 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+    LayoutDashboard,
+    ClipboardList,
+    Users,
+    ShieldCheck,
+    MessageSquareWarning,
+    Percent,
+    Settings,
+    MessageCircle,
+    LogOut,
+    ChevronLeft,
+    ChevronRight,
+    Bell,
+    User,
+    ChevronDown,
+} from "lucide-react";
+
 import api from "../services/api";
 
 function AdminLayout() {
-    console.log("🔥 CRYMA ADMIN LAYOUT IS RENDERING");
-
     const navigate = useNavigate();
-    
-
-    // =========================
-    // ADMIN USER
-    // =========================
 
     const [user] = useState(() => {
         const storedUser = localStorage.getItem("user");
@@ -27,15 +37,9 @@ function AdminLayout() {
         }
     });
 
-    // =========================
-    // LOGOUT STATE
-    // =========================
-
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
-
-    // =========================
-    // LOGOUT
-    // =========================
 
     const handleLogout = async () => {
         setLoggingOut(true);
@@ -52,266 +56,228 @@ function AdminLayout() {
         }
     };
 
-    // =========================
-    // NAVIGATION
-    // =========================
+    const navigationItems = [
+        {
+            label: "Dashboard",
+            path: "/admin/dashboard",
+            icon: LayoutDashboard,
+        },
+        {
+            label: "Account Registrations",
+            path: "/admin/registrations",
+            icon: ClipboardList,
+        },
+        {
+            label: "User Accounts",
+            path: "/admin/users",
+            icon: Users,
+        },
+        {
+            label: "Seller Compliance",
+            path: "/admin/seller-compliance",
+            icon: ShieldCheck,
+        },
+        {
+            label: "Complaints & Disputes",
+            path: "/admin/complaints",
+            icon: MessageSquareWarning,
+        },
+        {
+            label: "Commission",
+            path: "/admin/commission",
+            icon: Percent,
+        },
+        {
+            label: "Reports",
+            path: "/admin/reports",
+            icon: ClipboardList,
+        },
+        {
+            label: "Platform Settings",
+            path: "/admin/settings",
+            icon: Settings,
+        },
+        {
+            label: "Chat / Messaging",
+            path: "/admin/chat",
+            icon: MessageCircle,
+        },
+    ];
 
     return (
-        <div
-            style={{
-                display: "flex",
-                minHeight: "100vh",
-                background: "#f5f8f8",
-            }}
-        >
-
-            {/* =====================================
+        <div className={`admin-layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+            {/* =================================================
                 SIDEBAR
-            ====================================== */}
+            ================================================= */}
 
-            <aside
-                style={{
-                    width: "260px",
-                    minHeight: "100vh",
-                    background: "#0f4c4c",
-                    color: "white",
-                    padding: "24px 16px",
-                    position: "fixed",
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    zIndex: 1000,
-                }}
-            >
-
+            <aside className="admin-sidebar">
                 {/* BRAND */}
 
                 <div className="admin-logo">
-                    <h2>CRYMA</h2>
-                    <span>Admin Panel</span>
+                    <div className="admin-logo-main">
+                        <h2>CRYMA</h2>
+                        <span>Admin Panel</span>
+                    </div>
                 </div>
 
+                {/* COLLAPSE BUTTON */}
+
+                <button
+                    type="button"
+                    className="sidebar-toggle"
+                    onClick={() => setSidebarCollapsed((current) => !current)}
+                    aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                    {sidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+                </button>
 
                 {/* NAVIGATION */}
 
                 <nav className="admin-navigation">
+                    {navigationItems.map((item) => {
+                        const Icon = item.icon;
 
-                    {/* Dashboard */}
+                        return (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                className={({ isActive }) =>
+                                    `admin-nav-link ${isActive ? "active" : ""}`
+                                }
+                                title={sidebarCollapsed ? item.label : undefined}
+                            >
+                                <span className="admin-nav-icon">
+                                    <Icon size={16} strokeWidth={1.9} />
+                                </span>
 
-                    <NavLink
-                        to="/admin/dashboard"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Dashboard</span>
-                    </NavLink>
-
-
-                    {/* Account Registrations */}
-
-                    <NavLink
-                        to="/admin/registrations"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Account Registrations</span>
-                    </NavLink>
-
-
-                    {/* User Accounts */}
-
-                    <NavLink
-                        to="/admin/users"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>User Accounts</span>
-                    </NavLink>
-
-
-                    {/* Seller Compliance */}
-
-                    <NavLink
-                        to="/admin/seller-compliance"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Seller Compliance</span>
-                    </NavLink>
-
-
-                    {/* Complaints */}
-
-                    <NavLink
-                        to="/admin/complaints"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Complaints & Disputes</span>
-                    </NavLink>
-
-
-                    {/* Commission */}
-
-                    <NavLink
-                        to="/admin/commission"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Commission</span>
-                    </NavLink>
-
-
-                    {/* Reports */}
-
-                    <NavLink
-                        to="/admin/reports"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Reports</span>
-                    </NavLink>
-
-
-                    {/* Platform Settings */}
-
-                    <NavLink
-                        to="/admin/settings"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Platform Settings</span>
-                    </NavLink>
-
-
-                    {/* Chat */}
-
-                    <NavLink
-                        to="/admin/chat"
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span>Chat / Messaging</span>
-                    </NavLink>
-
+                                <span className="admin-nav-label">{item.label}</span>
+                            </NavLink>
+                        );
+                    })}
                 </nav>
 
-
-                {/* =====================================
-                    SIDEBAR FOOTER
-                ====================================== */}
+                {/* SIDEBAR FOOTER */}
 
                 <div className="admin-sidebar-footer">
-
                     <button
                         type="button"
                         className="admin-logout-button"
                         onClick={handleLogout}
                         disabled={loggingOut}
                     >
-                        {loggingOut
-                            ? "Logging out..."
-                            : "Logout"}
+                        <span className="logout-icon">
+                            <LogOut size={16} strokeWidth={1.9} />
+                        </span>
+
+                        <span className="admin-nav-label">
+                            {loggingOut ? "Logging out..." : "Logout"}
+                        </span>
                     </button>
-
                 </div>
-
             </aside>
 
+            {/* =================================================
+                MAIN
+            ================================================= */}
 
-            {/* =====================================
-                MAIN AREA
-            ====================================== */}
-
-            <div
-                style={{
-                    flex: 1,
-                    marginLeft: "260px",
-                    minHeight: "100vh",
-                }}
-            >
-
-
-                {/* =================================
-                    HEADER
-                ================================== */}
+            <div className="admin-main">
+                {/* =================================================
+                    TOPBAR
+                ================================================= */}
 
                 <header className="admin-header">
-
-                    {/* HEADER TITLE */}
-
                     <div className="admin-header-title">
+                        <h1>Admin Dashboard</h1>
 
-                        <h1>
-                            Admin Dashboard
-                        </h1>
-
-                        <p>
-                            Manage and monitor CRYMA
-                        </p>
-
+                        <p>Manage and monitor CRYMA</p>
                     </div>
 
+                    <div className="admin-header-right">
+                        {/* NOTIFICATION */}
 
-                    {/* ADMIN PROFILE */}
+                        <button
+                            type="button"
+                            className="admin-notification-button"
+                            aria-label="Notifications"
+                        >
+                            <Bell size={17} strokeWidth={1.8} />
 
-                    <div className="admin-profile">
+                            <i />
+                        </button>
 
-                        {/* Avatar */}
+                        {/* PROFILE */}
 
-                        <div className="admin-avatar">
+                        <div className="admin-profile-wrapper">
+                            <button
+                                type="button"
+                                className="admin-profile"
+                                onClick={() => setProfileOpen((current) => !current)}
+                            >
+                                <div className="admin-avatar">
+                                    {user?.first_name?.charAt(0)?.toUpperCase() || "A"}
+                                </div>
 
-                            {user?.first_name
-                                ?.charAt(0)
-                                ?.toUpperCase() || "A"}
+                                <div className="admin-profile-info">
+                                    <strong>
+                                        {user
+                                            ? `${user.first_name} ${user.last_name}`
+                                            : "Administrator"}
+                                    </strong>
 
+                                    <span>Administrator</span>
+                                </div>
+
+                                <ChevronDown className="profile-chevron" size={14} />
+                            </button>
+
+                            {/* PROFILE DROPDOWN */}
+
+                            {profileOpen && (
+                                <div className="admin-profile-dropdown">
+                                    <div className="profile-dropdown-header">
+                                        <strong>
+                                            {user
+                                                ? `${user.first_name} ${user.last_name}`
+                                                : "Administrator"}
+                                        </strong>
+
+                                        <span>Administrator Account</span>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setProfileOpen(false);
+                                            navigate("/admin/settings");
+                                        }}
+                                    >
+                                        <User size={14} />
+                                        &nbsp;&nbsp;Account Settings
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleLogout}
+                                        disabled={loggingOut}
+                                    >
+                                        <LogOut size={14} />
+                                        &nbsp;&nbsp;
+                                        {loggingOut ? "Logging out..." : "Logout"}
+                                    </button>
+                                </div>
+                            )}
                         </div>
-
-
-                        {/* Information */}
-
-                        <div className="admin-profile-info">
-
-                            <strong>
-
-                                {user
-                                    ? `${user.first_name} ${user.last_name}`
-                                    : "Administrator"}
-
-                            </strong>
-
-                            <span>
-                                Administrator
-                            </span>
-
-                        </div>
-
                     </div>
-
                 </header>
 
-
-                {/* =================================
+                {/* =================================================
                     PAGE CONTENT
-                ================================== */}
+                ================================================= */}
 
                 <main className="admin-content">
-
                     <Outlet />
-
                 </main>
-
             </div>
-
         </div>
     );
 }

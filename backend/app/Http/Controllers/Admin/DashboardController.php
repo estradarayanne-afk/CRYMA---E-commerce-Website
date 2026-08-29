@@ -19,6 +19,20 @@ class DashboardController extends Controller
 
         $admins = User::where('role', 'admin')->count();
 
+        $recentRegistrations = User::query()
+            ->select([
+                'id',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'role',
+                'status',
+                'created_at',
+            ])
+            ->latest()
+            ->take(5)
+            ->get();
+
         return response()->json([
             'success' => true,
 

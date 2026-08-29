@@ -38,10 +38,7 @@ function Login() {
             // Go to admin dashboard
             navigate("/admin/dashboard");
         } catch (error) {
-            setError(
-                error.response?.data?.message ||
-                "Login failed. Please try again."
-            );
+            setError(error.response?.data?.message || "Login failed. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -51,11 +48,7 @@ function Login() {
         <div>
             <h1>Admin Login</h1>
 
-            {error && (
-                <p>
-                    {error}
-                </p>
-            )}
+            {error && <p>{error}</p>}
 
             <form onSubmit={handleSubmit}>
                 <div>
@@ -78,9 +71,7 @@ function Login() {
                         id="password"
                         type="password"
                         value={password}
-                        onChange={(event) =>
-                            setPassword(event.target.value)
-                        }
+                        onChange={(event) => setPassword(event.target.value)}
                         placeholder="Enter your password"
                         required
                     />
