@@ -1,0 +1,734 @@
+/* =========================================================
+   CRYMA ADMIN REPORTS
+   ========================================================= */
+
+.reports-page {
+    width: 100%;
+    color: #243536;
+}
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.reports-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 26px;
+}
+
+.reports-eyebrow,
+.reports-panel-eyebrow {
+    display: block;
+    margin-bottom: 7px;
+
+    color: #4fa6a0;
+
+    font-size: 9px;
+    font-weight: 700;
+
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+
+.reports-page-header h1 {
+    margin: 0 0 6px;
+
+    color: #243536;
+
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+}
+
+.reports-page-header p {
+    margin: 0;
+
+    color: #718080;
+
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* =========================================================
+   DATE BADGE
+   ========================================================= */
+
+.reports-header-date {
+    min-width: 155px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 10px 13px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5eaea;
+    border-radius: 12px;
+}
+
+.reports-header-date svg {
+    width: 19px;
+    height: 19px;
+
+    color: #4fa6a0;
+}
+
+.reports-header-date div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.reports-header-date span {
+    color: #9aa5a5;
+
+    font-size: 8px;
+    font-weight: 500;
+}
+
+.reports-header-date strong {
+    color: #243536;
+
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.reports-error {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    margin-bottom: 20px;
+    padding: 13px 15px;
+
+    background: rgba(217, 83, 79, 0.06);
+
+    border: 1px solid rgba(217, 83, 79, 0.14);
+    border-radius: 12px;
+}
+
+.reports-error-icon {
+    width: 34px;
+    height: 34px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9px;
+
+    background: rgba(217, 83, 79, 0.08);
+
+    color: #d9534f;
+}
+
+.reports-error-icon svg {
+    width: 17px;
+    height: 17px;
+}
+
+.reports-error strong {
+    display: block;
+
+    margin-bottom: 2px;
+
+    color: #8f3f3c;
+
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.reports-error p {
+    margin: 0;
+
+    color: #9a6967;
+
+    font-size: 9px;
+}
+
+/* =========================================================
+   GENERAL REPORT PANEL
+   ========================================================= */
+
+.reports-panel {
+    min-width: 0;
+
+    margin-bottom: 20px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5eaea;
+    border-radius: 15px;
+
+    box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
+
+    overflow: hidden;
+}
+
+.reports-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+
+    padding: 18px 19px;
+
+    border-bottom: 1px solid #edf0f0;
+}
+
+.reports-panel-header h2 {
+    margin: 0 0 5px;
+
+    color: #243536;
+
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.reports-panel-header p {
+    margin: 0;
+
+    color: #9aa5a5;
+
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+.reports-panel-eyebrow {
+    margin-bottom: 5px;
+
+    font-size: 7px;
+    letter-spacing: 1px;
+}
+
+/* =========================================================
+   REPORT FILTER
+   ========================================================= */
+
+.reports-filter-panel {
+    min-width: 0;
+
+    margin-bottom: 20px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5eaea;
+    border-radius: 15px;
+
+    box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
+
+    overflow: hidden;
+}
+
+.reports-filter-heading {
+    padding: 18px 19px;
+
+    border-bottom: 1px solid #edf0f0;
+}
+
+.reports-filter-heading h2 {
+    margin: 0 0 5px;
+
+    color: #243536;
+
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.reports-filter-heading p {
+    margin: 0;
+
+    color: #9aa5a5;
+
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+.reports-filter-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+
+    padding: 17px 19px;
+}
+
+.reports-filter-field {
+    min-width: 145px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.reports-filter-field label {
+    color: #718080;
+
+    font-size: 8px;
+    font-weight: 600;
+
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.reports-filter-field select,
+.reports-filter-field input {
+    width: 100%;
+    min-height: 35px;
+
+    padding: 8px 10px;
+
+    background: #ffffff;
+
+    border: 1px solid #dfe6e5;
+    border-radius: 8px;
+
+    color: #354747;
+
+    font-family: inherit;
+    font-size: 9px;
+
+    outline: none;
+
+    cursor: pointer;
+
+    transition:
+        border-color 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.reports-filter-field input {
+    cursor: text;
+}
+
+.reports-filter-field select:focus,
+.reports-filter-field input:focus {
+    border-color: #4fa6a0;
+
+    box-shadow:
+        0 0 0 3px rgba(79, 166, 160, 0.08);
+}
+
+.reports-generate-button {
+    min-height: 35px;
+
+    padding: 8px 15px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #0f4c4c;
+
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    cursor: pointer;
+
+    transition:
+        background 180ms ease,
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.reports-generate-button:hover:not(:disabled) {
+    background: #123c3c;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 5px 12px rgba(15, 76, 76, 0.15);
+}
+
+.reports-generate-button:disabled {
+    opacity: 0.65;
+
+    cursor: not-allowed;
+}
+
+.reports-date-range {
+    padding: 11px 19px;
+
+    background: #fafcfc;
+
+    border-top: 1px solid #edf0f0;
+
+    color: #8d9999;
+
+    font-size: 8px;
+}
+
+.reports-date-range strong {
+    color: #536363;
+
+    font-weight: 600;
+}
+
+/* =========================================================
+   REPORT STATISTICS
+   ========================================================= */
+
+.reports-stat-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 15px;
+
+    padding: 15px;
+}
+
+.reports-stat-card {
+    min-width: 0;
+
+    padding: 15px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5eaea;
+    border-radius: 12px;
+
+    box-shadow:
+        0 3px 12px rgba(8, 43, 45, 0.025);
+
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease,
+        border-color 180ms ease;
+}
+
+.reports-stat-card:hover {
+    transform: translateY(-2px);
+
+    border-color:
+        rgba(79, 166, 160, 0.25);
+
+    box-shadow:
+        0 8px 20px rgba(8, 43, 45, 0.06);
+}
+
+.reports-stat-top {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    margin-bottom: 15px;
+}
+
+.reports-stat-icon {
+    width: 32px;
+    height: 32px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+
+    background: #edf6f5;
+
+    color: #0f4c4c;
+}
+
+.reports-stat-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.reports-stat-top > span {
+    color: #718080;
+
+    font-size: 8px;
+    font-weight: 600;
+
+    letter-spacing: 0.3px;
+
+    text-transform: uppercase;
+}
+
+.reports-stat-card > strong {
+    display: block;
+
+    margin-bottom: 4px;
+
+    color: #243536;
+
+    font-size: 21px;
+    font-weight: 700;
+
+    line-height: 1.2;
+}
+
+.reports-stat-card > small {
+    color: #9aa5a5;
+
+    font-size: 7px;
+
+    line-height: 1.5;
+}
+
+/* =========================================================
+   COMMISSION ACCENTS
+   ========================================================= */
+
+.commission-grid
+    .reports-stat-card:nth-child(2)
+    .reports-stat-icon {
+    background: rgba(79, 166, 160, 0.11);
+
+    color: #397f7a;
+}
+
+.commission-grid
+    .reports-stat-card:nth-child(3)
+    .reports-stat-icon {
+    background: rgba(79, 166, 160, 0.15);
+
+    color: #2f7772;
+}
+
+/* =========================================================
+   TREND / ANALYTICS
+   ========================================================= */
+
+.reports-trend-container {
+    padding: 18px 19px;
+}
+
+.reports-trend-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.reports-trend-row {
+    display: grid;
+
+    grid-template-columns:
+        85px
+        minmax(120px, 1fr)
+        90px
+        75px;
+
+    align-items: center;
+
+    gap: 12px;
+}
+
+.reports-trend-date {
+    color: #617171;
+
+    font-size: 8px;
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+.reports-trend-bar-area {
+    height: 9px;
+
+    background: #edf3f2;
+
+    border-radius: 20px;
+
+    overflow: hidden;
+}
+
+.reports-trend-bar {
+    height: 100%;
+
+    min-width: 0;
+
+    background: #4fa6a0;
+
+    border-radius: 20px;
+
+    transition: width 350ms ease;
+}
+
+.reports-trend-value {
+    color: #354747;
+
+    font-size: 8px;
+    font-weight: 600;
+
+    text-align: right;
+
+    white-space: nowrap;
+}
+
+.reports-trend-orders {
+    color: #9aa5a5;
+
+    font-size: 7px;
+
+    text-align: right;
+
+    white-space: nowrap;
+}
+
+.reports-chart-message {
+    min-height: 110px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #9aa5a5;
+
+    font-size: 8px;
+
+    text-align: center;
+}
+
+/* =========================================================
+   COMMISSION TREND
+   ========================================================= */
+
+.commission-trend-row
+    .reports-trend-bar {
+    background: #397f7a;
+}
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 1050px) {
+
+    .reports-stat-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .reports-filter-controls {
+        flex-wrap: wrap;
+    }
+
+    .reports-filter-field {
+        flex: 1;
+        min-width: 140px;
+    }
+
+    .reports-generate-button {
+        flex-shrink: 0;
+    }
+
+    .reports-trend-row {
+        grid-template-columns:
+            80px
+            minmax(100px, 1fr)
+            85px
+            70px;
+    }
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+    .reports-page-header {
+        align-items: stretch;
+
+        flex-direction: column;
+
+        gap: 15px;
+    }
+
+    .reports-page-header h1 {
+        font-size: 21px;
+    }
+
+    .reports-header-date {
+        width: 100%;
+    }
+
+    .reports-filter-controls {
+        width: 100%;
+
+        align-items: stretch;
+
+        flex-direction: column;
+
+        padding: 15px;
+    }
+
+    .reports-filter-field {
+        width: 100%;
+
+        min-width: 0;
+    }
+
+    .reports-filter-field select,
+    .reports-filter-field input {
+        width: 100%;
+    }
+
+    .reports-generate-button {
+        width: 100%;
+    }
+
+    .reports-stat-grid {
+        grid-template-columns: 1fr;
+
+        gap: 10px;
+
+        padding: 10px;
+    }
+
+    .reports-stat-card {
+        padding: 14px;
+    }
+
+    .reports-stat-card:hover {
+        transform: none;
+    }
+
+    .reports-panel-header {
+        padding: 15px;
+    }
+
+    .reports-trend-container {
+        padding: 15px;
+    }
+
+    .reports-trend-row {
+        grid-template-columns:
+            65px
+            minmax(70px, 1fr)
+            75px;
+
+        gap: 8px;
+    }
+
+    .reports-trend-orders {
+        display: none;
+    }
+
+    .reports-trend-date {
+        font-size: 7px;
+    }
+
+    .reports-trend-value {
+        font-size: 7px;
+    }
+}

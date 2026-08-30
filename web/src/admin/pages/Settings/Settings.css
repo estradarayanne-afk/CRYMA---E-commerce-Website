@@ -1,0 +1,572 @@
+
+/* =========================================================
+   CRYMA ADMIN SETTINGS
+   ========================================================= */
+
+.settings-page {
+    width: 100%;
+    color: #243536;
+}
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.settings-page-header {
+    margin-bottom: 26px;
+}
+
+.settings-eyebrow {
+    display: block;
+    margin-bottom: 7px;
+    color: #4fa6a0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+
+.settings-page-header h1 {
+    margin: 0 0 6px;
+    color: #243536;
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+}
+
+.settings-page-header p {
+    margin: 0;
+    color: #718080;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.settings-error {
+    margin-bottom: 20px;
+    padding: 12px 15px;
+    background: rgba(217, 83, 79, 0.06);
+    border: 1px solid rgba(217, 83, 79, 0.14);
+    border-radius: 12px;
+    color: #a34a47;
+    font-size: 9px;
+}
+
+/* =========================================================
+   MAIN PANEL
+   ========================================================= */
+
+.settings-panel {
+    min-width: 0;
+    background: #ffffff;
+    border: 1px solid #e5eaea;
+    border-radius: 15px;
+    box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
+    overflow: hidden;
+}
+
+/* =========================================================
+   TABS
+   ========================================================= */
+
+.settings-tabs {
+    display: flex;
+    padding: 0 19px;
+    border-bottom: 1px solid #edf0f0;
+}
+
+.settings-tabs button {
+    position: relative;
+    padding: 15px 5px;
+    margin-right: 24px;
+    border: 0;
+    background: transparent;
+    color: #9aa5a5;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.settings-tabs button::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: transparent;
+}
+
+.settings-tabs button.active {
+    color: #0f4c4c;
+}
+
+.settings-tabs button.active::after {
+    background: #4fa6a0;
+}
+
+/* =========================================================
+   CONTENT
+   ========================================================= */
+
+.settings-content {
+    padding: 20px;
+}
+
+.settings-section-header {
+    margin-bottom: 20px;
+}
+
+.settings-section-header span {
+    display: block;
+    margin-bottom: 5px;
+    color: #4fa6a0;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.settings-section-header h2 {
+    margin: 0 0 5px;
+    color: #243536;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.settings-section-header p {
+    margin: 0;
+    color: #9aa5a5;
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 720px;
+    padding: 17px;
+    background: #fafcfc;
+    border: 1px solid #edf0f0;
+    border-radius: 12px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-field label {
+    color: #718080;
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-field input,
+.form-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 11px;
+    border: 1px solid #dfe6e5;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #354747;
+    font-family: inherit;
+    font-size: 9px;
+    outline: none;
+    transition:
+        border-color 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.form-field input:focus,
+.form-field textarea:focus {
+    border-color: #4fa6a0;
+    box-shadow:
+        0 0 0 3px rgba(79, 166, 160, 0.08);
+}
+
+.form-field textarea {
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+    color: #b2baba;
+}
+
+/* =========================================================
+   FORM ACTIONS
+   ========================================================= */
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* =========================================================
+   SUBMIT BUTTON
+   ========================================================= */
+
+.settings-submit {
+    align-self: flex-start;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #0f4c4c;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 180ms ease,
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.settings-submit:hover {
+    background: #123c3c;
+    transform: translateY(-1px);
+    box-shadow:
+        0 5px 12px rgba(15, 76, 76, 0.15);
+}
+
+.settings-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* =========================================================
+   CANCEL BUTTON
+   ========================================================= */
+
+.cancel-button {
+    padding: 10px 14px;
+    border: 1px solid #dfe6e5;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #718080;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 180ms ease,
+        border-color 180ms ease;
+}
+
+.cancel-button:hover {
+    background: #f5f8f8;
+    border-color: #cfd9d8;
+}
+
+/* =========================================================
+   LIST SECTION
+   ========================================================= */
+
+.settings-list-section {
+    margin-top: 28px;
+}
+
+.settings-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.settings-list-header h3 {
+    margin: 0;
+    color: #354747;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.settings-list-header span {
+    min-width: 20px;
+    padding: 4px 7px;
+    border-radius: 6px;
+    background: #edf6f5;
+    color: #397f7a;
+    font-size: 7px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* =========================================================
+   ITEMS
+   ========================================================= */
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #edf0f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.settings-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 14px;
+    background: #ffffff;
+    border-bottom: 1px solid #edf0f0;
+    transition: background 180ms ease;
+}
+
+.settings-item:last-child {
+    border-bottom: 0;
+}
+
+.settings-item:hover {
+    background: #fbfdfd;
+}
+
+.settings-item h4 {
+    margin: 0 0 5px;
+    color: #354747;
+    font-size: 9px;
+    font-weight: 650;
+}
+
+.settings-item p {
+    margin: 0;
+    color: #8d9999;
+    font-size: 8px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+/* =========================================================
+   ACTION BUTTONS
+   ========================================================= */
+
+.settings-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.edit-button {
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: #edf6f5;
+    color: #397f7a;
+    font-family: inherit;
+    font-size: 7px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 180ms ease,
+        transform 180ms ease;
+}
+
+.edit-button:hover {
+    background: #e1f0ee;
+    transform: translateY(-1px);
+}
+
+.delete-button {
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(217, 83, 79, 0.07);
+    color: #a34a47;
+    font-family: inherit;
+    font-size: 7px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 180ms ease,
+        transform 180ms ease;
+}
+
+.delete-button:hover {
+    background: rgba(217, 83, 79, 0.12);
+    transform: translateY(-1px);
+}
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.settings-empty {
+    padding: 35px 15px;
+    border: 1px solid #edf0f0;
+    border-radius: 10px;
+    color: #9aa5a5;
+    font-size: 8px;
+    text-align: center;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+    .settings-page-header h1 {
+        font-size: 21px;
+    }
+
+    .settings-tabs {
+        padding: 0 15px;
+    }
+
+    .settings-tabs button {
+        margin-right: 18px;
+    }
+
+    .settings-content {
+        padding: 15px;
+    }
+
+    .settings-form {
+        padding: 14px;
+    }
+
+    .form-actions {
+        width: 100%;
+    }
+
+    .settings-submit,
+    .cancel-button {
+        flex: 1;
+    }
+
+    .settings-item {
+        flex-direction: column;
+    }
+
+    .settings-actions {
+        align-self: flex-start;
+    }
+
+}
+
+/* =========================================================
+   CONFIRMATION MODAL
+   ========================================================= */
+
+.settings-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 35, 36, 0.48);
+}
+
+.settings-confirmation-modal {
+    width: min(400px, 100%);
+    padding: 26px;
+    box-sizing: border-box;
+    border: 1px solid #e5eaea;
+    border-radius: 15px;
+    background: #ffffff;
+    box-shadow: 0 20px 50px rgba(8, 43, 45, 0.2);
+    text-align: center;
+}
+
+.settings-confirmation-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: #edf6f5;
+    color: #397f7a;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.settings-confirmation-icon.danger {
+    background: rgba(217, 83, 79, 0.1);
+    color: #a34a47;
+}
+
+.settings-confirmation-modal h2 {
+    margin: 0 0 8px;
+    color: #243536;
+    font-size: 16px;
+}
+
+.settings-confirmation-modal p {
+    margin: 0;
+    color: #718080;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.settings-confirmation-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+.settings-confirm-cancel,
+.settings-confirm-action {
+    min-height: 36px;
+    padding: 8px 13px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.settings-confirm-cancel {
+    border: 1px solid #dfe6e5;
+    background: #ffffff;
+    color: #718080;
+}
+
+.settings-confirm-action {
+    border: 0;
+    background: #0f4c4c;
+    color: #ffffff;
+}
+
+.settings-confirm-action.danger {
+    background: #b34c49;
+}
+
+@media (max-width: 700px) {
+    .settings-confirmation-modal {
+        padding: 22px;
+    }
+
+    .settings-confirmation-actions {
+        flex-direction: column-reverse;
+    }
+
+    .settings-confirm-cancel,
+    .settings-confirm-action {
+        width: 100%;
+    }
+}
+

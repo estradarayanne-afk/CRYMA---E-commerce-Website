@@ -1,0 +1,913 @@
+/* =========================================================
+   CRYMA ADMIN LAYOUT
+   ========================================================= */
+
+:root {
+    --cryma-primary: #0f4c4c;
+    --cryma-primary-dark: #0a3638;
+    --cryma-primary-deep: #082b2d;
+    --cryma-accent: #4fa6a0;
+
+    --cryma-white: #ffffff;
+    --cryma-text: #243536;
+    --cryma-muted: #718080;
+    --cryma-border: #e5eaea;
+    --cryma-background: #f5f8f8;
+    --cryma-danger: #d9534f;
+
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 82px;
+    --header-height: 72px;
+
+    --transition: 180ms ease;
+}
+
+/* =========================================================
+   ROOT
+   ========================================================= */
+
+.al-root {
+    min-height: 100vh;
+    background: var(--cryma-background);
+    color: var(--cryma-text);
+    font-family: "Poppins", sans-serif;
+    display: flex;
+}
+
+.al-root *,
+.al-root *::before,
+.al-root *::after {
+    box-sizing: border-box;
+}
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.al-sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+
+    position: fixed;
+    left: 0;
+    top: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    background: linear-gradient(
+        180deg,
+        var(--cryma-primary-dark),
+        var(--cryma-primary-deep)
+    );
+
+    color: var(--cryma-white);
+
+    z-index: 1000;
+
+    box-shadow: 8px 0 30px rgba(8, 43, 45, 0.08);
+
+    transition: width var(--transition);
+}
+
+/* =========================================================
+   SIDEBAR TOP
+   ========================================================= */
+
+.al-sidebar-top {
+    height: var(--header-height);
+    padding: 0 18px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.al-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+
+    min-width: 0;
+}
+
+.al-brand-mark {
+    width: 38px;
+    height: 38px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 11px;
+
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+
+    color: #ffffff;
+
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.al-brand-copy {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+.al-brand-name {
+    color: #ffffff;
+
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+
+    white-space: nowrap;
+}
+
+.al-brand-name sup {
+    font-size: 7px;
+    opacity: 0.65;
+}
+
+.al-brand-sub {
+    color: rgba(255, 255, 255, 0.48);
+
+    font-size: 9px;
+    font-weight: 500;
+
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+
+    white-space: nowrap;
+}
+
+/* =========================================================
+   SIDEBAR TOGGLE
+   ========================================================= */
+
+.al-sidebar-toggle {
+    width: 38px;
+    height: 38px;
+
+    padding: 0;
+
+    flex-shrink: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 4px;
+
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.07);
+
+    cursor: pointer;
+
+    transition: 180ms ease;
+}
+
+.al-sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.al-sidebar-toggle span {
+    width: 17px;
+    height: 2px;
+
+    display: block;
+
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.82);
+}
+
+/* =========================================================
+   SECTION LABEL
+   ========================================================= */
+
+.al-section-label {
+    padding: 24px 22px 10px;
+
+    color: rgba(255, 255, 255, 0.36);
+
+    font-size: 9px;
+    font-weight: 600;
+
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+}
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+.al-nav {
+    padding: 0 12px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    overflow-y: auto;
+}
+
+.al-nav a {
+    min-height: 46px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 13px;
+
+    padding: 0 13px;
+
+    border: 1px solid transparent;
+    border-radius: 11px;
+
+    color: rgba(255, 255, 255, 0.61);
+
+    text-decoration: none;
+
+    font-size: 12px;
+    font-weight: 500;
+
+    transition:
+        color var(--transition),
+        background var(--transition),
+        transform var(--transition);
+}
+
+.al-nav a:hover {
+    color: #ffffff;
+
+    background: rgba(255, 255, 255, 0.065);
+
+    transform: translateX(2px);
+}
+
+.al-nav a.active {
+    color: #ffffff;
+
+    background: rgba(79, 166, 160, 0.18);
+
+    border-color: rgba(79, 166, 160, 0.18);
+
+    box-shadow:
+        inset 3px 0 0 var(--cryma-accent);
+}
+
+/* =========================================================
+   NAV ICON
+   ========================================================= */
+
+.al-nav-icon {
+    width: 24px;
+    height: 24px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 7px;
+
+    color: rgba(255, 255, 255, 0.52);
+
+    font-size: 15px;
+}
+
+.al-nav a:hover .al-nav-icon,
+.al-nav a.active .al-nav-icon {
+    color: #ffffff;
+}
+
+.al-nav a.active .al-nav-icon {
+    background: rgba(79, 166, 160, 0.18);
+}
+
+/* =========================================================
+   NAV LABEL
+   ========================================================= */
+
+.al-nav-label {
+    white-space: nowrap;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =========================================================
+   ACTIVE DOT
+   ========================================================= */
+
+.al-nav-active-dot {
+    width: 5px;
+    height: 5px;
+
+    margin-left: auto;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: var(--cryma-accent);
+
+    opacity: 0;
+}
+
+.al-nav a.active .al-nav-active-dot {
+    opacity: 1;
+}
+
+/* =========================================================
+   SIDEBAR PROFILE
+   ========================================================= */
+
+.al-sidebar-bottom {
+    margin-top: auto;
+
+    padding: 14px;
+
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.al-profile-wrapper {
+    position: relative;
+}
+
+.al-profile-trigger {
+    width: 100%;
+    min-height: 52px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 7px;
+
+    border: 1px solid transparent;
+    border-radius: 12px;
+
+    background: transparent;
+
+    color: #ffffff;
+
+    cursor: pointer;
+
+    text-align: left;
+}
+
+.al-profile-trigger:hover,
+.al-profile-trigger.open {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.al-avatar {
+    width: 36px;
+    height: 36px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 10px;
+
+    background: rgba(79, 166, 160, 0.2);
+
+    border: 1px solid rgba(79, 166, 160, 0.25);
+
+    color: #ffffff;
+
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.al-user-info {
+    min-width: 0;
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.al-user-info strong {
+    color: #ffffff;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.al-user-info span {
+    color: rgba(255, 255, 255, 0.4);
+
+    font-size: 9px;
+}
+
+.al-profile-chevron {
+    color: rgba(255, 255, 255, 0.38);
+
+    font-size: 14px;
+}
+
+/* =========================================================
+   PROFILE MENU
+   ========================================================= */
+
+.al-profile-menu {
+    width: 240px;
+
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 10px);
+
+    padding: 10px;
+
+    background: #ffffff;
+
+    border: 1px solid var(--cryma-border);
+    border-radius: 14px;
+
+    box-shadow: 0 18px 45px rgba(8, 43, 45, 0.16);
+
+    z-index: 1200;
+}
+
+.al-profile-menu-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 7px;
+}
+
+.al-avatar--menu {
+    background: var(--cryma-primary);
+}
+
+.al-profile-menu-head > div:last-child {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.al-profile-menu-head strong {
+    color: var(--cryma-text);
+
+    font-size: 11px;
+}
+
+.al-profile-menu-head span {
+    color: var(--cryma-muted);
+
+    font-size: 9px;
+}
+
+.al-profile-divider {
+    height: 1px;
+
+    margin: 7px 0;
+
+    background: var(--cryma-border);
+}
+
+.al-profile-action {
+    width: 100%;
+    min-height: 40px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 0 10px;
+
+    border: 0;
+    border-radius: 9px;
+
+    background: transparent;
+
+    color: var(--cryma-text);
+
+    font-family: inherit;
+    font-size: 10px;
+
+    cursor: pointer;
+
+    text-align: left;
+}
+
+.al-profile-action:hover {
+    background: var(--cryma-background);
+}
+
+.al-profile-action span {
+    width: 22px;
+
+    display: inline-flex;
+    justify-content: center;
+
+    font-size: 13px;
+}
+
+.al-profile-action--danger {
+    color: var(--cryma-danger);
+}
+
+/* =========================================================
+   MAIN
+   ========================================================= */
+
+.al-main {
+    width: calc(100% - var(--sidebar-width));
+
+    min-height: 100vh;
+
+    margin-left: var(--sidebar-width);
+
+    transition:
+        width var(--transition),
+        margin-left var(--transition);
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.al-header {
+    height: var(--header-height);
+
+    position: sticky;
+    top: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 30px;
+
+    background: rgba(255, 255, 255, 0.95);
+
+    border-bottom: 1px solid var(--cryma-border);
+
+    z-index: 900;
+}
+
+.al-header-left {
+    display: flex;
+    align-items: center;
+}
+
+.al-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    color: #9aa5a5;
+
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.al-breadcrumb strong {
+    color: var(--cryma-text);
+}
+
+/* =========================================================
+   HEADER STATUS
+   ========================================================= */
+
+.al-header-right {
+    display: flex;
+    align-items: center;
+}
+
+.al-header-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 7px 11px;
+
+    border-radius: 20px;
+
+    background: #f1f7f6;
+
+    color: #55706e;
+
+    font-size: 9px;
+    font-weight: 500;
+}
+
+.al-status-dot {
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: var(--cryma-accent);
+
+    box-shadow: 0 0 0 4px rgba(79, 166, 160, 0.1);
+}
+
+/* =========================================================
+   CONTENT
+   ========================================================= */
+
+.al-content {
+    min-height: calc(100vh - var(--header-height));
+
+    padding: 28px 30px 40px;
+}
+
+/* =========================================================
+   COLLAPSED SIDEBAR
+   ========================================================= */
+
+.al-root--collapsed .al-sidebar {
+    width: var(--sidebar-collapsed-width);
+}
+
+.al-root--collapsed .al-main {
+    width: calc(100% - var(--sidebar-collapsed-width));
+
+    margin-left: var(--sidebar-collapsed-width);
+}
+
+.al-root--collapsed .al-brand-copy,
+.al-root--collapsed .al-section-label,
+.al-root--collapsed .al-nav-label,
+.al-root--collapsed .al-nav-active-dot,
+.al-root--collapsed .al-user-info,
+.al-root--collapsed .al-profile-chevron {
+    display: none;
+}
+
+.al-root--collapsed .al-sidebar-top {
+    justify-content: center;
+    padding: 0 16px;
+}
+
+.al-root--collapsed .al-brand {
+    display: none;
+}
+
+.al-root--collapsed .al-sidebar-toggle {
+    transform: rotate(180deg);
+}
+
+.al-root--collapsed .al-nav {
+    padding: 0 10px;
+}
+
+.al-root--collapsed .al-nav a {
+    justify-content: center;
+    padding: 0;
+}
+
+.al-root--collapsed .al-nav-icon {
+    width: 36px;
+    height: 36px;
+}
+
+.al-root--collapsed .al-sidebar-bottom {
+    padding: 10px;
+}
+
+.al-root--collapsed .al-profile-trigger {
+    justify-content: center;
+}
+
+/* =========================================================
+   LOGOUT MODAL
+   ========================================================= */
+
+.al-modal-backdrop {
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(5, 27, 29, 0.58);
+
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+
+    z-index: 3000;
+}
+
+.al-logout-modal {
+    width: min(410px, 100%);
+
+    padding: 30px;
+
+    background: #ffffff;
+
+    border-radius: 20px;
+
+    box-shadow: 0 25px 70px rgba(5, 27, 29, 0.24);
+
+    text-align: center;
+}
+
+.al-logout-icon {
+    width: 54px;
+    height: 54px;
+
+    margin: 0 auto 17px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 15px;
+
+    background: rgba(217, 83, 79, 0.08);
+
+    color: var(--cryma-danger);
+
+    font-size: 21px;
+}
+
+.al-logout-content h2 {
+    margin: 0 0 7px;
+
+    color: var(--cryma-text);
+
+    font-size: 18px;
+}
+
+.al-logout-content p {
+    margin: 0 auto;
+
+    max-width: 310px;
+
+    color: var(--cryma-muted);
+
+    font-size: 10px;
+
+    line-height: 1.7;
+}
+
+.al-logout-actions {
+    display: flex;
+    justify-content: center;
+
+    gap: 9px;
+
+    margin-top: 24px;
+}
+
+.al-modal-cancel,
+.al-modal-confirm {
+    min-width: 110px;
+    height: 40px;
+
+    padding: 0 16px;
+
+    border-radius: 9px;
+
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.al-modal-cancel {
+    border: 1px solid var(--cryma-border);
+
+    background: #ffffff;
+
+    color: var(--cryma-text);
+}
+
+.al-modal-confirm {
+    border: 1px solid var(--cryma-danger);
+
+    background: var(--cryma-danger);
+
+    color: #ffffff;
+}
+
+.al-modal-cancel:disabled,
+.al-modal-confirm:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.al-modal-spinner {
+    width: 13px;
+    height: 13px;
+
+    display: inline-block;
+
+    margin-right: 7px;
+
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+
+    border-radius: 50%;
+
+    animation: al-spin 700ms linear infinite;
+}
+
+@keyframes al-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+    :root {
+        --sidebar-width: 235px;
+    }
+
+    .al-header {
+        padding: 0 20px;
+    }
+
+    .al-content {
+        padding: 24px 20px 35px;
+    }
+}
+
+@media (max-width: 700px) {
+
+    .al-sidebar {
+        width: 280px;
+
+        transform: translateX(-100%);
+
+        transition: transform var(--transition);
+    }
+
+    .al-root--mobile-open .al-sidebar {
+        transform: translateX(0);
+    }
+
+    .al-main,
+    .al-root--collapsed .al-main {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .al-header {
+        height: 64px;
+        padding: 0 15px;
+    }
+
+    .al-content {
+        min-height: calc(100vh - 64px);
+        padding: 20px 15px 30px;
+    }
+
+    .al-header-status {
+        padding: 6px 9px;
+    }
+
+    .al-profile-menu {
+        width: min(240px, calc(100vw - 40px));
+    }
+
+    .al-logout-modal {
+        padding: 25px 20px;
+    }
+
+    .al-logout-actions {
+        flex-direction: column-reverse;
+    }
+
+    .al-modal-cancel,
+    .al-modal-confirm {
+        width: 100%;
+    }
+}

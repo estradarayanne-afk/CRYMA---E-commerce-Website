@@ -1,0 +1,553 @@
+
+.commission-page {
+    padding: 30px;
+}
+
+/* =========================================
+   HEADER
+========================================= */
+
+.commission-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.commission-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #5f6f72;
+}
+
+.commission-header h1 {
+    margin: 5px 0;
+    font-size: 30px;
+}
+
+.commission-header p {
+    margin: 0;
+    color: #777;
+}
+
+/* =========================================
+   COUNTER CARD
+========================================= */
+
+.commission-count {
+    min-width: 110px;
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.commission-count strong {
+    font-size: 28px;
+    line-height: 1.1;
+}
+
+.commission-count span {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #777;
+}
+
+/* =========================================
+   ERROR
+========================================= */
+
+.commission-error {
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    background: #fff1f1;
+    color: #b42318;
+}
+
+/* =========================================
+   MAIN CARD
+========================================= */
+
+.commission-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
+/* =========================================
+   TOOLBAR
+========================================= */
+
+.commission-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* SEARCH */
+
+.commission-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    flex: 1;
+    max-width: 500px;
+
+    padding: 10px 14px;
+
+    border: 1px solid #d9dee2;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.commission-search span {
+    font-size: 20px;
+    color: #777;
+}
+
+.commission-search input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 14px;
+}
+
+/* FILTER */
+
+.commission-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.commission-filter label {
+    font-size: 13px;
+    color: #666;
+}
+
+.commission-filter select {
+    min-width: 130px;
+    padding: 9px 12px;
+
+    border: 1px solid #d9dee2;
+    border-radius: 8px;
+
+    background: white;
+    outline: none;
+    cursor: pointer;
+}
+
+/* =========================================
+   LOADING
+========================================= */
+
+.commission-loading {
+    padding: 60px;
+    text-align: center;
+    color: #777;
+}
+
+/* =========================================
+   TABLE
+========================================= */
+
+.commission-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.commission-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.commission-table th {
+    padding: 14px 18px;
+
+    text-align: left;
+
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+
+    color: #667085;
+    background: #f8fafb;
+
+    white-space: nowrap;
+}
+
+.commission-table td {
+    padding: 17px 18px;
+
+    border-top: 1px solid #edf0f2;
+
+    font-size: 14px;
+
+    white-space: nowrap;
+}
+
+.commission-table tbody tr:hover {
+    background: #fafcfc;
+}
+
+/* =========================================
+   COMMISSION AMOUNT
+========================================= */
+
+.commission-amount {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.commission-amount strong {
+    font-weight: 600;
+}
+
+.commission-amount span {
+    font-size: 12px;
+    color: #777;
+}
+
+/* =========================================
+   STATUS
+========================================= */
+
+.commission-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 5px 10px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.commission-status > span {
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: currentColor;
+}
+
+.commission-status.pending {
+    background: #fff7e6;
+    color: #b26a00;
+}
+
+.commission-status.paid,
+.commission-status.completed {
+    background: #eaf8ef;
+    color: #16794c;
+}
+
+.commission-status.cancelled {
+    background: #fff0f0;
+    color: #c62828;
+}
+
+/* =========================================
+   VIEW BUTTON
+========================================= */
+
+.commission-view-button {
+    padding: 7px 14px;
+
+    border: 1px solid #d7dddd;
+    border-radius: 7px;
+
+    background: white;
+
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.commission-view-button:hover {
+    background: #f5f7f7;
+}
+
+/* =========================================
+   EMPTY STATE
+========================================= */
+
+.commission-empty {
+    padding: 50px !important;
+
+    text-align: center !important;
+
+    color: #777;
+}
+
+/* =========================================
+   MODAL
+========================================= */
+
+.commission-modal-overlay {
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, 0.45);
+
+    z-index: 1000;
+}
+
+.commission-modal {
+    width: min(700px, 100%);
+    max-height: 90vh;
+
+    overflow-y: auto;
+
+    background: white;
+
+    border-radius: 14px;
+
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================================
+   MODAL HEADER
+========================================= */
+
+.commission-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    padding: 24px;
+
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.commission-modal-header span {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+
+    color: #667085;
+}
+
+.commission-modal-header h2 {
+    margin: 6px 0 0;
+
+    font-size: 22px;
+}
+
+.commission-modal-header button {
+    width: 34px;
+    height: 34px;
+
+    border: none;
+    border-radius: 50%;
+
+    background: #f3f4f6;
+
+    font-size: 22px;
+
+    cursor: pointer;
+}
+
+/* =========================================
+   DETAIL SECTIONS
+========================================= */
+
+.commission-detail-section {
+    padding: 22px 24px;
+
+    border-bottom: 1px solid #edf0f2;
+}
+
+.commission-detail-section h4 {
+    margin: 0 0 16px;
+
+    font-size: 14px;
+}
+
+.commission-detail-grid {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 18px;
+}
+
+.commission-detail-grid div {
+    display: flex;
+    flex-direction: column;
+
+    gap: 5px;
+}
+
+.commission-detail-grid span {
+    font-size: 12px;
+    color: #777;
+}
+
+.commission-detail-grid strong {
+    font-size: 14px;
+}
+
+/* =========================================
+   COMMISSION BREAKDOWN
+========================================= */
+
+.commission-breakdown {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+
+    overflow: hidden;
+}
+
+.commission-breakdown > div {
+    display: flex;
+    justify-content: space-between;
+
+    padding: 14px 16px;
+
+    border-bottom: 1px solid #edf0f2;
+}
+
+.commission-breakdown > div:last-child {
+    border-bottom: none;
+}
+
+.commission-breakdown span {
+    color: #666;
+}
+
+.commission-total {
+    background: #f7faf9;
+}
+
+.commission-total strong {
+    font-size: 16px;
+}
+
+/* =========================================
+   MODAL FOOTER
+========================================= */
+
+.commission-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+
+    padding: 20px 24px;
+}
+
+.commission-done-button {
+    padding: 10px 22px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #123c3c;
+    color: white;
+
+    cursor: pointer;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 900px) {
+
+    .commission-toolbar {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .commission-search {
+        max-width: none;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .commission-page {
+        padding: 20px;
+    }
+
+    .commission-header {
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .commission-count {
+        min-width: 85px;
+        padding: 12px 16px;
+    }
+
+    .commission-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .commission-search {
+        max-width: none;
+        width: auto;
+    }
+
+    .commission-filter {
+        justify-content: space-between;
+    }
+
+    .commission-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.commission-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 20px;
+    border-top: 1px solid #e8ecef;
+}
+.commission-pagination-info { color: #737e84; font-size: 12px; }
+.commission-pagination-info strong { color: #344249; }
+.commission-pagination-controls, .commission-pagination-pages { display: flex; align-items: center; gap: 6px; }
+.commission-pagination-pages { gap: 4px; }
+.commission-pagination-button, .commission-pagination-page {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 34px; border: 1px solid #d8dfe3; border-radius: 7px;
+    background: #fff; color: #4b5960; font-family: inherit;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.commission-pagination-button { padding: 0 12px; }
+.commission-pagination-page { width: 34px; }
+.commission-pagination-button:hover:not(:disabled), .commission-pagination-page:hover { background: #f5f7f8; }
+.commission-pagination-page.active { border-color: #245c61; background: #245c61; color: #fff; }
+.commission-pagination-button:disabled { opacity: .4; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+    .commission-pagination { align-items: flex-start; flex-direction: column; }
+    .commission-pagination-controls { width: 100%; justify-content: space-between; }
+    .commission-pagination-pages { display: none; }
+}
+

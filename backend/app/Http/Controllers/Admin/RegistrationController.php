@@ -21,7 +21,6 @@ class RegistrationController extends Controller
                 'sellerProfile',
                 'courierProfile.vehicles',
             ])
-            ->with('documents')
             ->where('status', 'pending')
             ->whereIn('role', ['seller', 'buyer', 'rider']);
 
@@ -107,6 +106,81 @@ public function approve(int $id)
             'success' => true,
             'message' => 'Registration rejected successfully.',
             'data' => $user,
+        ]);
+    }
+
+    /**
+     * Get all users (for admin user management).
+     */
+    public function users(Request $request)
+    {
+        $query = User::query()->whereIn('role', ['seller', 'buyer', 'rider']);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('role')) {
+            $query->where('role', $request->role);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->latest()->paginate(15),
+        ]);
+    }
+
+    /**
+     * Update a user's details.
+     */
+    public function updateUser(Request $request, int $id)
+    {
+        $user = User::findOrFail($id);
+
+        $data = $request->validate([
+            'first_name'  => ['sometimes', 'string', 'max:100'],
+            'middle_name' => ['nullable', 'string', 'max:100'],
+            'last_name'   => ['sometimes', 'string', 'max:100'],
+            'email'       => ['sometimes', 'email', 'unique:users,email,' . $id],
+            'phone'       => ['nullable', 'string', 'max:20'],
+            'role'        => ['sometimes', 'in:buyer,seller,rider'],
+        ]);
+
+        $user->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User updated successfully.',
+            'data'    => $user,
+        ]);
+    }
+
+    /**
+     * Update a user's status (active / suspended / rejected).
+     */
+    public function updateStatus(Request $request, int $id)
+    {
+        $user = User::findOrFail($id);
+
+        $data = $request->validate([
+            'status' => ['required', 'in:active,suspended,rejected,pending'],
+        ]);
+
+        $user->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User status updated.',
+            'data'    => $user,
         ]);
     }
 }

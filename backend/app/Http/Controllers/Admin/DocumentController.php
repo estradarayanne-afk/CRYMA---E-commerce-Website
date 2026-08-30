@@ -12,6 +12,51 @@ class DocumentController extends Controller
     /**
      * View a submitted registration document.
      */
+    
+    /**
+     * Get submitted registration documents.
+     */
+/**
+ * Get submitted registration documents.
+ */
+    public function index(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user || $user->role !== 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 403);
+        }
+
+        $query = UserDocument::query()
+            ->with('user')
+            ->latest();
+
+        // Search by file name
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->where('original_file_name', 'like', "%{$search}%")
+                ->orWhere('document_type', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $documents = $query->paginate(10);
+
+        return response()->json([
+            'success' => true,
+            'data' => $documents,
+        ]);
+    }
+    
     public function show(int $id)
     {
         $user = request()->user();

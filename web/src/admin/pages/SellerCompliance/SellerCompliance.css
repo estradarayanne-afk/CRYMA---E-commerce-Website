@@ -1,0 +1,1140 @@
+/* =========================================
+   SELLER COMPLIANCE PAGE
+========================================= */
+
+.seller-compliance-page {
+    width: 100%;
+    padding: 32px;
+    box-sizing: border-box;
+    color: #172b2b;
+}
+
+
+/* =========================================
+   HEADER
+========================================= */
+
+.seller-compliance-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.seller-compliance-eyebrow {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #668080;
+}
+
+.seller-compliance-header h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #163b3b;
+}
+
+.seller-compliance-header p {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: #718282;
+}
+
+
+/* =========================================
+   SELLER COUNT
+========================================= */
+
+.seller-compliance-count {
+    min-width: 90px;
+    padding: 14px 18px;
+    border: 1px solid #dce7e5;
+    border-radius: 12px;
+    background: #ffffff;
+    text-align: center;
+}
+
+.seller-compliance-count strong {
+    display: block;
+    font-size: 24px;
+    color: #174848;
+}
+
+.seller-compliance-count span {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: #7a8b8b;
+}
+
+
+/* =========================================
+   ALERTS
+========================================= */
+
+.seller-compliance-error,
+.seller-compliance-success {
+    margin-bottom: 18px;
+    padding: 13px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.seller-compliance-error {
+    border: 1px solid #f0caca;
+    background: #fff5f5;
+    color: #a33a3a;
+}
+
+.seller-compliance-success {
+    border: 1px solid #c9e5d8;
+    background: #f3fbf6;
+    color: #28734e;
+}
+
+
+/* =========================================
+   MAIN CARD
+========================================= */
+
+.seller-compliance-card {
+    overflow: hidden;
+    border: 1px solid #dfe9e7;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 5px 20px rgba(24, 62, 62, 0.05);
+}
+
+
+/* =========================================
+   TOOLBAR
+========================================= */
+
+.seller-compliance-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e7eeee;
+}
+
+.seller-compliance-search {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    max-width: 520px;
+    height: 42px;
+    padding: 0 13px;
+    border: 1px solid #d7e3e1;
+    border-radius: 9px;
+    background: #fafcfc;
+}
+
+.seller-compliance-search:focus-within {
+    border-color: #367777;
+    background: #ffffff;
+}
+
+.seller-compliance-search span {
+    margin-right: 9px;
+    font-size: 21px;
+    color: #7b8d8d;
+}
+
+.seller-compliance-search input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: #263b3b;
+}
+
+.seller-compliance-search input::placeholder {
+    color: #9aa9a9;
+}
+
+
+/* =========================================
+   FILTER
+========================================= */
+
+.seller-compliance-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.seller-compliance-filter label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #657777;
+}
+
+.seller-compliance-filter select {
+    height: 42px;
+    min-width: 135px;
+    padding: 0 12px;
+    border: 1px solid #d7e3e1;
+    border-radius: 9px;
+    outline: none;
+    background: #ffffff;
+    color: #334b4b;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.seller-compliance-filter select:focus {
+    border-color: #367777;
+}
+
+
+/* =========================================
+   TABLE
+========================================= */
+
+.seller-compliance-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.seller-compliance-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 850px;
+}
+
+.seller-compliance-table th {
+    padding: 14px 20px;
+    border-bottom: 1px solid #e6eeee;
+    background: #f8faf9;
+    color: #738383;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.seller-compliance-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #edf2f1;
+    color: #405555;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.seller-compliance-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.seller-compliance-table tbody tr:hover {
+    background: #f9fbfb;
+}
+
+.seller-compliance-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+/* =========================================
+   SELLER INFO
+========================================= */
+
+.seller-info {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.seller-avatar,
+.seller-profile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #e4eeee;
+    color: #245858;
+    font-weight: 700;
+}
+
+.seller-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 12px;
+}
+
+.seller-info strong {
+    display: block;
+    margin-bottom: 3px;
+    color: #233b3b;
+    font-size: 13px;
+}
+
+.seller-info span {
+    display: block;
+    color: #91a0a0;
+    font-size: 11px;
+}
+
+
+/* =========================================
+   STATUS
+========================================= */
+
+.seller-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.seller-status > span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.seller-status.active {
+    background: #eaf7f0;
+    color: #2b7651;
+}
+
+.seller-status.active > span {
+    background: #3c9a69;
+}
+
+.seller-status.pending {
+    background: #fff7e7;
+    color: #9a6a19;
+}
+
+.seller-status.pending > span {
+    background: #d69b2d;
+}
+
+.seller-status.inactive {
+    background: #fbeeee;
+    color: #a24a4a;
+}
+
+.seller-status.inactive > span {
+    background: #c45a5a;
+}
+
+
+/* =========================================
+   VIEW BUTTON
+========================================= */
+
+.seller-view-button {
+    padding: 7px 14px;
+    border: 1px solid #cbdcda;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #285d5d;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.seller-view-button:hover {
+    border-color: #397878;
+    background: #edf5f4;
+}
+
+
+/* =========================================
+   LOADING / EMPTY
+========================================= */
+
+.seller-compliance-loading {
+    padding: 55px 20px;
+    text-align: center;
+    color: #788989;
+    font-size: 13px;
+}
+
+.seller-compliance-empty {
+    padding: 55px 20px !important;
+    text-align: center;
+    color: #899898 !important;
+}
+
+
+/* =========================================
+   MODAL OVERLAY
+========================================= */
+
+.seller-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 24px;
+    background: rgba(15, 38, 38, 0.48);
+}
+
+
+/* =========================================
+   MODAL
+========================================= */
+
+.seller-modal {
+    width: min(720px, 100%);
+    max-height: 88vh;
+    overflow-y: auto;
+
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+}
+
+
+/* =========================================
+   MODAL HEADER
+========================================= */
+
+.seller-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    padding: 22px 24px;
+    border-bottom: 1px solid #e7eeee;
+}
+
+.seller-modal-header span {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #718383;
+}
+
+.seller-modal-header h2 {
+    margin: 5px 0 0;
+    color: #183d3d;
+    font-size: 22px;
+}
+
+.seller-modal-header button {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 7px;
+    background: #f2f6f5;
+    color: #607171;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.seller-modal-header button:hover {
+    background: #e7eeee;
+}
+
+
+/* =========================================
+   SELLER PROFILE
+========================================= */
+
+.seller-profile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 22px 24px;
+    background: #f8fbfa;
+}
+
+.seller-profile-avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 16px;
+}
+
+.seller-profile h3 {
+    margin: 0;
+    color: #183d3d;
+    font-size: 17px;
+}
+
+.seller-profile p {
+    margin: 4px 0 0;
+    color: #7d8d8d;
+    font-size: 12px;
+}
+
+
+/* =========================================
+   DETAIL SECTIONS
+========================================= */
+
+.seller-detail-section {
+    padding: 22px 24px;
+    border-bottom: 1px solid #edf2f1;
+}
+
+.seller-detail-section h4 {
+    margin: 0 0 16px;
+    color: #315858;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.seller-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 17px 28px;
+}
+
+.seller-detail-grid > div span {
+    display: block;
+    margin-bottom: 5px;
+    color: #879696;
+    font-size: 11px;
+}
+
+.seller-detail-grid > div strong {
+    display: block;
+    color: #304949;
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+
+/* =========================================
+   DOCUMENTS
+========================================= */
+
+.seller-documents {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.seller-document {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+
+    padding: 12px 14px;
+    border: 1px solid #e0eae8;
+    border-radius: 9px;
+    background: #fbfcfc;
+}
+
+.seller-document strong {
+    display: block;
+    color: #385252;
+    font-size: 12px;
+}
+
+.seller-document span {
+    display: block;
+    margin-top: 4px;
+    color: #8a9999;
+    font-size: 10px;
+    text-transform: capitalize;
+}
+
+.seller-document a {
+    flex-shrink: 0;
+    color: #286161;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.seller-document a:hover {
+    text-decoration: underline;
+}
+
+.seller-no-documents {
+    margin: 0;
+    color: #899898;
+    font-size: 12px;
+}
+
+
+/* =========================================
+   MODAL ACTIONS
+========================================= */
+
+.seller-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 18px 24px;
+    background: #fafcfc;
+}
+
+.seller-reject-button,
+.seller-approve-button {
+    min-width: 120px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.seller-reject-button {
+    border: 1px solid #e1bcbc;
+    background: #fff;
+    color: #a14949;
+}
+
+.seller-reject-button:hover {
+    background: #fff4f4;
+}
+
+.seller-approve-button {
+    border: 1px solid #285f5f;
+    background: #285f5f;
+    color: #fff;
+}
+
+.seller-approve-button:hover {
+    background: #214f4f;
+}
+
+.seller-reject-button:disabled,
+.seller-approve-button:disabled,
+.seller-modal-header button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 900px) {
+    .seller-compliance-page {
+        padding: 22px;
+    }
+
+    .seller-compliance-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .seller-compliance-search {
+        max-width: none;
+    }
+
+    .seller-compliance-filter {
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 600px) {
+    .seller-compliance-page {
+        padding: 16px;
+    }
+
+    .seller-compliance-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .seller-compliance-count {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .seller-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .seller-modal-overlay {
+        padding: 10px;
+    }
+
+    .seller-modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .seller-reject-button,
+    .seller-approve-button {
+        width: 100%;
+    }
+}
+
+/* =========================================
+   CONFIRMATION MODAL
+========================================= */
+
+.seller-confirmation-modal {
+    width: min(440px, 100%);
+    padding: 28px;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    text-align: center;
+}
+
+.seller-confirmation-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 16px;
+
+    border-radius: 50%;
+    background: #eaf7f0;
+    color: #28734e;
+
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.seller-confirmation-modal h3 {
+    margin: 0;
+    color: #183d3d;
+    font-size: 19px;
+}
+
+.seller-confirmation-modal > p {
+    margin: 10px 0 0;
+    color: #718282;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+
+/* =========================================
+   REJECTION FIELD
+========================================= */
+
+.seller-rejection-field {
+    margin-top: 20px;
+    text-align: left;
+}
+
+.seller-rejection-field label {
+    display: block;
+    margin-bottom: 7px;
+    color: #405555;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.seller-rejection-field textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 11px 12px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #d7e3e1;
+    border-radius: 9px;
+
+    outline: none;
+    resize: vertical;
+
+    background: #fafcfc;
+    color: #304949;
+
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.seller-rejection-field textarea:focus {
+    border-color: #367777;
+    background: #ffffff;
+}
+
+.seller-rejection-field textarea::placeholder {
+    color: #9aa9a9;
+}
+
+
+/* =========================================
+   CONFIRMATION ACTIONS
+========================================= */
+
+.seller-confirmation-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.seller-cancel-button,
+.seller-confirm-button {
+    min-width: 115px;
+    padding: 10px 16px;
+
+    border-radius: 8px;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.seller-cancel-button {
+    border: 1px solid #d5e1df;
+    background: #ffffff;
+    color: #607171;
+}
+
+.seller-cancel-button:hover {
+    background: #f5f8f7;
+}
+
+.seller-confirm-button {
+    border: none;
+    color: #ffffff;
+}
+
+.seller-confirm-button.approve {
+    background: #285f5f;
+}
+
+.seller-confirm-button.approve:hover {
+    background: #214f4f;
+}
+
+.seller-confirm-button.reject {
+    background: #a14949;
+}
+
+.seller-confirm-button.reject:hover {
+    background: #8f3f3f;
+}
+
+.seller-cancel-button:disabled,
+.seller-confirm-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+
+/* =========================================
+   SUCCESS MODAL
+========================================= */
+
+.seller-success-modal {
+    width: min(400px, 100%);
+    padding: 30px;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    text-align: center;
+}
+
+.seller-success-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 16px;
+
+    border-radius: 50%;
+    background: #eaf7f0;
+    color: #28734e;
+
+    font-size: 27px;
+    font-weight: 700;
+}
+
+.seller-success-modal h3 {
+    margin: 0;
+    color: #183d3d;
+    font-size: 20px;
+}
+
+.seller-success-modal p {
+    margin: 10px 0 22px;
+    color: #718282;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.seller-success-button {
+    min-width: 100px;
+    padding: 10px 18px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #285f5f;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.seller-success-button:hover {
+    background: #214f4f;
+}
+
+/* =========================================
+   ACTION CONFIRMATION MODALS
+========================================= */
+
+.seller-action-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+    background: rgba(15, 38, 38, 0.52);
+}
+
+.seller-action-modal {
+    width: min(440px, 100%);
+    padding: 28px;
+
+    border: 1px solid #e0e9e7;
+    border-radius: 16px;
+    background: #ffffff;
+
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.20);
+
+    text-align: center;
+}
+
+.seller-action-modal-icon {
+    width: 48px;
+    height: 48px;
+
+    margin: 0 auto 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    font-size: 21px;
+    font-weight: 700;
+}
+
+.seller-action-modal-icon--approve {
+    background: #eaf7f0;
+    color: #2d7a52;
+}
+
+.seller-action-modal-icon--reject {
+    background: #fff0f0;
+    color: #a44949;
+}
+
+.seller-action-modal h3 {
+    margin: 0;
+
+    color: #183d3d;
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.seller-action-modal p {
+    margin: 10px 0 0;
+
+    color: #617474;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.seller-action-modal p strong {
+    color: #294b4b;
+}
+
+.seller-action-modal-note {
+    display: block;
+
+    margin-top: 10px;
+
+    color: #899898;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+
+/* =========================================
+   REJECTION TEXTAREA
+========================================= */
+
+.seller-rejection-textarea {
+    width: 100%;
+    margin-top: 18px;
+    padding: 12px 13px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #d7e3e1;
+    border-radius: 9px;
+    outline: none;
+
+    background: #fafcfc;
+
+    color: #304949;
+    font-family: inherit;
+    font-size: 13px;
+
+    resize: vertical;
+}
+
+.seller-rejection-textarea:focus {
+    border-color: #367777;
+    background: #ffffff;
+}
+
+.seller-rejection-textarea::placeholder {
+    color: #9aa9a9;
+}
+
+
+/* =========================================
+   MODAL ACTIONS
+========================================= */
+
+.seller-action-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+
+    margin-top: 22px;
+}
+
+.seller-action-cancel,
+.seller-action-confirm {
+    min-width: 105px;
+
+    padding: 10px 15px;
+
+    border-radius: 8px;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.seller-action-cancel {
+    border: 1px solid #d7e3e1;
+    background: #ffffff;
+    color: #526969;
+}
+
+.seller-action-cancel:hover {
+    background: #f5f8f7;
+}
+
+.seller-action-confirm {
+    border: 1px solid transparent;
+    color: #ffffff;
+}
+
+.seller-action-confirm--approve {
+    background: #285f5f;
+    border-color: #285f5f;
+}
+
+.seller-action-confirm--approve:hover {
+    background: #214f4f;
+}
+
+.seller-action-confirm--reject {
+    background: #a44949;
+    border-color: #a44949;
+}
+
+.seller-action-confirm--reject:hover {
+    background: #8e3d3d;
+}
+
+.seller-action-cancel:disabled,
+.seller-action-confirm:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 600px) {
+    .seller-action-modal {
+        padding: 23px 18px;
+    }
+
+    .seller-action-modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .seller-action-cancel,
+    .seller-action-confirm {
+        width: 100%;
+    }
+}
+
+.seller-compliance-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 20px;
+    border-top: 1px solid #e8ecef;
+}
+.seller-compliance-pagination-info { color: #737e84; font-size: 12px; }
+.seller-compliance-pagination-info strong { color: #344249; }
+.seller-compliance-pagination-controls, .seller-compliance-pagination-pages { display: flex; align-items: center; gap: 6px; }
+.seller-compliance-pagination-pages { gap: 4px; }
+.seller-compliance-pagination-button, .seller-compliance-pagination-page {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 34px; border: 1px solid #d8dfe3; border-radius: 7px;
+    background: #fff; color: #4b5960; font-family: inherit;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.seller-compliance-pagination-button { padding: 0 12px; }
+.seller-compliance-pagination-page { width: 34px; }
+.seller-compliance-pagination-button:hover:not(:disabled), .seller-compliance-pagination-page:hover { background: #f5f7f8; }
+.seller-compliance-pagination-page.active { border-color: #245c61; background: #245c61; color: #fff; }
+.seller-compliance-pagination-button:disabled { opacity: .4; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+    .seller-compliance-pagination { align-items: flex-start; flex-direction: column; }
+    .seller-compliance-pagination-controls { width: 100%; justify-content: space-between; }
+    .seller-compliance-pagination-pages { display: none; }
+}
