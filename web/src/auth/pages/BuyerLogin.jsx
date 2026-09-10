@@ -84,7 +84,7 @@ function BuyerLogin() {
                         </button>
                     </form>
 
-                    <p className="auth-switch">Don't have an account? <Link to="/register">Create one</Link></p>
+                    <p className="auth-switch">Don't have an account? <Link to="/register">Register as Buyer</Link> · <Link to="/seller-register">Register as Seller</Link></p>
                 </div>
             </div>
         </div>

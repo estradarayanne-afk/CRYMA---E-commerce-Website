@@ -44,7 +44,7 @@ function Logistics() {
     return (
         <div className="sl-page">
             <div className="sl-page-head">
-                <div><h2>Logistics</h2><p>Schedule pickups, track shipments, and confirm deliveries.</p></div>
+                <div><div className="sl-eyebrow">SHIPPING & DELIVERY</div><h1 className="sl-h1">Logistics</h1><p>Schedule pickups, track shipments, and confirm deliveries.</p></div>
             </div>
 
             <div className={`sl-orders-layout${selected ? " has-detail" : ""}`}>

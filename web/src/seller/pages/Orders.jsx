@@ -44,7 +44,7 @@ function Orders() {
     return (
         <div className="sl-page">
             <div className="sl-page-head">
-                <div><h2>Orders</h2><p>View, pack, and manage all customer orders.</p></div>
+                <div><div className="sl-eyebrow">ORDER MANAGEMENT</div><h1 className="sl-h1">Orders</h1><p>View, pack, and manage all customer orders.</p></div>
             </div>
 
             {/* FILTER TABS */}

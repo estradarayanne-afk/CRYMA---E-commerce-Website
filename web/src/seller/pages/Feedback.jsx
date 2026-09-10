@@ -33,7 +33,7 @@ function Feedback() {
     return (
         <div className="sl-page">
             <div className="sl-page-head">
-                <div><h2>Customer Feedback</h2><p>View and respond to customer reviews.</p></div>
+                <div><div className="sl-eyebrow">CUSTOMER REVIEWS</div><h1 className="sl-h1">Customer Feedback</h1><p>View and respond to customer reviews.</p></div>
                 <div className="sl-rating-summary">
                     <strong style={{ fontSize: 28, color: "#d4a017" }}>{avgRating}★</strong>
                     <span>{items.length} reviews</span>

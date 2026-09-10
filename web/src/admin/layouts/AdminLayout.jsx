@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, Navigate } from "react-router-dom";
 import { useState } from "react";
 import api from "../../shared/services/api";
 
@@ -19,7 +19,6 @@ const NAV = [
 function AdminLayout() {
 const navigate = useNavigate();
 
-
 const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 const [profileOpen, setProfileOpen] = useState(false);
 const [logoutModalOpen, setLogoutModalOpen] = useState(false);
@@ -32,6 +31,11 @@ const user = (() => {
         return null;
     }
 })();
+
+const token = localStorage.getItem("token");
+if (!token || !user || user.role !== "admin") {
+    return <Navigate to="/login" replace />;
+}
 
 const initials = user
     ? `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase()

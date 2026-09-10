@@ -3,10 +3,11 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Cryma</title>
-        <script type="module" src="http://127.0.0.1:5173/{{ chr(64) }}vite/client"></script>
+        <title>CRYMA — Online Shopping</title>
+        <link rel="icon" type="image/svg+xml" href="http://localhost:5173/favicon.svg" />
+        <script type="module" src="http://localhost:5173/@@vite/client"></script>
         <script type="module">
-            import RefreshRuntime from "http://127.0.0.1:5173/{{ chr(64) }}react-refresh";
+            import RefreshRuntime from "http://localhost:5173/@@react-refresh";
             RefreshRuntime.injectIntoGlobalHook(window);
             window.$RefreshReg$ = () => {};
             window.$RefreshSig$ = () => (type) => type;
@@ -15,6 +16,6 @@
     </head>
     <body>
         <div id="root"></div>
-        <script type="module" src="http://127.0.0.1:5173/src/main.jsx"></script>
+        <script type="module" src="http://localhost:5173/src/main.jsx"></script>
     </body>
 </html>

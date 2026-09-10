@@ -23,7 +23,7 @@ function AdminLogin() {
             }
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
-            navigate("/admin/dashboard");
+            navigate("/admin/dashboard", { replace: true });
         } catch (err) {
             setError(err.response?.data?.message || "Login failed. Please try again.");
         } finally {

@@ -10,6 +10,43 @@ class ProductController extends Controller
 {
 
     /**
+     * Public listing — active products visible to all buyers.
+     */
+    public function publicIndex(Request $request)
+    {
+        $query = Product::with('seller:id,first_name,last_name')
+            ->where('status', 'active');
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $products = $query->latest()->paginate(20);
+
+        return response()->json(['success' => true, 'data' => $products]);
+    }
+
+    /**
+     * Public single product detail.
+     */
+    public function publicShow(int $id)
+    {
+        $product = Product::with('seller:id,first_name,last_name')
+            ->where('status', 'active')
+            ->find($id);
+
+        if (!$product) {
+            return response()->json(['success' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        return response()->json(['success' => true, 'data' => $product]);
+    }
+
+    /**
      * Get products owned by the authenticated seller.
      */
     public function index(Request $request)

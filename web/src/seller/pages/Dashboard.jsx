@@ -31,15 +31,20 @@ const MAX = Math.max(...BAR_DATA.map((d) => d.value));
 function Dashboard() {
     const navigate = useNavigate();
 
+    const user = (() => {
+        try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+    })();
+
     return (
         <div className="sl-page">
-            <div className="sl-page-head">
+            <section className="sl-page-head">
                 <div>
-                    <h2>Dashboard</h2>
-                    <p>Welcome back — here's how your store is doing.</p>
+                    <div className="sl-eyebrow">CRYMA PLATFORM</div>
+                    <h1 className="sl-h1">Seller Dashboard</h1>
+                    <p>Welcome back, <strong>{user?.first_name || "Seller"}</strong>. Here's how your store is doing.</p>
                 </div>
                 <button className="sl-btn-primary" onClick={() => navigate("/seller/inventory")}>+ Add Product</button>
-            </div>
+            </section>
 
             {/* STATS */}
             <div className="sl-stats">

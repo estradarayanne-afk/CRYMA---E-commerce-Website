@@ -21,7 +21,7 @@ class AdminSeeder extends Seeder
                 'middle_name' => null,
                 'last_name' => 'Administrator',
                 'phone' => null,
-                'password' => 'Admin12345',
+                'password' => bcrypt('Admin12345'),
                 'role' => 'admin',
                 'status' => 'active',
             ]

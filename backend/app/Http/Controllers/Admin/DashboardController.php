@@ -11,7 +11,7 @@ class DashboardController extends Controller
     {
         $totalUsers = User::count();
 
-        $customers = User::where('role', 'customer')->count();
+        $customers = User::where('role', 'buyer')->count();
 
         $sellers = User::where('role', 'seller')->count();
 
@@ -25,6 +25,7 @@ class DashboardController extends Controller
                 'first_name',
                 'middle_name',
                 'last_name',
+                'email',
                 'role',
                 'status',
                 'created_at',
@@ -37,11 +38,14 @@ class DashboardController extends Controller
             'success' => true,
 
             'data' => [
-                'total_users' => $totalUsers,
-                'customers' => $customers,
-                'sellers' => $sellers,
-                'riders' => $riders,
-                'admins' => $admins,
+                'total_users'          => $totalUsers,
+                'customers'            => $customers,
+                'sellers'              => $sellers,
+                'riders'               => $riders,
+                'admins'               => $admins,
+                'total_orders'         => 0,
+                'total_revenue'        => 0,
+                'recent_registrations' => $recentRegistrations,
             ],
         ]);
     }

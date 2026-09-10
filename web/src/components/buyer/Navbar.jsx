@@ -6,6 +6,7 @@ import {
     UserRound,
 } from "lucide-react";
 import { useState } from "react";
+import logo from "../../assets/CRYMA LOGO.png";
 
 function Navbar() {
     const navigate = useNavigate();
@@ -24,8 +25,8 @@ function Navbar() {
     return (
         <header className="buyer-navbar">
             <div className="buyer-navbar-inner">
-                <Link to="/" className="buyer-brand">
-                    <span>CRYMA</span>
+                <Link to="/" className="buyer-brand" aria-label="Cryma home">
+                    <img src={logo} alt="Cryma logo" />
                 </Link>
 
                 <nav className="buyer-nav-links">

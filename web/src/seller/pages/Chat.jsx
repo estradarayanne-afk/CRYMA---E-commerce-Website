@@ -57,7 +57,7 @@ function Chat() {
     return (
         <div className="sl-page sl-page--fill">
             <div className="sl-page-head">
-                <div><h2>Chat</h2><p>Messages with buyers, couriers, and support.</p></div>
+                <div><div className="sl-eyebrow">MESSAGING</div><h1 className="sl-h1">Chat</h1><p>Messages with buyers, couriers, and support.</p></div>
             </div>
 
             <div className="sl-chat-layout">

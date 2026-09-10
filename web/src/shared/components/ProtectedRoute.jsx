@@ -1,30 +1,21 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute() {
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
 
-    let user;
-
+    let user = null;
     try {
         user = storedUser ? JSON.parse(storedUser) : null;
-    } catch (error) {
-        console.error("Invalid user data:", error);
+    } catch {
         user = null;
     }
 
-    // No authentication
-    if (!token || !user) {
+    if (!token || !user || user.role !== "admin") {
         return <Navigate to="/login" replace />;
     }
 
-    // Only admin can access admin routes
-    if (user.role !== "admin") {
-        return <Navigate to="/login" replace />;
-    }
-
-    // Authentication successful
-    return children;
+    return <Outlet />;
 }
 
 export default ProtectedRoute;

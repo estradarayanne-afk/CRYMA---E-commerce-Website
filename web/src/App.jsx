@@ -5,13 +5,10 @@ import AdminLogin from "./auth/pages/AdminLogin";
 import BuyerLogin from "./auth/pages/BuyerLogin";
 import Register from "./auth/pages/Register";
 
-// ── SHARED ──
-import ProtectedRoute from "./shared/components/ProtectedRoute";
-
 // ── ADMIN ──
 import AdminLayout from "./admin/layouts/AdminLayout";
 import AdminDashboard from "./admin/pages/Dashboard/Dashboard";
-import Registrations from "./admin/pages/Registrations/Registrations";
+import Registrations from "./admin/pages/registrations/Registrations";
 import AdminUsers from "./admin/pages/Users/Users";
 import AdminComplaints from "./admin/pages/Complaints/Complaints";
 import AdminCommission from "./admin/pages/Commission/Commission";
@@ -42,6 +39,7 @@ import SellerLogistics from "./seller/pages/Logistics";
 import SellerFeedback from "./seller/pages/Feedback";
 import SellerReports from "./seller/pages/Reports";
 import SellerChat from "./seller/pages/Chat";
+import SellerAccountSettings from "./seller/pages/AccountSettings";
 
 // ── COURIER ──
 import CourierDashboard from "./courier/pages/Dashboard";
@@ -71,23 +69,15 @@ function App() {
                 <Route path="/login" element={<AdminLogin />} />
                 <Route path="/buyer-login" element={<BuyerLogin />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/seller-register" element={<Register />} />
 
                 {/* ── ADMIN ── */}
-                <Route
-                    path="/admin"
-                    element={
-                        <ProtectedRoute>
-                            <AdminLayout />
-                        </ProtectedRoute>
-                    }
-                >
+                <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<Navigate to="/admin/dashboard" replace />} />
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="registrations" element={<Registrations />} />
                     <Route path="users" element={<AdminUsers />} />
-                    <Route
-                        path="seller-compliance"
-                        element={<SellerCompliance />}
-                    />
+                    <Route path="seller-compliance" element={<SellerCompliance />} />
                     <Route path="complaints" element={<AdminComplaints />} />
                     <Route path="commission" element={<AdminCommission />} />
                     <Route path="reports" element={<AdminReports />} />
@@ -114,6 +104,7 @@ function App() {
                     <Route path="feedback" element={<SellerFeedback />} />
                     <Route path="reports" element={<SellerReports />} />
                     <Route path="chat" element={<SellerChat />} />
+                    <Route path="account-settings" element={<SellerAccountSettings />} />
                 </Route>
 
                 {/* ── COURIER ── */}

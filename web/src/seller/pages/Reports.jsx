@@ -44,7 +44,7 @@ function Reports() {
     return (
         <div className="sl-page">
             <div className="sl-page-head">
-                <div><h2>Reports</h2><p>Financial overview and sales performance.</p></div>
+                <div><div className="sl-eyebrow">ANALYTICS</div><h1 className="sl-h1">Reports</h1><p>Financial overview and sales performance.</p></div>
                 <button className="sl-btn-primary" onClick={() => window.print()}>⬇ Export</button>
             </div>
 

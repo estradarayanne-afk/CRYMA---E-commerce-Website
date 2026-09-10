@@ -34,15 +34,20 @@
 }
 
 .buyer-brand {
-    color: #0f4c4c;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     text-decoration: none;
     flex-shrink: 0;
+    padding: 4px 0;
 }
 
-.buyer-brand span {
-    font-size: 25px;
-    font-weight: 800;
-    letter-spacing: -0.04em;
+.buyer-brand img {
+    display: block;
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 0 rgba(12, 35, 34, 0.08));
 }
 
 .buyer-nav-links {

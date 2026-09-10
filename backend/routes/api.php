@@ -18,9 +18,11 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\PlatformSettingsController;
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
-
 Route::post('/register', [RegistrationController::class, 'store']);
+
+// Public product routes
+Route::get('/products', [ProductController::class, 'publicIndex']);
+Route::get('/products/{id}', [ProductController::class, 'publicShow']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json([
