@@ -1,0 +1,9 @@
+database/*.sqlite
+database/*.sqlite-*
+.env
+.env.*
+!.env.example
+vendor/
+node_modules/
+.git/
+.gitignore

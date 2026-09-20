@@ -21,11 +21,12 @@ function Home() {
     const [loadingProducts, setLoadingProducts] = useState(true);
     const [activeCategory, setActiveCategory] = useState("All");
     const [search, setSearch] = useState("");
-    const [cartCount, setCartCount] = useState(0);
+    const [cartCount, setCartCount] = useState(() => JSON.parse(localStorage.getItem("cryma_cart") || "[]").reduce((sum, item) => sum + item.quantity, 0));
     const [saved, setSaved] = useState([]);
     const [toast, setToast] = useState(false);
     const [logoutToast, setLogoutToast] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
 
     const user = (() => {
         try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
@@ -38,7 +39,7 @@ function Home() {
         if (localStorage.getItem("token") && user?.role === "seller") {
             navigate("/seller/dashboard", { replace: true });
         }
-    }, []);
+    }, [navigate, user?.role]);
 
     useEffect(() => {
         api.get("/products", { params: { per_page: 50 } })
@@ -55,11 +56,37 @@ function Home() {
         return matchCat && matchSearch;
     }), [products, activeCategory, search]);
 
-    const toggleSaved = (id) => setSaved((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+    const toggleSaved = (id) => {
+        if (!isLoggedIn) {
+            navigate("/login", { state: { from: "/" } });
+            return;
+        }
 
-    const handleAddToBag = () => {
-        if (!isLoggedIn) { setToast(true); setTimeout(() => setToast(false), 3500); return; }
+        setSaved((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+    };
+
+    const handleAddToBag = (product) => {
+        if (!isLoggedIn) {
+            setToast(true);
+            setTimeout(() => setToast(false), 3500);
+            return false;
+        }
+        const cart = JSON.parse(localStorage.getItem("cryma_cart") || "[]");
+        const existing = cart.find((item) => item.id === product.id);
+        if (existing) existing.quantity += 1;
+        else cart.push({ ...product, quantity: 1 });
+        localStorage.setItem("cryma_cart", JSON.stringify(cart));
         setCartCount((c) => c + 1);
+        return true;
+    };
+
+    const openProduct = (product) => {
+        if (!isLoggedIn) {
+            navigate("/login", { state: { from: `/products/${product.id}` } });
+            return;
+        }
+
+        navigate(`/products/${product.id}`);
     };
 
     const handleLogout = () => {
@@ -85,11 +112,9 @@ function Home() {
             {toast && (
                 <div className="sf-toast">
                     <span>Sign in to add items to your bag</span>
-                    <button type="button" onClick={() => { setToast(false); navigate("/buyer-login", { state: { from: "/" } }); }}>Sign in</button>
+                    <button type="button" onClick={() => { setToast(false); navigate("/login", { state: { from: "/" } }); }}>Sign in</button>
                 </div>
             )}
-
-            <div className="sf-announce">Free delivery on orders over ₱750 &nbsp;·&nbsp; Easy 30-day returns</div>
 
             <header className="sf-header">
                 <button className="sf-hamburger" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
@@ -102,8 +127,6 @@ function Home() {
 
                 <nav className={`sf-nav${menuOpen ? " open" : ""}`}>
                     <a href="#shop" onClick={() => setMenuOpen(false)}>Shop</a>
-                    <a href="#edit" onClick={() => setMenuOpen(false)}>The Edit</a>
-                    <a href="#journal" onClick={() => setMenuOpen(false)}>Journal</a>
                 </nav>
 
                 <div className="sf-actions">
@@ -114,20 +137,21 @@ function Home() {
 
                     {isLoggedIn ? (
                         <div className="sf-user-menu">
-                            <button className="sf-avatar" type="button">{initials || "U"}</button>
-                            <div className="sf-user-dropdown">
+                            <button className="sf-avatar" type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Open profile menu" aria-expanded={profileOpen}>{initials || "U"}</button>
+                            <div className={`sf-user-dropdown${profileOpen ? " open" : ""}`}>
                                 <span className="sf-user-name">{user ? `${user.first_name} ${user.last_name}` : "Account"}</span>
+                                <Link to="/account" onClick={() => setProfileOpen(false)}>Profile settings</Link>
                                 <Link to="/orders">My Orders</Link>
                                 <button type="button" onClick={handleLogout}>Sign out</button>
                             </div>
                         </div>
                     ) : (
-                        <Link to="/buyer-login" className="sf-icon-btn" aria-label="Sign in">
+                        <Link to="/login" className="sf-icon-btn" aria-label="Sign in">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         </Link>
                     )}
 
-                    <button className="sf-bag-btn" type="button" aria-label="Bag">
+                    <button className="sf-bag-btn" type="button" aria-label="Bag" onClick={() => navigate("/cart")}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                         {cartCount > 0 && <span className="sf-bag-count">{cartCount}</span>}
                     </button>
@@ -136,12 +160,12 @@ function Home() {
 
             <main>
                 {/* HERO */}
-                <section className="sf-hero" id="edit">
+                <section className="sf-hero">
                     <div className="sf-hero-content">
                         <p className="sf-eyebrow">New Season · 2026</p>
                         <h1>“Everything for Every Lifestyle.</h1>
                         <p className="sf-hero-sub">Thoughtful pieces for the way your days actually move. Considered design, uncomplicated living.</p>
-                        <a className="sf-cta" href="#shop">Explore the edit <span>→</span></a>
+                        <a className="sf-cta" href="#shop">Shop the collection <span>→</span></a>
                     </div>
                     <div className="sf-hero-img">
                         <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1600&q=90" alt="Curated fashion" />
@@ -167,9 +191,17 @@ function Home() {
                             <p className="sf-empty">Loading products…</p>
                         )}
                         {!loadingProducts && visibleProducts.map((p) => (
-                            <article className="sf-card" key={p.id} onClick={() => navigate(`/products/${p.id}`)} style={{ cursor: "pointer" }}>
+                            <article className="sf-card" key={p.id} onClick={() => openProduct(p)} style={{ cursor: "pointer" }}>
                                 <div className="sf-card-img">
                                     <img src={getImage(p)} alt={p.name} loading="lazy" />
+                                    <div className="sf-card-hover-info">
+                                        <p>{p.description || "A thoughtfully selected piece from our marketplace."}</p>
+                                        {p.seller && <span>Sold by {p.seller.first_name} {p.seller.last_name}</span>}
+                                        <div className="sf-card-actions">
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); handleAddToBag(p); }}>Add to cart</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); if (handleAddToBag(p)) navigate("/checkout"); }}>Buy now</button>
+                                        </div>
+                                    </div>
                                     <button
                                         className={`sf-save${saved.includes(p.id) ? " saved" : ""}`}
                                         type="button"
@@ -182,7 +214,6 @@ function Home() {
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                                         )}
                                     </button>
-                                    <button className="sf-add" type="button" onClick={(e) => { e.stopPropagation(); handleAddToBag(); }}>Add to bag</button>
                                 </div>
                                 <div className="sf-card-info">
                                     <div>

@@ -28,7 +28,7 @@ function SellerLayout() {
 
     const token = localStorage.getItem("token");
     if (!token || !user || user.role !== "seller") {
-        return <Navigate to="/buyer-login" replace />;
+        return <Navigate to="/login" replace />;
     }
 
     const initials = `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || "S";
@@ -41,7 +41,7 @@ function SellerLayout() {
         try { await api.post("/logout"); } catch { /* ignore */ }
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        navigate("/buyer-login", { replace: true, state: { message: "You've been signed out successfully.", type: "success" } });
+        navigate("/login", { replace: true, state: { message: "You've been signed out successfully.", type: "success" } });
     };
 
     return (

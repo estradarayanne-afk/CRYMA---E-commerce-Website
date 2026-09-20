@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // ── AUTH ──
-import AdminLogin from "./auth/pages/AdminLogin";
-import BuyerLogin from "./auth/pages/BuyerLogin";
+import Login from "./auth/pages/BuyerLogin";
 import Register from "./auth/pages/Register";
+import RegistrationChoice from "./auth/pages/RegistrationChoice";
 
 // ── ADMIN ──
 import AdminLayout from "./admin/layouts/AdminLayout";
@@ -29,6 +29,7 @@ import BuyerOrderDetails from "./buyer/pages/OrderDetails";
 import BuyerOrders from "./buyer/pages/Orders";
 import BuyerProductDetails from "./buyer/pages/ProductDetails";
 import BuyerReviews from "./buyer/pages/Reviews";
+import BuyerAccount from "./buyer/pages/Account";
 
 // ── SELLER ──
 import SellerLayout from "./seller/layouts/SellerLayout";
@@ -63,13 +64,14 @@ function App() {
                 <Route path="/orders/:id" element={<BuyerOrderDetails />} />
                 <Route path="/products/:id" element={<BuyerProductDetails />} />
                 <Route path="/reviews" element={<BuyerReviews />} />
+                <Route path="/account" element={<BuyerAccount />} />
                 <Route path="/buyer/chat" element={<BuyerChat />} />
 
                 {/* ── AUTH ── */}
-                <Route path="/login" element={<AdminLogin />} />
-                <Route path="/buyer-login" element={<BuyerLogin />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/seller-register" element={<Register />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<RegistrationChoice />} />
+                <Route path="/register/:role" element={<Register />} />
+                <Route path="/seller-register" element={<Navigate to="/register/seller" replace />} />
 
                 {/* ── ADMIN ── */}
                 <Route path="/admin" element={<AdminLayout />}>

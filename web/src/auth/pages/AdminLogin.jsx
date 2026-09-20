@@ -79,7 +79,7 @@ function AdminLogin() {
                         </button>
                     </form>
 
-                    <p className="auth-switch">Not an admin? <Link to="/buyer-login">Go to store login</Link></p>
+                    <p className="auth-switch">Use your CRYMA account to sign in.</p>
                 </div>
             </div>
         </div>

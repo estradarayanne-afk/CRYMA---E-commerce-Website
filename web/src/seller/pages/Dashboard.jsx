@@ -1,39 +1,30 @@
 
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const stats = [
-    { label: "Total Revenue", value: "₱48,320", change: "+12.4% this month", color: "#093f43" },
-    { label: "Orders Today", value: "24", change: "+3 from yesterday", color: "#176b68" },
-    { label: "Products Listed", value: "86", change: "4 low stock", color: "#2f7d68" },
-    { label: "Avg. Rating", value: "4.8★", change: "From 312 reviews", color: "#638177" },
-];
-
-const recentOrders = [
-    { id: "ORD-1041", customer: "Ana Reyes", product: "Ribbed Knit Co-ord", amount: "₱680", status: "new" },
-    { id: "ORD-1040", customer: "Ben Cruz", product: "Contour Shoulder Bag", amount: "₱840", status: "packing" },
-    { id: "ORD-1039", customer: "Carla Tan", product: "Everyday Overshirt", amount: "₱920", status: "shipped" },
-    { id: "ORD-1038", customer: "Dan Lim", product: "Merino Crew Neck", amount: "₱880", status: "delivered" },
-];
-
-const statusColor = { new: "#98751d", packing: "#48647a", shipped: "#176b68", delivered: "#27724d" };
-const statusBg   = { new: "#fff7df", packing: "#eef3f8", shipped: "#e9f3f2", delivered: "#e9f6ef" };
-
-const BAR_DATA = [
-    { month: "Jan", value: 32000 },
-    { month: "Feb", value: 41000 },
-    { month: "Mar", value: 28000 },
-    { month: "Apr", value: 51000 },
-    { month: "May", value: 46000 },
-    { month: "Jun", value: 48320 },
-];
-const MAX = Math.max(...BAR_DATA.map((d) => d.value));
+import api from "../../shared/services/api";
 
 function Dashboard() {
     const navigate = useNavigate();
+    const [products, setProducts] = useState([]);
+
+    useEffect(() => {
+        api.get("/seller/products", { params: { per_page: 100 } })
+            .then(({ data }) => setProducts(data.data?.data ?? data.data ?? []));
+    }, []);
 
     const user = (() => {
         try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
     })();
+
+    const activeProducts = products.filter((product) => product.status === "active");
+    const lowStockProducts = products.filter((product) => product.stock > 0 && product.stock <= 3);
+    const outOfStockProducts = products.filter((product) => product.stock === 0);
+    const inventoryStats = [
+        { label: "Products Listed", value: products.length, change: `${activeProducts.length} active`, color: "#093f43" },
+        { label: "Active Products", value: activeProducts.length, change: "Visible to buyers", color: "#176b68" },
+        { label: "Low Stock", value: lowStockProducts.length, change: "Needs restock", color: "#2f7d68" },
+        { label: "Out of Stock", value: outOfStockProducts.length, change: "Unavailable", color: "#638177" },
+    ];
 
     return (
         <div className="sl-page">
@@ -48,7 +39,7 @@ function Dashboard() {
 
             {/* STATS */}
             <div className="sl-stats">
-                {stats.map((s) => (
+                {inventoryStats.map((s) => (
                     <div className="sl-stat-card" key={s.label}>
                         <span className="sl-stat-label">{s.label}</span>
                         <strong className="sl-stat-value" style={{ color: s.color }}>{s.value}</strong>
@@ -58,48 +49,50 @@ function Dashboard() {
             </div>
 
             <div className="sl-grid-2">
-                {/* REVENUE CHART */}
+                {/* INVENTORY OVERVIEW */}
                 <div className="sl-panel">
                     <div className="sl-panel-head">
                         <div>
-                            <h3>Monthly Revenue</h3>
-                            <p>Last 6 months</p>
+                            <h3>Inventory Overview</h3>
+                            <p>Current product status</p>
                         </div>
                     </div>
                     <div className="sl-chart">
-                        {BAR_DATA.map((d) => (
-                            <div className="sl-bar-col" key={d.month}>
-                                <span className="sl-bar-val">₱{(d.value / 1000).toFixed(0)}k</span>
+                        {[
+                            { label: "Active", value: activeProducts.length },
+                            { label: "Low stock", value: lowStockProducts.length },
+                            { label: "Out", value: outOfStockProducts.length },
+                        ].map((d) => (
+                            <div className="sl-bar-col" key={d.label}>
+                                <span className="sl-bar-val">{d.value}</span>
                                 <div className="sl-bar-track">
-                                    <div className="sl-bar-fill" style={{ height: `${(d.value / MAX) * 100}%` }} />
+                                    <div className="sl-bar-fill" style={{ height: `${products.length ? (d.value / products.length) * 100 : 0}%` }} />
                                 </div>
-                                <span className="sl-bar-label">{d.month}</span>
+                                <span className="sl-bar-label">{d.label}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* RECENT ORDERS */}
+                {/* CURRENT PRODUCTS */}
                 <div className="sl-panel">
                     <div className="sl-panel-head">
-                        <div><h3>Recent Orders</h3><p>Latest activity</p></div>
-                        <button className="sl-panel-link" onClick={() => navigate("/seller/orders")}>View all</button>
+                        <div><h3>Current Products</h3><p>Latest inventory records</p></div>
+                        <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>View all</button>
                     </div>
                     <div className="sl-list">
-                        {recentOrders.map((o) => (
-                            <div className="sl-list-row" key={o.id}>
+                        {products.slice(0, 4).map((product) => (
+                            <div className="sl-list-row" key={product.id}>
                                 <div className="sl-list-main">
-                                    <strong>{o.id}</strong>
-                                    <span>{o.customer} · {o.product}</span>
+                                    <strong>{product.name}</strong>
+                                    <span>{product.category} · {product.stock} units</span>
                                 </div>
                                 <div className="sl-list-right">
-                                    <strong>{o.amount}</strong>
-                                    <span className="sl-badge" style={{ color: statusColor[o.status], background: statusBg[o.status] }}>
-                                        {o.status}
-                                    </span>
+                                    <span className={`sl-badge ${product.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>{product.status}</span>
                                 </div>
                             </div>
                         ))}
+                        {products.length === 0 && <p className="sl-empty">No products listed yet.</p>}
                     </div>
                 </div>
             </div>
@@ -107,21 +100,17 @@ function Dashboard() {
             {/* LOW STOCK ALERT */}
             <div className="sl-panel sl-panel--alert">
                 <div className="sl-panel-head">
-                    <div><h3>⚠ Low Stock Alert</h3><p>Items needing restock</p></div>
+                    <div><h3>Low Stock Alert</h3><p>Items needing restock</p></div>
                     <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>Manage inventory</button>
                 </div>
                 <div className="sl-list">
-                    {[
-                        { name: "Ribbed Knit Co-ord (S)", stock: 2 },
-                        { name: "Contour Shoulder Bag (Black)", stock: 1 },
-                        { name: "Merino Crew Neck (M)", stock: 3 },
-                        { name: "Tailored Blazer (L)", stock: 2 },
-                    ].map((item) => (
-                        <div className="sl-list-row" key={item.name}>
-                            <span>{item.name}</span>
-                            <span className="sl-badge sl-badge--red">{item.stock} left</span>
+                    {lowStockProducts.map((product) => (
+                        <div className="sl-list-row" key={product.id}>
+                            <span>{product.name}</span>
+                            <span className="sl-badge sl-badge--red">{product.stock} left</span>
                         </div>
                     ))}
+                    {lowStockProducts.length === 0 && <p className="sl-empty">No low-stock products.</p>}
                 </div>
             </div>
         </div>

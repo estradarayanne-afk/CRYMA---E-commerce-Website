@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import api from "../../shared/services/api";
 import { PROVINCES, MUNICIPALITIES, BARANGAYS } from "./addressData";
 
@@ -27,7 +27,10 @@ function calcAge(birthday) {
 
 function Register() {
     const navigate = useNavigate();
-    const [form, setForm] = useState(EMPTY);
+    const { role: selectedRole = "buyer" } = useParams();
+    const role = selectedRole === "logistics" ? "rider" : ["buyer", "seller", "rider"].includes(selectedRole) ? selectedRole : "buyer";
+    const roleTitle = role === "rider" ? "Logistics Partner" : role.charAt(0).toUpperCase() + role.slice(1);
+    const [form, setForm] = useState({ ...EMPTY, role });
     const [validId, setValidId] = useState(null);
     const [businessPermit, setBusinessPermit] = useState(null);
     const [showPw, setShowPw] = useState(false);
@@ -99,7 +102,7 @@ function Register() {
                         <p style={{ fontSize: 13, color: "#718180", lineHeight: 1.8, marginBottom: 32, maxWidth: 340, margin: "0 auto 32px" }}>
                             Your application is now under review. Once approved, you'll receive a confirmation at your registered email address.
                         </p>
-                        <button className="auth-submit" onClick={() => navigate("/buyer-login")}>Go to Login</button>
+                        <button className="auth-submit" onClick={() => navigate("/login")}>Go to Login</button>
                         <p style={{ marginTop: 16, fontSize: 12, color: "#9aa8a6" }}>This usually takes 1–2 business days.</p>
                     </div>
                 </div>
@@ -114,8 +117,8 @@ function Register() {
             <div className="auth-left">
                 <Link to="/" className="auth-logo">CRYMA<sup>®</sup></Link>
                 <div className="auth-left-body">
-                    <h2>Sell on CRYMA.</h2>
-                    <p>Register your seller account and start reaching thousands of customers.</p>
+                    <h2>{role === "seller" ? "Sell on CRYMA." : role === "rider" ? "Move orders with CRYMA." : "Shop on CRYMA."}</h2>
+                    <p>{role === "seller" ? "Register your seller account and start reaching thousands of customers." : role === "rider" ? "Register as a logistics partner and help deliver every order." : "Create your buyer account and discover thoughtful pieces."}</p>
                 </div>
                 <span className="auth-left-copy">© 2026 Cryma</span>
             </div>
@@ -123,8 +126,8 @@ function Register() {
             <div className="auth-right" style={{ alignItems: "flex-start", paddingTop: 40, paddingBottom: 40 }}>
                 <div className="auth-box auth-box--wide">
                     <div className="auth-box-head">
-                        <h1>Seller Registration</h1>
-                        <p>Fill in all required fields to apply as a seller</p>
+                        <h1>{roleTitle} Registration</h1>
+                        <p>Fill in all required fields to apply as a {role === "rider" ? "logistics partner" : role}</p>
                     </div>
 
                     {error && <div className="auth-notice auth-notice--error">{error}</div>}
@@ -228,24 +231,49 @@ function Register() {
                             </div>
                         </div>
 
+                        {role === "seller" && <>
                         {/* ── BUSINESS INFO ── */}
                         <div style={sectionStyle}>Business Information</div>
 
                         <div className="auth-row">
                             <div className="auth-field">
-                                <label>Business Name <span className="auth-opt">(optional)</span></label>
-                                <input name="business_name" value={form.business_name} onChange={set} placeholder="e.g. Juan's Store" />
+                                <label>Business Name *</label>
+                                <input name="business_name" value={form.business_name} onChange={set} placeholder="e.g. Juan's Store" required />
                                 {err("business_name")}
                             </div>
                             <div className="auth-field">
-                                <label>Line of Business <span className="auth-opt">(optional)</span></label>
-                                <select name="line_of_business" value={form.line_of_business} onChange={set}>
+                                <label>Line of Business *</label>
+                                <select name="line_of_business" value={form.line_of_business} onChange={set} required>
                                     <option value="">Select category</option>
                                     {LINES_OF_BUSINESS.map((l) => <option key={l}>{l}</option>)}
                                 </select>
                                 {err("line_of_business")}
                             </div>
                         </div>
+                        </>}
+
+                        {role === "rider" && <>
+                        <div style={sectionStyle}>Vehicle Information</div>
+                        <div className="auth-row">
+                            <div className="auth-field">
+                                <label>Vehicle Type *</label>
+                                <select name="vehicle_type" value={form.vehicle_type || ""} onChange={set} required>
+                                    <option value="">Select vehicle</option>
+                                    <option value="motorcycle">Motorcycle</option>
+                                    <option value="tricycle">Tricycle</option>
+                                    <option value="car">Car</option>
+                                    <option value="van">Van</option>
+                                    <option value="truck">Truck</option>
+                                </select>
+                                {err("vehicle_type")}
+                            </div>
+                            <div className="auth-field">
+                                <label>Plate Number *</label>
+                                <input name="plate_number" value={form.plate_number || ""} onChange={set} placeholder="ABC 1234" required />
+                                {err("plate_number")}
+                            </div>
+                        </div>
+                        </>}
 
                         {/* ── DOCUMENTS ── */}
                         <div style={sectionStyle}>Documents</div>
@@ -257,12 +285,26 @@ function Register() {
                                 <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
                                 {err("valid_id")}
                             </div>
-                            <div className="auth-field">
-                                <label>Upload Business Permit <span className="auth-opt">(optional)</span></label>
-                                <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setBusinessPermit(e.target.files[0])} />
+                            {role === "seller" && <div className="auth-field">
+                                <label>Upload Business Permit *</label>
+                                <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setBusinessPermit(e.target.files[0])} required />
                                 <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
                                 {err("business_permit")}
-                            </div>
+                            </div>}
+                            {role === "rider" && <>
+                                <div className="auth-field">
+                                    <label>Upload OR/CR *</label>
+                                    <input type="file" name="or_cr" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setForm((f) => ({ ...f, or_cr: e.target.files[0] }))} required />
+                                    <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
+                                    {err("or_cr")}
+                                </div>
+                                <div className="auth-field">
+                                    <label>Upload Driver's License *</label>
+                                    <input type="file" name="drivers_license" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setForm((f) => ({ ...f, drivers_license: e.target.files[0] }))} required />
+                                    <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
+                                    {err("drivers_license")}
+                                </div>
+                            </>}
                         </div>
 
                         {/* ── PASSWORD ── */}
@@ -295,7 +337,7 @@ function Register() {
                         </button>
                     </form>
 
-                    <p className="auth-switch">Already have an account? <Link to="/buyer-login">Sign in</Link></p>
+                            <p className="auth-switch">Need a different account type? <Link to="/register">Choose again</Link> · <Link to="/login">Sign in</Link></p>
                 </div>
             </div>
         </div>

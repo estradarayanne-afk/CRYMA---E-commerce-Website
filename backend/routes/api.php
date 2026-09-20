@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\BuyerOrderController;
 use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Seller\ProductController;
+use App\Http\Controllers\Seller\ReportController as SellerReportController;
 use App\Http\Controllers\Admin\SellerComplianceController;
 use App\Http\Controllers\Admin\ComplaintController;
 use App\Http\Controllers\Admin\CommissionController;
@@ -38,6 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
         DashboardController::class,
         'index'
     ]);
+
+    // Buyer orders
+    Route::get('/orders', [BuyerOrderController::class, 'index']);
+    Route::get('/orders/{id}', [BuyerOrderController::class, 'show']);
+    Route::post('/orders', [BuyerOrderController::class, 'store']);
 
     Route::get('/admin/registrations', [
         AdminRegistrationController::class,
@@ -118,6 +125,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/seller/products/{id}/restore', [
         ProductController::class,
         'restore'
+    ]);
+
+    Route::get('/seller/reports', [
+        SellerReportController::class,
+        'index'
     ]);
 
     // Admin seller compliance

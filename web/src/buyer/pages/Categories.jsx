@@ -1,107 +1,37 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-
-const products = [
-    {
-        id: 1,
-        name: "Minimal Everyday Backpack",
-        category: "Bags",
-        price: 1299,
-        oldPrice: 1599,
-        discount: 19,
-        rating: 4.8,
-        reviews: 124,
-        image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=700&q=80",
-    },
-    {
-        id: 2,
-        name: "Classic White Sneakers",
-        category: "Footwear",
-        price: 1899,
-        oldPrice: 2299,
-        discount: 17,
-        rating: 4.9,
-        reviews: 89,
-        image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=80",
-    },
-    {
-        id: 3,
-        name: "Modern Wireless Headphones",
-        category: "Electronics",
-        price: 2499,
-        rating: 4.7,
-        reviews: 211,
-        image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=80",
-    },
-    {
-        id: 4,
-        name: "Everyday Cotton Shirt",
-        category: "Fashion",
-        price: 699,
-        oldPrice: 899,
-        discount: 22,
-        rating: 4.6,
-        reviews: 76,
-        image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=700&q=80",
-    },
-    {
-        id: 5,
-        name: "Premium Skincare Set",
-        category: "Beauty",
-        price: 1099,
-        oldPrice: 1399,
-        discount: 21,
-        rating: 4.8,
-        reviews: 143,
-        image: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=700&q=80",
-    },
-    {
-        id: 6,
-        name: "Modern Home Lamp",
-        category: "Home",
-        price: 899,
-        oldPrice: 1199,
-        discount: 25,
-        rating: 4.7,
-        reviews: 58,
-        image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=700&q=80",
-    },
-    {
-        id: 7,
-        name: "Canvas Casual Shoes",
-        category: "Footwear",
-        price: 1299,
-        rating: 4.5,
-        reviews: 92,
-        image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=700&q=80",
-    },
-    {
-        id: 8,
-        name: "Minimal Desk Organizer",
-        category: "Home",
-        price: 499,
-        oldPrice: 699,
-        discount: 29,
-        rating: 4.6,
-        reviews: 41,
-        image: "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=700&q=80",
-    },
-];
+import api from "../../shared/services/api";
 
 const categories = [
     "All",
-    "Fashion",
+    "Clothing",
+    "Accessories",
+    "Living",
     "Electronics",
-    "Beauty",
-    "Home",
-    "Bags",
-    "Footwear",
+    "Other",
 ];
 
 function Categories() {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const openProduct = (product) => {
+        if (!localStorage.getItem("token")) {
+            navigate("/login", { state: { from: `/products/${product.id}` } });
+            return;
+        }
+
+        navigate(`/products/${product.id}`);
+    };
+
+    useEffect(() => {
+        api.get("/products", { params: { per_page: 100 } })
+            .then(({ data }) => setProducts(data.data?.data ?? data.data ?? []))
+            .finally(() => setLoading(false));
+    }, []);
 
     const category =
         searchParams.get("category") || "All";
@@ -146,7 +76,7 @@ function Categories() {
         }
 
         return result;
-    }, [category, search, sort]);
+    }, [products, category, search, sort]);
 
     const selectCategory = (value) => {
         const params = new URLSearchParams(searchParams);
@@ -289,22 +219,20 @@ function Categories() {
                     )}
                 </div>
 
-                {filteredProducts.length > 0 ? (
+                {loading ? (
+                    <div className="shop-empty"><p>Loading products...</p></div>
+                ) : filteredProducts.length > 0 ? (
                     <div className="shop-product-grid">
                         {filteredProducts.map((product) => (
                             <article
                                 key={product.id}
                                 className="shop-product-card"
-                                onClick={() =>
-                                    navigate(
-                                        `/product/${product.id}`
-                                    )
-                                }
+                                onClick={() => openProduct(product)}
                             >
                                 <div className="shop-product-image">
 
                                     <img
-                                        src={product.image}
+                                        src={product.image || "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=700&q=80"}
                                         alt={product.name}
                                     />
 
@@ -344,7 +272,7 @@ function Categories() {
                                     <div className="shop-price">
                                         <strong>
                                             ₱
-                                            {product.price.toLocaleString()}
+                                            {Number(product.price).toLocaleString()}
                                         </strong>
 
                                         {product.oldPrice && (

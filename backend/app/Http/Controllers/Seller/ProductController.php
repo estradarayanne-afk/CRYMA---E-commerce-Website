@@ -99,7 +99,7 @@ class ProductController extends Controller
             'price' => $validated['price'],
             'stock' => $validated['stock'],
             'category' => $validated['category'],
-            'status' => 'inactive',
+            'status' => 'active',
         ]);
 
         return response()->json([

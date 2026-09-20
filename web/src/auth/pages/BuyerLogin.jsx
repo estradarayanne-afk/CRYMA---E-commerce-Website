@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import api from "../../shared/services/api";
 
-function BuyerLogin() {
+function Login() {
     const navigate = useNavigate();
     const location = useLocation();
     const from = location.state?.from || "/";
@@ -18,16 +18,22 @@ function BuyerLogin() {
         setError("");
         setLoading(true);
         try {
-            const { data } = await api.post("/login", { email, password });
+            const { data } = await api.post("/login", { email: email.trim(), password });
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
-            if (data.user.role === "seller") {
+            if (data.user.role === "admin") {
+                navigate("/admin/dashboard", { replace: true });
+            } else if (data.user.role === "seller") {
                 navigate("/seller/dashboard", { replace: true });
+            } else if (data.user.role === "rider") {
+                navigate("/courier/dashboard", { replace: true });
             } else {
                 navigate(from, { replace: true });
             }
         } catch (err) {
-            setError(err.response?.data?.message || "Login failed. Please check your credentials.");
+            setError(err.response?.data?.message || (err.request
+                ? "The server is not reachable. Start the backend with start.bat and try again."
+                : "Login failed. Please check your credentials."));
         } finally {
             setLoading(false);
         }
@@ -40,7 +46,7 @@ function BuyerLogin() {
                 <Link to="/" className="auth-logo">CRYMA<sup>®</sup></Link>
                 <div className="auth-left-body">
                     <h2>Welcome back.</h2>
-                    <p>Sign in to discover thoughtful pieces for the way your days actually move.</p>
+                    <p>Sign in to continue to your CRYMA account.</p>
                 </div>
                 <span className="auth-left-copy">© 2026 Cryma</span>
             </div>
@@ -84,11 +90,11 @@ function BuyerLogin() {
                         </button>
                     </form>
 
-                    <p className="auth-switch">Don't have an account? <Link to="/register">Register as Buyer</Link> · <Link to="/seller-register">Register as Seller</Link></p>
+                    <p className="auth-switch">Don't have an account? <Link to="/register">Register</Link></p>
                 </div>
             </div>
         </div>
     );
 }
 
-export default BuyerLogin;
+export default Login;
