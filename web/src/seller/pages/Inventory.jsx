@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../../shared/services/api";
+import { PRODUCT_CATEGORIES } from "../../shared/constants/categories";
 
-const CATEGORIES = ["Clothing", "Accessories", "Living", "Electronics", "Other"];
-const EMPTY_FORM = { name: "", category: "Clothing", description: "", price: "", stock: "" };
+const EMPTY_FORM = { name: "", category: PRODUCT_CATEGORIES[0], description: "", price: "", stock: "" };
 
 function Inventory() {
     const [products, setProducts] = useState([]);
@@ -208,7 +208,7 @@ function Inventory() {
                                 <div className="sl-field">
                                     <label>Category</label>
                                     <select name="category" value={form.category} onChange={set}>
-                                        {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                                        {PRODUCT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                                     </select>
                                 </div>
                             </div>

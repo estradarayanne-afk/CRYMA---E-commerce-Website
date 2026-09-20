@@ -2,15 +2,7 @@ import { useMemo, useEffect, useState } from "react";
 import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../../shared/services/api";
-
-const categories = [
-    "All",
-    "Clothing",
-    "Accessories",
-    "Living",
-    "Electronics",
-    "Other",
-];
+import { CATEGORY_FILTERS } from "../../shared/constants/categories";
 
 function Categories() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -152,7 +144,7 @@ function Categories() {
             <section className="shop-toolbar">
 
                 <div className="shop-categories">
-                    {categories.map((item) => (
+                    {CATEGORY_FILTERS.map((item) => (
                         <button
                             key={item}
                             type="button"

@@ -30,7 +30,7 @@ function Cart() {
 		<main className="shop-page cart-page">
 			<Link className="buyer-back-link" to="/">← Back to homepage</Link>
 			<header className="cart-header"><div><p className="shop-eyebrow">YOUR SELECTION</p><h1>Your bag</h1></div>{cart.length > 0 && <span>{cart.length} {cart.length === 1 ? "item" : "items"}</span>}</header>
-			{cart.length === 0 ? <div className="shop-empty cart-empty"><p>Your bag is waiting for something good.</p><Link className="cart-primary-link" to="/shop">Explore the shop</Link></div> : (
+			{cart.length === 0 ? <div className="shop-empty cart-empty"><p>Your bag is waiting for something good.</p><Link className="cart-primary-link" to="/">Explore the shop</Link></div> : (
 				<div className="cart-layout">
 				<section className="cart-items">
 					{cart.map((item) => (
