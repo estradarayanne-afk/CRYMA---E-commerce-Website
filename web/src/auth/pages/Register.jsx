@@ -1,358 +1,1587 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../../shared/services/api";
-import { PROVINCES, MUNICIPALITIES, BARANGAYS } from "./addressData";
-
-const LINES_OF_BUSINESS = ["Clothing & Apparel", "Electronics", "Food & Beverages", "Health & Beauty", "Home & Living", "Sports & Outdoors", "Books & Stationery", "Toys & Hobbies", "Automotive", "Other"];
-
-const EMPTY = {
-    last_name: "", first_name: "", middle_initial: "",
-    sex: "", email: "", phone: "", birthday: "",
-    province: "", municipality: "", barangay: "",
-    street: "", house_number: "",
-    business_name: "", line_of_business: "",
-    password: "", password_confirmation: "",
-    role: "seller",
-};
-
-function calcAge(birthday) {
-    if (!birthday) return "";
-    const today = new Date();
-    const dob = new Date(birthday);
-    let age = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-    return age >= 0 ? age : "";
-}
+import PhilippineAddressFields from "../components/PhilippineAddressFields";
+import "./Register.css";
 
 function Register() {
     const navigate = useNavigate();
-    const { role: selectedRole = "buyer" } = useParams();
-    const role = selectedRole === "logistics" ? "rider" : ["buyer", "seller", "rider"].includes(selectedRole) ? selectedRole : "buyer";
-    const roleTitle = role === "rider" ? "Logistics Partner" : role.charAt(0).toUpperCase() + role.slice(1);
-    const [form, setForm] = useState({ ...EMPTY, role });
-    const [validId, setValidId] = useState(null);
-    const [businessPermit, setBusinessPermit] = useState(null);
-    const [showPw, setShowPw] = useState(false);
+
+    const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [errors, setErrors] = useState({});
-    const [submitted, setSubmitted] = useState(false);
 
-    const municipalities = MUNICIPALITIES[form.province] || [];
-    const barangays = BARANGAYS[form.municipality] || [];
-    const age = calcAge(form.birthday);
+    // =========================
+    // PERSONAL INFORMATION
+    // =========================
+    const [firstName, setFirstName] = useState("");
+    const [middleName, setMiddleName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [birthDate, setBirthDate] = useState("");
+    const [sex, setSex] = useState("");
+    const [age, setAge] = useState("");
 
-    useEffect(() => {
-        if (form.province) setForm((f) => ({ ...f, municipality: "", barangay: "" }));
-    }, [form.province]);
+    // =========================
+    // CONTACT
+    // =========================
+    const [phone, setPhone] = useState("");
 
-    useEffect(() => {
-        if (form.municipality) setForm((f) => ({ ...f, barangay: "" }));
-    }, [form.municipality]);
+    // =========================
+    // ADDRESS
+    // =========================
+    const [region, setRegion] = useState("");
+    const [province, setProvince] = useState("");
+    const [municipality, setMunicipality] = useState("");
+    const [barangay, setBarangay] = useState("");
 
-    const set = (e) => {
-        const { name, value } = e.target;
-        setForm((f) => ({ ...f, [name]: value }));
-        setErrors((f) => ({ ...f, [name]: null }));
+    const [houseNumber, setHouseNumber] = useState("");
+    const [street, setStreet] = useState("");
+    const [buildingName, setBuildingName] = useState("");
+    const [unitNumber, setUnitNumber] = useState("");
+    const [postalCode, setPostalCode] = useState("");
+
+    // =========================
+    // ACCOUNT
+    // =========================
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [passwordConfirmation, setPasswordConfirmation] =
+        useState("");
+
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConfirmation, setShowPasswordConfirmation] =
+        useState(false);
+
+    // =========================
+    // REQUIREMENTS
+    // =========================
+    const [validId, setValidId] = useState(null);
+
+    const steps = [
+        {
+            number: 1,
+            label: "Personal",
+        },
+        {
+            number: 2,
+            label: "Address",
+        },
+        {
+            number: 3,
+            label: "Account",
+        },
+        {
+            number: 4,
+            label: "Review",
+        },
+    ];
+
+    // =========================
+    // AGE
+    // =========================
+    const calculateAge = (birthdate) => {
+        if (!birthdate) return "";
+
+        const today = new Date();
+        const birth = new Date(`${birthdate}T00:00:00`);
+
+        let years =
+            today.getFullYear() -
+            birth.getFullYear();
+
+        const monthDiff =
+            today.getMonth() -
+            birth.getMonth();
+
+        if (
+            monthDiff < 0 ||
+            (
+                monthDiff === 0 &&
+                today.getDate() < birth.getDate()
+            )
+        ) {
+            years--;
+        }
+
+        return years >= 0 ? years : "";
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(""); setErrors({}); setLoading(true);
+    const handleBirthDateChange = (value) => {
+        setBirthDate(value);
+        setAge(calculateAge(value));
+    };
+
+    // =========================
+    // PASSWORD STRENGTH
+    // =========================
+    const getPasswordStrength = () => {
+        if (!password) return "";
+
+        if (password.length < 8) {
+            return "Weak";
+        }
+
+        if (
+            password.length >= 8 &&
+            password.length < 12
+        ) {
+            return "Medium";
+        }
+
+        return "Strong";
+    };
+
+    // =========================
+    // ADDRESS CHANGE
+    // =========================
+    const handleAddressChange = ({
+        region: newRegion,
+        province: newProvince,
+        city: newCity,
+        barangay: newBarangay,
+    }) => {
+        setRegion(newRegion);
+        setProvince(newProvince);
+        setMunicipality(newCity);
+        setBarangay(newBarangay);
+    };
+
+    // =========================
+    // VALIDATE EACH STEP
+    // =========================
+    const validateStep = () => {
+        setError("");
+
+        // STEP 1
+        if (step === 1) {
+            if (
+                !firstName.trim() ||
+                !lastName.trim() ||
+                !birthDate ||
+                !sex
+            ) {
+                setError(
+                    "Please complete all required personal information."
+                );
+
+                return false;
+            }
+
+            if (age !== "" && Number(age) < 18) {
+                setError(
+                    "You must be at least 18 years old to register."
+                );
+
+                return false;
+            }
+        }
+
+        // STEP 2
+        if (step === 2) {
+            if (
+                !phone.trim() ||
+                !province ||
+                !municipality ||
+                !barangay
+            ) {
+                setError(
+                    "Please complete your contact and Philippine address."
+                );
+
+                return false;
+            }
+
+            if (
+                !houseNumber.trim() &&
+                !street.trim() &&
+                !buildingName.trim() &&
+                !unitNumber.trim()
+            ) {
+                setError(
+                    "Please provide at least your house number, street, building, or unit details."
+                );
+
+                return false;
+            }
+        }
+
+        // STEP 3
+        if (step === 3) {
+            if (!email.trim() || !password) {
+                setError(
+                    "Please provide your email and password."
+                );
+
+                return false;
+            }
+
+            if (password.length < 8) {
+                setError(
+                    "Password must be at least 8 characters."
+                );
+
+                return false;
+            }
+
+            if (
+                password !== passwordConfirmation
+            ) {
+                setError(
+                    "Passwords do not match."
+                );
+
+                return false;
+            }
+        }
+
+        // STEP 4
+        if (step === 4) {
+            if (!validId) {
+                setError(
+                    "Please upload a valid ID before creating your account."
+                );
+
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    // =========================
+    // NEXT
+    // =========================
+    const handleNext = () => {
+        if (!validateStep()) {
+            return;
+        }
+
+        setStep((current) =>
+            Math.min(current + 1, 4)
+        );
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
+    };
+
+    // =========================
+    // BACK
+    // =========================
+    const handleBack = () => {
+        setError("");
+
+        setStep((current) =>
+            Math.max(current - 1, 1)
+        );
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
+    };
+
+    // =========================
+    // VALID ID
+    // =========================
+    const handleValidIdChange = (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            setValidId(null);
+            return;
+        }
+
+        const allowedTypes = [
+            "image/jpeg",
+            "image/png",
+            "application/pdf",
+        ];
+
+        if (!allowedTypes.includes(file.type)) {
+            setError(
+                "Valid ID must be a JPG, JPEG, PNG, or PDF file."
+            );
+
+            event.target.value = "";
+            setValidId(null);
+
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            setError(
+                "Valid ID must not exceed 5MB."
+            );
+
+            event.target.value = "";
+            setValidId(null);
+
+            return;
+        }
+
+        setError("");
+        setValidId(file);
+    };
+
+    // =========================
+    // REGISTER
+    // =========================
+    const handleRegister = async (event) => {
+        event.preventDefault();
+
+        setError("");
+
+        if (!validateStep()) {
+            return;
+        }
+
+        setLoading(true);
+
         try {
-            const data = new FormData();
-            Object.entries(form).forEach(([k, v]) => data.append(k, v));
-            if (validId) data.append("valid_id", validId);
-            if (businessPermit) data.append("business_permit", businessPermit);
-            await api.post("/register", data, { headers: { "Content-Type": "multipart/form-data" } });
-            setSubmitted(true);
+            /*
+             * Laravel RegistrationController expects
+             * multipart/form-data because valid_id is a file.
+             */
+            const formData = new FormData();
+
+            // PERSONAL
+            formData.append(
+                "first_name",
+                firstName.trim()
+            );
+
+            if (middleName.trim()) {
+                formData.append(
+                    "middle_name",
+                    middleName.trim()
+                );
+            }
+
+            formData.append(
+                "last_name",
+                lastName.trim()
+            );
+
+            formData.append(
+                "sex",
+                sex
+            );
+
+            formData.append(
+                "birthday",
+                birthDate
+            );
+
+            // CONTACT
+            formData.append(
+                "phone",
+                phone.trim()
+            );
+
+            // ROLE
+            // This registration page is for BUYERS.
+            formData.append(
+                "role",
+                "buyer"
+            );
+
+            // ADDRESS
+            formData.append(
+                "province",
+                province
+            );
+
+            formData.append(
+                "municipality",
+                municipality
+            );
+
+            formData.append(
+                "barangay",
+                barangay
+            );
+
+            if (street.trim()) {
+                formData.append(
+                    "street",
+                    street.trim()
+                );
+            }
+
+            if (houseNumber.trim()) {
+                formData.append(
+                    "house_number",
+                    houseNumber.trim()
+                );
+            }
+
+            if (buildingName.trim()) {
+                formData.append(
+                    "building_name",
+                    buildingName.trim()
+                );
+            }
+
+            if (unitNumber.trim()) {
+                formData.append(
+                    "unit_number",
+                    unitNumber.trim()
+                );
+            }
+
+            if (postalCode.trim()) {
+                formData.append(
+                    "postal_code",
+                    postalCode.trim()
+                );
+            }
+
+            // ACCOUNT
+            formData.append(
+                "email",
+                email.trim().toLowerCase()
+            );
+
+            formData.append(
+                "password",
+                password
+            );
+
+            /*
+             * Laravel's `confirmed` rule expects
+             * password_confirmation.
+             */
+            formData.append(
+                "password_confirmation",
+                passwordConfirmation
+            );
+
+            // REQUIREMENT
+            formData.append(
+                "valid_id",
+                validId
+            );
+
+            /*
+             * Correct backend endpoint:
+             *
+             * /api/register
+             *
+             * NOT /api/auth/register
+             */
+            await api.post(
+                "/register",
+                formData,
+                {
+                    headers: {
+                        "Content-Type":
+                            "multipart/form-data",
+                    },
+                }
+            );
+
+            window.alert(
+                "Registration submitted successfully! Please check your email for the next verification step."
+            );
+
+            navigate("/verify-otp", {
+                state: {
+                    email:
+                        email
+                            .trim()
+                            .toLowerCase(),
+                },
+            });
         } catch (err) {
-            if (err.response?.status === 422) setErrors(err.response.data.errors || {});
-            else setError(err.response?.data?.message || "Registration failed. Please try again.");
+            console.error(
+                "Registration error:",
+                err
+            );
+
+            const validationErrors =
+                err.response?.data?.errors;
+
+            if (validationErrors) {
+                const firstError =
+                    Object.values(
+                        validationErrors
+                    )?.[0]?.[0];
+
+                setError(
+                    firstError ||
+                    "Please check the information you entered."
+                );
+            } else {
+                setError(
+                    err.response?.data?.message ||
+                    "Registration failed. Please check your information and try again."
+                );
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    if (submitted) {
-        return (
-            <div className="auth-root auth-root--wide" style={{ alignItems: "stretch" }}>
-                <div className="auth-left" style={{ minHeight: "100vh" }}>
-                    <Link to="/" className="auth-logo">CRYMA<sup>®</sup></Link>
-                    <div className="auth-left-body">
-                        <h2>You're registered.</h2>
-                        <p>Your application has been submitted and is under review.</p>
-                    </div>
-                    <span className="auth-left-copy">© 2026 Cryma</span>
-                </div>
-                <div className="auth-right">
-                    <div className="auth-box" style={{ textAlign: "center" }}>
-                        <div style={{
-                            width: 72, height: 72, borderRadius: "50%",
-                            background: "#e9f6ef", display: "flex",
-                            alignItems: "center", justifyContent: "center",
-                            margin: "0 auto 24px",
-                        }}>
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#27724d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                        </div>
-                        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f1f20", marginBottom: 10, letterSpacing: "-.02em" }}>Registration Submitted!</h1>
-                        <p style={{ fontSize: 13, color: "#718180", lineHeight: 1.8, marginBottom: 32, maxWidth: 340, margin: "0 auto 32px" }}>
-                            Your application is now under review. Once approved, you'll receive a confirmation at your registered email address.
-                        </p>
-                        <button className="auth-submit" onClick={() => navigate("/login")}>Go to Login</button>
-                        <p style={{ marginTop: 16, fontSize: 12, color: "#9aa8a6" }}>This usually takes 1–2 business days.</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    const err = (name) => errors[name] && <span className="auth-err">{errors[name][0]}</span>;
+    const fullName = [
+        firstName,
+        middleName,
+        lastName,
+    ]
+        .filter(Boolean)
+        .join(" ");
 
     return (
-        <div className="auth-root auth-root--wide" style={{ alignItems: "stretch" }}>
-            <div className="auth-left">
-                <Link to="/" className="auth-logo">CRYMA<sup>®</sup></Link>
-                <div className="auth-left-body">
-                    <h2>{role === "seller" ? "Sell on CRYMA." : role === "rider" ? "Move orders with CRYMA." : "Shop on CRYMA."}</h2>
-                    <p>{role === "seller" ? "Register your seller account and start reaching thousands of customers." : role === "rider" ? "Register as a logistics partner and help deliver every order." : "Create your buyer account and discover thoughtful pieces."}</p>
-                </div>
-                <span className="auth-left-copy">© 2026 Cryma</span>
-            </div>
+        <div className="register-page">
+            <div className="register-shell">
 
-            <div className="auth-right" style={{ alignItems: "flex-start", paddingTop: 40, paddingBottom: 40 }}>
-                <div className="auth-box auth-box--wide">
-                    <div className="auth-box-head">
-                        <h1>{roleTitle} Registration</h1>
-                        <p>Fill in all required fields to apply as a {role === "rider" ? "logistics partner" : role}</p>
+                {/* =========================
+                    LEFT BRAND PANEL
+                ========================== */}
+                <aside className="register-brand">
+                    <Link
+                        to="/"
+                        className="register-logo"
+                    >
+                        <span className="register-logo-mark">
+                            C
+                        </span>
+
+                        <span>CRYMA</span>
+                    </Link>
+
+                    <div className="register-brand-content">
+                        <span className="register-eyebrow">
+                            JOIN CRYMA
+                        </span>
+
+                        <h1>
+                            Create your
+                            <br />
+                            CRYMA account.
+                        </h1>
+
+                        <p>
+                            Shop, track your orders,
+                            communicate with sellers,
+                            and manage your account
+                            in one place.
+                        </p>
                     </div>
 
-                    {error && <div className="auth-notice auth-notice--error">{error}</div>}
+                    <div className="register-brand-footer">
+                        <span>
+                            Already have an account?
+                        </span>
 
-                    <form onSubmit={handleSubmit} className="auth-form">
+                        <Link to="/login">
+                            Sign in
+                        </Link>
+                    </div>
+                </aside>
 
-                        {/* ── PERSONAL INFO ── */}
-                        <div style={sectionStyle}>Personal Information</div>
+                {/* =========================
+                    FORM PANEL
+                ========================== */}
+                <main className="register-content">
 
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Last Name *</label>
-                                <input name="last_name" value={form.last_name} onChange={set} placeholder="Dela Cruz" required />
-                                {err("last_name")}
-                            </div>
-                            <div className="auth-field">
-                                <label>First Name *</label>
-                                <input name="first_name" value={form.first_name} onChange={set} placeholder="Juan" required />
-                                {err("first_name")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Middle Initial <span className="auth-opt">(optional)</span></label>
-                                <input name="middle_initial" value={form.middle_initial} onChange={set} placeholder="S." maxLength={3} />
-                            </div>
+                    <div className="register-top">
+                        <div>
+                            <span className="register-mobile-eyebrow">
+                                CRYMA ACCOUNT
+                            </span>
+
+                            <h2>
+                                Create account
+                            </h2>
+
+                            <p>
+                                Complete the information
+                                below to get started.
+                            </p>
                         </div>
 
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Sex *</label>
-                                <select name="sex" value={form.sex} onChange={set} required>
-                                    <option value="">Select sex</option>
-                                    <option value="male">Male</option>
-                                    <option value="female">Female</option>
-                                    <option value="prefer_not_to_say">Prefer not to say</option>
-                                </select>
-                                {err("sex")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Birthday *</label>
-                                <input name="birthday" type="date" value={form.birthday} onChange={set} required max={new Date().toISOString().split("T")[0]} />
-                                {err("birthday")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Age</label>
-                                <input value={age} readOnly placeholder="Auto-generated" style={{ background: "#f5f8f8", color: "#718180" }} />
-                            </div>
-                        </div>
+                        <Link
+                            to="/"
+                            className="register-back"
+                        >
+                            Back to store
+                        </Link>
+                    </div>
 
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Email Address *</label>
-                                <input name="email" type="email" value={form.email} onChange={set} placeholder="you@example.com" required />
-                                {err("email")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Contact No. *</label>
-                                <input name="phone" type="tel" value={form.phone} onChange={set} placeholder="+63 912 345 6789" required />
-                                {err("phone")}
-                            </div>
-                        </div>
+                    {/* =========================
+                        STEPPER
+                    ========================== */}
+                    <div className="register-stepper">
+                        {steps.map(
+                            (item, index) => {
+                                const active =
+                                    step ===
+                                    item.number;
 
-                        {/* ── ADDRESS ── */}
-                        <div style={sectionStyle}>Address</div>
+                                const completed =
+                                    step >
+                                    item.number;
 
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Province *</label>
-                                <select name="province" value={form.province} onChange={set} required>
-                                    <option value="">Select province</option>
-                                    {PROVINCES.map((p) => <option key={p}>{p}</option>)}
-                                </select>
-                                {err("province")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Municipality / City *</label>
-                                <select name="municipality" value={form.municipality} onChange={set} required disabled={!form.province}>
-                                    <option value="">Select municipality</option>
-                                    {municipalities.map((m) => <option key={m}>{m}</option>)}
-                                </select>
-                                {err("municipality")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Barangay *</label>
-                                <select name="barangay" value={form.barangay} onChange={set} required disabled={!form.municipality}>
-                                    <option value="">Select barangay</option>
-                                    {barangays.map((b) => <option key={b}>{b}</option>)}
-                                    {form.municipality && barangays.length === 0 && <option value={form.municipality + " Proper"}>{form.municipality} Proper</option>}
-                                </select>
-                                {err("barangay")}
-                            </div>
-                        </div>
-
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Street / Subdivision <span className="auth-opt">(optional)</span></label>
-                                <input name="street" value={form.street} onChange={set} placeholder="e.g. Mabini St." />
-                            </div>
-                            <div className="auth-field">
-                                <label>House / Unit No. <span className="auth-opt">(optional)</span></label>
-                                <input name="house_number" value={form.house_number} onChange={set} placeholder="e.g. 123" />
-                            </div>
-                        </div>
-
-                        {role === "seller" && <>
-                        {/* ── BUSINESS INFO ── */}
-                        <div style={sectionStyle}>Business Information</div>
-
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Business Name *</label>
-                                <input name="business_name" value={form.business_name} onChange={set} placeholder="e.g. Juan's Store" required />
-                                {err("business_name")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Line of Business *</label>
-                                <select name="line_of_business" value={form.line_of_business} onChange={set} required>
-                                    <option value="">Select category</option>
-                                    {LINES_OF_BUSINESS.map((l) => <option key={l}>{l}</option>)}
-                                </select>
-                                {err("line_of_business")}
-                            </div>
-                        </div>
-                        </>}
-
-                        {role === "rider" && <>
-                        <div style={sectionStyle}>Vehicle Information</div>
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Vehicle Type *</label>
-                                <select name="vehicle_type" value={form.vehicle_type || ""} onChange={set} required>
-                                    <option value="">Select vehicle</option>
-                                    <option value="motorcycle">Motorcycle</option>
-                                    <option value="tricycle">Tricycle</option>
-                                    <option value="car">Car</option>
-                                    <option value="van">Van</option>
-                                    <option value="truck">Truck</option>
-                                </select>
-                                {err("vehicle_type")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Plate Number *</label>
-                                <input name="plate_number" value={form.plate_number || ""} onChange={set} placeholder="ABC 1234" required />
-                                {err("plate_number")}
-                            </div>
-                        </div>
-                        </>}
-
-                        {/* ── DOCUMENTS ── */}
-                        <div style={sectionStyle}>Documents</div>
-
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Upload Valid ID *</label>
-                                <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setValidId(e.target.files[0])} required />
-                                <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
-                                {err("valid_id")}
-                            </div>
-                            {role === "seller" && <div className="auth-field">
-                                <label>Upload Business Permit *</label>
-                                <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setBusinessPermit(e.target.files[0])} required />
-                                <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
-                                {err("business_permit")}
-                            </div>}
-                            {role === "rider" && <>
-                                <div className="auth-field">
-                                    <label>Upload OR/CR *</label>
-                                    <input type="file" name="or_cr" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setForm((f) => ({ ...f, or_cr: e.target.files[0] }))} required />
-                                    <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
-                                    {err("or_cr")}
-                                </div>
-                                <div className="auth-field">
-                                    <label>Upload Driver's License *</label>
-                                    <input type="file" name="drivers_license" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setForm((f) => ({ ...f, drivers_license: e.target.files[0] }))} required />
-                                    <span className="auth-opt">JPG, PNG or PDF · max 5MB</span>
-                                    {err("drivers_license")}
-                                </div>
-                            </>}
-                        </div>
-
-                        {/* ── PASSWORD ── */}
-                        <div style={sectionStyle}>Account Security</div>
-
-                        <div className="auth-row">
-                            <div className="auth-field">
-                                <label>Password *</label>
-                                <div className="auth-pw-wrap">
-                                    <input name="password" type={showPw ? "text" : "password"} value={form.password} onChange={set} placeholder="Min. 8 characters" required />
-                                    <button type="button" className="auth-eye" onClick={() => setShowPw((v) => !v)}>
-                                        {showPw
-                                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                                            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                return (
+                                    <div
+                                        className={`register-step ${
+                                            active
+                                                ? "active"
+                                                : ""
+                                        } ${
+                                            completed
+                                                ? "completed"
+                                                : ""
+                                        }`}
+                                        key={
+                                            item.number
                                         }
-                                    </button>
-                                </div>
-                                {err("password")}
-                            </div>
-                            <div className="auth-field">
-                                <label>Confirm Password *</label>
-                                <div className="auth-pw-wrap">
-                                    <input name="password_confirmation" type={showPw ? "text" : "password"} value={form.password_confirmation} onChange={set} placeholder="Repeat password" required />
-                                </div>
-                            </div>
+                                    >
+                                        <div className="register-step-number">
+                                            {completed
+                                                ? "✓"
+                                                : item.number}
+                                        </div>
+
+                                        <span>
+                                            {item.label}
+                                        </span>
+
+                                        {index <
+                                            steps.length -
+                                                1 && (
+                                            <div className="register-step-line" />
+                                        )}
+                                    </div>
+                                );
+                            }
+                        )}
+                    </div>
+
+                    {/* =========================
+                        ERROR
+                    ========================== */}
+                    {error && (
+                        <div className="register-error">
+                            <span>!</span>
+
+                            <p>
+                                {error}
+                            </p>
                         </div>
+                    )}
 
-                        <button className="auth-submit" type="submit" disabled={loading}>
-                            {loading ? <span className="auth-spinner" /> : "Submit Registration"}
-                        </button>
+                    <form
+                        className="register-form"
+                        onSubmit={
+                            handleRegister
+                        }
+                    >
+
+                        {/* =========================
+                            STEP 1
+                        ========================== */}
+                        {step === 1 && (
+                            <section className="register-section">
+                                <div className="section-heading">
+                                    <span>
+                                        STEP 01
+                                    </span>
+
+                                    <h3>
+                                        Personal information
+                                    </h3>
+
+                                    <p>
+                                        Tell us a little
+                                        about yourself.
+                                    </p>
+                                </div>
+
+                                <div className="form-grid two">
+                                    <div className="auth-field">
+                                        <label>
+                                            First name
+                                            <b>*</b>
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            value={
+                                                firstName
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setFirstName(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="Enter first name"
+                                        />
+                                    </div>
+
+                                    <div className="auth-field">
+                                        <label>
+                                            Middle name
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            value={
+                                                middleName
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setMiddleName(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="Enter middle name"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-grid two">
+                                    <div className="auth-field">
+                                        <label>
+                                            Last name
+                                            <b>*</b>
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            value={
+                                                lastName
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setLastName(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="Enter last name"
+                                        />
+                                    </div>
+
+                                    <div className="auth-field">
+                                        <label>
+                                            Birthday
+                                            <b>*</b>
+                                        </label>
+
+                                        <input
+                                            type="date"
+                                            value={
+                                                birthDate
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                handleBirthDateChange(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-grid two">
+                                    <div className="auth-field">
+                                        <label>
+                                            Age
+                                        </label>
+
+                                        <div className="readonly-field">
+                                            {age
+                                                ? `${age} years old`
+                                                : "Automatically calculated"}
+                                        </div>
+                                    </div>
+
+                                    <div className="auth-field">
+                                        <label>
+                                            Sex
+                                            <b>*</b>
+                                        </label>
+
+                                        <div className="sex-options">
+                                            <button
+                                                type="button"
+                                                className={
+                                                    sex ===
+                                                    "male"
+                                                        ? "selected"
+                                                        : ""
+                                                }
+                                                onClick={() =>
+                                                    setSex(
+                                                        "male"
+                                                    )
+                                                }
+                                            >
+                                                Male
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className={
+                                                    sex ===
+                                                    "female"
+                                                        ? "selected"
+                                                        : ""
+                                                }
+                                                onClick={() =>
+                                                    setSex(
+                                                        "female"
+                                                    )
+                                                }
+                                            >
+                                                Female
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className={
+                                                    sex ===
+                                                    "prefer_not_to_say"
+                                                        ? "selected"
+                                                        : ""
+                                                }
+                                                onClick={() =>
+                                                    setSex(
+                                                        "prefer_not_to_say"
+                                                    )
+                                                }
+                                            >
+                                                Prefer not to say
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* =========================
+                            STEP 2
+                        ========================== */}
+                        {step === 2 && (
+                            <section className="register-section">
+                                <div className="section-heading">
+                                    <span>
+                                        STEP 02
+                                    </span>
+
+                                    <h3>
+                                        Contact & address
+                                    </h3>
+
+                                    <p>
+                                        Select your Philippine
+                                        location, then enter
+                                        your specific address
+                                        details.
+                                    </p>
+                                </div>
+
+                                <div className="auth-field">
+                                    <label>
+                                        Mobile number
+                                        <b>*</b>
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(
+                                            e
+                                        ) =>
+                                            setPhone(
+                                                e.target
+                                                    .value
+                                            )
+                                        }
+                                        placeholder="09XXXXXXXXX"
+                                    />
+                                </div>
+
+                                <div className="address-api-label">
+                                    <span>
+                                        Philippine address
+                                    </span>
+
+                                    <small>
+                                        Select your region,
+                                        province, city /
+                                        municipality and
+                                        barangay.
+                                    </small>
+                                </div>
+
+                                <PhilippineAddressFields
+                                    region={region}
+                                    province={province}
+                                    city={
+                                        municipality
+                                    }
+                                    barangay={
+                                        barangay
+                                    }
+                                    onChange={
+                                        handleAddressChange
+                                    }
+                                />
+
+                                <div className="form-grid two">
+                                    <div className="auth-field">
+                                        <label>
+                                            House number
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            value={
+                                                houseNumber
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setHouseNumber(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="e.g. 123"
+                                        />
+                                    </div>
+
+                                    <div className="auth-field">
+                                        <label>
+                                            Street
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            value={
+                                                street
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setStreet(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="e.g. Rizal Street"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-grid two">
+                                    <div className="auth-field">
+                                        <label>
+                                            Building /
+                                            Subdivision
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            value={
+                                                buildingName
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setBuildingName(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="Optional"
+                                        />
+                                    </div>
+
+                                    <div className="auth-field">
+                                        <label>
+                                            Unit / Floor
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            value={
+                                                unitNumber
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setUnitNumber(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="Optional"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="auth-field">
+                                    <label>
+                                        Postal code
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        value={
+                                            postalCode
+                                        }
+                                        onChange={(
+                                            e
+                                        ) =>
+                                            setPostalCode(
+                                                e.target
+                                                    .value
+                                            )
+                                        }
+                                        placeholder="Optional"
+                                    />
+                                </div>
+                            </section>
+                        )}
+
+                        {/* =========================
+                            STEP 3
+                        ========================== */}
+                        {step === 3 && (
+                            <section className="register-section">
+                                <div className="section-heading">
+                                    <span>
+                                        STEP 03
+                                    </span>
+
+                                    <h3>
+                                        Account security
+                                    </h3>
+
+                                    <p>
+                                        Create the login
+                                        credentials you
+                                        will use for CRYMA.
+                                    </p>
+                                </div>
+
+                                <div className="auth-field">
+                                    <label>
+                                        Email address
+                                        <b>*</b>
+                                    </label>
+
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(
+                                            e
+                                        ) =>
+                                            setEmail(
+                                                e.target
+                                                    .value
+                                            )
+                                        }
+                                        placeholder="you@example.com"
+                                    />
+                                </div>
+
+                                <div className="auth-field">
+                                    <label>
+                                        Password
+                                        <b>*</b>
+                                    </label>
+
+                                    <div className="password-field">
+                                        <input
+                                            type={
+                                                showPassword
+                                                    ? "text"
+                                                    : "password"
+                                            }
+                                            value={
+                                                password
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setPassword(
+                                                    e.target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="Create a password"
+                                        />
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setShowPassword(
+                                                    (
+                                                        current
+                                                    ) =>
+                                                        !current
+                                                )
+                                            }
+                                        >
+                                            {showPassword
+                                                ? "Hide"
+                                                : "Show"}
+                                        </button>
+                                    </div>
+
+                                    {password && (
+                                        <div
+                                            className={`password-strength ${getPasswordStrength().toLowerCase()}`}
+                                        >
+                                            <span>
+                                                Password strength:
+                                            </span>
+
+                                            <strong>
+                                                {getPasswordStrength()}
+                                            </strong>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="auth-field">
+                                    <label>
+                                        Confirm password
+                                        <b>*</b>
+                                    </label>
+
+                                    <div className="password-field">
+                                        <input
+                                            type={
+                                                showPasswordConfirmation
+                                                    ? "text"
+                                                    : "password"
+                                            }
+                                            value={
+                                                passwordConfirmation
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setPasswordConfirmation(
+                                                    e
+                                                        .target
+                                                        .value
+                                                )
+                                            }
+                                            placeholder="Repeat your password"
+                                        />
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setShowPasswordConfirmation(
+                                                    (
+                                                        current
+                                                    ) =>
+                                                        !current
+                                                )
+                                            }
+                                        >
+                                            {showPasswordConfirmation
+                                                ? "Hide"
+                                                : "Show"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* =========================
+                            STEP 4
+                        ========================== */}
+                        {step === 4 && (
+                            <section className="register-section">
+                                <div className="section-heading">
+                                    <span>
+                                        STEP 04
+                                    </span>
+
+                                    <h3>
+                                        Review & verification
+                                    </h3>
+
+                                    <p>
+                                        Check your information
+                                        and upload your valid
+                                        ID before submitting.
+                                    </p>
+                                </div>
+
+                                {/* PERSONAL */}
+                                <div className="review-card">
+                                    <div className="review-card-header">
+                                        <div>
+                                            <span>
+                                                PERSONAL
+                                            </span>
+
+                                            <h4>
+                                                Personal information
+                                            </h4>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setStep(
+                                                    1
+                                                )
+                                            }
+                                        >
+                                            Edit
+                                        </button>
+                                    </div>
+
+                                    <div className="review-grid">
+                                        <div>
+                                            <small>
+                                                Full name
+                                            </small>
+
+                                            <strong>
+                                                {fullName ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Sex
+                                            </small>
+
+                                            <strong>
+                                                {sex
+                                                    ? sex
+                                                        .replaceAll(
+                                                            "_",
+                                                            " "
+                                                        )
+                                                        .replace(
+                                                            /^\w/,
+                                                            (
+                                                                letter
+                                                            ) =>
+                                                                letter.toUpperCase()
+                                                        )
+                                                    : "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Birthday
+                                            </small>
+
+                                            <strong>
+                                                {birthDate ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Age
+                                            </small>
+
+                                            <strong>
+                                                {age
+                                                    ? `${age} years old`
+                                                    : "—"}
+                                            </strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ADDRESS */}
+                                <div className="review-card">
+                                    <div className="review-card-header">
+                                        <div>
+                                            <span>
+                                                ADDRESS
+                                            </span>
+
+                                            <h4>
+                                                Contact & address
+                                            </h4>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setStep(
+                                                    2
+                                                )
+                                            }
+                                        >
+                                            Edit
+                                        </button>
+                                    </div>
+
+                                    <div className="review-grid">
+                                        <div>
+                                            <small>
+                                                Mobile
+                                            </small>
+
+                                            <strong>
+                                                {phone ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Province
+                                            </small>
+
+                                            <strong>
+                                                {province ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Municipality
+                                            </small>
+
+                                            <strong>
+                                                {municipality ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Barangay
+                                            </small>
+
+                                            <strong>
+                                                {barangay ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                House number
+                                            </small>
+
+                                            <strong>
+                                                {houseNumber ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Street
+                                            </small>
+
+                                            <strong>
+                                                {street ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ACCOUNT */}
+                                <div className="review-card">
+                                    <div className="review-card-header">
+                                        <div>
+                                            <span>
+                                                ACCOUNT
+                                            </span>
+
+                                            <h4>
+                                                Login credentials
+                                            </h4>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setStep(
+                                                    3
+                                                )
+                                            }
+                                        >
+                                            Edit
+                                        </button>
+                                    </div>
+
+                                    <div className="review-grid">
+                                        <div>
+                                            <small>
+                                                Email
+                                            </small>
+
+                                            <strong>
+                                                {email ||
+                                                    "—"}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Password
+                                            </small>
+
+                                            <strong>
+                                                ••••••••
+                                            </strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* VALID ID */}
+                                <div className="review-card">
+                                    <div className="review-card-header">
+                                        <div>
+                                            <span>
+                                                VERIFICATION
+                                            </span>
+
+                                            <h4>
+                                                Valid ID
+                                            </h4>
+                                        </div>
+                                    </div>
+
+                                    <div className="auth-field">
+                                        <label>
+                                            Upload valid ID
+                                            <b>*</b>
+                                        </label>
+
+                                        <input
+                                            type="file"
+                                            accept=".jpg,.jpeg,.png,.pdf"
+                                            onChange={
+                                                handleValidIdChange
+                                            }
+                                        />
+
+                                        <small className="file-help">
+                                            Accepted:
+                                            JPG, JPEG,
+                                            PNG or PDF.
+                                            Maximum
+                                            file size:
+                                            5MB.
+                                        </small>
+
+                                        {validId && (
+                                            <div className="selected-file">
+                                                ✓{" "}
+                                                {validId.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="registration-note">
+                                    <span>
+                                        ✓
+                                    </span>
+
+                                    <p>
+                                        Your registration
+                                        will be submitted
+                                        for verification.
+                                        CRYMA can review
+                                        the submitted
+                                        information and
+                                        identification
+                                        document before
+                                        activating the
+                                        account.
+                                    </p>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* =========================
+                            NAVIGATION
+                        ========================== */}
+                        <div className="register-actions">
+                            {step > 1 ? (
+                                <button
+                                    type="button"
+                                    className="secondary-action"
+                                    onClick={
+                                        handleBack
+                                    }
+                                    disabled={
+                                        loading
+                                    }
+                                >
+                                    Back
+                                </button>
+                            ) : (
+                                <Link
+                                    to="/login"
+                                    className="secondary-action"
+                                >
+                                    Sign in instead
+                                </Link>
+                            )}
+
+                            {step < 4 ? (
+                                <button
+                                    type="button"
+                                    className="primary-action"
+                                    onClick={
+                                        handleNext
+                                    }
+                                >
+                                    Continue
+                                </button>
+                            ) : (
+                                <button
+                                    type="submit"
+                                    className="primary-action"
+                                    disabled={
+                                        loading
+                                    }
+                                >
+                                    {loading ? (
+                                        <>
+                                            <span className="button-spinner" />
+                                            Creating account...
+                                        </>
+                                    ) : (
+                                        "Create account"
+                                    )}
+                                </button>
+                            )}
+                        </div>
                     </form>
-
-                            <p className="auth-switch">Need a different account type? <Link to="/register">Choose again</Link> · <Link to="/login">Sign in</Link></p>
-                </div>
+                </main>
             </div>
         </div>
     );
 }
-
-const sectionStyle = {
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: ".1em",
-    textTransform: "uppercase",
-    color: "#638177",
-    paddingBottom: 4,
-    borderBottom: "1px solid #e0e8e7",
-    marginTop: 4,
-};
 
 export default Register;

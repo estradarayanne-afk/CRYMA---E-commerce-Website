@@ -1,0 +1,1041 @@
+/* =========================================================
+   CRYMA BUYER HOME
+   Landing Page
+   ========================================================= */
+
+.buyer-home {
+    width: 100%;
+    min-height: 100vh;
+    background: #f7faf9;
+    color: #183b3a;
+    font-family: "Poppins", sans-serif;
+    overflow-x: hidden;
+}
+
+.buyer-home *,
+.buyer-home *::before,
+.buyer-home *::after {
+    box-sizing: border-box;
+}
+
+/* =========================================================
+   MAIN
+   ========================================================= */
+
+.buyer-home-main {
+    width: 100%;
+}
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.buyer-landing-hero {
+    width: 100%;
+    min-height: 590px;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
+
+    align-items: center;
+
+    padding: 72px clamp(32px, 7vw, 110px);
+
+    background:
+        radial-gradient(
+            circle at 85% 25%,
+            rgba(79, 166, 160, 0.15),
+            transparent 34%
+        ),
+        linear-gradient(
+            135deg,
+            #f7faf9 0%,
+            #edf5f2 100%
+        );
+
+    border-bottom: 1px solid #e2ece9;
+}
+
+.buyer-landing-hero-content {
+    max-width: 650px;
+    position: relative;
+    z-index: 2;
+}
+
+.buyer-landing-eyebrow {
+    display: inline-flex;
+    align-items: center;
+
+    margin-bottom: 18px;
+    padding: 7px 13px;
+
+    border-radius: 999px;
+
+    background: rgba(15, 76, 76, 0.07);
+    border: 1px solid rgba(15, 76, 76, 0.1);
+
+    color: #0f5b59;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.buyer-landing-hero h1 {
+    margin: 0;
+
+    max-width: 620px;
+
+    color: #123d3b;
+
+    font-size: clamp(44px, 6vw, 76px);
+    line-height: 1.03;
+    letter-spacing: -0.045em;
+    font-weight: 750;
+}
+
+.buyer-landing-hero p {
+    max-width: 560px;
+
+    margin: 24px 0 0;
+
+    color: #637a77;
+
+    font-size: 15px;
+    line-height: 1.8;
+}
+
+.buyer-landing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    margin-top: 32px;
+}
+
+.buyer-primary-button,
+.buyer-secondary-button {
+    min-height: 46px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+
+    padding: 0 20px;
+
+    border-radius: 11px;
+
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 650;
+
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease,
+        background 180ms ease,
+        border-color 180ms ease;
+}
+
+.buyer-primary-button {
+    border: 1px solid #0f4c4c;
+
+    background: #0f4c4c;
+    color: #ffffff;
+
+    box-shadow: 0 8px 22px rgba(15, 76, 76, 0.16);
+}
+
+.buyer-primary-button:hover {
+    transform: translateY(-2px);
+
+    background: #0b4141;
+
+    box-shadow: 0 12px 28px rgba(15, 76, 76, 0.2);
+}
+
+.buyer-secondary-button {
+    border: 1px solid #d6e3df;
+
+    background: #ffffff;
+    color: #245452;
+}
+
+.buyer-secondary-button:hover {
+    transform: translateY(-2px);
+
+    border-color: #aac9c4;
+    background: #f5faf8;
+}
+
+/* =========================================================
+   HERO VISUAL
+   ========================================================= */
+
+.buyer-landing-hero-visual {
+    min-height: 430px;
+
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.buyer-hero-product {
+    position: absolute;
+
+    width: 230px;
+    min-height: 290px;
+
+    padding: 14px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #ffffff;
+
+    border: 1px solid rgba(15, 76, 76, 0.08);
+    border-radius: 22px;
+
+    box-shadow:
+        0 24px 60px rgba(25, 70, 67, 0.11),
+        0 4px 15px rgba(25, 70, 67, 0.05);
+
+    overflow: hidden;
+}
+
+.buyer-hero-product img {
+    width: 100%;
+    height: 260px;
+
+    object-fit: cover;
+
+    border-radius: 15px;
+}
+
+.buyer-hero-product-1 {
+    transform: rotate(-8deg) translate(-95px, 10px);
+    z-index: 1;
+}
+
+.buyer-hero-product-2 {
+    transform: rotate(2deg) translate(5px, -25px);
+    z-index: 3;
+}
+
+.buyer-hero-product-3 {
+    transform: rotate(8deg) translate(105px, 35px);
+    z-index: 2;
+}
+
+.buyer-hero-placeholder {
+    width: 100%;
+    height: 260px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 15px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #e7f1ee,
+            #f7faf9
+        );
+
+    color: #73908c;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* =========================================================
+   GENERAL SECTIONS
+   ========================================================= */
+
+.buyer-landing-section {
+    width: 100%;
+
+    padding: 82px clamp(24px, 7vw, 110px);
+}
+
+.buyer-landing-section-heading {
+    max-width: 650px;
+
+    margin: 0 auto 40px;
+
+    text-align: center;
+}
+
+.buyer-landing-section-heading span {
+    display: block;
+
+    margin-bottom: 9px;
+
+    color: #4f918c;
+
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.buyer-landing-section-heading h2 {
+    margin: 0;
+
+    color: #173f3d;
+
+    font-size: clamp(27px, 3vw, 38px);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+}
+
+.buyer-landing-section-heading p {
+    margin: 14px auto 0;
+
+    color: #718582;
+
+    font-size: 13px;
+    line-height: 1.75;
+}
+
+/* =========================================================
+   FEATURED PRODUCTS
+   ========================================================= */
+
+.buyer-landing-featured {
+    background: #ffffff;
+}
+
+.buyer-landing-product-grid {
+    width: 100%;
+    max-width: 1180px;
+
+    margin: 0 auto;
+
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    gap: 18px;
+}
+
+.buyer-landing-product-grid > * {
+    min-width: 0;
+}
+
+/* Existing ProductCard controls its own visual design. */
+.buyer-landing-product-grid .product-card,
+.buyer-landing-product-grid [class*="product-card"] {
+    min-width: 0;
+}
+
+/* =========================================================
+   CATEGORY DISCOVERY
+   ========================================================= */
+
+.buyer-landing-category-section {
+    background: #f2f7f5;
+}
+
+.buyer-landing-category-grid {
+    width: 100%;
+    max-width: 1180px;
+
+    margin: 0 auto;
+
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    gap: 16px;
+}
+
+.buyer-landing-category-card {
+    min-height: 150px;
+
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+
+    padding: 22px;
+
+    border: 1px solid #dce8e4;
+    border-radius: 18px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #ffffff 0%,
+            #edf5f2 100%
+        );
+
+    cursor: pointer;
+
+    overflow: hidden;
+
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease,
+        border-color 180ms ease;
+}
+
+.buyer-landing-category-card::before {
+    content: "";
+
+    position: absolute;
+
+    width: 130px;
+    height: 130px;
+
+    top: -55px;
+    right: -35px;
+
+    border-radius: 50%;
+
+    background: rgba(79, 166, 160, 0.11);
+}
+
+.buyer-landing-category-card:hover {
+    transform: translateY(-4px);
+
+    border-color: #bdd6d1;
+
+    box-shadow: 0 15px 32px rgba(27, 72, 68, 0.08);
+}
+
+.buyer-landing-category-card strong {
+    position: relative;
+    z-index: 1;
+
+    color: #194542;
+
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.buyer-landing-category-card span {
+    position: relative;
+    z-index: 1;
+
+    margin-top: 5px;
+
+    color: #78908d;
+
+    font-size: 11px;
+}
+
+/* =========================================================
+   WHY CRYMA
+   ========================================================= */
+
+.buyer-landing-value-section {
+    background: #ffffff;
+}
+
+.buyer-value-grid {
+    width: 100%;
+    max-width: 1050px;
+
+    margin: 0 auto;
+
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    gap: 18px;
+}
+
+.buyer-value-card {
+    padding: 28px 24px;
+
+    border: 1px solid #e2ebe8;
+    border-radius: 18px;
+
+    background: #ffffff;
+
+    text-align: center;
+
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.buyer-value-card:hover {
+    transform: translateY(-3px);
+
+    box-shadow: 0 15px 35px rgba(28, 71, 67, 0.07);
+}
+
+.buyer-value-icon {
+    width: 48px;
+    height: 48px;
+
+    margin: 0 auto 17px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 14px;
+
+    background: #eaf4f1;
+    color: #17615d;
+}
+
+.buyer-value-card h3 {
+    margin: 0;
+
+    color: #214b48;
+
+    font-size: 14px;
+}
+
+.buyer-value-card p {
+    margin: 9px 0 0;
+
+    color: #788c89;
+
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+/* =========================================================
+   HOW IT WORKS
+   ========================================================= */
+
+.buyer-how-section {
+    background: #f2f7f5;
+}
+
+.buyer-how-grid {
+    width: 100%;
+    max-width: 1050px;
+
+    margin: 0 auto;
+
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    gap: 15px;
+}
+
+.buyer-how-step {
+    position: relative;
+
+    padding: 25px 20px;
+
+    border-radius: 17px;
+
+    background: #ffffff;
+
+    border: 1px solid #e0ebe7;
+
+    text-align: center;
+}
+
+.buyer-how-step::after {
+    content: "→";
+
+    position: absolute;
+
+    top: 42px;
+    right: -17px;
+
+    width: 32px;
+    height: 32px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #77a29d;
+
+    font-size: 16px;
+
+    z-index: 2;
+}
+
+.buyer-how-step:last-child::after {
+    display: none;
+}
+
+.buyer-how-step strong {
+    width: 34px;
+    height: 34px;
+
+    margin: 0 auto 14px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #0f4c4c;
+    color: #ffffff;
+
+    font-size: 12px;
+}
+
+.buyer-how-step h3 {
+    margin: 0;
+
+    color: #204a47;
+
+    font-size: 13px;
+}
+
+.buyer-how-step p {
+    margin: 7px 0 0;
+
+    color: #7b8e8b;
+
+    font-size: 10px;
+    line-height: 1.65;
+}
+
+/* =========================================================
+   FINAL CTA
+   ========================================================= */
+
+.buyer-landing-cta {
+    width: calc(100% - clamp(48px, 14vw, 220px));
+    max-width: 1180px;
+
+    margin: 25px auto 80px;
+
+    padding: 58px 40px;
+
+    border-radius: 25px;
+
+    background:
+        radial-gradient(
+            circle at 85% 15%,
+            rgba(113, 196, 188, 0.18),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            #0e4747,
+            #123d3b
+        );
+
+    color: #ffffff;
+
+    text-align: center;
+
+    box-shadow: 0 20px 45px rgba(14, 71, 71, 0.13);
+}
+
+.buyer-landing-cta h2 {
+    margin: 0;
+
+    font-size: clamp(27px, 4vw, 42px);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+}
+
+.buyer-landing-cta p {
+    max-width: 500px;
+
+    margin: 13px auto 25px;
+
+    color: rgba(255, 255, 255, 0.72);
+
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.buyer-landing-cta .buyer-primary-button {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #174846;
+
+    box-shadow: none;
+}
+
+.buyer-landing-cta .buyer-primary-button:hover {
+    background: #f1f8f6;
+}
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.buyer-landing-loading {
+    min-height: 250px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.buyer-landing-spinner {
+    width: 32px;
+    height: 32px;
+
+    border: 3px solid #dce9e6;
+    border-top-color: #0f4c4c;
+
+    border-radius: 50%;
+
+    animation: buyer-home-spin 750ms linear infinite;
+}
+
+@keyframes buyer-home-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =========================================================
+   EMPTY / ERROR STATE
+   ========================================================= */
+
+.buyer-landing-state {
+    padding: 45px 20px;
+
+    color: #718582;
+
+    text-align: center;
+
+    font-size: 13px;
+}
+
+/* =========================================================
+   CART CONFIRMATION MODAL
+   ========================================================= */
+
+.buyer-cart-confirmation-overlay {
+    position: fixed;
+    inset: 0;
+
+    z-index: 3000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(13, 45, 44, 0.45);
+
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.buyer-cart-confirmation {
+    width: min(100%, 390px);
+
+    padding: 30px;
+
+    border: 1px solid #e0ebe8;
+    border-radius: 20px;
+
+    background: #ffffff;
+
+    box-shadow: 0 25px 70px rgba(13, 45, 44, 0.18);
+
+    text-align: center;
+
+    animation: buyer-home-modal-in 180ms ease;
+}
+
+.buyer-success-icon {
+    width: 52px;
+    height: 52px;
+
+    margin: 0 auto 15px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #e6f4ef;
+    color: #19715f;
+}
+
+.buyer-cart-confirmation h3 {
+    margin: 0;
+
+    color: #214a47;
+
+    font-size: 17px;
+}
+
+.buyer-cart-confirmation p {
+    margin: 9px auto 0;
+
+    color: #758985;
+
+    font-size: 11px;
+    line-height: 1.65;
+}
+
+.buyer-cart-confirmation-actions {
+    display: flex;
+    justify-content: center;
+    gap: 9px;
+
+    margin-top: 22px;
+}
+
+.buyer-modal-secondary,
+.buyer-modal-primary {
+    min-height: 40px;
+
+    padding: 0 17px;
+
+    border-radius: 9px;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 650;
+
+    cursor: pointer;
+}
+
+.buyer-modal-secondary {
+    border: 1px solid #d9e5e2;
+
+    background: #ffffff;
+    color: #315653;
+}
+
+.buyer-modal-primary {
+    border: 1px solid #0f4c4c;
+
+    background: #0f4c4c;
+    color: #ffffff;
+}
+
+@keyframes buyer-home-modal-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 1050px) {
+    .buyer-landing-hero {
+        grid-template-columns: 1fr;
+
+        padding-top: 60px;
+        padding-bottom: 50px;
+    }
+
+    .buyer-landing-hero-content {
+        max-width: 720px;
+        margin: 0 auto;
+
+        text-align: center;
+    }
+
+    .buyer-landing-eyebrow {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .buyer-landing-hero p {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .buyer-landing-actions {
+        justify-content: center;
+    }
+
+    .buyer-landing-hero-visual {
+        min-height: 390px;
+        margin-top: 15px;
+    }
+
+    .buyer-landing-product-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .buyer-how-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .buyer-how-step::after {
+        display: none;
+    }
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+    .buyer-landing-hero {
+        min-height: auto;
+
+        padding:
+            48px
+            20px
+            35px;
+    }
+
+    .buyer-landing-hero h1 {
+        font-size: 42px;
+    }
+
+    .buyer-landing-hero p {
+        font-size: 13px;
+    }
+
+    .buyer-landing-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .buyer-primary-button,
+    .buyer-secondary-button {
+        width: 100%;
+    }
+
+    .buyer-landing-hero-visual {
+        min-height: 330px;
+    }
+
+    .buyer-hero-product {
+        width: 165px;
+        min-height: 220px;
+
+        padding: 9px;
+
+        border-radius: 16px;
+    }
+
+    .buyer-hero-product img,
+    .buyer-hero-placeholder {
+        height: 200px;
+
+        border-radius: 11px;
+    }
+
+    .buyer-hero-product-1 {
+        transform: rotate(-7deg) translate(-62px, 5px);
+    }
+
+    .buyer-hero-product-2 {
+        transform: rotate(1deg) translate(0, -12px);
+    }
+
+    .buyer-hero-product-3 {
+        transform: rotate(7deg) translate(62px, 15px);
+    }
+
+    .buyer-landing-section {
+        padding:
+            58px
+            20px;
+    }
+
+    .buyer-landing-section-heading {
+        margin-bottom: 28px;
+    }
+
+    .buyer-landing-section-heading h2 {
+        font-size: 28px;
+    }
+
+    .buyer-landing-product-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+
+        gap: 10px;
+    }
+
+    .buyer-landing-category-grid,
+    .buyer-value-grid,
+    .buyer-how-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .buyer-landing-category-card {
+        min-height: 125px;
+    }
+
+    .buyer-value-card {
+        padding: 24px 20px;
+    }
+
+    .buyer-landing-cta {
+        width: calc(100% - 32px);
+
+        margin:
+            10px auto
+            50px;
+
+        padding:
+            42px
+            20px;
+
+        border-radius: 20px;
+    }
+
+    .buyer-cart-confirmation {
+        padding: 25px 20px;
+    }
+
+    .buyer-cart-confirmation-actions {
+        flex-direction: column;
+    }
+
+    .buyer-modal-secondary,
+    .buyer-modal-primary {
+        width: 100%;
+    }
+}
+
+/* =========================================================
+   VERY SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 430px) {
+    .buyer-landing-hero h1 {
+        font-size: 36px;
+    }
+
+    .buyer-landing-product-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .buyer-hero-product {
+        width: 145px;
+        min-height: 195px;
+    }
+
+    .buyer-hero-product img,
+    .buyer-hero-placeholder {
+        height: 175px;
+    }
+
+    .buyer-hero-product-1 {
+        transform: rotate(-7deg) translate(-48px, 8px);
+    }
+
+    .buyer-hero-product-3 {
+        transform: rotate(7deg) translate(48px, 18px);
+    }
+}

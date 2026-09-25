@@ -1,0 +1,605 @@
+/* =========================================================
+   CRYMA BUYER LOGIN
+   ========================================================= */
+
+.buyer-login {
+    min-height: 100vh;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 44% 56%;
+    background: #f7faf9;
+    color: #183b38;
+    font-family: "Poppins", sans-serif;
+}
+
+/* =========================================================
+   LEFT BRAND PANEL
+   ========================================================= */
+
+.buyer-login-brand {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+    background:
+        radial-gradient(
+            circle at 15% 15%,
+            rgba(87, 170, 157, 0.18),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 90% 85%,
+            rgba(45, 116, 107, 0.22),
+            transparent 32%
+        ),
+        linear-gradient(
+            145deg,
+            #073d3d 0%,
+            #0a4b49 52%,
+            #0c5752 100%
+        );
+}
+
+.buyer-login-brand::before {
+    content: "";
+    position: absolute;
+    width: 430px;
+    height: 430px;
+    right: -210px;
+    top: -180px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+}
+
+.buyer-login-brand::after {
+    content: "";
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    left: -190px;
+    bottom: -160px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 50%;
+}
+
+.buyer-login-brand-inner {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 44px 52px;
+}
+
+.buyer-login-logo {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.buyer-login-logo-mark {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 9px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.buyer-login-logo-name {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+}
+
+.buyer-login-brand-content {
+    max-width: 430px;
+    margin-top: auto;
+    margin-bottom: auto;
+    padding-top: 80px;
+}
+
+.buyer-login-eyebrow {
+    display: block;
+    margin-bottom: 18px;
+    color: rgba(218, 241, 237, 0.72);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.buyer-login-brand-content h2 {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(32px, 3.4vw, 50px);
+    line-height: 1.12;
+    letter-spacing: -1.8px;
+    font-weight: 600;
+}
+
+.buyer-login-brand-content h2 span {
+    color: #a9d8d0;
+}
+
+.buyer-login-brand-content p {
+    max-width: 370px;
+    margin: 22px 0 0;
+    color: rgba(239, 249, 247, 0.72);
+    font-size: 12px;
+    line-height: 1.9;
+    font-weight: 400;
+}
+
+.buyer-login-brand-footer {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: rgba(231, 246, 243, 0.5);
+    font-size: 9px;
+    font-weight: 500;
+}
+
+.buyer-login-brand-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(231, 246, 243, 0.4);
+}
+
+/* =========================================================
+   RIGHT FORM
+   ========================================================= */
+
+.buyer-login-form-section {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 44px 60px;
+    background: #f8fbfa;
+}
+
+.buyer-login-form-wrap {
+    width: 100%;
+    max-width: 430px;
+}
+
+.buyer-login-back {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 52px;
+    color: #708481;
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 500;
+    transition:
+        color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.buyer-login-back:hover {
+    color: #0d5a54;
+    transform: translateX(-2px);
+}
+
+.buyer-login-heading {
+    margin-bottom: 30px;
+}
+
+.buyer-login-heading h1 {
+    margin: 0;
+    color: #173d39;
+    font-size: 30px;
+    line-height: 1.2;
+    font-weight: 650;
+    letter-spacing: -0.9px;
+}
+
+.buyer-login-heading p {
+    margin: 9px 0 0;
+    color: #849390;
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.buyer-login-mobile-logo {
+    display: none;
+}
+
+/* =========================================================
+   ALERTS
+   ========================================================= */
+
+.buyer-login-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-bottom: 17px;
+    padding: 11px 12px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.buyer-login-alert-icon {
+    flex: 0 0 17px;
+    width: 17px;
+    height: 17px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.buyer-login-alert-error {
+    border-color: #f0d5d3;
+    background: #fff7f6;
+    color: #9b4c47;
+}
+
+.buyer-login-alert-error .buyer-login-alert-icon {
+    background: #f4d8d5;
+    color: #9b4c47;
+}
+
+.buyer-login-alert-success {
+    border-color: #cce4db;
+    background: #f4fbf8;
+    color: #3d7667;
+}
+
+.buyer-login-alert-success .buyer-login-alert-icon {
+    background: #d8eee6;
+    color: #397363;
+}
+
+.buyer-login-alert-info {
+    border-color: #d4e5e2;
+    background: #f4faf9;
+    color: #426c67;
+}
+
+.buyer-login-alert-info .buyer-login-alert-icon {
+    background: #dcece9;
+    color: #3f6d67;
+}
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.buyer-login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 21px;
+}
+
+.buyer-login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.buyer-login-field label {
+    color: #34534f;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.buyer-login-field-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.buyer-login-forgot {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #327b72;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.buyer-login-forgot:hover {
+    color: #0a554e;
+    text-decoration: underline;
+}
+
+.buyer-login-forgot:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.buyer-login-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.buyer-login-input-icon {
+    position: absolute;
+    left: 14px;
+    color: #9aaba8;
+    pointer-events: none;
+    transition: color 0.18s ease;
+}
+
+.buyer-login-input-wrap input {
+    width: 100%;
+    height: 47px;
+    box-sizing: border-box;
+    padding: 0 43px 0 42px;
+    border: 1px solid #dbe5e2;
+    border-radius: 9px;
+    outline: none;
+    background: #ffffff;
+    color: #254743;
+    font-family: inherit;
+    font-size: 11px;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+.buyer-login-input-wrap input::placeholder {
+    color: #aab6b4;
+}
+
+.buyer-login-input-wrap input:hover {
+    border-color: #c8d9d5;
+}
+
+.buyer-login-input-wrap input:focus {
+    border-color: #6fa9a1;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(66, 135, 125, 0.09);
+}
+
+.buyer-login-input-wrap:focus-within .buyer-login-input-icon {
+    color: #41867d;
+}
+
+.buyer-login-input-wrap input:disabled {
+    background: #f3f6f5;
+    cursor: not-allowed;
+}
+
+.buyer-login-eye {
+    position: absolute;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #829592;
+    cursor: pointer;
+}
+
+.buyer-login-eye:hover {
+    background: #f0f6f4;
+    color: #286b63;
+}
+
+.buyer-login-eye:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* =========================================================
+   SUBMIT
+   ========================================================= */
+
+.buyer-login-submit {
+    width: 100%;
+    height: 47px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    margin-top: 4px;
+    border: 0;
+    border-radius: 9px;
+    background: #0b514d;
+    color: #ffffff;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.1px;
+    box-shadow: 0 8px 20px rgba(9, 70, 66, 0.13);
+    transition:
+        background 0.18s ease,
+        transform 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.buyer-login-submit:hover:not(:disabled) {
+    background: #083f3c;
+    transform: translateY(-1px);
+    box-shadow: 0 11px 24px rgba(9, 70, 66, 0.18);
+}
+
+.buyer-login-submit:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.buyer-login-submit:disabled {
+    background: #7c9b97;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.buyer-login-spinner {
+    width: 14px;
+    height: 14px;
+    border: 1.8px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: buyer-login-spin 0.7s linear infinite;
+}
+
+@keyframes buyer-login-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =========================================================
+   REGISTER
+   ========================================================= */
+
+.buyer-login-divider {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin: 29px 0 16px;
+}
+
+.buyer-login-divider span {
+    flex: 1;
+    height: 1px;
+    background: #e2eae8;
+}
+
+.buyer-login-divider small {
+    color: #a0aeab;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+}
+
+.buyer-login-register {
+    width: 100%;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid #cbdcd8;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #28665f;
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 600;
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+.buyer-login-register:hover {
+    border-color: #8db8b1;
+    background: #f3f9f7;
+    color: #0a514b;
+}
+
+.buyer-login-security {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 19px 0 0;
+    color: #9aa8a5;
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+    .buyer-login {
+        grid-template-columns: 1fr;
+    }
+
+    .buyer-login-brand {
+        display: none;
+    }
+
+    .buyer-login-form-section {
+        min-height: 100vh;
+        padding: 32px 24px;
+    }
+
+    .buyer-login-form-wrap {
+        max-width: 430px;
+    }
+
+    .buyer-login-back {
+        margin-bottom: 38px;
+    }
+
+    .buyer-login-mobile-logo {
+        width: 35px;
+        height: 35px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 17px;
+        border-radius: 9px;
+        background: #0b514d;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 700;
+    }
+}
+
+@media (max-width: 480px) {
+    .buyer-login-form-section {
+        padding: 25px 19px;
+    }
+
+    .buyer-login-back {
+        margin-bottom: 34px;
+    }
+
+    .buyer-login-heading {
+        margin-bottom: 26px;
+    }
+
+    .buyer-login-heading h1 {
+        font-size: 27px;
+    }
+
+    .buyer-login-heading p {
+        font-size: 10px;
+    }
+
+    .buyer-login-form {
+        gap: 18px;
+    }
+
+    .buyer-login-input-wrap input {
+        height: 46px;
+    }
+
+    .buyer-login-submit {
+        height: 46px;
+    }
+
+    .buyer-login-security {
+        text-align: center;
+    }
+}

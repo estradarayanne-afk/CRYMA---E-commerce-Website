@@ -22,16 +22,18 @@ import AdminChat from "./admin/pages/Chat/Chat";
 import SellerCompliance from "./admin/pages/SellerCompliance/SellerCompliance";
 
 // ── BUYER ──
-import BuyerHome from "./buyer/pages/Home";
-import BuyerCart from "./buyer/pages/Cart";
-import BuyerCategories from "./buyer/pages/Categories";
-import BuyerChat from "./buyer/pages/Chat";
-import BuyerCheckout from "./buyer/pages/Checkout";
-import BuyerOrderDetails from "./buyer/pages/OrderDetails";
-import BuyerOrders from "./buyer/pages/Orders";
-import BuyerProductDetails from "./buyer/pages/ProductDetails";
-import BuyerReviews from "./buyer/pages/Reviews";
-import BuyerAccount from "./buyer/pages/Account";
+import BuyerHome from "./buyer/pages/Home/Home";
+import BuyerCart from "./buyer/pages/Cart/Cart";
+import BuyerCategories from "./buyer/pages/Categories/Categories";
+import BuyerChat from "./buyer/pages/Chat/Chat";
+import BuyerCheckout from "./buyer/pages/Checkout/Checkout";
+import BuyerOrderDetails from "./buyer/pages/OrderDetails/OrderDetails";
+import BuyerOrders from "./buyer/pages/Orders/Orders";
+import BuyerProductDetails from "./buyer/pages/ProductDetails/ProductDetails";
+import BuyerReviews from "./buyer/pages/Reviews/Reviews";
+import BuyerAccount from "./buyer/pages/Account/Account";
+import BuyerLayout from "./buyer/layouts/BuyerLayout";
+import BuyerWishlist from "./buyer/pages/Wishlist/Wishlist";
 
 // ── SELLER ──
 import SellerLayout from "./seller/layouts/SellerLayout";
@@ -58,20 +60,6 @@ function App() {
             <Routes>
 
                 {/* =====================================================
-                    GUEST / PUBLIC STOREFRONT
-                   ===================================================== */}
-
-                {/* Anyone can browse CRYMA */}
-                <Route path="/" element={<BuyerHome />} />
-                <Route path="/shop" element={<BuyerCategories />} />
-                <Route path="/products/:id" element={<BuyerProductDetails />} />
-                <Route path="/reviews" element={<BuyerReviews />} />
-
-                {/* Cart remains accessible to guests.
-                    Checkout itself requires a buyer account. */}
-                <Route path="/cart" element={<BuyerCart />} />
-
-                {/* =====================================================
                     AUTHENTICATION
                    ===================================================== */}
 
@@ -92,35 +80,79 @@ function App() {
                 />
 
                 {/* =====================================================
-                    BUYER - AUTHENTICATED ONLY
-                   ===================================================== */}
+                    BUYER / PUBLIC STOREFRONT
+                ===================================================== */}
 
-                <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
+                <Route element={<BuyerLayout />}>
+
+                    {/* PUBLIC / GUEST */}
 
                     <Route
-                        path="/checkout"
-                        element={<BuyerCheckout />}
+                        path="/"
+                        element={<BuyerHome />}
                     />
 
                     <Route
-                        path="/orders"
-                        element={<BuyerOrders />}
+                        path="/shop"
+                        element={<BuyerCategories />}
                     />
 
                     <Route
-                        path="/orders/:id"
-                        element={<BuyerOrderDetails />}
+                        path="/products/:id"
+                        element={<BuyerProductDetails />}
                     />
 
                     <Route
-                        path="/account"
-                        element={<BuyerAccount />}
+                        path="/cart"
+                        element={<BuyerCart />}
                     />
 
+                    {/* BUYER AUTHENTICATED */}
+
                     <Route
-                        path="/buyer/chat"
-                        element={<BuyerChat />}
-                    />
+                        element={
+                            <ProtectedRoute
+                                allowedRoles={["buyer"]}
+                            />
+                        }
+                    >
+
+                        <Route
+                            path="/checkout"
+                            element={<BuyerCheckout />}
+                        />
+
+                        <Route
+                            path="/orders"
+                            element={<BuyerOrders />}
+                        />
+
+                        <Route
+                            path="/orders/:id"
+                            element={<BuyerOrderDetails />}
+                        />
+
+                        <Route
+                            path="/reviews"
+                            element={<BuyerReviews />}
+                        />
+
+                        <Route
+                            path="/account"
+                            element={<BuyerAccount />}
+                        />
+
+                        <Route
+                            path="/wishlist"
+                            element={<BuyerWishlist />}
+                        />
+
+                        <Route
+                            path="/buyer/chat"
+                            element={<BuyerChat />}
+                        />
+
+                    </Route>
 
                 </Route>
 

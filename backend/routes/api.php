@@ -19,13 +19,22 @@ use App\Http\Controllers\Admin\CommissionController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\PlatformSettingsController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\BuyerChatController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [RegistrationController::class, 'store']);
 
 // Public product routes
 Route::get('/products', [ProductController::class, 'publicIndex']);
+
+Route::get(
+    '/products/{productId}/reviews',
+    [ReviewController::class, 'index']
+);
 Route::get('/products/{id}', [ProductController::class, 'publicShow']);
+
+
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json([
@@ -71,6 +80,13 @@ Route::middleware('auth:sanctum')->group(function () {
         'reject'
     ]);
 
+
+    // Buyer product reviews
+    Route::post(
+        '/products/{productId}/reviews',
+        [ReviewController::class, 'store']
+    );
+
     // Admin document management
     Route::get(
         '/admin/documents',
@@ -91,6 +107,27 @@ Route::middleware('auth:sanctum')->group(function () {
         '/admin/documents/{id}/reject',
         [DocumentController::class, 'reject']
     );
+
+    // Buyer chat
+    Route::get('/buyer/chat/conversations', [
+        BuyerChatController::class,
+        'conversations'
+    ]);
+
+    Route::get('/buyer/chat/conversations/{id}', [
+        BuyerChatController::class,
+        'showConversation'
+    ]);
+
+    Route::post('/buyer/chat/conversations/{id}/messages', [
+        BuyerChatController::class,
+        'sendMessage'
+    ]);
+
+    Route::patch('/buyer/chat/conversations/{id}/read', [
+        BuyerChatController::class,
+        'markAsRead'
+    ]);
 
     // Admin user management
     // Route::get('/admin/users', [RegistrationController::class, 'users']);

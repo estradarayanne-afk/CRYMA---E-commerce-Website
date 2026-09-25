@@ -1243,12 +1243,6 @@
    CRYMA BUYER — COMPACT MARKETPLACE HOME
    ========================================================= */
 
-.buyer-home {
-    min-height: 100vh;
-    background: #f7f8f8;
-    color: #173638;
-}
-
 .buyer-market-header {
     position: sticky;
     top: 0;
@@ -3976,4 +3970,1377 @@ body,
         align-items: flex-start;
         flex-direction: column;
     }
+}
+
+/* =========================================================
+   CRYMA BUYER — GLOBAL NAVIGATION
+   ========================================================= */
+
+.buyer-global-shell {
+    min-height: 100vh;
+    width: 100%;
+    background: #f7f8f7;
+    color: #173b39;
+}
+
+.buyer-global-main {
+    min-height: calc(100vh - 72px);
+}
+
+/* ---------------------------------------------------------
+   GLOBAL NAVBAR
+   --------------------------------------------------------- */
+
+.cryma-global-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 500;
+
+    width: 100%;
+
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid #e5ebe9;
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.cryma-navbar-inner {
+    width: min(1480px, calc(100% - 48px));
+    min-height: 72px;
+
+    margin: 0 auto;
+
+    display: flex;
+    align-items: center;
+
+    gap: 22px;
+}
+
+/* LOGO */
+
+.cryma-navbar-logo {
+    width: 92px;
+
+    display: inline-flex;
+    align-items: center;
+
+    flex-shrink: 0;
+
+    text-decoration: none;
+}
+
+.cryma-navbar-logo img {
+    display: block;
+
+    width: 92px;
+    height: auto;
+
+    object-fit: contain;
+}
+
+/* MAIN NAV */
+
+.cryma-main-navigation {
+    display: flex;
+    align-items: center;
+
+    gap: 3px;
+
+    flex-shrink: 0;
+}
+
+.cryma-nav-link {
+    position: relative;
+
+    height: 40px;
+
+    padding: 0 12px;
+
+    display: inline-flex;
+    align-items: center;
+
+    color: #657572;
+
+    font-size: 12px;
+    font-weight: 650;
+
+    text-decoration: none;
+
+    border-radius: 8px;
+
+    transition:
+        color 0.2s ease,
+        background 0.2s ease;
+}
+
+.cryma-nav-link:hover {
+    color: #0e5555;
+    background: #f1f6f5;
+}
+
+.cryma-nav-link.active {
+    color: #0d5050;
+    background: #edf5f3;
+}
+
+.cryma-nav-link.active::after {
+    content: "";
+
+    position: absolute;
+
+    left: 12px;
+    right: 12px;
+    bottom: 3px;
+
+    height: 2px;
+
+    border-radius: 99px;
+
+    background: #0d5554;
+}
+
+/* SEARCH */
+
+.cryma-navbar-search {
+    min-width: 180px;
+    flex: 1;
+
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    padding: 0 6px 0 13px;
+
+    border: 1px solid #dfe7e5;
+    border-radius: 10px;
+
+    background: #f6f8f7;
+
+    color: #7d8d89;
+}
+
+.cryma-navbar-search:focus-within {
+    border-color: #9bb8b3;
+    background: #ffffff;
+
+    box-shadow:
+        0 0 0 3px rgba(15, 76, 76, 0.06);
+}
+
+.cryma-navbar-search input {
+    min-width: 0;
+    flex: 1;
+
+    height: 100%;
+
+    border: 0;
+    outline: 0;
+
+    background: transparent;
+
+    color: #213f3d;
+
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.cryma-navbar-search input::placeholder {
+    color: #9aa7a4;
+}
+
+.cryma-search-clear {
+    width: 26px;
+    height: 26px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    border-radius: 6px;
+
+    background: transparent;
+
+    color: #84928f;
+
+    cursor: pointer;
+}
+
+.cryma-search-clear:hover {
+    background: #e9efed;
+    color: #345653;
+}
+
+.cryma-search-submit {
+    height: 32px;
+
+    padding: 0 13px;
+
+    border: 0;
+    border-radius: 7px;
+
+    background: #0f4c4c;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.cryma-search-submit:hover {
+    background: #0b4040;
+    transform: translateY(-1px);
+}
+
+/* ACTIONS */
+
+.cryma-navbar-actions {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    flex-shrink: 0;
+}
+
+.cryma-icon-action {
+    position: relative;
+
+    width: 40px;
+    height: 40px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9px;
+
+    color: #526663;
+
+    text-decoration: none;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+.cryma-icon-action:hover,
+.cryma-icon-action.active {
+    background: #edf5f3;
+    color: #0e5555;
+}
+
+.cryma-cart-badge {
+    position: absolute;
+
+    top: 2px;
+    right: 1px;
+
+    min-width: 16px;
+    height: 16px;
+
+    padding: 0 4px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 99px;
+
+    background: #d65d52;
+    color: #ffffff;
+
+    font-size: 8px;
+    font-weight: 800;
+}
+
+/* ACCOUNT */
+
+.cryma-account-container {
+    position: relative;
+}
+
+.cryma-account-trigger {
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 0 9px 0 5px;
+
+    border: 1px solid transparent;
+    border-radius: 10px;
+
+    background: transparent;
+
+    color: #36504d;
+
+    font-family: inherit;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border 0.2s ease;
+}
+
+.cryma-account-trigger:hover {
+    background: #f1f6f5;
+    border-color: #e0e9e7;
+}
+
+.cryma-avatar {
+    width: 31px;
+    height: 31px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #dcebe6;
+    color: #0e5555;
+
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.cryma-account-name {
+    max-width: 105px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.cryma-account-trigger svg {
+    color: #81918d;
+
+    transition: transform 0.2s ease;
+}
+
+.cryma-account-trigger svg.rotated {
+    transform: rotate(180deg);
+}
+
+/* ACCOUNT DROPDOWN */
+
+.cryma-account-dropdown {
+    position: absolute;
+
+    top: calc(100% + 9px);
+    right: 0;
+
+    width: 235px;
+
+    padding: 8px;
+
+    border: 1px solid #e1e8e6;
+    border-radius: 13px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 18px 45px rgba(24, 57, 55, 0.13);
+
+    animation: crymaDropdownIn 0.16s ease;
+}
+
+@keyframes crymaDropdownIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cryma-account-heading {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 9px;
+}
+
+.cryma-dropdown-avatar {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: #dcebe6;
+    color: #0e5555;
+
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.cryma-account-heading div {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.cryma-account-heading strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    color: #203f3c;
+
+    font-size: 11px;
+}
+
+.cryma-account-heading small {
+    margin-top: 2px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    color: #8a9895;
+
+    font-size: 9px;
+}
+
+.cryma-dropdown-divider {
+    height: 1px;
+
+    margin: 5px 3px;
+
+    background: #edf1f0;
+}
+
+.cryma-account-dropdown a,
+.cryma-logout-button {
+    width: 100%;
+    min-height: 38px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 0 10px;
+
+    border: 0;
+    border-radius: 8px;
+
+    background: transparent;
+
+    color: #506461;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+
+    text-decoration: none;
+
+    cursor: pointer;
+}
+
+.cryma-account-dropdown a:hover {
+    background: #f1f6f5;
+    color: #0e5555;
+}
+
+.cryma-logout-button {
+    color: #a34d47;
+}
+
+.cryma-logout-button:hover {
+    background: #fff3f1;
+}
+
+/* SIGN IN */
+
+.cryma-signin-button {
+    height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 0 13px;
+
+    border: 1px solid #d9e4e1;
+    border-radius: 9px;
+
+    background: #ffffff;
+    color: #31514e;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        border 0.2s ease,
+        background 0.2s ease;
+}
+
+.cryma-signin-button:hover {
+    border-color: #9bb8b3;
+    background: #f2f7f5;
+}
+
+/* MOBILE BUTTON */
+
+.cryma-mobile-toggle {
+    display: none;
+
+    width: 40px;
+    height: 40px;
+
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    border-radius: 9px;
+
+    background: transparent;
+
+    color: #365653;
+
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------
+   MOBILE NAV
+   --------------------------------------------------------- */
+
+.cryma-mobile-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+
+    background: rgba(15, 35, 34, 0.28);
+
+    backdrop-filter: blur(3px);
+}
+
+.cryma-mobile-panel {
+    width: min(330px, 88vw);
+    height: 100%;
+
+    padding: 18px;
+
+    overflow-y: auto;
+
+    background: #ffffff;
+
+    box-shadow:
+        18px 0 45px rgba(16, 48, 46, 0.15);
+
+    animation: crymaMobileIn 0.2s ease;
+}
+
+@keyframes crymaMobileIn {
+    from {
+        transform: translateX(-20px);
+        opacity: 0.8;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.cryma-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding-bottom: 18px;
+
+    border-bottom: 1px solid #edf1f0;
+}
+
+.cryma-mobile-header img {
+    width: 82px;
+    height: auto;
+}
+
+.cryma-mobile-header button {
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    border-radius: 8px;
+
+    background: #f3f6f5;
+
+    color: #526663;
+
+    cursor: pointer;
+}
+
+.cryma-mobile-user {
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    margin: 18px 0;
+    padding: 13px;
+
+    border-radius: 12px;
+
+    background: #f4f8f6;
+}
+
+.cryma-avatar.large {
+    width: 40px;
+    height: 40px;
+
+    font-size: 14px;
+}
+
+.cryma-mobile-user div {
+    display: flex;
+    flex-direction: column;
+}
+
+.cryma-mobile-user strong {
+    color: #234440;
+    font-size: 12px;
+}
+
+.cryma-mobile-user span:not(.cryma-avatar) {
+    margin-top: 3px;
+
+    color: #8a9995;
+
+    font-size: 9px;
+}
+
+.cryma-mobile-navigation {
+    display: flex;
+    flex-direction: column;
+
+    gap: 4px;
+}
+
+.cryma-mobile-navigation a {
+    min-height: 46px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 13px;
+
+    border-radius: 9px;
+
+    color: #526562;
+
+    font-size: 12px;
+    font-weight: 650;
+
+    text-decoration: none;
+}
+
+.cryma-mobile-navigation a:hover,
+.cryma-mobile-navigation a.active {
+    background: #edf5f3;
+    color: #0e5555;
+}
+
+.cryma-mobile-navigation a span {
+    min-width: 20px;
+    height: 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 99px;
+
+    background: #d65d52;
+    color: #ffffff;
+
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.cryma-mobile-signin {
+    width: 100%;
+    height: 43px;
+
+    margin-top: 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    border: 0;
+    border-radius: 9px;
+
+    background: #0f4c4c;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------
+   LOGOUT MODAL
+   --------------------------------------------------------- */
+
+.cryma-logout-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(18, 40, 38, 0.36);
+
+    backdrop-filter: blur(4px);
+}
+
+.cryma-logout-modal {
+    width: min(390px, 100%);
+
+    padding: 28px;
+
+    border: 1px solid #e2e9e7;
+    border-radius: 17px;
+
+    background: #ffffff;
+
+    text-align: center;
+
+    box-shadow:
+        0 25px 70px rgba(15, 45, 43, 0.2);
+
+    animation: crymaModalIn 0.18s ease;
+}
+
+@keyframes crymaModalIn {
+    from {
+        opacity: 0;
+        transform: scale(0.97) translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.cryma-logout-icon {
+    width: 45px;
+    height: 45px;
+
+    margin: 0 auto 14px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #fff0ee;
+    color: #ad5149;
+}
+
+.cryma-logout-modal h2 {
+    margin: 0;
+
+    color: #213f3c;
+
+    font-size: 18px;
+}
+
+.cryma-logout-modal p {
+    margin: 9px auto 0;
+
+    max-width: 290px;
+
+    color: #7b8986;
+
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.cryma-logout-actions {
+    display: flex;
+
+    gap: 8px;
+
+    margin-top: 23px;
+}
+
+.cryma-cancel-button,
+.cryma-confirm-logout {
+    flex: 1;
+
+    height: 40px;
+
+    border-radius: 8px;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.cryma-cancel-button {
+    border: 1px solid #dfe7e5;
+
+    background: #ffffff;
+    color: #526562;
+}
+
+.cryma-confirm-logout {
+    border: 0;
+
+    background: #a94f48;
+    color: #ffffff;
+}
+
+.cryma-confirm-logout:hover {
+    background: #93433d;
+}
+
+/* ---------------------------------------------------------
+   HOME OLD NAVBAR
+   Hide the old Home-only navbar because the new global
+   navbar now handles navigation for the entire buyer side.
+   --------------------------------------------------------- */
+
+.buyer-home > .buyer-market-header {
+    display: none !important;
+}
+
+.buyer-home > .buyer-mobile-menu-overlay {
+    display: none !important;
+}
+
+/* HOME CONTENT SHOULD NOT HAVE NAV OFFSET */
+
+.buyer-home-main {
+    padding-top: 0;
+}
+
+/* ---------------------------------------------------------
+   CATEGORIES PAGE — CLEAN FILTER NAVIGATION
+   --------------------------------------------------------- */
+
+.shop-page {
+    width: min(1420px, calc(100% - 56px));
+
+    margin: 0 auto;
+
+    padding-top: 42px;
+}
+
+.shop-header {
+    align-items: center;
+
+    padding-bottom: 30px;
+}
+
+.shop-header h1 {
+    font-size: clamp(34px, 4vw, 48px);
+}
+
+.shop-header p {
+    max-width: 560px;
+
+    line-height: 1.65;
+}
+
+/* Search box on Categories */
+
+.shop-search {
+    width: min(390px, 100%);
+
+    border-radius: 11px;
+}
+
+/* Category navigation */
+
+.shop-toolbar {
+    min-height: 78px;
+
+    padding: 10px 0;
+
+    border-bottom: 1px solid #e8edeb;
+}
+
+.shop-categories {
+    max-width: calc(100% - 190px);
+
+    gap: 3px;
+
+    flex-wrap: nowrap;
+
+    overflow-x: auto;
+
+    scrollbar-width: none;
+}
+
+.shop-categories::-webkit-scrollbar {
+    display: none;
+}
+
+.shop-categories button {
+    position: relative;
+
+    flex-shrink: 0;
+
+    height: 40px;
+
+    padding: 0 12px;
+
+    border: 0;
+    border-radius: 7px;
+
+    background: transparent;
+
+    color: #75837f;
+
+    font-size: 11px;
+    font-weight: 650;
+
+    transition:
+        color 0.2s ease,
+        background 0.2s ease;
+}
+
+.shop-categories button:hover {
+    background: #f0f5f3;
+    color: #0e5555;
+}
+
+.shop-categories button.active {
+    border: 0;
+
+    background: #edf5f3;
+
+    color: #0e5555;
+}
+
+.shop-categories button.active::after {
+    content: "";
+
+    position: absolute;
+
+    left: 12px;
+    right: 12px;
+    bottom: 4px;
+
+    height: 2px;
+
+    border-radius: 99px;
+
+    background: #0e5555;
+}
+
+/* SORT */
+
+.shop-sort {
+    flex-shrink: 0;
+}
+
+.shop-sort select {
+    height: 38px;
+
+    padding: 0 11px;
+
+    border-radius: 8px;
+
+    font-size: 10px;
+}
+
+/* PRODUCTS */
+
+.shop-results {
+    padding-top: 28px;
+}
+
+.shop-results-heading {
+    margin-bottom: 18px;
+}
+
+.shop-results-heading h2 {
+    font-size: 23px;
+}
+
+.shop-product-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 18px;
+}
+
+.shop-product-card {
+    overflow: hidden;
+
+    border: 1px solid #e5ebe9;
+    border-radius: 14px;
+
+    background: #ffffff;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.22s ease,
+        box-shadow 0.22s ease,
+        border-color 0.22s ease;
+}
+
+.shop-product-card:hover {
+    transform: translateY(-4px);
+
+    border-color: #d6e2df;
+
+    box-shadow:
+        0 16px 38px rgba(22, 59, 56, 0.09);
+}
+
+.shop-product-image {
+    position: relative;
+
+    aspect-ratio: 1 / 1;
+
+    overflow: hidden;
+
+    background: #f1f3f1;
+}
+
+.shop-product-image img {
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+
+    transition: transform 0.35s ease;
+}
+
+.shop-product-card:hover
+.shop-product-image img {
+    transform: scale(1.035);
+}
+
+.shop-product-body {
+    padding: 14px 15px 17px;
+}
+
+.shop-product-body small {
+    color: #91a09c;
+
+    font-size: 9px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.shop-product-body h3 {
+    min-height: 34px;
+
+    margin-top: 5px;
+
+    overflow: hidden;
+
+    color: #25423f;
+
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.shop-rating {
+    display: flex;
+    align-items: center;
+
+    gap: 4px;
+
+    margin-top: 9px;
+
+    color: #71817d;
+
+    font-size: 9px;
+}
+
+.shop-rating svg {
+    color: #c89435;
+}
+
+.shop-price {
+    display: flex;
+    align-items: baseline;
+
+    gap: 7px;
+
+    margin-top: 10px;
+}
+
+.shop-price strong {
+    color: #0d5554;
+
+    font-size: 15px;
+}
+
+.shop-price del {
+    color: #a4afad;
+
+    font-size: 9px;
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE
+   --------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+
+    .cryma-navbar-inner {
+        width: min(100% - 30px, 1480px);
+
+        gap: 14px;
+    }
+
+    .cryma-main-navigation {
+        gap: 0;
+    }
+
+    .cryma-nav-link {
+        padding: 0 8px;
+
+        font-size: 11px;
+    }
+
+    .cryma-navbar-logo,
+    .cryma-navbar-logo img {
+        width: 82px;
+    }
+
+    .cryma-account-name {
+        display: none;
+    }
+
+    .shop-product-grid {
+        grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 950px) {
+
+    .cryma-main-navigation {
+        display: none;
+    }
+
+    .cryma-mobile-toggle {
+        display: flex;
+    }
+
+    .cryma-navbar-inner {
+        min-height: 68px;
+    }
+
+    .cryma-navbar-search {
+        max-width: none;
+    }
+
+    .shop-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .shop-search {
+        width: 100%;
+    }
+
+    .shop-categories {
+        max-width: calc(100% - 150px);
+    }
+}
+
+@media (max-width: 700px) {
+
+    .cryma-navbar-inner {
+        width: calc(100% - 24px);
+
+        gap: 8px;
+    }
+
+    .cryma-navbar-logo,
+    .cryma-navbar-logo img {
+        width: 75px;
+    }
+
+    .cryma-navbar-search {
+        height: 38px;
+    }
+
+    .cryma-search-submit {
+        display: none;
+    }
+
+    .cryma-navbar-actions {
+        gap: 2px;
+    }
+
+    .cryma-account-trigger {
+        padding-right: 3px;
+    }
+
+    .cryma-account-trigger > svg {
+        display: none;
+    }
+
+    .cryma-icon-action {
+        width: 38px;
+        height: 38px;
+    }
+
+    .cryma-signin-button {
+        padding: 0 9px;
+
+        font-size: 10px;
+    }
+
+    .shop-page {
+        width: calc(100% - 28px);
+
+        padding-top: 28px;
+    }
+
+    .shop-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+
+        gap: 8px;
+
+        padding: 10px 0 13px;
+    }
+
+    .shop-categories {
+        width: 100%;
+        max-width: none;
+    }
+
+    .shop-sort {
+        width: 100%;
+    }
+
+    .shop-sort select {
+        width: 100%;
+    }
+
+    .shop-product-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
+        gap: 11px;
+    }
+
+    .shop-product-body {
+        padding: 11px;
+    }
+
+    .shop-product-body h3 {
+        font-size: 11px;
+    }
+
+    .shop-price strong {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 420px) {
+
+    .cryma-navbar-search {
+        display: none;
+    }
+
+    .cryma-navbar-logo,
+    .cryma-navbar-logo img {
+        width: 78px;
+    }
+
+    .shop-product-grid {
+        gap: 9px;
+    }
+}
+
+/* =========================================================
+   CRYMA BUYER — PAGE CLEANUP
+   Global navbar is the single navigation system.
+   ========================================================= */
+
+.buyer-home .buyer-category-section {
+    display: none !important;
+}
+
+/* Categories no longer needs a second search bar.
+   Search is handled by the global navbar. */
+.shop-page .shop-search {
+    display: none !important;
+}
+
+/* Page-specific back links are unnecessary with global nav. */
+.cart-page .buyer-back-link,
+.account-page .buyer-back-link {
+    display: none !important;
+}
+
+/* Account should focus on account information,
+   not duplicate shopping navigation. */
+.account-page .account-panel--actions {
+    display: none !important;
+}
+
+.account-page .account-grid {
+    grid-template-columns: minmax(0, 1fr);
 }

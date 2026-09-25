@@ -33,10 +33,112 @@ class BuyerOrderController extends Controller
 
     public function index(Request $request)
     {
-        $orders = Order::with('items.product')
-            ->where('buyer_id', $request->user()->id)
-            ->latest()
-            ->get();
+        $query = Order::with('items.product')
+            ->where('buyer_id', $request->user()->id);
+
+        /*
+        |--------------------------------------------------------------------------
+        | SEARCH
+        |--------------------------------------------------------------------------
+        | Searches by:
+        | - Order ID
+        | - Product name
+        */
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($orderQuery) use ($search) {
+                $orderQuery
+                    ->where('id', 'like', "%{$search}%")
+                    ->orWhereHas('items.product', function ($productQuery) use ($search) {
+                        $productQuery->where(
+                            'name',
+                            'like',
+                            "%{$search}%"
+                        );
+                    });
+            });
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | STATUS FILTER
+        |--------------------------------------------------------------------------
+        */
+        if ($request->filled('status')) {
+            $query->where(
+                'status',
+                $request->status
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATE FILTER
+        |--------------------------------------------------------------------------
+        */
+        if ($request->filled('date_from')) {
+            $query->whereDate(
+                'created_at',
+                '>=',
+                $request->date_from
+            );
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate(
+                'created_at',
+                '<=',
+                $request->date_to
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SORTING
+        |--------------------------------------------------------------------------
+        */
+        $sort = $request->get(
+            'sort',
+            'newest'
+        );
+
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy(
+                    'created_at',
+                    'asc'
+                );
+                break;
+
+            case 'highest':
+                $query->orderBy(
+                    'total_amount',
+                    'desc'
+                );
+                break;
+
+            case 'lowest':
+                $query->orderBy(
+                    'total_amount',
+                    'asc'
+                );
+                break;
+
+            case 'newest':
+            default:
+                $query->latest();
+                break;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PAGINATION
+        |--------------------------------------------------------------------------
+        */
+        $orders = $query
+            ->paginate(10)
+            ->withQueryString();
 
         return response()->json([
             'success' => true,
