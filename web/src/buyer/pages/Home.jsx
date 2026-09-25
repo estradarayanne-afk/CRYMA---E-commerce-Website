@@ -86,6 +86,8 @@ function Home() {
                     items = payload;
                 } else if (Array.isArray(payload?.data)) {
                     items = payload.data;
+                } else if (Array.isArray(payload?.data?.data)) {
+                    items = payload.data.data;
                 } else if (Array.isArray(payload?.products)) {
                     items = payload.products;
                 }
