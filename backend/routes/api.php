@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Seller\ProductController;
+use App\Http\Controllers\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Seller\ReportController as SellerReportController;
 use App\Http\Controllers\Admin\SellerComplianceController;
 use App\Http\Controllers\Admin\ComplaintController;
@@ -42,7 +43,16 @@ Route::middleware('auth:sanctum')->group(function () {
     ]);
 
     // Buyer orders
-    Route::get('/orders', [BuyerOrderController::class, 'index']);
+    Route::get('/buyer/checkout-data', [
+        BuyerOrderController::class,
+        'checkoutData'
+    ]);
+
+    Route::get('/orders', [
+        BuyerOrderController::class,
+        'index'
+    ]);
+
     Route::get('/orders/{id}', [BuyerOrderController::class, 'show']);
     Route::post('/orders', [BuyerOrderController::class, 'store']);
 
@@ -90,6 +100,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/users', [AdminRegistrationController::class, 'users']);
     Route::patch('/admin/users/{id}', [AdminRegistrationController::class,'updateUser']);
     Route::patch('/admin/users/{id}/status', [AdminRegistrationController::class,'updateStatus']);
+
+    // Seller order management
+    Route::get('/seller/orders', [
+        SellerOrderController::class,
+        'index'
+    ]);
+
+    Route::get('/seller/orders/{id}', [
+        SellerOrderController::class,
+        'show'
+    ]);
+
+    Route::patch('/seller/orders/{id}/status', [
+        SellerOrderController::class,
+        'updateStatus'
+    ]);
 
     // Seller product management
     Route::post('/seller/products', [

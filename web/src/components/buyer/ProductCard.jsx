@@ -1,58 +1,104 @@
-import { Heart, Star } from "lucide-react";
+import { Heart, ShoppingCart } from "lucide-react";
 
-function ProductCard({ product }) {
+function ProductCard({
+    product,
+    saved = false,
+    onSave,
+    onAddToCart,
+    onOpen,
+}) {
+    const price = Number(product?.price || 0);
+    const stock = Number(product?.stock || 0);
+
+    const sellerName =
+        typeof product?.seller === "string"
+            ? product.seller
+            : product?.seller?.name || "";
+
     return (
-        <article className="product-card">
-            <div className="product-image-container">
-                <img
-                    src={product.image}
-                    alt={product.name}
-                    className="product-image"
-                />
+        <article className="buyer-product-card">
+            <button
+                type="button"
+                className="buyer-product-image-button"
+                onClick={() => onOpen?.(product)}
+                aria-label={`View ${product?.name || "product"}`}
+            >
+                <div className="buyer-product-image">
+                    {product?.image ? (
+                        <img
+                            src={product.image}
+                            alt={product.name}
+                        />
+                    ) : (
+                        <span>
+                            {product?.name?.charAt(0)?.toUpperCase() ||
+                                "C"}
+                        </span>
+                    )}
+                </div>
+            </button>
 
-                {product.discount && (
-                    <span className="product-discount">
-                        -{product.discount}%
+            <button
+                type="button"
+                className={`buyer-product-save ${
+                    saved ? "saved" : ""
+                }`}
+                onClick={() => onSave?.(product)}
+                aria-label={
+                    saved
+                        ? `Remove ${product.name} from wishlist`
+                        : `Add ${product.name} to wishlist`
+                }
+            >
+                <Heart
+                    size={16}
+                    fill={saved ? "currentColor" : "none"}
+                />
+            </button>
+
+            <div className="buyer-product-content">
+                {product?.category && (
+                    <span className="buyer-product-category">
+                        {product.category}
                     </span>
                 )}
 
                 <button
                     type="button"
-                    className="product-wishlist"
-                    aria-label={`Add ${product.name} to wishlist`}
+                    className="buyer-product-name"
+                    onClick={() => onOpen?.(product)}
                 >
-                    <Heart size={17} />
+                    {product?.name || "Unnamed product"}
                 </button>
-            </div>
 
-            <div className="product-card-body">
-                <span className="product-category">
-                    {product.category}
-                </span>
+                <strong className="buyer-product-price">
+                    ₱{price.toLocaleString()}
+                </strong>
 
-                <h3>{product.name}</h3>
+                <div className="buyer-product-meta">
+                    {sellerName && (
+                        <span className="buyer-product-seller">
+                            {sellerName}
+                        </span>
+                    )}
 
-                <div className="product-rating">
-                    <Star size={14} fill="currentColor" />
-
-                    <span>{product.rating}</span>
-
-                    <span className="product-reviews">
-                        ({product.reviews})
+                    <span className="buyer-product-stock">
+                        {stock > 0
+                            ? `${stock} available`
+                            : "Out of stock"}
                     </span>
                 </div>
 
-                <div className="product-price-row">
-                    <strong>
-                        ₱{product.price.toLocaleString()}
-                    </strong>
+                <button
+                    type="button"
+                    className="buyer-product-add"
+                    disabled={stock <= 0}
+                    onClick={() => onAddToCart?.(product)}
+                >
+                    <ShoppingCart size={15} />
 
-                    {product.oldPrice && (
-                        <span className="product-old-price">
-                            ₱{product.oldPrice.toLocaleString()}
-                        </span>
-                    )}
-                </div>
+                    {stock > 0 ? "Add to Cart" : "Out of Stock"}
+                </button>
             </div>
         </article>
     );

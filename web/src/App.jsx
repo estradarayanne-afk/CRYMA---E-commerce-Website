@@ -1,7 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
+import ProtectedRoute from "./shared/components/ProtectedRoute";
+
 // ── AUTH ──
 import Login from "./auth/pages/BuyerLogin";
+import AdminLogin from "./auth/pages/AdminLogin";
 import Register from "./auth/pages/Register";
 import RegistrationChoice from "./auth/pages/RegistrationChoice";
 
@@ -17,7 +20,6 @@ import AdminSettings from "./admin/pages/Settings/Settings";
 import AccountSettings from "./admin/pages/AccountSettings/AccountSettings";
 import AdminChat from "./admin/pages/Chat/Chat";
 import SellerCompliance from "./admin/pages/SellerCompliance/SellerCompliance";
-
 
 // ── BUYER ──
 import BuyerHome from "./buyer/pages/Home";
@@ -55,87 +57,252 @@ function App() {
         <BrowserRouter>
             <Routes>
 
-                {/* ── BUYER STOREFRONT ── */}
+                {/* =====================================================
+                    GUEST / PUBLIC STOREFRONT
+                   ===================================================== */}
+
+                {/* Anyone can browse CRYMA */}
                 <Route path="/" element={<BuyerHome />} />
                 <Route path="/shop" element={<BuyerCategories />} />
-                <Route path="/cart" element={<BuyerCart />} />
-                <Route path="/checkout" element={<BuyerCheckout />} />
-                <Route path="/orders" element={<BuyerOrders />} />
-                <Route path="/orders/:id" element={<BuyerOrderDetails />} />
                 <Route path="/products/:id" element={<BuyerProductDetails />} />
                 <Route path="/reviews" element={<BuyerReviews />} />
-                <Route path="/account" element={<BuyerAccount />} />
-                <Route path="/buyer/chat" element={<BuyerChat />} />
 
-                {/* ── AUTH ── */}
+                {/* Cart remains accessible to guests.
+                    Checkout itself requires a buyer account. */}
+                <Route path="/cart" element={<BuyerCart />} />
+
+                {/* =====================================================
+                    AUTHENTICATION
+                   ===================================================== */}
+
                 <Route path="/login" element={<Login />} />
+                <Route path="/admin/login" element={<AdminLogin />} />
+
                 <Route path="/register" element={<RegistrationChoice />} />
                 <Route path="/register/:role" element={<Register />} />
-                <Route path="/seller-register" element={<Navigate to="/register/seller" replace />} />
 
-                {/* ── ADMIN ── */}
-                <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                    <Route path="dashboard" element={<AdminDashboard />} />
-                    <Route path="registrations" element={<Registrations />} />
-                    <Route path="users" element={<AdminUsers />} />
-                    <Route path="seller-compliance" element={<SellerCompliance />} />
-                    <Route path="complaints" element={<AdminComplaints />} />
-                    <Route path="commission" element={<AdminCommission />} />
-                    <Route path="reports" element={<AdminReports />} />
-                    <Route path="settings" element={<AdminSettings />} />
-                    <Route path="account-settings" element={<AccountSettings />} />
-                    <Route path="chat" element={<AdminChat />} />
-                </Route>
+                <Route
+                    path="/seller-register"
+                    element={
+                        <Navigate
+                            to="/register/seller"
+                            replace
+                        />
+                    }
+                />
 
-                {/* ── SELLER ── */}
-                <Route path="/seller" element={<SellerLayout />}>
+                {/* =====================================================
+                    BUYER - AUTHENTICATED ONLY
+                   ===================================================== */}
+
+                <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
+
                     <Route
-                        index
-                        element={
-                            <Navigate
-                                to="/seller/dashboard"
-                                replace
-                            />
-                        }
+                        path="/checkout"
+                        element={<BuyerCheckout />}
                     />
-                    <Route path="dashboard" element={<SellerDashboard />} />
-                    <Route path="inventory" element={<SellerInventory />} />
-                    <Route path="orders" element={<SellerOrders />} />
-                    <Route path="logistics" element={<SellerLogistics />} />
-                    <Route path="feedback" element={<SellerFeedback />} />
-                    <Route path="reports" element={<SellerReports />} />
-                    <Route path="chat" element={<SellerChat />} />
-                    <Route path="account-settings" element={<SellerAccountSettings />} />
+
+                    <Route
+                        path="/orders"
+                        element={<BuyerOrders />}
+                    />
+
+                    <Route
+                        path="/orders/:id"
+                        element={<BuyerOrderDetails />}
+                    />
+
+                    <Route
+                        path="/account"
+                        element={<BuyerAccount />}
+                    />
+
+                    <Route
+                        path="/buyer/chat"
+                        element={<BuyerChat />}
+                    />
+
                 </Route>
 
-                {/* ── COURIER ── */}
-                <Route
-                    path="/courier/dashboard"
-                    element={<CourierDashboard />}
-                />
-                <Route
-                    path="/courier/deliveries"
-                    element={<CourierDeliveries />}
-                />
-                <Route
-                    path="/courier/deliveries/:id"
-                    element={<CourierDeliveryDetails />}
-                />
-                <Route
-                    path="/courier/earnings"
-                    element={<CourierEarnings />}
-                />
-                <Route
-                    path="/courier/history"
-                    element={<CourierHistory />}
-                />
-                <Route
-                    path="/courier/chat"
-                    element={<CourierChat />}
-                />
+                {/* =====================================================
+                    ADMIN - ADMIN ONLY
+                   ===================================================== */}
 
-                {/* ── FALLBACK ── */}
+                <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+
+                    <Route path="/admin" element={<AdminLayout />}>
+
+                        <Route
+                            index
+                            element={
+                                <Navigate
+                                    to="/admin/dashboard"
+                                    replace
+                                />
+                            }
+                        />
+
+                        <Route
+                            path="dashboard"
+                            element={<AdminDashboard />}
+                        />
+
+                        <Route
+                            path="registrations"
+                            element={<Registrations />}
+                        />
+
+                        <Route
+                            path="users"
+                            element={<AdminUsers />}
+                        />
+
+                        <Route
+                            path="seller-compliance"
+                            element={<SellerCompliance />}
+                        />
+
+                        <Route
+                            path="complaints"
+                            element={<AdminComplaints />}
+                        />
+
+                        <Route
+                            path="commission"
+                            element={<AdminCommission />}
+                        />
+
+                        <Route
+                            path="reports"
+                            element={<AdminReports />}
+                        />
+
+                        <Route
+                            path="settings"
+                            element={<AdminSettings />}
+                        />
+
+                        <Route
+                            path="account-settings"
+                            element={<AccountSettings />}
+                        />
+
+                        <Route
+                            path="chat"
+                            element={<AdminChat />}
+                        />
+
+                    </Route>
+
+                </Route>
+
+                {/* =====================================================
+                    SELLER - SELLER ONLY
+                   ===================================================== */}
+
+                <Route element={<ProtectedRoute allowedRoles={["seller"]} />}>
+
+                    <Route
+                        path="/seller"
+                        element={<SellerLayout />}
+                    >
+
+                        <Route
+                            index
+                            element={
+                                <Navigate
+                                    to="/seller/dashboard"
+                                    replace
+                                />
+                            }
+                        />
+
+                        <Route
+                            path="dashboard"
+                            element={<SellerDashboard />}
+                        />
+
+                        <Route
+                            path="inventory"
+                            element={<SellerInventory />}
+                        />
+
+                        <Route
+                            path="orders"
+                            element={<SellerOrders />}
+                        />
+
+                        <Route
+                            path="logistics"
+                            element={<SellerLogistics />}
+                        />
+
+                        <Route
+                            path="feedback"
+                            element={<SellerFeedback />}
+                        />
+
+                        <Route
+                            path="reports"
+                            element={<SellerReports />}
+                        />
+
+                        <Route
+                            path="chat"
+                            element={<SellerChat />}
+                        />
+
+                        <Route
+                            path="account-settings"
+                            element={<SellerAccountSettings />}
+                        />
+
+                    </Route>
+
+                </Route>
+
+                {/* =====================================================
+                    COURIER / RIDER - RIDER ONLY
+                   ===================================================== */}
+
+                <Route element={<ProtectedRoute allowedRoles={["rider"]} />}>
+
+                    <Route
+                        path="/courier/dashboard"
+                        element={<CourierDashboard />}
+                    />
+
+                    <Route
+                        path="/courier/deliveries"
+                        element={<CourierDeliveries />}
+                    />
+
+                    <Route
+                        path="/courier/deliveries/:id"
+                        element={<CourierDeliveryDetails />}
+                    />
+
+                    <Route
+                        path="/courier/earnings"
+                        element={<CourierEarnings />}
+                    />
+
+                    <Route
+                        path="/courier/history"
+                        element={<CourierHistory />}
+                    />
+
+                    <Route
+                        path="/courier/chat"
+                        element={<CourierChat />}
+                    />
+
+                </Route>
+
+                {/* =====================================================
+                    FALLBACK
+                   ===================================================== */}
+
                 <Route
                     path="*"
                     element={<Navigate to="/" replace />}

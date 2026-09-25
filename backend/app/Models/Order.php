@@ -8,6 +8,8 @@ class Order extends Model
 {
     protected $fillable = [
         'buyer_id',
+        'delivery_address',
+        'payment_method',
         'subtotal',
         'shipping_fee',
         'total_amount',

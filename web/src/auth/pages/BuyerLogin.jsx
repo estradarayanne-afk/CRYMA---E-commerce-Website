@@ -21,15 +21,16 @@ function Login() {
             const { data } = await api.post("/login", { email: email.trim(), password });
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
-            if (data.user.role === "admin") {
-                navigate("/admin/dashboard", { replace: true });
-            } else if (data.user.role === "seller") {
-                navigate("/seller/dashboard", { replace: true });
-            } else if (data.user.role === "rider") {
-                navigate("/courier/dashboard", { replace: true });
-            } else {
-                navigate(from, { replace: true });
-            }
+            const roleHome = {
+                admin: "/admin/dashboard",
+                seller: "/seller/dashboard",
+                rider: "/courier/dashboard",
+                buyer: from,
+            };
+
+            const destination = roleHome[data.user.role] || "/";
+
+            navigate(destination, { replace: true });
         } catch (err) {
             setError(err.response?.data?.message || (err.request
                 ? "The server is not reachable. Start the backend with start.bat and try again."

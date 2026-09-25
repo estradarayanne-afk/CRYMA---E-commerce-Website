@@ -1,231 +1,788 @@
-import { useMemo, useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+    Heart,
+    LogOut,
+    Menu,
+    MessageCircle,
+    Package,
+    Search,
+    ShoppingCart,
+    UserRound,
+    X,
+} from "lucide-react";
 import api from "../../shared/services/api";
 import logo from "../../assets/CRYMA LOGO.png";
-import { CATEGORY_FILTERS } from "../../shared/constants/categories";
+import { PRODUCT_CATEGORIES } from "../../shared/constants/categories";
+import ProductCard from "../../components/buyer/ProductCard";
 
-const CATEGORY_CARDS = [
-    { name: "Pet Supplies", image: "https://images.unsplash.com/photo-1589924691106-073b4f2c4d74?auto=format&fit=crop&w=420&q=85" },
-    { name: "Electronics & Gadgets", image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=420&q=85" },
-    { name: "Women's Apparel", image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=420&q=85" },
-    { name: "Men's Apparel", image: "https://images.unsplash.com/photo-1516826957135-700dedea698c?auto=format&fit=crop&w=420&q=85" },
-    { name: "Kids & Baby", image: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=420&q=85" },
-    { name: "Home & Garden", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=420&q=85" },
-    { name: "Sports & Outdoors", image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=420&q=85" },
-    { name: "Health & Beauty", image: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=420&q=85" },
-    { name: "Books & Media", image: "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=420&q=85" },
-    { name: "Food & Gourmet", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=420&q=85" },
-    { name: "Automotive & Motorcycle", image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=420&q=85" },
-    { name: "Furniture & Office Equipment", image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=420&q=85" },
-    { name: "Jewelry & Watches", image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=420&q=85" },
-    { name: "Office & School Supplies", image: "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?auto=format&fit=crop&w=420&q=85" },
-];
+function getStoredUser() {
+    try {
+        return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+        return null;
+    }
+}
+
+function getCartItems() {
+    try {
+        const cart = JSON.parse(localStorage.getItem("cryma_cart") || "[]");
+        return Array.isArray(cart) ? cart : [];
+    } catch {
+        return [];
+    }
+}
 
 function Home() {
     const navigate = useNavigate();
+
+    const [user] = useState(getStoredUser);
     const [products, setProducts] = useState([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
-    const [activeCategory, setActiveCategory] = useState("All");
+    const [productError, setProductError] = useState("");
     const [search, setSearch] = useState("");
-    const [cartCount, setCartCount] = useState(() => JSON.parse(localStorage.getItem("cryma_cart") || "[]").reduce((sum, item) => sum + item.quantity, 0));
-    const [saved, setSaved] = useState([]);
-    const [toast, setToast] = useState(false);
-    const [logoutToast, setLogoutToast] = useState(false);
+    const [activeCategory, setActiveCategory] = useState("All");
+    const [cartCount, setCartCount] = useState(getCartItems().length);
     const [menuOpen, setMenuOpen] = useState(false);
-    const [profileOpen, setProfileOpen] = useState(false);
-
-    const user = (() => {
-        try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
-    })();
+    const [accountOpen, setAccountOpen] = useState(false);
+    const [savedProducts, setSavedProducts] = useState([]);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [logoutOpen, setLogoutOpen] = useState(false);
+    const [toast, setToast] = useState("");
 
     useEffect(() => {
-        if (localStorage.getItem("token") && user?.role === "admin") {
+        if (user?.role === "admin") {
             navigate("/admin/dashboard", { replace: true });
-        }
-        if (localStorage.getItem("token") && user?.role === "seller") {
-            navigate("/seller/dashboard", { replace: true });
-        }
-    }, [navigate, user?.role]);
-
-    useEffect(() => {
-        api.get("/products", { params: { per_page: 50 } })
-            .then(({ data }) => setProducts(data.data?.data ?? data.data ?? []))
-            .catch(() => setProducts([]))
-            .finally(() => setLoadingProducts(false));
-    }, []);
-
-    const isLoggedIn = !!localStorage.getItem("token");
-
-    const visibleProducts = useMemo(() => products.filter((p) => {
-        const matchCat = activeCategory === "All" || p.category === activeCategory;
-        const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
-        return matchCat && matchSearch;
-    }), [products, activeCategory, search]);
-
-    const dealProducts = visibleProducts.slice(0, 8);
-
-    const toggleSaved = (id) => {
-        if (!isLoggedIn) {
-            navigate("/login", { state: { from: "/" } });
             return;
         }
 
-        setSaved((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
-    };
-
-    const handleAddToBag = (product) => {
-        if (!isLoggedIn) {
-            setToast(true);
-            setTimeout(() => setToast(false), 3500);
-            return false;
+        if (user?.role === "seller") {
+            navigate("/seller/dashboard", { replace: true });
+            return;
         }
-        const cart = JSON.parse(localStorage.getItem("cryma_cart") || "[]");
-        const existing = cart.find((item) => item.id === product.id);
-        if (existing) existing.quantity += 1;
-        else cart.push({ ...product, quantity: 1 });
-        localStorage.setItem("cryma_cart", JSON.stringify(cart));
-        setCartCount((c) => c + 1);
-        return true;
+
+        if (user?.role === "rider") {
+            navigate("/courier/dashboard", { replace: true });
+        }
+    }, [user, navigate]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        async function loadProducts() {
+            setLoadingProducts(true);
+            setProductError("");
+
+            try {
+                const response = await api.get("/products?per_page=50");
+
+                if (!mounted) return;
+
+                const payload = response?.data;
+
+                let items = [];
+
+                if (Array.isArray(payload)) {
+                    items = payload;
+                } else if (Array.isArray(payload?.data)) {
+                    items = payload.data;
+                } else if (Array.isArray(payload?.products)) {
+                    items = payload.products;
+                }
+
+                setProducts(items);
+            } catch (error) {
+                if (!mounted) return;
+
+                console.error("Failed to load products:", error);
+                setProductError(
+                    "We couldn't load the products right now. Please try again."
+                );
+            } finally {
+                if (mounted) {
+                    setLoadingProducts(false);
+                }
+            }
+        }
+
+        loadProducts();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        const updateCartCount = () => {
+            setCartCount(getCartItems().length);
+        };
+
+        window.addEventListener("cryma-cart-updated", updateCartCount);
+        window.addEventListener("storage", updateCartCount);
+
+        return () => {
+            window.removeEventListener(
+                "cryma-cart-updated",
+                updateCartCount
+            );
+            window.removeEventListener("storage", updateCartCount);
+        };
+    }, []);
+
+    const filteredProducts = useMemo(() => {
+        const query = search.trim().toLowerCase();
+
+        return products.filter((product) => {
+            const categoryMatch =
+                activeCategory === "All" ||
+                String(product.category || "").toLowerCase() ===
+                    activeCategory.toLowerCase();
+
+            const searchMatch =
+                !query ||
+                String(product.name || "")
+                    .toLowerCase()
+                    .includes(query) ||
+                String(product.category || "")
+                    .toLowerCase()
+                    .includes(query) ||
+                String(product.seller?.name || product.seller || "")
+                    .toLowerCase()
+                    .includes(query);
+
+            return categoryMatch && searchMatch;
+        });
+    }, [products, activeCategory, search]);
+
+    const handleSearch = (event) => {
+        event.preventDefault();
+
+        const value = search.trim();
+
+        if (!value) {
+            navigate("/shop");
+            return;
+        }
+
+        navigate(`/shop?search=${encodeURIComponent(value)}`);
     };
 
-    const openProduct = (product) => {
-        if (!isLoggedIn) {
-            navigate("/login", { state: { from: `/products/${product.id}` } });
+    const handleCategory = (category) => {
+        setActiveCategory(category);
+
+        if (category === "All") {
+            navigate("/");
+            return;
+        }
+
+        navigate(`/shop?category=${encodeURIComponent(category)}`);
+    };
+
+    const handleProductClick = (product) => {
+        if (!user) {
+            navigate("/login");
             return;
         }
 
         navigate(`/products/${product.id}`);
     };
 
+    const handleAddToCart = (product) => {
+        if (!user) {
+            navigate("/login");
+            return;
+        }
+
+        const cart = getCartItems();
+
+        const existingIndex = cart.findIndex(
+            (item) => Number(item.id) === Number(product.id)
+        );
+
+        if (existingIndex >= 0) {
+            cart[existingIndex] = {
+                ...cart[existingIndex],
+                quantity: Number(cart[existingIndex].quantity || 1) + 1,
+            };
+        } else {
+            cart.push({
+                id: product.id,
+                name: product.name,
+                price: Number(product.price || 0),
+                quantity: 1,
+                stock: Number(product.stock || 0),
+                category: product.category || "",
+                seller: product.seller || null,
+            });
+        }
+
+        localStorage.setItem("cryma_cart", JSON.stringify(cart));
+        setCartCount(cart.length);
+        window.dispatchEvent(new Event("cryma-cart-updated"));
+
+        setSelectedProduct(product);
+    };
+
+    const handleToggleSaved = (product) => {
+        if (!user) {
+            navigate("/login");
+            return;
+        }
+
+        setSavedProducts((current) => {
+            if (current.includes(product.id)) {
+                return current.filter((id) => id !== product.id);
+            }
+
+            return [...current, product.id];
+        });
+    };
+
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        setCartCount(0);
-        setLogoutToast(true);
-        setTimeout(() => setLogoutToast(false), 3000);
+
+        setAccountOpen(false);
+        setLogoutOpen(false);
+
+        setToast("You have been signed out.");
+
+        setTimeout(() => {
+            navigate("/login", { replace: true });
+        }, 700);
     };
 
-    const initials = user ? `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() : "";
-
-    const getImage = (p) => p.image || null;
+    const userName =
+        user?.first_name ||
+        user?.firstName ||
+        user?.name ||
+        user?.email?.split("@")[0] ||
+        "Account";
 
     return (
-        <div className="sf">
-            {logoutToast && (
-                <div className="sf-toast sf-toast--success">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Signed out successfully.</span>
-                </div>
-            )}
-            {toast && (
-                <div className="sf-toast">
-                    <span>Sign in to add items to your bag</span>
-                    <button type="button" onClick={() => { setToast(false); navigate("/login", { state: { from: "/" } }); }}>Sign in</button>
-                </div>
-            )}
-
-            <header className="sf-header">
-                <button className="sf-hamburger" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
-                    <span /><span /><span />
-                </button>
-
-                <Link to="/" className="sf-brand" aria-label="Cryma home">
-                    <img src={logo} alt="Cryma logo" />
-                </Link>
-
-                <nav className={`sf-nav${menuOpen ? " open" : ""}`}>
-                    <a href="#shop" onClick={() => setMenuOpen(false)}>Shop</a>
-                </nav>
-
-                <div className="sf-actions">
-                    <label className="sf-search">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" aria-label="Search" />
-                    </label>
-
-                    {isLoggedIn ? (
-                        <div className="sf-user-menu">
-                            <button className="sf-avatar" type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Open profile menu" aria-expanded={profileOpen}>{initials || "U"}</button>
-                            <div className={`sf-user-dropdown${profileOpen ? " open" : ""}`}>
-                                <span className="sf-user-name">{user ? `${user.first_name} ${user.last_name}` : "Account"}</span>
-                                <Link to="/account" onClick={() => setProfileOpen(false)}>Profile settings</Link>
-                                <Link to="/orders">My Orders</Link>
-                                <button type="button" onClick={handleLogout}>Sign out</button>
-                            </div>
-                        </div>
-                    ) : (
-                        <Link to="/login" className="sf-icon-btn" aria-label="Sign in">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        </Link>
-                    )}
-
-                    <button className="sf-bag-btn" type="button" aria-label="Bag" onClick={() => navigate("/cart")}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                        {cartCount > 0 && <span className="sf-bag-count">{cartCount}</span>}
+        <div className="buyer-home">
+            <header className="buyer-market-header">
+                <div className="buyer-market-header-inner">
+                    <button
+                        type="button"
+                        className="buyer-mobile-menu"
+                        aria-label="Open navigation"
+                        onClick={() => setMenuOpen(true)}
+                    >
+                        <Menu size={21} />
                     </button>
+
+                    <Link
+                        to="/"
+                        className="buyer-market-logo"
+                        aria-label="CRYMA Home"
+                    >
+                        <img src={logo} alt="CRYMA" />
+                    </Link>
+
+                    <nav className="buyer-main-nav">
+                        <Link
+                            to="/"
+                            className="buyer-main-nav-link active"
+                        >
+                            Home
+                        </Link>
+
+                        <Link
+                            to="/shop"
+                            className="buyer-main-nav-link"
+                        >
+                            Categories
+                        </Link>
+
+                        <Link
+                            to="/cart"
+                            className="buyer-main-nav-link buyer-nav-with-icon"
+                        >
+                            <ShoppingCart size={17} />
+                            Cart
+                            {cartCount > 0 && (
+                                <span className="buyer-nav-badge">
+                                    {cartCount > 99 ? "99+" : cartCount}
+                                </span>
+                            )}
+                        </Link>
+
+                        <Link
+                            to="/orders"
+                            className="buyer-main-nav-link buyer-nav-with-icon"
+                        >
+                            <Package size={17} />
+                            My Orders
+                        </Link>
+
+                        <Link
+                            to="/buyer/chat"
+                            className="buyer-main-nav-link buyer-nav-with-icon"
+                        >
+                            <MessageCircle size={17} />
+                            Messages
+                        </Link>
+                    </nav>
+
+                    <form
+                        className="buyer-market-search"
+                        onSubmit={handleSearch}
+                    >
+                        <Search size={18} />
+
+                        <input
+                            type="search"
+                            value={search}
+                            onChange={(event) =>
+                                setSearch(event.target.value)
+                            }
+                            placeholder="Search products..."
+                            aria-label="Search products"
+                        />
+
+                        {search && (
+                            <button
+                                type="button"
+                                className="buyer-search-clear"
+                                onClick={() => setSearch("")}
+                                aria-label="Clear search"
+                            >
+                                <X size={15} />
+                            </button>
+                        )}
+
+                        <button type="submit" className="buyer-search-button">
+                            Search
+                        </button>
+                    </form>
+
+                    <div className="buyer-market-actions">
+                        <Link
+                            to="/cart"
+                            className="buyer-header-icon-button"
+                            aria-label="Cart"
+                        >
+                            <ShoppingCart size={20} />
+
+                            {cartCount > 0 && (
+                                <span className="buyer-header-badge">
+                                    {cartCount > 99 ? "99+" : cartCount}
+                                </span>
+                            )}
+                        </Link>
+
+                        {user ? (
+                            <div className="buyer-account-wrapper">
+                                <button
+                                    type="button"
+                                    className="buyer-account-button"
+                                    onClick={() =>
+                                        setAccountOpen((current) => !current)
+                                    }
+                                >
+                                    <span className="buyer-account-avatar">
+                                        {userName.charAt(0).toUpperCase()}
+                                    </span>
+
+                                    <span className="buyer-account-name">
+                                        {userName}
+                                    </span>
+                                </button>
+
+                                {accountOpen && (
+                                    <div className="buyer-account-menu">
+                                        <div className="buyer-account-menu-header">
+                                            <strong>{userName}</strong>
+                                            <span>{user?.email}</span>
+                                        </div>
+
+                                        <Link
+                                            to="/account"
+                                            onClick={() =>
+                                                setAccountOpen(false)
+                                            }
+                                        >
+                                            <UserRound size={17} />
+                                            My Account
+                                        </Link>
+
+                                        <Link
+                                            to="/orders"
+                                            onClick={() =>
+                                                setAccountOpen(false)
+                                            }
+                                        >
+                                            <Package size={17} />
+                                            My Orders
+                                        </Link>
+
+                                        <Link
+                                            to="/buyer/chat"
+                                            onClick={() =>
+                                                setAccountOpen(false)
+                                            }
+                                        >
+                                            <MessageCircle size={17} />
+                                            Messages
+                                        </Link>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAccountOpen(false);
+                                                setLogoutOpen(true);
+                                            }}
+                                        >
+                                            <LogOut size={17} />
+                                            Sign Out
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                className="buyer-sign-in-button"
+                                onClick={() => navigate("/login")}
+                            >
+                                <UserRound size={18} />
+                                Sign In
+                            </button>
+                        )}
+                    </div>
                 </div>
             </header>
 
-            <main>
-                <section className="market-hero">
-                    <div className="market-hero-copy">
-                        <span className="market-sale-pill">MEGA SALE - UP TO 40% OFF</span>
-                        <h1>Everything for Every Lifestyle.</h1>
-                        <p>Discover thousands of products from verified Filipino sellers. Fast delivery, secure payments, and 100% buyer protection.</p>
-                        <div className="market-hero-actions">
-                            <a className="market-primary-button" href="#shop">Shop Now</a>
-                            <a className="market-secondary-button" href="#deals">View Deals</a>
+            {menuOpen && (
+                <div
+                    className="buyer-mobile-menu-overlay"
+                    onClick={() => setMenuOpen(false)}
+                >
+                    <aside
+                        className="buyer-mobile-menu-panel"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="buyer-mobile-menu-header">
+                            <strong>CRYMA</strong>
+
+                            <button
+                                type="button"
+                                onClick={() => setMenuOpen(false)}
+                                aria-label="Close navigation"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
+
+                        <nav className="buyer-mobile-nav">
+                            <Link to="/" onClick={() => setMenuOpen(false)}>
+                                Home
+                            </Link>
+
+                            <Link
+                                to="/shop"
+                                onClick={() => setMenuOpen(false)}
+                            >
+                                Categories
+                            </Link>
+
+                            <Link
+                                to="/cart"
+                                onClick={() => setMenuOpen(false)}
+                            >
+                                Cart
+                                {cartCount > 0 && (
+                                    <span>{cartCount}</span>
+                                )}
+                            </Link>
+
+                            <Link
+                                to="/orders"
+                                onClick={() => setMenuOpen(false)}
+                            >
+                                My Orders
+                            </Link>
+
+                            <Link
+                                to="/buyer/chat"
+                                onClick={() => setMenuOpen(false)}
+                            >
+                                Messages
+                            </Link>
+
+                            {user && (
+                                <Link
+                                    to="/account"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    My Account
+                                </Link>
+                            )}
+                        </nav>
+                    </aside>
+                </div>
+            )}
+
+            <main className="buyer-home-main">
+                <section className="buyer-home-heading">
+                    <div>
+                        <span className="buyer-section-eyebrow">
+                            CRYMA MARKETPLACE
+                        </span>
+
+                        <h1>Find what you need.</h1>
+
+                        <p>
+                            Browse products from different categories and
+                            shop at your own pace.
+                        </p>
                     </div>
-                    <div className="market-trending">
-                        <span>🔥 &nbsp;Trending Now</span>
-                        {dealProducts.slice(0, 3).map((p) => (
-                            <button type="button" key={p.id} onClick={() => openProduct(p)}>
-                                {getImage(p) ? <img src={getImage(p)} alt="" /> : <div className="market-image-placeholder" aria-label="Image unavailable">CRYMA</div>}
-                                <span><strong>{p.name}</strong><b>₱{Number(p.price).toLocaleString()}</b></span>
+
+                    <Link
+                        to="/shop"
+                        className="buyer-view-all-link"
+                    >
+                        View all products
+                    </Link>
+                </section>
+
+                <section className="buyer-category-section">
+                    <div className="buyer-section-heading">
+                        <h2>Categories</h2>
+                    </div>
+
+                    <div className="buyer-category-list">
+                        <button
+                            type="button"
+                            className={
+                                activeCategory === "All"
+                                    ? "active"
+                                    : ""
+                            }
+                            onClick={() => handleCategory("All")}
+                        >
+                            All
+                        </button>
+
+                        {PRODUCT_CATEGORIES.map((category) => (
+                            <button
+                                type="button"
+                                key={category}
+                                className={
+                                    activeCategory === category
+                                        ? "active"
+                                        : ""
+                                }
+                                onClick={() => handleCategory(category)}
+                            >
+                                {category}
                             </button>
                         ))}
                     </div>
                 </section>
 
-                <section className="market-section market-categories" id="shop">
-                    <div className="market-section-heading"><h2>Shop by Category</h2><button type="button" onClick={() => setActiveCategory("All")}>View All <span>›</span></button></div>
-                    <div className="category-rail">
-                        {CATEGORY_CARDS.map((category) => (
-                            <button type="button" key={category.name} onClick={() => setActiveCategory(category.name)}>
-                                <img src={category.image} alt="" /><span>{category.name}</span>
+                <section className="buyer-products-section">
+                    <div className="buyer-section-heading">
+                        <div>
+                            <h2>
+                                {search
+                                    ? `Results for "${search}"`
+                                    : activeCategory === "All"
+                                      ? "Products"
+                                      : activeCategory}
+                            </h2>
+
+                            {!loadingProducts && (
+                                <span>
+                                    {filteredProducts.length}{" "}
+                                    {filteredProducts.length === 1
+                                        ? "product"
+                                        : "products"}
+                                </span>
+                            )}
+                        </div>
+
+                        <Link to="/shop">See all</Link>
+                    </div>
+
+                    {loadingProducts ? (
+                        <div className="buyer-products-loading">
+                            <div className="buyer-loading-grid">
+                                {Array.from({ length: 12 }).map(
+                                    (_, index) => (
+                                        <div
+                                            className="buyer-product-skeleton"
+                                            key={index}
+                                        >
+                                            <div className="buyer-skeleton-image" />
+                                            <div className="buyer-skeleton-line large" />
+                                            <div className="buyer-skeleton-line small" />
+                                            <div className="buyer-skeleton-line price" />
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    ) : productError ? (
+                        <div className="buyer-state-card">
+                            <strong>Something went wrong.</strong>
+                            <p>{productError}</p>
+
+                            <button
+                                type="button"
+                                onClick={() => window.location.reload()}
+                            >
+                                Try Again
                             </button>
-                        ))}
-                    </div>
-                </section>
+                        </div>
+                    ) : filteredProducts.length === 0 ? (
+                        <div className="buyer-state-card">
+                            <Search size={28} />
 
-                <section className="market-section market-deals" id="deals">
-                    <div className="market-section-heading"><h2>⚡ Flash Deals <span className="deal-timer">● 02:14:38</span></h2><div className="deal-filter-row">{CATEGORY_FILTERS.slice(0, 4).map((c) => <button key={c} type="button" className={activeCategory === c ? "active" : ""} onClick={() => setActiveCategory(c)}>{c}</button>)}</div></div>
-                    <div className="market-product-grid" aria-live="polite">
-                        {loadingProducts && <p className="sf-empty">Loading products…</p>}
-                        {!loadingProducts && dealProducts.map((p, index) => (
-                            <article className="market-product-card" key={p.id} onClick={() => openProduct(p)}>
-                                <div className="market-product-image"><span className="discount-badge">-{28 + (index % 9)}%</span>{getImage(p) ? <img src={getImage(p)} alt={p.name} loading="lazy" /> : <div className="market-image-placeholder" aria-label="Image unavailable">CRYMA</div>}<button type="button" className={`market-save${saved.includes(p.id) ? " saved" : ""}`} onClick={(e) => { e.stopPropagation(); toggleSaved(p.id); }} aria-label={`${saved.includes(p.id) ? "Remove" : "Save"} ${p.name}`}>♡</button></div>
-                                <div className="market-product-info"><h3>{p.name}</h3><div className="product-meta"><span>★★★★★ <small>({120 + index * 217})</small></span><small>{(index + 1) * 1.8}K sold</small></div><strong>₱{Number(p.price).toLocaleString()}</strong><del>₱{Math.round(Number(p.price) * 1.32).toLocaleString()}</del><p>{p.seller ? `${p.seller.first_name} ${p.seller.last_name}` : "Verified marketplace seller"}</p><button type="button" onClick={(e) => { e.stopPropagation(); handleAddToBag(p); }}>Add to Cart</button></div>
-                            </article>
-                        ))}
-                        {!loadingProducts && dealProducts.length === 0 && <p className="sf-empty">No products found - try a different search.</p>}
-                    </div>
-                </section>
+                            <strong>No products found</strong>
 
-                <section className="market-promo-grid">
-                    <button type="button" onClick={() => setActiveCategory("Electronics & Gadgets")}><span>New Arrivals</span><strong>Tech &amp; Gadgets</strong><b>Shop Now →</b></button>
-                    <button type="button" onClick={() => setActiveCategory("Women's Apparel")}><span>Fashion Week</span><strong>Trending Style</strong><b>Shop Now →</b></button>
+                            <p>
+                                Try another search or choose a different
+                                category.
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearch("");
+                                    setActiveCategory("All");
+                                    navigate("/");
+                                }}
+                            >
+                                Clear filters
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="buyer-product-grid">
+                            {filteredProducts.map((product) => (
+                                <ProductCard
+                                    key={product.id}
+                                    product={product}
+                                    saved={savedProducts.includes(
+                                        product.id
+                                    )}
+                                    onSave={handleToggleSaved}
+                                    onAddToCart={handleAddToCart}
+                                    onOpen={handleProductClick}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </section>
             </main>
 
-            <footer className="sf-footer">
-                <Link to="/" className="sf-brand" aria-label="Cryma home">
-                    <img src={logo} alt="Cryma logo" />
-                </Link>
-                <p>“Everything for Every Lifestyle.”</p>
-                <span>© 2026 Cryma</span>
+            <footer className="buyer-simple-footer">
+                <span>© {new Date().getFullYear()} CRYMA</span>
+
+                <div>
+                    <Link to="/shop">Shop</Link>
+                    <Link to="/orders">Orders</Link>
+                    <Link to="/account">Account</Link>
+                </div>
             </footer>
+
+            {selectedProduct && (
+                <div className="buyer-modal-backdrop">
+                    <div
+                        className="buyer-confirmation-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="cart-confirmation-title"
+                    >
+                        <div className="buyer-success-icon">✓</div>
+
+                        <h2 id="cart-confirmation-title">
+                            Added to cart
+                        </h2>
+
+                        <p className="buyer-modal-product-name">
+                            {selectedProduct.name}
+                        </p>
+
+                        <strong className="buyer-modal-product-price">
+                            ₱
+                            {Number(
+                                selectedProduct.price || 0
+                            ).toLocaleString()}
+                        </strong>
+
+                        <div className="buyer-modal-actions">
+                            <button
+                                type="button"
+                                className="buyer-modal-secondary"
+                                onClick={() =>
+                                    setSelectedProduct(null)
+                                }
+                            >
+                                Continue Shopping
+                            </button>
+
+                            <button
+                                type="button"
+                                className="buyer-modal-primary"
+                                onClick={() => {
+                                    setSelectedProduct(null);
+                                    navigate("/cart");
+                                }}
+                            >
+                                View Cart
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {logoutOpen && (
+                <div className="buyer-modal-backdrop">
+                    <div
+                        className="buyer-confirmation-modal buyer-logout-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="logout-title"
+                    >
+                        <div className="buyer-modal-icon">
+                            <LogOut size={21} />
+                        </div>
+
+                        <h2 id="logout-title">Sign out?</h2>
+
+                        <p>
+                            Are you sure you want to sign out of your
+                            CRYMA account?
+                        </p>
+
+                        <div className="buyer-modal-actions">
+                            <button
+                                type="button"
+                                className="buyer-modal-secondary"
+                                onClick={() => setLogoutOpen(false)}
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                className="buyer-modal-danger"
+                                onClick={handleLogout}
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {toast && (
+                <div className="buyer-toast" role="status">
+                    {toast}
+                </div>
+            )}
         </div>
     );
 }
