@@ -1,11 +1,28 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+    Link,
+    useNavigate,
+    useParams,
+} from "react-router-dom";
 import api from "../../shared/services/api";
 import PhilippineAddressFields from "../components/PhilippineAddressFields";
 import "./Register.css";
 
 function Register() {
     const navigate = useNavigate();
+    const { role } = useParams();
+
+    const registrationRole =
+        role === "seller"
+            ? "seller"
+            : role === "rider"
+                ? "rider"
+                : "buyer";
+
+    // SELLER
+    const [businessName, setBusinessName] = useState("");
+    const [lineOfBusiness, setLineOfBusiness] = useState("");
+    const [businessPermit, setBusinessPermit] = useState(null);            
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -337,6 +354,26 @@ function Register() {
             return;
         }
 
+        if (
+            step === 4 &&
+            registrationRole === "seller"
+        ) {
+            if (!businessName.trim()) {
+                setError("Please enter your business name.");
+                return false;
+            }
+
+            if (!lineOfBusiness.trim()) {
+                setError("Please enter your line of business.");
+                return false;
+            }
+
+            if (!businessPermit) {
+                setError("Please upload your business permit.");
+                return false;
+            }
+        }
+
         setLoading(true);
 
         try {
@@ -381,11 +418,24 @@ function Register() {
             );
 
             // ROLE
-            // This registration page is for BUYERS.
-            formData.append(
-                "role",
-                "buyer"
-            );
+            formData.append("role", registrationRole);
+
+            if (registrationRole === "seller") {
+                formData.append(
+                    "business_name",
+                    businessName.trim()
+                );
+
+                formData.append(
+                    "line_of_business",
+                    lineOfBusiness.trim()
+                );
+
+                formData.append(
+                    "business_permit",
+                    businessPermit
+                );
+            }
 
             // ADDRESS
             formData.append(
@@ -1226,6 +1276,77 @@ function Register() {
                                         ID before submitting.
                                     </p>
                                 </div>
+
+                                {registrationRole === "seller" && (
+                                    <div className="review-card seller-registration-card">
+                                        <div className="review-card-header">
+                                            <div>
+                                                <span>SELLER</span>
+
+                                                <h4>
+                                                    Business information
+                                                </h4>
+                                            </div>
+                                        </div>
+
+                                        <div className="auth-field">
+                                            <label>
+                                                Business name
+                                                <b>*</b>
+                                            </label>
+
+                                            <input
+                                                type="text"
+                                                value={businessName}
+                                                onChange={(e) =>
+                                                    setBusinessName(
+                                                        e.target.value
+                                                    )
+                                                }
+                                                placeholder="Enter your business name"
+                                            />
+                                        </div>
+
+                                        <div className="auth-field">
+                                            <label>
+                                                Line of business
+                                                <b>*</b>
+                                            </label>
+
+                                            <input
+                                                type="text"
+                                                value={lineOfBusiness}
+                                                onChange={(e) =>
+                                                    setLineOfBusiness(
+                                                        e.target.value
+                                                    )
+                                                }
+                                                placeholder="Example: Clothing, Food, Cosmetics"
+                                            />
+                                        </div>
+
+                                        <div className="auth-field">
+                                            <label>
+                                                Business permit
+                                                <b>*</b>
+                                            </label>
+
+                                            <input
+                                                type="file"
+                                                accept=".jpg,.jpeg,.png,.pdf"
+                                                onChange={(e) =>
+                                                    setBusinessPermit(
+                                                        e.target.files?.[0] || null
+                                                    )
+                                                }
+                                            />
+
+                                            <small>
+                                                Accepted: JPG, JPEG, PNG, PDF. Maximum 5MB.
+                                            </small>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* PERSONAL */}
                                 <div className="review-card">
