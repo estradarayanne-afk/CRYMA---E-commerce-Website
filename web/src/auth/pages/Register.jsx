@@ -1,32 +1,82 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
+    Navigate,
     Link,
-    useNavigate,
+    useLocation,
     useParams,
 } from "react-router-dom";
 import api from "../../shared/services/api";
+import { PRODUCT_CATEGORIES } from "../../shared/constants/categories";
+import { LANDING_VISUALS } from "../../shared/constants/landingVisuals";
 import PhilippineAddressFields from "../components/PhilippineAddressFields";
+import AuthShell from "../components/AuthShell";
 import "./Register.css";
+import "../styles/AuthPages.css";
 
-function Register() {
-    const navigate = useNavigate();
-    const { role } = useParams();
+function DocumentUploadField({ id, label, file, onSelect, onRemove }) {
+    return (
+        <div className="auth-field document-upload-field">
+            <label htmlFor={id}>
+                {label} <b>*</b>
+            </label>
+            <div className={`document-upload-card ${file ? "has-file" : ""}`}>
+                <div className="document-upload-copy">
+                    <strong>{file?.name || "No document selected"}</strong>
+                    <small>{file ? "Ready to submit" : "Choose a file to attach to your application"}</small>
+                </div>
+                <label className="document-upload-action" htmlFor={id}>
+                    {file ? "Replace" : "Choose file"}
+                </label>
+                {file && (
+                    <button type="button" className="document-remove" onClick={onRemove}>
+                        Remove
+                    </button>
+                )}
+            </div>
+            <input
+                key={file ? `${file.name}-${file.size}-${file.lastModified}` : "empty"}
+                className="document-upload-input"
+                id={id}
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={onSelect}
+                aria-label={label}
+            />
+            <small className="file-help">Accepted by CRYMA: JPG, JPEG, PNG, or PDF. Maximum 5MB.</small>
+        </div>
+    );
+}
 
-    const registrationRole =
-        role === "seller"
-            ? "seller"
-            : role === "rider"
-                ? "rider"
-                : "buyer";
+function Register({
+    embedded = false,
+    selectedRole,
+    onSwitchToLogin,
+}) {
+    const location = useLocation();
+    const { role: routeRole } = useParams();
+    const role = routeRole || selectedRole;
+
+    const registrationRole = ["seller", "rider"].includes(role)
+        ? role
+        : "buyer";
+    const accountType = registrationRole === "rider"
+        ? "Courier"
+        : registrationRole.charAt(0).toUpperCase() + registrationRole.slice(1);
+    const registrationVisual = LANDING_VISUALS.hero;
 
     // SELLER
     const [businessName, setBusinessName] = useState("");
     const [lineOfBusiness, setLineOfBusiness] = useState("");
-    const [businessPermit, setBusinessPermit] = useState(null);            
+    const [businessPermit, setBusinessPermit] = useState(null);
+    const [vehicleType, setVehicleType] = useState("");
+    const [plateNumber, setPlateNumber] = useState("");
+    const [orCr, setOrCr] = useState(null);
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [submitted, setSubmitted] = useState(false);
+    const submitButtonClicked = useRef(false);
 
     // =========================
     // PERSONAL INFORMATION
@@ -74,6 +124,9 @@ function Register() {
     // =========================
     const [validId, setValidId] = useState(null);
 
+    const roleInfoStep = registrationRole === "buyer" ? null : 4;
+    const verificationStep = roleInfoStep ? 5 : 4;
+    const reviewStep = verificationStep + 1;
     const steps = [
         {
             number: 1,
@@ -87,10 +140,10 @@ function Register() {
             number: 3,
             label: "Account",
         },
-        {
-            number: 4,
-            label: "Review",
-        },
+        ...(registrationRole === "seller" ? [{ number: 4, label: "Business" }] : []),
+        ...(registrationRole === "rider" ? [{ number: 4, label: "Vehicle" }] : []),
+        { number: verificationStep, label: "Verification" },
+        { number: reviewStep, label: "Review" },
     ];
 
     // =========================
@@ -151,7 +204,7 @@ function Register() {
     // =========================
     // ADDRESS CHANGE
     // =========================
-    const handleAddressChange = ({
+    const handleAddressChange = useCallback(({
         region: newRegion,
         province: newProvince,
         city: newCity,
@@ -161,7 +214,7 @@ function Register() {
         setProvince(newProvince);
         setMunicipality(newCity);
         setBarangay(newBarangay);
-    };
+    }, []);
 
     // =========================
     // VALIDATE EACH STEP
@@ -184,13 +237,6 @@ function Register() {
                 return false;
             }
 
-            if (age !== "" && Number(age) < 18) {
-                setError(
-                    "You must be at least 18 years old to register."
-                );
-
-                return false;
-            }
         }
 
         // STEP 2
@@ -208,14 +254,17 @@ function Register() {
                 return false;
             }
 
-            if (
-                !houseNumber.trim() &&
-                !street.trim() &&
-                !buildingName.trim() &&
-                !unitNumber.trim()
-            ) {
+            if (!postalCode.trim()) {
                 setError(
-                    "Please provide at least your house number, street, building, or unit details."
+                    "Postal code could not be determined for this address. Please reselect your municipality or contact support."
+                );
+
+                return false;
+            }
+
+            if (!houseNumber.trim() || !street.trim()) {
+                setError(
+                    "Please enter both your house number and street."
                 );
 
                 return false;
@@ -251,13 +300,31 @@ function Register() {
             }
         }
 
-        // STEP 4
-        if (step === 4) {
-            if (!validId) {
-                setError(
-                    "Please upload a valid ID before creating your account."
-                );
+        if (step === roleInfoStep && registrationRole === "seller") {
+            if (!businessName.trim() || !lineOfBusiness) {
+                setError("Complete your business name and category.");
+                return false;
+            }
+        }
 
+        if (step === roleInfoStep && registrationRole === "rider") {
+            if (!vehicleType || !plateNumber.trim()) {
+                setError("Complete your vehicle type and plate number.");
+                return false;
+            }
+        }
+
+        if (step === verificationStep) {
+            if (!validId) {
+                setError("Please upload a valid ID before submitting your application.");
+                return false;
+            }
+            if (registrationRole === "seller" && !businessPermit) {
+                setError("Please upload your business permit.");
+                return false;
+            }
+            if (registrationRole === "rider" && !orCr) {
+                setError("Please upload your vehicle OR/CR.");
                 return false;
             }
         }
@@ -274,7 +341,7 @@ function Register() {
         }
 
         setStep((current) =>
-            Math.min(current + 1, 4)
+            Math.min(current + 1, reviewStep)
         );
 
         window.scrollTo({
@@ -302,11 +369,11 @@ function Register() {
     // =========================
     // VALID ID
     // =========================
-    const handleValidIdChange = (event) => {
+    const handleDocumentChange = (event, setDocument, label) => {
         const file = event.target.files?.[0];
 
         if (!file) {
-            setValidId(null);
+            setDocument(null);
             return;
         }
 
@@ -318,29 +385,31 @@ function Register() {
 
         if (!allowedTypes.includes(file.type)) {
             setError(
-                "Valid ID must be a JPG, JPEG, PNG, or PDF file."
+                `${label} must be a JPG, JPEG, PNG, or PDF file.`
             );
 
             event.target.value = "";
-            setValidId(null);
+            setDocument(null);
 
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
             setError(
-                "Valid ID must not exceed 5MB."
+                `${label} must not exceed 5MB.`
             );
 
             event.target.value = "";
-            setValidId(null);
+            setDocument(null);
 
             return;
         }
 
         setError("");
-        setValidId(file);
+        setDocument(file);
     };
+
+    const handleValidIdChange = (event) => handleDocumentChange(event, setValidId, "Valid ID");
 
     // =========================
     // REGISTER
@@ -348,30 +417,16 @@ function Register() {
     const handleRegister = async (event) => {
         event.preventDefault();
 
+        if (!submitButtonClicked.current || step !== reviewStep) {
+            submitButtonClicked.current = false;
+            return;
+        }
+        submitButtonClicked.current = false;
+
         setError("");
 
         if (!validateStep()) {
             return;
-        }
-
-        if (
-            step === 4 &&
-            registrationRole === "seller"
-        ) {
-            if (!businessName.trim()) {
-                setError("Please enter your business name.");
-                return false;
-            }
-
-            if (!lineOfBusiness.trim()) {
-                setError("Please enter your line of business.");
-                return false;
-            }
-
-            if (!businessPermit) {
-                setError("Please upload your business permit.");
-                return false;
-            }
         }
 
         setLoading(true);
@@ -435,6 +490,16 @@ function Register() {
                     "business_permit",
                     businessPermit
                 );
+            }
+
+            if (registrationRole === "rider") {
+                formData.append("vehicle_type", vehicleType);
+                formData.append("plate_number", plateNumber.trim());
+                formData.append("or_cr", orCr);
+                // The current API requires both fields for rider registrations.
+                // One driver's license image satisfies the shared valid ID and
+                // courier driver's license document requirements.
+                formData.append("drivers_license", validId);
             }
 
             // ADDRESS
@@ -532,18 +597,7 @@ function Register() {
                 }
             );
 
-            window.alert(
-                "Registration submitted successfully! Please check your email for the next verification step."
-            );
-
-            navigate("/verify-otp", {
-                state: {
-                    email:
-                        email
-                            .trim()
-                            .toLowerCase(),
-                },
-            });
+            setSubmitted(true);
         } catch (err) {
             console.error(
                 "Registration error:",
@@ -570,6 +624,7 @@ function Register() {
                 );
             }
         } finally {
+            submitButtonClicked.current = false;
             setLoading(false);
         }
     };
@@ -581,61 +636,37 @@ function Register() {
     ]
         .filter(Boolean)
         .join(" ");
+    const latestBirthday = new Date();
+    latestBirthday.setDate(latestBirthday.getDate() - 1);
+    const maxBirthday = [
+        latestBirthday.getFullYear(),
+        String(latestBirthday.getMonth() + 1).padStart(2, "0"),
+        String(latestBirthday.getDate()).padStart(2, "0"),
+    ].join("-");
 
-    return (
-        <div className="register-page">
-            <div className="register-shell">
+    if (routeRole && !location.state?.accountTypeSelected) {
+        return <Navigate to="/register" replace />;
+    }
 
-                {/* =========================
-                    LEFT BRAND PANEL
-                ========================== */}
-                <aside className="register-brand">
-                    <Link
-                        to="/"
-                        className="register-logo"
-                    >
-                        <span className="register-logo-mark">
-                            C
-                        </span>
-
-                        <span>CRYMA</span>
-                    </Link>
-
-                    <div className="register-brand-content">
-                        <span className="register-eyebrow">
-                            JOIN CRYMA
-                        </span>
-
-                        <h1>
-                            Create your
-                            <br />
-                            CRYMA account.
-                        </h1>
-
-                        <p>
-                            Shop, track your orders,
-                            communicate with sellers,
-                            and manage your account
-                            in one place.
-                        </p>
-                    </div>
-
-                    <div className="register-brand-footer">
-                        <span>
-                            Already have an account?
-                        </span>
-
-                        <Link to="/login">
-                            Sign in
-                        </Link>
-                    </div>
-                </aside>
+    const content = (
+        <div className={`register-page ${embedded ? "embedded" : ""}`}>
 
                 {/* =========================
                     FORM PANEL
                 ========================== */}
                 <main className="register-content">
-
+                    {submitted ? (
+                        <section className="register-submission-success" role="status">
+                            <span className="register-success-mark" aria-hidden="true">✓</span>
+                            <span className="register-success-eyebrow">APPLICATION RECEIVED</span>
+                            <h2>{registrationRole === "rider" ? "Pending Logistics/Sorting Center Approval" : "Pending Administrator Approval"}</h2>
+                            <p>
+                                After submitting your registration, please wait for {registrationRole === "rider" ? "the Logistics/Sorting Center's" : "the administrator's"} approval, which will be sent to your email.
+                            </p>
+                            <Link to="/" className="primary-action">Return to CRYMA</Link>
+                        </section>
+                    ) : (
+                        <>
                     <div className="register-top">
                         <div>
                             <span className="register-mobile-eyebrow">
@@ -647,8 +678,7 @@ function Register() {
                             </h2>
 
                             <p>
-                                Complete the information
-                                below to get started.
+                                Your application will be reviewed before account access is activated.
                             </p>
                         </div>
 
@@ -691,7 +721,7 @@ function Register() {
                                     >
                                         <div className="register-step-number">
                                             {completed
-                                                ? "✓"
+                                                ? "\u2713"
                                                 : item.number}
                                         </div>
 
@@ -753,7 +783,7 @@ function Register() {
                                 <div className="form-grid two">
                                     <div className="auth-field">
                                         <label>
-                                            First name
+                                            First Name
                                             <b>*</b>
                                         </label>
 
@@ -776,7 +806,7 @@ function Register() {
 
                                     <div className="auth-field">
                                         <label>
-                                            Middle name
+                                            Middle Initial
                                         </label>
 
                                         <input
@@ -792,7 +822,8 @@ function Register() {
                                                         .value
                                                 )
                                             }
-                                            placeholder="Enter middle name"
+                                                placeholder="e.g. A"
+                                                maxLength={1}
                                         />
                                     </div>
                                 </div>
@@ -800,7 +831,7 @@ function Register() {
                                 <div className="form-grid two">
                                     <div className="auth-field">
                                         <label>
-                                            Last name
+                                            Last Name
                                             <b>*</b>
                                         </label>
 
@@ -829,6 +860,7 @@ function Register() {
 
                                         <input
                                             type="date"
+                                                max={maxBirthday}
                                             value={
                                                 birthDate
                                             }
@@ -847,7 +879,7 @@ function Register() {
                                 <div className="form-grid two">
                                     <div className="auth-field">
                                         <label>
-                                            Age
+                                            Age <b>*</b>
                                         </label>
 
                                         <div className="readonly-field">
@@ -855,6 +887,7 @@ function Register() {
                                                 ? `${age} years old`
                                                 : "Automatically calculated"}
                                         </div>
+                                        <small className="field-hint">Auto-generated from your birthday</small>
                                     </div>
 
                                     <div className="auth-field">
@@ -944,7 +977,7 @@ function Register() {
 
                                 <div className="auth-field">
                                     <label>
-                                        Mobile number
+                                        Contact No.
                                         <b>*</b>
                                     </label>
 
@@ -969,8 +1002,7 @@ function Register() {
                                     </span>
 
                                     <small>
-                                        Select your region,
-                                        province, city /
+                                        Select your region to load the correct province, then city /
                                         municipality and
                                         barangay.
                                     </small>
@@ -988,12 +1020,13 @@ function Register() {
                                     onChange={
                                         handleAddressChange
                                     }
+                                    onPostalCodeChange={setPostalCode}
                                 />
 
                                 <div className="form-grid two">
                                     <div className="auth-field">
                                         <label>
-                                            House number
+                                            House Number <b>*</b>
                                         </label>
 
                                         <input
@@ -1015,7 +1048,7 @@ function Register() {
 
                                     <div className="auth-field">
                                         <label>
-                                            Street
+                                            Street <b>*</b>
                                         </label>
 
                                         <input
@@ -1084,25 +1117,9 @@ function Register() {
                                 </div>
 
                                 <div className="auth-field">
-                                    <label>
-                                        Postal code
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        value={
-                                            postalCode
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setPostalCode(
-                                                e.target
-                                                    .value
-                                            )
-                                        }
-                                        placeholder="Optional"
-                                    />
+                                    <label htmlFor="registration-postal-code">Postal Code <span className="auto-generated-label">Auto-generated</span></label>
+                                    <input id="registration-postal-code" type="text" value={postalCode} readOnly placeholder={municipality ? "Postal code unavailable" : "Select municipality"} aria-readonly="true" />
+                                    <small className="field-hint">{postalCode ? "Auto-generated from selected address" : municipality ? "Postal code unavailable for this municipality" : "Automatically filled when available"}</small>
                                 </div>
                             </section>
                         )}
@@ -1130,7 +1147,7 @@ function Register() {
 
                                 <div className="auth-field">
                                     <label>
-                                        Email address
+                                            E-mail
                                         <b>*</b>
                                     </label>
 
@@ -1256,97 +1273,41 @@ function Register() {
                             </section>
                         )}
 
-                        {/* =========================
-                            STEP 4
-                        ========================== */}
-                        {step === 4 && (
+                        {roleInfoStep === 4 && step === 4 && registrationRole === "seller" && (
                             <section className="register-section">
-                                <div className="section-heading">
-                                    <span>
-                                        STEP 04
-                                    </span>
-
-                                    <h3>
-                                        Review & verification
-                                    </h3>
-
-                                    <p>
-                                        Check your information
-                                        and upload your valid
-                                        ID before submitting.
-                                    </p>
+                                <div className="section-heading"><span>STEP 04</span><h3>Business information</h3><p>Tell us about the store you are applying to operate.</p></div>
+                                <div className="review-card seller-registration-card">
+                                    <div className="auth-field"><label htmlFor="business-name">Business Name <b>*</b></label><input id="business-name" type="text" value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="Enter your business name" /></div>
+                                    <div className="auth-field"><label htmlFor="line-of-business">Line of Business / Category <b>*</b></label><select id="line-of-business" value={lineOfBusiness} onChange={(event) => setLineOfBusiness(event.target.value)}><option value="">Select a category</option>{PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></div>
                                 </div>
+                            </section>
+                        )}
 
-                                {registrationRole === "seller" && (
-                                    <div className="review-card seller-registration-card">
-                                        <div className="review-card-header">
-                                            <div>
-                                                <span>SELLER</span>
+                        {roleInfoStep === 4 && step === 4 && registrationRole === "rider" && (
+                            <section className="register-section">
+                                <div className="section-heading"><span>STEP 04</span><h3>Vehicle information</h3><p>Tell us which vehicle you will use for CRYMA deliveries.</p></div>
+                                <div className="review-card seller-registration-card form-grid two">
+                                    <div className="auth-field"><label htmlFor="vehicle-type">Choose Vehicle <b>*</b></label><select id="vehicle-type" value={vehicleType} onChange={(event) => setVehicleType(event.target.value)}><option value="">Select vehicle</option><option value="motorcycle">Motorcycle</option><option value="tricycle">Tricycle</option><option value="car">Car</option><option value="van">Van</option><option value="truck">Truck</option></select></div>
+                                    <div className="auth-field"><label htmlFor="plate-number">Plate Number <b>*</b></label><input id="plate-number" type="text" value={plateNumber} onChange={(event) => setPlateNumber(event.target.value)} placeholder="Enter vehicle plate number" /></div>
+                                </div>
+                            </section>
+                        )}
 
-                                                <h4>
-                                                    Business information
-                                                </h4>
-                                            </div>
-                                        </div>
+                        {step === verificationStep && (
+                            <section className="register-section">
+                                <div className="section-heading"><span>STEP {String(verificationStep).padStart(2, "0")}</span><h3>Verification documents</h3><p>Upload clear images or PDF files of the documents required for your {accountType.toLowerCase()} application.</p></div>
+                                <div className="review-card seller-registration-card">
+                                    <DocumentUploadField id="valid-id" label={registrationRole === "rider" ? "Upload Valid ID / Driver’s License" : "Upload Valid ID"} file={validId} onSelect={handleValidIdChange} onRemove={() => setValidId(null)} />
+                                    {registrationRole === "seller" && <DocumentUploadField id="business-permit" label="Upload Business Permit" file={businessPermit} onSelect={(event) => handleDocumentChange(event, setBusinessPermit, "Business Permit")} onRemove={() => setBusinessPermit(null)} />}
+                                    {registrationRole === "rider" && <DocumentUploadField id="or-cr" label="Upload OR/CR" file={orCr} onSelect={(event) => handleDocumentChange(event, setOrCr, "OR/CR")} onRemove={() => setOrCr(null)} />}
+                                </div>
+                            </section>
+                        )}
 
-                                        <div className="auth-field">
-                                            <label>
-                                                Business name
-                                                <b>*</b>
-                                            </label>
-
-                                            <input
-                                                type="text"
-                                                value={businessName}
-                                                onChange={(e) =>
-                                                    setBusinessName(
-                                                        e.target.value
-                                                    )
-                                                }
-                                                placeholder="Enter your business name"
-                                            />
-                                        </div>
-
-                                        <div className="auth-field">
-                                            <label>
-                                                Line of business
-                                                <b>*</b>
-                                            </label>
-
-                                            <input
-                                                type="text"
-                                                value={lineOfBusiness}
-                                                onChange={(e) =>
-                                                    setLineOfBusiness(
-                                                        e.target.value
-                                                    )
-                                                }
-                                                placeholder="Example: Clothing, Food, Cosmetics"
-                                            />
-                                        </div>
-
-                                        <div className="auth-field">
-                                            <label>
-                                                Business permit
-                                                <b>*</b>
-                                            </label>
-
-                                            <input
-                                                type="file"
-                                                accept=".jpg,.jpeg,.png,.pdf"
-                                                onChange={(e) =>
-                                                    setBusinessPermit(
-                                                        e.target.files?.[0] || null
-                                                    )
-                                                }
-                                            />
-
-                                            <small>
-                                                Accepted: JPG, JPEG, PNG, PDF. Maximum 5MB.
-                                            </small>
-                                        </div>
-                                    </div>
-                                )}
+                        {step === reviewStep && (
+                            <section className="register-section">
+                                <div className="section-heading"><span>STEP {String(reviewStep).padStart(2, "0")}</span><h3>Review your application</h3><p>Confirm your information and uploaded documents before submitting.</p></div>
+                                <div className="registration-note" role="note"><span aria-hidden="true">i</span><p>After submitting your registration, please wait for {registrationRole === "rider" ? "the Logistics/Sorting Center's" : "the administrator's"} approval, which will be sent to your email.</p></div>
 
                                 {/* PERSONAL */}
                                 <div className="review-card">
@@ -1381,7 +1342,7 @@ function Register() {
 
                                             <strong>
                                                 {fullName ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1404,7 +1365,7 @@ function Register() {
                                                             ) =>
                                                                 letter.toUpperCase()
                                                         )
-                                                    : "—"}
+                                                    : "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1415,7 +1376,7 @@ function Register() {
 
                                             <strong>
                                                 {birthDate ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1427,7 +1388,7 @@ function Register() {
                                             <strong>
                                                 {age
                                                     ? `${age} years old`
-                                                    : "—"}
+                                                    : "\u2014"}
                                             </strong>
                                         </div>
                                     </div>
@@ -1466,7 +1427,7 @@ function Register() {
 
                                             <strong>
                                                 {phone ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1477,7 +1438,7 @@ function Register() {
 
                                             <strong>
                                                 {province ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1488,7 +1449,7 @@ function Register() {
 
                                             <strong>
                                                 {municipality ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1499,8 +1460,13 @@ function Register() {
 
                                             <strong>
                                                 {barangay ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
+                                        </div>
+
+                                        <div>
+                                            <small>Postal Code</small>
+                                            <strong>{postalCode || "Not available for this municipality"}</strong>
                                         </div>
 
                                         <div>
@@ -1510,7 +1476,7 @@ function Register() {
 
                                             <strong>
                                                 {houseNumber ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1521,7 +1487,7 @@ function Register() {
 
                                             <strong>
                                                 {street ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
                                     </div>
@@ -1560,7 +1526,7 @@ function Register() {
 
                                             <strong>
                                                 {email ||
-                                                    "—"}
+                                                    "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1576,70 +1542,21 @@ function Register() {
                                     </div>
                                 </div>
 
-                                {/* VALID ID */}
                                 <div className="review-card">
                                     <div className="review-card-header">
-                                        <div>
-                                            <span>
-                                                VERIFICATION
-                                            </span>
-
-                                            <h4>
-                                                Valid ID
-                                            </h4>
-                                        </div>
+                                        <div><span>VERIFICATION</span><h4>Uploaded documents</h4></div>
+                                        <button type="button" onClick={() => setStep(verificationStep)}>Edit</button>
                                     </div>
-
-                                    <div className="auth-field">
-                                        <label>
-                                            Upload valid ID
-                                            <b>*</b>
-                                        </label>
-
-                                        <input
-                                            type="file"
-                                            accept=".jpg,.jpeg,.png,.pdf"
-                                            onChange={
-                                                handleValidIdChange
-                                            }
-                                        />
-
-                                        <small className="file-help">
-                                            Accepted:
-                                            JPG, JPEG,
-                                            PNG or PDF.
-                                            Maximum
-                                            file size:
-                                            5MB.
-                                        </small>
-
-                                        {validId && (
-                                            <div className="selected-file">
-                                                ✓{" "}
-                                                {validId.name}
-                                            </div>
-                                        )}
+                                    <div className="review-grid">
+                                        <div><small>{registrationRole === "rider" ? "Valid ID / Driver’s License" : "Valid ID"}</small><strong>{validId?.name || "Not uploaded"}</strong></div>
+                                        {registrationRole === "seller" && <div><small>Business Permit</small><strong>{businessPermit?.name || "Not uploaded"}</strong></div>}
+                                        {registrationRole === "rider" && <div><small>OR/CR</small><strong>{orCr?.name || "Not uploaded"}</strong></div>}
                                     </div>
                                 </div>
 
-                                <div className="registration-note">
-                                    <span>
-                                        ✓
-                                    </span>
+                                {registrationRole === "seller" && <div className="review-card"><div className="review-card-header"><div><span>SELLER</span><h4>Business information</h4></div><button type="button" onClick={() => setStep(roleInfoStep)}>Edit</button></div><div className="review-grid"><div><small>Business Name</small><strong>{businessName || "—"}</strong></div><div><small>Line of Business / Category</small><strong>{lineOfBusiness || "—"}</strong></div></div></div>}
+                                {registrationRole === "rider" && <div className="review-card"><div className="review-card-header"><div><span>COURIER</span><h4>Vehicle information</h4></div><button type="button" onClick={() => setStep(roleInfoStep)}>Edit</button></div><div className="review-grid"><div><small>Vehicle</small><strong>{vehicleType || "—"}</strong></div><div><small>Plate Number</small><strong>{plateNumber || "—"}</strong></div></div></div>}
 
-                                    <p>
-                                        Your registration
-                                        will be submitted
-                                        for verification.
-                                        CRYMA can review
-                                        the submitted
-                                        information and
-                                        identification
-                                        document before
-                                        activating the
-                                        account.
-                                    </p>
-                                </div>
                             </section>
                         )}
 
@@ -1660,6 +1577,14 @@ function Register() {
                                 >
                                     Back
                                 </button>
+                            ) : embedded ? (
+                                <button
+                                    type="button"
+                                    className="secondary-action"
+                                    onClick={onSwitchToLogin}
+                                >
+                                    Sign in instead
+                                </button>
                             ) : (
                                 <Link
                                     to="/login"
@@ -1669,7 +1594,7 @@ function Register() {
                                 </Link>
                             )}
 
-                            {step < 4 ? (
+                            {step < reviewStep ? (
                                 <button
                                     type="button"
                                     className="primary-action"
@@ -1683,6 +1608,11 @@ function Register() {
                                 <button
                                     type="submit"
                                     className="primary-action"
+                                    onClick={(event) => {
+                                        submitButtonClicked.current =
+                                            event.detail > 0 ||
+                                            document.activeElement === event.currentTarget;
+                                    }}
                                     disabled={
                                         loading
                                     }
@@ -1690,19 +1620,21 @@ function Register() {
                                     {loading ? (
                                         <>
                                             <span className="button-spinner" />
-                                            Creating account...
+                                            Submitting application...
                                         </>
                                     ) : (
-                                        "Create account"
+                                                "Submit application"
                                     )}
                                 </button>
                             )}
                         </div>
                     </form>
+                        </>
+                    )}
                 </main>
-            </div>
         </div>
     );
+    return embedded ? content : <AuthShell visualProps={{ visual: registrationVisual }}>{content}</AuthShell>;
 }
 
 export default Register;

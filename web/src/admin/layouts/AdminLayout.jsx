@@ -13,7 +13,7 @@ const NAV = [
     { to: "/admin/commission", label: "Commission", icon: "₱" },
     { to: "/admin/reports", label: "Reports", icon: "▤" },
     { to: "/admin/settings", label: "Settings", icon: "⚙" },
-    { to: "/admin/chat", label: "Chat", icon: "◍" },
+    { to: "/admin/chat", label: "Customer Service", icon: "◍" },
 ];
 
 function AdminLayout() {

@@ -1,11 +1,10 @@
-
 /* =========================================================
    CRYMA ADMIN SETTINGS
    ========================================================= */
 
 .settings-page {
     width: 100%;
-    color: #243536;
+    color: #26151A;
 }
 
 /* =========================================================
@@ -19,7 +18,7 @@
 .settings-eyebrow {
     display: block;
     margin-bottom: 7px;
-    color: #4fa6a0;
+    color: #EFA7B8;
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 1.2px;
@@ -28,7 +27,7 @@
 
 .settings-page-header h1 {
     margin: 0 0 6px;
-    color: #243536;
+    color: #26151A;
     font-size: 25px;
     font-weight: 700;
     letter-spacing: -0.4px;
@@ -36,7 +35,7 @@
 
 .settings-page-header p {
     margin: 0;
-    color: #718080;
+    color: #8A6871;
     font-size: 11px;
     line-height: 1.6;
 }
@@ -62,7 +61,7 @@
 .settings-panel {
     min-width: 0;
     background: #ffffff;
-    border: 1px solid #e5eaea;
+    border: 1px solid #F0DDE2;
     border-radius: 15px;
     box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
     overflow: hidden;
@@ -102,11 +101,11 @@
 }
 
 .settings-tabs button.active {
-    color: #0f4c4c;
+    color: #B21F3A;
 }
 
 .settings-tabs button.active::after {
-    background: #4fa6a0;
+    background: #EFA7B8;
 }
 
 /* =========================================================
@@ -124,7 +123,7 @@
 .settings-section-header span {
     display: block;
     margin-bottom: 5px;
-    color: #4fa6a0;
+    color: #EFA7B8;
     font-size: 7px;
     font-weight: 700;
     letter-spacing: 1px;
@@ -132,7 +131,7 @@
 
 .settings-section-header h2 {
     margin: 0 0 5px;
-    color: #243536;
+    color: #26151A;
     font-size: 13px;
     font-weight: 650;
 }
@@ -166,7 +165,7 @@
 }
 
 .form-field label {
-    color: #718080;
+    color: #8A6871;
     font-size: 8px;
     font-weight: 600;
     text-transform: uppercase;
@@ -192,7 +191,7 @@
 
 .form-field input:focus,
 .form-field textarea:focus {
-    border-color: #4fa6a0;
+    border-color: #EFA7B8;
     box-shadow:
         0 0 0 3px rgba(79, 166, 160, 0.08);
 }
@@ -226,7 +225,7 @@
     padding: 10px 14px;
     border: 0;
     border-radius: 8px;
-    background: #0f4c4c;
+    background: #B21F3A;
     color: #ffffff;
     font-family: inherit;
     font-size: 9px;
@@ -242,7 +241,7 @@
     background: #123c3c;
     transform: translateY(-1px);
     box-shadow:
-        0 5px 12px rgba(15, 76, 76, 0.15);
+        0 5px 12px rgba(178, 31, 58, 0.15);
 }
 
 .settings-submit:disabled {
@@ -260,7 +259,7 @@
     border: 1px solid #dfe6e5;
     border-radius: 8px;
     background: #ffffff;
-    color: #718080;
+    color: #8A6871;
     font-family: inherit;
     font-size: 9px;
     font-weight: 600;
@@ -271,7 +270,7 @@
 }
 
 .cancel-button:hover {
-    background: #f5f8f8;
+    background: #FFF7F8;
     border-color: #cfd9d8;
 }
 
@@ -482,7 +481,7 @@
     width: min(400px, 100%);
     padding: 26px;
     box-sizing: border-box;
-    border: 1px solid #e5eaea;
+    border: 1px solid #F0DDE2;
     border-radius: 15px;
     background: #ffffff;
     box-shadow: 0 20px 50px rgba(8, 43, 45, 0.2);
@@ -510,13 +509,13 @@
 
 .settings-confirmation-modal h2 {
     margin: 0 0 8px;
-    color: #243536;
+    color: #26151A;
     font-size: 16px;
 }
 
 .settings-confirmation-modal p {
     margin: 0;
-    color: #718080;
+    color: #8A6871;
     font-size: 11px;
     line-height: 1.55;
 }
@@ -542,12 +541,12 @@
 .settings-confirm-cancel {
     border: 1px solid #dfe6e5;
     background: #ffffff;
-    color: #718080;
+    color: #8A6871;
 }
 
 .settings-confirm-action {
     border: 0;
-    background: #0f4c4c;
+    background: #B21F3A;
     color: #ffffff;
 }
 
@@ -569,4 +568,3 @@
         width: 100%;
     }
 }
-

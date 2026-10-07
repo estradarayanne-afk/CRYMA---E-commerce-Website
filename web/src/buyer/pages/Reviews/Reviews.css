@@ -29,7 +29,7 @@
 .reviews-back-link:hover {
     background: #f5faf8;
     border-color: #bdd3cd;
-    color: #0f5a50;
+    color: var(--deep-crimson);
 }
 
 .reviews-header {
@@ -50,7 +50,7 @@
 
 .reviews-header h1 {
     margin: 7px 0 0;
-    color: #173b39;
+    color: var(--wine);
     font-size: 30px;
     line-height: 1.1;
     letter-spacing: -0.035em;
@@ -118,7 +118,7 @@
 }
 
 .reviews-panel-heading small {
-    color: #879692;
+    color: var(--text-muted);
     font-size: 9px;
 }
 
@@ -135,7 +135,7 @@
     align-items: center;
     gap: 11px;
     padding: 9px;
-    border: 1px solid #e4ebe9;
+    border: 1px solid var(--border-neutral);
     border-radius: 8px;
     background: #fff;
     text-align: left;
@@ -195,7 +195,7 @@
 
 .reviews-product-info span,
 .reviews-product-info small {
-    color: #879692;
+    color: var(--text-muted);
     font-size: 8px;
 }
 
@@ -207,13 +207,13 @@
 .reviews-product-check {
     margin-left: auto;
     flex-shrink: 0;
-    color: #0f5a50;
+    color: var(--deep-crimson);
 }
 
 .reviews-rating-section {
     padding: 16px 0;
-    border-top: 1px solid #edf1ef;
-    border-bottom: 1px solid #edf1ef;
+    border-top: 1px solid var(--border-neutral);
+    border-bottom: 1px solid var(--border-neutral);
 }
 
 .reviews-rating-section > span {
@@ -266,7 +266,7 @@
     margin-top: 8px;
     padding: 11px;
     resize: vertical;
-    border: 1px solid #dfe8e5;
+    border: 1px solid var(--border-neutral);
     border-radius: 7px;
     outline: none;
     background: #fff;
@@ -308,7 +308,7 @@
     padding: 0 15px;
     border: 0;
     border-radius: 7px;
-    background: #0f5a50;
+    background: var(--deep-crimson);
     color: #fff;
     font-family: inherit;
     font-size: 9px;
@@ -319,7 +319,7 @@
 
 .reviews-submit-button:hover:not(:disabled),
 .reviews-primary-button:hover {
-    background: #0b4941;
+    background: #7E1830;
 }
 
 .reviews-submit-button:disabled {

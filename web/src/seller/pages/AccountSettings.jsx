@@ -66,7 +66,7 @@ function SellerAccountSettings() {
                     <h1 className="sl-h1">Account Settings</h1>
                     <p>Manage your seller profile and account security.</p>
                 </div>
-                <div style={{ width: 52, height: 52, borderRadius: 14, background: "var(--teal)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: "var(--crimson)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700 }}>
                     {initials}
                 </div>
             </div>

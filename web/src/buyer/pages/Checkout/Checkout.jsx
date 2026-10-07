@@ -11,6 +11,11 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../../shared/services/api";
+import {
+    getBuyerCart,
+    isBuyerSession,
+    saveBuyerCart,
+} from "../../../shared/utils/buyerAccess";
 import "./Checkout.css";
 
 const SELECTED_CART_KEY = "cryma_selected_cart_ids";
@@ -30,11 +35,9 @@ function readLocalArray(key) {
 
 function Checkout() {
     const navigate = useNavigate();
-    const isLoggedIn = !!localStorage.getItem("token");
+    const isLoggedIn = isBuyerSession();
 
-    const [cart] = useState(() =>
-        readLocalArray("cryma_cart")
-    );
+    const [cart, setCart] = useState(getBuyerCart);
 
     const [selectedIds] = useState(() => {
         const checkoutItems = readLocalArray(
@@ -76,6 +79,16 @@ function Checkout() {
 
     const [notice] = useState("");
 
+    useEffect(() => {
+        const syncCart = () => setCart(getBuyerCart());
+        window.addEventListener("cryma-cart-updated", syncCart);
+        window.addEventListener("storage", syncCart);
+        return () => {
+            window.removeEventListener("cryma-cart-updated", syncCart);
+            window.removeEventListener("storage", syncCart);
+        };
+    }, []);
+
     /*
     |--------------------------------------------------------------------------
     | SELECTED CHECKOUT ITEMS
@@ -104,7 +117,7 @@ function Checkout() {
                 (sum, item) =>
                     sum +
                     Number(item.price || 0) *
-                        Number(item.quantity || 0),
+                        Number(item.quantity || 1),
                 0
             ),
         [selectedCartItems]
@@ -116,7 +129,7 @@ function Checkout() {
 
     const itemCount = selectedCartItems.reduce(
         (sum, item) =>
-            sum + Number(item.quantity || 0),
+            sum + Number(item.quantity || 1),
         0
     );
 
@@ -124,8 +137,9 @@ function Checkout() {
         () =>
             selectedCartItems.some(
                 (item) =>
-                    Number(item.quantity) < 1 ||
-                    Number(item.quantity) > Number(item.stock)
+                    Number(item.quantity || 1) < 1 ||
+                    (item.stock !== null && item.stock !== undefined && item.stock !== "" &&
+                        Number(item.quantity || 1) > Number(item.stock))
             ),
         [selectedCartItems]
     );
@@ -428,12 +442,9 @@ function Checkout() {
                         )
                 );
 
-            localStorage.setItem(
-                "cryma_cart",
-                JSON.stringify(
-                    remainingCart
-                )
-            );
+            if (saveBuyerCart(remainingCart)) {
+                setCart(remainingCart);
+            }
 
             localStorage.setItem(
                 SELECTED_CART_KEY,
@@ -443,10 +454,6 @@ function Checkout() {
             localStorage.setItem(
                 CHECKOUT_ITEMS_KEY,
                 JSON.stringify([])
-            );
-
-            window.dispatchEvent(
-                new Event("cryma-cart-updated")
             );
 
             setShowConfirmModal(false);

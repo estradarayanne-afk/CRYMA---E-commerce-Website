@@ -1,0 +1,77 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+html {
+    background: var(--rose-cream);
+    scroll-behavior: smooth;
+    color-scheme: light;
+}
+
+body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    color: var(--text-primary);
+    background: var(--rose-cream);
+    font-family: Poppins, Inter, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+input,
+select,
+textarea,
+button {
+    accent-color: var(--crimson);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+    transition-duration: var(--transition-fast);
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button,
+[role="button"] {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}
+
+:focus-visible {
+    outline: 3px solid rgba(178, 31, 58, 0.28);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}

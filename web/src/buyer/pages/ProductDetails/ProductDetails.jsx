@@ -14,10 +14,18 @@ import {
 } from "react-router-dom";
 
 import api from "../../../shared/services/api";
+import {
+    getBuyerWishlist,
+    getBuyerCart,
+    isBuyerSession,
+    requestBuyerSignIn,
+    saveBuyerCart,
+    saveBuyerWishlist,
+    showBuyerToast,
+} from "../../../shared/utils/buyerAccess";
 
 import "./ProductDetails.css";
 
-const CART_KEY = "cryma_cart";
 const CHECKOUT_ITEMS_KEY = "cryma_checkout_item_ids";
 
 function ProductDetails() {
@@ -38,10 +46,6 @@ function ProductDetails() {
     const [reviewsLoading, setReviewsLoading] =
         useState(false);
     const [actionMessage, setActionMessage] = useState("");
-
-    const isLoggedIn = Boolean(
-        localStorage.getItem("token")
-    );
 
     useEffect(() => {
         let cancelled = false;
@@ -84,6 +88,19 @@ function ProductDetails() {
 
         return () => {
             cancelled = true;
+        };
+    }, [id]);
+
+    useEffect(() => {
+        const syncSaved = () => {
+            setSaved(getBuyerWishlist().includes(Number(id)));
+        };
+        syncSaved();
+        window.addEventListener("cryma-wishlist-updated", syncSaved);
+        window.addEventListener("storage", syncSaved);
+        return () => {
+            window.removeEventListener("cryma-wishlist-updated", syncSaved);
+            window.removeEventListener("storage", syncSaved);
         };
     }, [id]);
 
@@ -174,20 +191,10 @@ function ProductDetails() {
     const stock = Number(product?.stock || 0);
 
     const cartQuantity = useMemo(() => {
-        try {
-            const cart = JSON.parse(
-                localStorage.getItem(CART_KEY) || "[]"
-            );
-
-            const item = cart.find(
-                (cartItem) =>
-                    cartItem.id === product?.id
-            );
-
-            return Number(item?.quantity || 0);
-        } catch {
-            return 0;
-        }
+        const item = getBuyerCart().find(
+            (cartItem) => String(cartItem.id) === String(product?.id)
+        );
+        return Number(item?.quantity || 0);
     }, [product?.id]);
 
     const showMessage = (message) => {
@@ -205,28 +212,18 @@ function ProductDetails() {
             return;
         }
 
-        if (!isLoggedIn) {
-            navigate("/login", {
-                state: {
-                    from: `/products/${id}`,
-                },
+        if (!isBuyerSession()) {
+            requestBuyerSignIn({
+                title: "Sign in to add to cart",
+                message: "Create an account or sign in to shop on CRYMA.",
             });
-
             return;
         }
 
-        let cart = [];
-
-        try {
-            cart = JSON.parse(
-                localStorage.getItem(CART_KEY) || "[]"
-            );
-        } catch {
-            // Keep the empty cart initialized above when stored data is invalid.
-        }
+        const cart = getBuyerCart();
 
         const existing = cart.find(
-            (item) => item.id === product.id
+            (item) => String(item.id) === String(product.id)
         );
 
         const currentQuantity = Number(
@@ -255,14 +252,7 @@ function ProductDetails() {
             });
         }
 
-        localStorage.setItem(
-            CART_KEY,
-            JSON.stringify(cart)
-        );
-
-        window.dispatchEvent(
-            new Event("cryma-cart-updated")
-        );
+        if (!saveBuyerCart(cart)) return;
 
         if (redirectToCheckout) {
             localStorage.setItem(
@@ -275,6 +265,7 @@ function ProductDetails() {
         }
 
         showMessage("Added to cart.");
+        showBuyerToast("Added to Cart");
     };
 
     const handleBuyNow = () => {
@@ -284,7 +275,24 @@ function ProductDetails() {
     };
 
     const handleSave = () => {
-        setSaved((current) => !current);
+        if (!isBuyerSession()) {
+            requestBuyerSignIn({
+                title: "Sign in to save favorites",
+                message: "Create an account or sign in to save products to your wishlist.",
+            });
+            return;
+        }
+
+        const wishlist = getBuyerWishlist();
+        const productId = Number(product?.id);
+        const exists = wishlist.includes(productId);
+        const next = exists
+            ? wishlist.filter((savedId) => savedId !== productId)
+            : [...wishlist, productId];
+        if (saveBuyerWishlist(next)) {
+            setSaved(!exists);
+            showBuyerToast(exists ? "Removed from Wishlist" : "Added to Wishlist");
+        }
     };
 
     const decreaseQuantity = () => {
@@ -737,16 +745,19 @@ function ProductDetails() {
                                         </div>
                                     </div>
 
-                                    <Link
-                                        to={
-                                            isLoggedIn
-                                                ? `/reviews`
-                                                : "/login"
-                                        }
+                                    <button
+                                        type="button"
                                         className="product-review-link"
+                                        onClick={() => {
+                                            if (isBuyerSession()) navigate("/reviews");
+                                            else requestBuyerSignIn({
+                                                title: "Sign in to leave a review",
+                                                message: "Create an account or sign in to share your product experience.",
+                                            });
+                                        }}
                                     >
                                         Leave a Review
-                                    </Link>
+                                    </button>
                                 </div>
 
                                 {reviewsLoading ? (

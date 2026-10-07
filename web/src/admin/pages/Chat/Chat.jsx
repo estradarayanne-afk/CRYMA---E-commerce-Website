@@ -117,7 +117,7 @@ function Chat() {
                         CRYMA SUPPORT
                     </span>
 
-                    <h1>Chat</h1>
+                    <h1>Customer Service</h1>
 
                     <p>
                         Communicate with buyers and provide
@@ -141,7 +141,7 @@ function Chat() {
                 <aside className="chat-conversations">
 
                     <div className="chat-conversations-header">
-                        <h2>Conversations</h2>
+                        <h2>Customer conversations</h2>
 
                         <span>
                             {conversations.length}
@@ -243,7 +243,7 @@ function Chat() {
                                     </h2>
 
                                     <span>
-                                        Buyer
+                                        Customer
                                     </span>
                                 </div>
 

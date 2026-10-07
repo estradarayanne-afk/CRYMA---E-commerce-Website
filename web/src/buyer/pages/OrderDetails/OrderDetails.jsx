@@ -4,6 +4,7 @@ import {
     Check,
     Clock3,
     MapPin,
+    MessageCircle,
     Package,
     ShoppingBag,
     Truck,
@@ -930,6 +931,16 @@ function OrderDetails() {
                                     currentStatus}
                             </strong>
                         </div>
+                    </section>
+
+                    <section className="order-mini-panel order-support-panel">
+                        <span className="order-summary-eyebrow">NEED HELP?</span>
+                        <strong>CRYMA Customer Service</strong>
+                        <p>Ask us about this order, delivery, payment, or a return.</p>
+                        <button type="button" onClick={() => navigate("/buyer/chat")}>
+                            <MessageCircle size={15} />
+                            Contact Customer Service
+                        </button>
                     </section>
                 </aside>
             </div>

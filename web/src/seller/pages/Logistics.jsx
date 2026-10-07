@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "./Logistics.css";
 
 const SHIPMENTS = [
     { id: "ORD-1040", customer: "Ben Cruz", address: "45 Rizal Ave, Quezon City", product: "Contour Shoulder Bag", courier: "J&T Express", tracking: "JT-20260610-001", status: "ready_for_pickup", scheduled: "2026-06-11" },

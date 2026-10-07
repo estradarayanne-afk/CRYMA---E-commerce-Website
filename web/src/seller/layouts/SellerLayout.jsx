@@ -2,6 +2,8 @@ import { Outlet, NavLink, useNavigate, useLocation, Navigate } from "react-route
 import { useState } from "react";
 import api from "../../shared/services/api";
 import "../../admin/layouts/AdminLayout.css";
+import "../../shared/styles/feedback.css";
+import "../styles/SellerWorkspace.css";
 
 const NAV = [
     { to: "/seller/dashboard",         label: "Dashboard",       icon: "▦" },

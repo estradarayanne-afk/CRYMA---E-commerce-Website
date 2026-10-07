@@ -1,0 +1,238 @@
+/* Buyer styles migrated from shared stylesheet. */
+.buyer-product-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--border-neutral);
+    border-radius: 12px;
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+
+    box-shadow: 0 2px 8px rgba(75, 23, 37, 0.05);
+}
+.buyer-product-card:hover {
+    border-color: var(--border-neutral);
+    box-shadow: 0 7px 18px rgba(38, 21, 26, 0.08);
+    transform: translateY(-2px);
+}
+.buyer-product-image-button {
+    width: 100%;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+.buyer-product-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(145deg, #f7f7f5, #f0ecea);
+    color: var(--text-subtle);
+    font-size: 38px;
+    font-weight: 700;
+}
+.buyer-product-image-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--deep-crimson);
+    background:
+        radial-gradient(circle at 75% 22%, rgba(239, 167, 184, 0.28), transparent 28%),
+        linear-gradient(145deg, #faf8f7, #f1eded);
+}
+.buyer-product-image-fallback > span {
+    font-size: 38px;
+    font-weight: 700;
+}
+.buyer-product-image-fallback small {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.buyer-product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 220ms ease;
+}
+.buyer-product-save {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 29px;
+    height: 29px;
+    padding: 0;
+    border: 1px solid rgba(220, 230, 228, 0.95);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.94);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.buyer-product-save:hover,
+.buyer-product-save.saved {
+    color: var(--crimson);
+    border-color: var(--crimson);
+}
+.buyer-product-image-button:focus-visible,
+.buyer-product-name:focus-visible,
+.buyer-product-save:focus-visible,
+.buyer-product-add:focus-visible { outline: 3px solid rgba(178,31,58,.3); outline-offset: 2px; }
+.buyer-product-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 10px 11px;
+}
+.buyer-product-category {
+    display: block;
+    margin-bottom: 5px;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    letter-spacing: 0.03em;
+}
+.buyer-product-name {
+    width: 100%;
+    min-height: 38px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    display: -webkit-box;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: left;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    cursor: pointer;
+}
+.buyer-product-name:hover {
+    color: #7E1830;
+}
+.buyer-product-price {
+    display: block;
+    margin-top: 8px;
+    color: #7E1830;
+    font-size: 18px;
+    line-height: 1.1;
+    font-weight: 800 !important;
+}
+.buyer-product-meta {
+    min-height: 30px;
+    margin-top: 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.buyer-product-seller,
+.buyer-product-stock {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.buyer-product-add {
+    width: 100%;
+    min-height: 40px;
+    margin-top: auto;
+    padding: 7px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid var(--border-neutral);
+    border-radius: 8px;
+    background: var(--surface-neutral);
+    color: #7E1830;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+
+    transition:
+        background 160ms ease,
+        transform 160ms ease;
+}
+.buyer-product-add:hover:not(:disabled) {
+    border-color: #7E1830;
+    background: #7E1830;
+    color: #fff;
+    transform: translateY(-1px);
+}
+.buyer-product-add:disabled {
+    border-color: var(--border-neutral);
+    background: var(--surface-neutral);
+    color: var(--text-subtle);
+    cursor: not-allowed;
+}
+@media (max-width: 600px){.buyer-product-content {
+        padding: 9px;
+    }}
+@media (max-width: 600px){.buyer-product-price {
+        font-size: 15px;
+    }}
+@media (max-width: 600px){.buyer-product-add {
+        height: 30px;
+    }}
+@media (max-width: 400px){.buyer-product-name {
+        font-size: 11px;
+    }}
+@media (max-width: 400px){.buyer-product-price {
+        font-size: 14px;
+    }}
+@media (max-width: 400px){.buyer-product-save {
+        width: 27px;
+        height: 27px;
+    }}
+
+.buyer-product-card:hover .buyer-product-image img {
+    transform: scale(1.035);
+}
+
+.buyer-product-rating { display: flex; align-items: center; gap: 4px; margin-top: 7px; color: #a86b13; font-size: 12px; }
+.buyer-product-rating strong { color: var(--text-primary); font-size: 12px; }
+.buyer-product-rating span { color: var(--text-muted); }
+.buyer-product-deal { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 12px; }
+.buyer-product-deal del { color: var(--text-muted); }
+.buyer-product-deal span { color: var(--crimson); font-weight: 700; }
+
+@media (max-width: 600px) {
+    .buyer-product-content { padding: 10px; }
+    .buyer-product-name { min-height: 36px; font-size: 13px; }
+    .buyer-product-price { font-size: 16px; }
+    .buyer-product-add { min-height: 38px; font-size: 12px; }
+}
+
+@media (max-width: 380px) {
+    .buyer-product-content { padding: 8px; }
+    .buyer-product-name { font-size: 12px; }
+    .buyer-product-add { font-size: 11px; }
+}

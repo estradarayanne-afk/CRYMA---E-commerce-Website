@@ -1,0 +1,14 @@
+.auth-notice {
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 20px;
+}
+.auth-notice--info { background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green); }
+.auth-notice--error { background: var(--blush); border: 1px solid var(--color-border); color: var(--color-danger); }
+
+.auth-notice--success {
+    background: var(--green-bg);
+    border: 1px solid var(--green-border);
+    color: var(--green);
+}

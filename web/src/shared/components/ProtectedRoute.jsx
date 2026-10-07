@@ -1,4 +1,6 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { requestBuyerSignIn } from "../utils/buyerAccess";
 
 const ROLE_HOME = {
     admin: "/admin/dashboard",
@@ -18,9 +20,19 @@ function getStoredUser() {
 
 function ProtectedRoute({ allowedRoles = [] }) {
     const location = useLocation();
+    const navigate = useNavigate();
 
     const token = localStorage.getItem("token");
     const user = getStoredUser();
+    const missingSession = !token || !user;
+    const buyerRoute = allowedRoles.includes("buyer");
+
+    useEffect(() => {
+        if (missingSession && buyerRoute) {
+            requestBuyerSignIn({ from: location });
+            navigate("/", { replace: true });
+        }
+    }, [buyerRoute, location, missingSession, navigate]);
 
     /*
      * No valid session:
@@ -28,6 +40,7 @@ function ProtectedRoute({ allowedRoles = [] }) {
      * they originally tried to go.
      */
     if (!token || !user) {
+        if (buyerRoute) return null;
         return (
             <Navigate
                 to="/login"

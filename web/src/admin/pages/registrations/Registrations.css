@@ -28,7 +28,7 @@
     font-size: 30px;
     line-height: 1.2;
     font-weight: 700;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.5px; color: var(--text-primary);
 }
 
 .registrations-header p {
@@ -43,35 +43,26 @@
     border: 1px solid #dfe5e8;
     border-radius: 12px;
     background: #ffffff;
-    text-align: center;
+    text-align: center; display: flex; flex-direction: column; align-items: center;
 }
 
 .registration-count strong {
     display: block;
     font-size: 24px;
     line-height: 1;
-    font-weight: 700;
+    font-weight: 700; color: var(--crimson);
 }
 
 .registration-count span {
     display: block;
     margin-top: 5px;
     color: #6b7280;
-    font-size: 12px;
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
 }
 
 /* =========================================================
    MESSAGES
    ========================================================= */
-
-.registration-success,
-.registration-error {
-    margin-bottom: 20px;
-    padding: 13px 16px;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 500;
-}
 
 .registration-success {
     border: 1px solid #bbf7d0;
@@ -91,7 +82,7 @@
     border-radius: 14px;
     background: #ffffff;
     color: #6b7280;
-    text-align: center;
+    text-align: center; min-height: 260px; display: flex; align-items: center; justify-content: center; font-size: 14px;
 }
 
 /* =========================================================
@@ -116,7 +107,7 @@
     justify-content: space-between;
     gap: 20px;
     padding: 20px;
-    border-bottom: 1px solid #e8ecef;
+    border-bottom: 1px solid #e8ecef; background: var(--white);
 }
 
 .registration-search {
@@ -127,7 +118,7 @@
     border: 1px solid #d8dfe3;
     border-radius: 9px;
     background: #ffffff;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease; position: relative; flex: 1; max-width: 480px;
 }
 
 .registration-search:focus-within {
@@ -150,7 +141,7 @@
     background: transparent;
     color: #17252a;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 13px; border-radius: 9px; transition: .15s;
 }
 
 .registration-filter {
@@ -269,7 +260,7 @@
 .applicant-info strong {
     color: #1f2d32;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 600; white-space: nowrap;
 }
 
 .applicant-info span {
@@ -280,18 +271,6 @@
 /* =========================================================
    BADGES
    ========================================================= */
-
-.role-badge,
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 5px 9px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: capitalize;
-}
 
 .role-seller {
     background: #eef2ff;
@@ -331,24 +310,6 @@
     cursor: pointer;
 }
 
-.view-button,
-.approve-button,
-.reject-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 34px;
-    padding: 7px 11px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 600;
-    transition:
-        background-color 0.18s ease,
-        border-color 0.18s ease,
-        transform 0.18s ease,
-        opacity 0.18s ease;
-}
-
 .view-button {
     border: 1px solid #d8dfe3 !important;
     background: #ffffff;
@@ -361,7 +322,7 @@
 
 .approve-button {
     background: #e8f5ef;
-    color: #16704c;
+    color: #16704c; border: 1px solid var(--crimson);
 }
 
 .approve-button:hover {
@@ -370,18 +331,11 @@
 
 .reject-button {
     background: #fdf0f0;
-    color: #b42323;
+    color: #b42323; border: 1px solid var(--color-border);
 }
 
 .reject-button:hover {
     background: #f9dddd;
-}
-
-.view-button:disabled,
-.approve-button:disabled,
-.reject-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
 }
 
 /* =========================================================
@@ -391,7 +345,7 @@
 .empty-registrations {
     padding: 55px 20px !important;
     color: #8a9499 !important;
-    text-align: center;
+    text-align: center; height: 220px; font-size: 14px !important;
 }
 
 /* =========================================================
@@ -404,7 +358,7 @@
     justify-content: space-between;
     gap: 20px;
     padding: 16px 20px;
-    border-top: 1px solid #e8ecef;
+    border-top: 1px solid #e8ecef; background: var(--white);
 }
 
 .pagination-info {
@@ -413,7 +367,7 @@
 }
 
 .pagination-info strong {
-    color: #344249;
+    color: #344249; font-weight: 600;
 }
 
 .pagination-controls {
@@ -422,28 +376,12 @@
     gap: 6px;
 }
 
-.pagination-button,
-.pagination-page {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 34px;
-    border: 1px solid #d8dfe3;
-    border-radius: 7px;
-    background: #ffffff;
-    color: #4b5960;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
 .pagination-button {
     padding: 0 12px;
 }
 
 .pagination-page {
-    width: 34px;
+    width: 34px; padding: 0;
 }
 
 .pagination-button:hover:not(:disabled),
@@ -464,7 +402,7 @@
 
 .pagination-pages {
     display: flex;
-    gap: 4px;
+    gap: 4px; align-items: center;
 }
 
 /* =========================================================
@@ -479,7 +417,7 @@
     align-items: center;
     justify-content: center;
     padding: 30px;
-    background: rgba(15, 25, 29, 0.52);
+    background: rgba(15, 25, 29, 0.52); backdrop-filter: blur(4px); animation: overlayIn .18s ease-out;
 }
 
 .registration-modal {
@@ -489,7 +427,7 @@
     border: 1px solid #e1e6e9;
     border-radius: 16px;
     background: #ffffff;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16); animation: modalIn .2s ease-out;
 }
 
 .registration-modal-header {
@@ -514,7 +452,7 @@
 .registration-modal-header h2 {
     margin: 0;
     color: #17252a;
-    font-size: 22px;
+    font-size: 22px; font-weight: 700;
 }
 
 .modal-close-button {
@@ -529,11 +467,11 @@
     color: #68747a;
     font-size: 23px;
     line-height: 1;
-    cursor: pointer;
+    cursor: pointer; transition: .15s;
 }
 
 .modal-close-button:hover {
-    background: #e9edef;
+    background: #e9edef; color: var(--crimson);
 }
 
 /* =========================================================
@@ -559,13 +497,13 @@
     background: #dfeeed;
     color: #245c61;
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 700; flex-shrink: 0;
 }
 
 .registration-profile h3 {
     margin: 0;
     color: #1f2d32;
-    font-size: 17px;
+    font-size: 17px; font-weight: 700;
 }
 
 .registration-profile-meta {
@@ -606,7 +544,7 @@
     padding: 13px 14px;
     border: 1px solid #e7ebed;
     border-radius: 9px;
-    background: #fafbfb;
+    background: #fafbfb; display: flex; flex-direction: column; gap: 4px;
 }
 
 .registration-detail-item span {
@@ -624,7 +562,7 @@
     overflow-wrap: anywhere;
     color: #344249;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 600; word-break: break-word;
 }
 
 /* =========================================================
@@ -746,7 +684,7 @@
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
-    cursor: pointer;
+    cursor: pointer; min-width: 80px; transition: .15s;
 }
 
 .modal-cancel-button:hover {
@@ -948,3 +886,65 @@
     padding: 0;
 }
 
+.registration-success, .registration-error { display: flex; align-items: center; margin-bottom: 20px; padding: 13px 16px; border-radius: 10px; font-size: 14px; font-weight: 500; }
+.view-button, .approve-button, .reject-button { border-radius: 7px; padding: 7px 11px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: background-color 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease,
+        opacity 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px; }
+.view-button:hover:not(:disabled) { border-color: var(--crimson); color: var(--crimson); background: var(--blush); }
+.approve-button:hover:not(:disabled) { background: var(--deep-crimson); border-color: var(--deep-crimson); }
+.reject-button:hover:not(:disabled) { background: #ffe9e9; }
+.view-button:disabled, .approve-button:disabled, .reject-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.registration-search .search-icon { position: absolute; top: 50%; left: 13px; transform: translateY(-50%); color: var(--text-subtle); font-size: 18px; pointer-events: none; }
+.registration-search input::placeholder { color: var(--text-subtle); }
+.registration-search input:focus { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(178,31,58,.07); }
+.pagination-button, .pagination-page { height: 34px; border: 1px solid #d8dfe3; border-radius: 7px; background: #ffffff; color: #4b5960; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: .15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center; }
+.pagination-button:hover:not(:disabled), .pagination-page:hover:not(.active) { border-color: var(--crimson); color: var(--crimson); background: var(--blush); }
+@media (max-width: 768px) {
+    .registrations-header { flex-direction: column; }
+}
+@media (max-width: 768px) {
+    .registrations-toolbar { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 768px) {
+    .registration-search { max-width: none; }
+}
+@media (max-width: 768px) {
+    .registrations-pagination { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 768px) {
+    .pagination-info { text-align: center; }
+}
+@media (max-width: 768px) {
+    .pagination-controls { justify-content: center; }
+}
+@media (max-width: 768px) {
+    .registration-modal-overlay { padding: 12px; }
+}
+@media (max-width: 768px) {
+    .registration-modal { max-height: 94vh; border-radius: 14px; }
+}
+@media (max-width: 768px) {
+    .registration-modal-header, .registration-profile, .registration-detail-section, .registration-modal-actions { padding-left: 20px; padding-right: 20px; }
+}
+@media (max-width: 768px) {
+    .registration-detail-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .registration-modal-actions { flex-direction: column-reverse; align-items: stretch; }
+}
+@media (max-width: 768px) {
+    .modal-cancel-button, .registration-modal-actions .reject-button, .registration-modal-actions .approve-button { width: 100%; }
+}
+
+.role-badge, .status-badge { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: capitalize;
+    justify-content: center; }
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalIn { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }

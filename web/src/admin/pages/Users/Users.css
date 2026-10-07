@@ -446,27 +446,6 @@
     word-break: break-word;
 }
 
-.user-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    padding: 1rem 1.5rem;
-}
-
-.user-modal-actions button {
-    padding: 0.6rem 1rem;
-    border: 1px solid #d9dee7;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #374151;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.user-modal-actions button:hover {
-    background: #f5f7fa;
-}
-
 @media (max-width: 700px) {
     .users-page {
         padding: 16px;

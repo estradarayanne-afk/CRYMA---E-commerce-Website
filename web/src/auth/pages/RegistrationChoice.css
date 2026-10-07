@@ -1,0 +1,97 @@
+.registration-choices {
+    display: grid;
+    gap: 12px;
+}
+
+.registration-choice {
+    position: relative;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    padding: 12px 44px 12px 12px;
+    border: 1px solid var(--border-neutral);
+    border-radius: 12px;
+    background: var(--white);
+    color: var(--text-primary);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.registration-choice > img { width: 104px; height: 92px; object-fit: cover; border-radius: 8px; }
+.registration-choice-content { display: flex; flex-direction: column; gap: 7px; }
+.registration-choice-cta { margin-top: 4px; color: var(--crimson) !important; font-size: 13px !important; font-weight: 700; }
+.registration-choice-panel .registration-choice { padding: 10px 40px 10px 10px; }
+.registration-choice-panel .registration-choice > img { width: 84px; height: 75px; }
+.registration-choice-panel .registration-choice strong { font-size: 14px; }
+.registration-choice-panel .registration-choice span:not(.registration-choice-content):not(.registration-choice-arrow) { font-size: 12px; }
+
+.registration-choice:hover,
+.registration-choice:focus-visible {
+    transform: translateY(-2px);
+    border-color: var(--floral-pink);
+    background: var(--rose-cream);
+    box-shadow: var(--shadow-card);
+}
+
+.registration-choice strong {
+    color: var(--wine);
+    font-size: 15px;
+}
+
+.registration-choice span:not(.registration-choice-arrow) {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.registration-choice-arrow {
+    position: absolute;
+    top: 17px;
+    right: 18px;
+    color: var(--crimson);
+    font-size: 20px;
+}
+
+.registration-choice-panel h2 {
+    margin: 0 0 18px;
+    color: var(--text-primary);
+    font-size: 23px;
+    line-height: 1.25;
+}
+
+/* Keep account type selection aligned with the shared auth form width. */
+.registration-choice-panel {
+    width: 100%;
+    max-width: 680px;
+    margin: auto;
+    padding: 24px clamp(24px, 3.2vw, 52px);
+}
+
+.registration-choice-eyebrow {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--crimson);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+}
+
+@media (max-width: 900px) {
+    .registration-choice-panel { padding: 20px 28px; }
+}
+
+@media (max-width: 480px) {
+    .registration-choice-panel { padding: 18px; }
+}
+
+.registration-choice-panel .registration-choice {
+    padding: 14px 42px 14px 15px;
+}
+
+.registration-choice-panel .registration-choice-arrow {
+    top: 12px;
+}

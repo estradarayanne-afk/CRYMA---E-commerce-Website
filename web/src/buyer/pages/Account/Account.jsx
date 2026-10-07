@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogOut, Mail, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { LogOut, Mail, MessageCircle, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import api from "../../../shared/services/api";
 import "./Account.css";
@@ -43,10 +43,12 @@ function Account() {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             localStorage.removeItem("cryma_cart");
+            localStorage.removeItem("cryma_wishlist");
             localStorage.removeItem("cryma_selected_cart_ids");
             localStorage.removeItem("cryma_checkout_item_ids");
 
             window.dispatchEvent(new Event("cryma-cart-updated"));
+            window.dispatchEvent(new Event("cryma-wishlist-updated"));
             navigate("/login", { replace: true });
         }
     };
@@ -151,6 +153,16 @@ function Account() {
                                     <small>Buyer account</small>
                                 </div>
                             </div>
+                        </section>
+
+                        <section className="account-card account-actions-card">
+                            <p className="account-eyebrow">HELP</p>
+                            <h2>CRYMA Customer Service</h2>
+                            <p>Contact our support team about orders, delivery, payments, or your account.</p>
+                            <button type="button" className="account-support-button" onClick={() => navigate("/buyer/chat")}>
+                                <MessageCircle size={15} />
+                                Contact Customer Service
+                            </button>
                         </section>
 
                         <section className="account-card account-actions-card">

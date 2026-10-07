@@ -1,0 +1,107 @@
+.cryma-auth-page {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: clamp(20px, 3vh, 32px);
+    background: radial-gradient(ellipse at 12% 14%, rgba(239,167,184,.28), transparent 36%), #f8f3f4;
+    color: var(--text-primary);
+}
+
+.cryma-auth-shell {
+    width: min(94vw, 1600px);
+    height: min(90vh, 880px);
+    height: min(90svh, 880px);
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 48% 52%;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.8);
+    border-radius: 26px;
+    background: var(--white);
+    box-shadow: 0 30px 90px rgba(75,23,37,.2), 0 8px 28px rgba(75,23,37,.08);
+    animation: auth-shell-appear .32s ease-out both;
+}
+
+.cryma-auth-visual {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 42px 48px 28px;
+    isolation: isolate;
+    background: linear-gradient(145deg, var(--wine), var(--deep-crimson) 58%, var(--crimson));
+    color: var(--white);
+}
+
+.cryma-auth-visual-photo,
+.cryma-auth-visual-shade,
+.cryma-auth-visual-rings { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cryma-auth-visual-photo { z-index: -3; object-fit: cover; opacity: .54; mix-blend-mode: screen; }
+.cryma-auth-visual-shade { z-index: -2; background: linear-gradient(135deg, rgba(75,23,37,.88) 0%, rgba(126,24,48,.68) 55%, rgba(75,23,37,.92) 100%); }
+.cryma-auth-visual-rings { z-index: -1; inset: auto -160px -260px auto; width: 520px; height: 520px; border: 1px solid rgba(249,220,228,.22); border-radius: 50%; box-shadow: 0 0 0 38px rgba(249,220,228,.035), 0 0 100px rgba(239,167,184,.17); }
+.cryma-auth-visual-rings::before { content: ""; position: absolute; inset: 76px; border: 1px solid rgba(249,220,228,.18); border-radius: inherit; }
+.cryma-auth-logo { position: relative; display: inline-flex; align-items: center; gap: 11px; width: fit-content; color: var(--white); text-decoration: none; font-size: 20px; font-weight: 800; letter-spacing: .13em; }
+.cryma-auth-logo-mark { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(255,255,255,.55); border-radius: 11px; background: rgba(255,255,255,.12); color: var(--white); font-size: 17px; letter-spacing: 0; backdrop-filter: blur(8px); }
+.cryma-auth-visual-copy { max-width: 520px; margin: auto 0; padding: 38px 0; animation: auth-copy-enter .45s .06s ease-out both; }
+.cryma-auth-eyebrow { display: block; margin-bottom: 18px; color: var(--blush); font-size: 12px; font-weight: 700; letter-spacing: .19em; }
+.cryma-auth-visual-copy h2 { margin: 0; color: var(--white); font-size: clamp(42px, 4.3vw, 64px); font-weight: 600; line-height: 1.08; letter-spacing: -.045em; }
+.cryma-auth-visual-copy h2 span { color: var(--floral-pink); }
+.cryma-auth-visual-copy p { max-width: 430px; margin: 22px 0 0; color: rgba(255,255,255,.86); font-size: 16px; line-height: 1.75; }
+.cryma-auth-trust-badge { align-self: flex-end; margin-top: -12px; padding: 12px 16px; border: 1px solid rgba(255,255,255,.25); border-radius: 11px; background: rgba(38,21,26,.38); box-shadow: 0 14px 34px rgba(38,21,26,.2); color: var(--white); font-size: 13px; backdrop-filter: blur(12px); }
+.cryma-auth-trust-badge span { margin-right: 8px; color: var(--floral-pink); font-weight: 800; }
+.cryma-auth-visual-footer { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,.7); font-size: 12px; }
+.cryma-auth-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--floral-pink); }
+.cryma-auth-panel { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--rose-cream); animation: auth-panel-enter .24s ease-out both; }
+.cryma-auth-panel > .buyer-login-form-section { width: 100%; height: 100%; min-height: 0; overflow: visible; }
+.cryma-auth-panel > .auth-choice-content { align-items: center; }
+.cryma-auth-page-modal { position: fixed; inset: 0; z-index: 5001; min-height: 0; padding: clamp(20px, 3vh, 32px); background: transparent; }
+.cryma-auth-shell-modal { position: relative; }
+.cryma-auth-panel > .buyer-login-form-section { padding: 36px clamp(28px, 3.2vw, 56px); }
+.cryma-auth-panel > .buyer-login:not(.embedded) { width: 100%; height: auto; min-height: 0; margin: 0; display: block; grid-template-columns: none; overflow: visible; background: transparent; color: var(--text-primary); }
+.cryma-auth-panel > .buyer-login > .buyer-login-form-section { width: 100%; height: auto; min-height: 0; padding: 36px clamp(28px, 3.2vw, 56px); }
+.cryma-auth-panel .buyer-login-form-wrap { width: 100%; max-width: 680px; margin-inline: auto; }
+.cryma-auth-panel .register-page { min-height: 0; height: 100%; display: block; background: transparent; }
+.cryma-auth-panel > .register-page { min-height: 0; height: auto; display: block; background: transparent; }
+.cryma-auth-panel .register-content { min-height: 0; padding: 34px clamp(28px, 3.2vw, 56px); }
+.cryma-auth-panel .register-top,
+.cryma-auth-panel .register-stepper,
+.cryma-auth-panel .register-form { margin-inline: auto; }
+.cryma-auth-panel .register-page.embedded .register-content { height: auto; overflow: visible; }
+
+@keyframes auth-shell-appear { from { opacity: 0; transform: translateY(8px) scale(.992); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes auth-copy-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes auth-panel-enter { from { opacity: .6; } to { opacity: 1; } }
+
+@media (max-width: 900px) {
+    .cryma-auth-page { padding: 20px; }
+    .cryma-auth-shell { width: min(100%, 760px); height: min(90vh, 880px); height: min(90svh, 880px); grid-template-columns: 1fr; grid-template-rows: 180px minmax(0,1fr); border-radius: 20px; }
+    .cryma-auth-page-modal { padding: 20px; }
+    .cryma-auth-visual { padding: 18px 24px; }
+    .cryma-auth-logo { font-size: 17px; }
+    .cryma-auth-logo-mark { width: 32px; height: 32px; }
+    .cryma-auth-visual-copy { margin: auto 0 0; padding: 12px 0 0; }
+    .cryma-auth-eyebrow { margin-bottom: 8px; font-size: 10px; }
+    .cryma-auth-visual-copy h2 { font-size: clamp(24px,5vw,32px); }
+    .cryma-auth-visual-copy p, .cryma-auth-trust-badge, .cryma-auth-visual-footer { display: none; }
+    .cryma-auth-panel { padding-bottom: env(safe-area-inset-bottom); }
+    .cryma-auth-panel > .buyer-login-form-section,
+    .cryma-auth-panel > .buyer-login > .buyer-login-form-section { padding: 28px; }
+    .cryma-auth-panel .register-content { padding: 28px; }
+}
+
+@media (max-width: 480px) {
+    .cryma-auth-page,
+    .cryma-auth-page-modal { padding: 10px; }
+    .cryma-auth-shell { width: 100%; height: calc(100vh - 20px); height: calc(100svh - 20px); grid-template-rows: 150px minmax(0,1fr); border-radius: 16px; }
+    .cryma-auth-panel > .buyer-login-form-section,
+    .cryma-auth-panel > .buyer-login > .buyer-login-form-section,
+    .cryma-auth-panel .register-content { padding: 24px 18px; }
+    .cryma-auth-visual { padding: 15px 18px; }
+    .cryma-auth-visual-copy h2 { font-size: 23px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cryma-auth-shell, .cryma-auth-panel, .cryma-auth-visual-copy { animation: none; }
+}

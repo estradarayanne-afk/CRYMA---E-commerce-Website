@@ -4,7 +4,7 @@
 
 .chat-page {
     width: 100%;
-    color: #243536;
+    color: #26151A;
 }
 
 /* =========================================================
@@ -18,7 +18,7 @@
 .chat-eyebrow {
     display: block;
     margin-bottom: 7px;
-    color: #4fa6a0;
+    color: #EFA7B8;
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 1.2px;
@@ -27,7 +27,7 @@
 
 .chat-page-header h1 {
     margin: 0 0 6px;
-    color: #243536;
+    color: #26151A;
     font-size: 25px;
     font-weight: 700;
     letter-spacing: -0.4px;
@@ -35,7 +35,7 @@
 
 .chat-page-header p {
     margin: 0;
-    color: #718080;
+    color: #8A6871;
     font-size: 11px;
     line-height: 1.6;
 }
@@ -63,7 +63,7 @@
     grid-template-columns: 280px minmax(0, 1fr);
     min-height: 570px;
     background: #ffffff;
-    border: 1px solid #e5eaea;
+    border: 1px solid #F0DDE2;
     border-radius: 15px;
     box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
     overflow: hidden;
@@ -149,7 +149,7 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: #0f4c4c;
+    background: #B21F3A;
     color: #ffffff;
     font-size: 10px;
     font-weight: 700;
@@ -212,7 +212,7 @@
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: #4fa6a0;
+    background: #EFA7B8;
     color: #ffffff;
     font-size: 10px;
     font-weight: 700;
@@ -269,13 +269,13 @@
 
 .message-row.buyer .message-bubble {
     background: #ffffff;
-    border: 1px solid #e5eaea;
+    border: 1px solid #F0DDE2;
     border-top-left-radius: 4px;
     color: #526060;
 }
 
 .message-row.admin .message-bubble {
-    background: #0f4c4c;
+    background: #B21F3A;
     border-top-right-radius: 4px;
     color: #ffffff;
 }
@@ -310,7 +310,7 @@
 }
 
 .chat-input-area input:focus {
-    border-color: #4fa6a0;
+    border-color: #EFA7B8;
     box-shadow:
         0 0 0 3px rgba(79, 166, 160, 0.08);
 }
@@ -324,7 +324,7 @@
     padding: 10px 15px;
     border: 0;
     border-radius: 8px;
-    background: #0f4c4c;
+    background: #B21F3A;
     color: #ffffff;
     font-family: inherit;
     font-size: 8px;
@@ -340,7 +340,7 @@
     background: #123c3c;
     transform: translateY(-1px);
     box-shadow:
-        0 5px 12px rgba(15, 76, 76, 0.15);
+        0 5px 12px rgba(178, 31, 58, 0.15);
 }
 
 .chat-input-area button:disabled {

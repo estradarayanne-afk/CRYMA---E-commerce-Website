@@ -7,6 +7,11 @@ import {
     ShoppingBag,
     Trash2,
 } from "lucide-react";
+import {
+    getBuyerCart,
+    isBuyerSession,
+    saveBuyerCart,
+} from "../../../shared/utils/buyerAccess";
 
 import "./Cart.css";
 
@@ -34,16 +39,13 @@ function getSellerName(seller) {
     );
 }
 
-function readCart() {
-    try {
-        const stored = JSON.parse(
-            localStorage.getItem("cryma_cart") || "[]"
-        );
-
-        return Array.isArray(stored) ? stored : [];
-    } catch {
-        return [];
+function getKnownStock(item) {
+    if (item?.stock === null || item?.stock === undefined || item.stock === "") {
+        return null;
     }
+
+    const stock = Number(item.stock);
+    return Number.isFinite(stock) ? stock : null;
 }
 
 function readSelectedIds(cart) {
@@ -53,59 +55,72 @@ function readSelectedIds(cart) {
         );
 
         if (!Array.isArray(stored)) {
-            return cart.map((item) => item.id);
+            return cart
+                .filter((item) => {
+                    const stock = getKnownStock(item);
+                    return stock === null || stock > 0;
+                })
+                .map((item) => String(item.id));
         }
 
-        const validIds = new Set(
-            cart.map((item) => item.id)
+        const availableIds = new Set(
+            cart
+                .filter((item) => {
+                    const stock = getKnownStock(item);
+                    return stock === null || stock > 0;
+                })
+                .map((item) => String(item.id))
         );
 
-        return stored.filter((id) => validIds.has(id));
+        return stored
+            .map(String)
+            .filter((id) => availableIds.has(id));
     } catch {
-        return cart.map((item) => item.id);
+        return cart
+            .filter((item) => {
+                const stock = getKnownStock(item);
+                return stock === null || stock > 0;
+            })
+            .map((item) => String(item.id));
     }
 }
 
 function Cart() {
     const navigate = useNavigate();
-    const isLoggedIn = Boolean(
-        localStorage.getItem("token")
-    );
-
-    const [cart, setCart] = useState(readCart);
+    const hasBuyerAccess = isBuyerSession();
+    const [cart, setCart] = useState(getBuyerCart);
     const [selectedIds, setSelectedIds] = useState(() =>
-        readSelectedIds(readCart())
+        readSelectedIds(getBuyerCart())
     );
     const [notice, setNotice] = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
 
     useEffect(() => {
-        if (!isLoggedIn) {
-            navigate("/login", {
-                replace: true,
-                state: { from: "/cart" },
-            });
-        }
-    }, [isLoggedIn, navigate]);
+        const syncCart = () => setCart(getBuyerCart());
+        window.addEventListener("cryma-cart-updated", syncCart);
+        window.addEventListener("storage", syncCart);
+        return () => {
+            window.removeEventListener("cryma-cart-updated", syncCart);
+            window.removeEventListener("storage", syncCart);
+        };
+    }, []);
 
     useEffect(() => {
-        localStorage.setItem(
-            SELECTED_CART_KEY,
-            JSON.stringify(selectedIds)
+        const availableIds = new Set(
+            cart
+                .filter((item) => {
+                    const stock = getKnownStock(item);
+                    return stock === null || stock > 0;
+                })
+                .map((item) => String(item.id))
         );
-    }, [selectedIds]);
+        const validSelectedIds = selectedIds.filter((id) => availableIds.has(String(id)));
+        localStorage.setItem(SELECTED_CART_KEY, JSON.stringify(validSelectedIds));
+    }, [cart, selectedIds]);
 
     const saveCart = (nextCart) => {
+        if (!saveBuyerCart(nextCart)) return;
         setCart(nextCart);
-
-        localStorage.setItem(
-            "cryma_cart",
-            JSON.stringify(nextCart)
-        );
-
-        window.dispatchEvent(
-            new Event("cryma-cart-updated")
-        );
     };
 
     const showNotice = (message, duration = 2400) => {
@@ -118,16 +133,16 @@ function Cart() {
 
     const updateQuantity = (id, nextQuantity) => {
         const item = cart.find(
-            (cartItem) => cartItem.id === id
+            (cartItem) => String(cartItem.id) === String(id)
         );
 
         if (!item) {
             return;
         }
 
-        const stock = Number(item.stock || 0);
+        const stock = getKnownStock(item);
 
-        if (stock <= 0) {
+        if (stock !== null && stock <= 0) {
             showNotice(
                 `${item.name} is currently out of stock.`
             );
@@ -144,12 +159,11 @@ function Cart() {
             return;
         }
 
-        const safeQuantity = Math.min(
-            Math.max(Math.floor(numericQuantity), 1),
-            stock
-        );
+        const safeQuantity = stock === null
+            ? Math.max(Math.floor(numericQuantity), 1)
+            : Math.min(Math.max(Math.floor(numericQuantity), 1), stock);
 
-        if (numericQuantity > stock) {
+        if (stock !== null && numericQuantity > stock) {
             showNotice(
                 `Only ${stock} item${
                     stock === 1 ? "" : "s"
@@ -158,7 +172,7 @@ function Cart() {
         }
 
         const nextCart = cart.map((cartItem) =>
-            cartItem.id === id
+            String(cartItem.id) === String(id)
                 ? {
                       ...cartItem,
                       quantity: safeQuantity,
@@ -178,23 +192,21 @@ function Cart() {
     };
 
     const toggleItem = (id) => {
+        const idKey = String(id);
+        const availableIds = new Set(availableCartIds);
         setSelectedIds((current) =>
-            current.includes(id)
-                ? current.filter(
-                      (selectedId) => selectedId !== id
-                  )
-                : [...current, id]
+            current.filter((selectedId) => availableIds.has(String(selectedId))).includes(idKey)
+                ? current.filter((selectedId) => String(selectedId) !== idKey && availableIds.has(String(selectedId)))
+                : [...current.filter((selectedId) => availableIds.has(String(selectedId))), idKey]
         );
     };
 
-    const availableCartIds = useMemo(() => {
-        return cart
-            .filter(
-                (item) =>
-                    Number(item.stock || 0) > 0
-            )
-            .map((item) => item.id);
-    }, [cart]);
+    const availableCartIds = cart
+        .filter((item) => {
+            const stock = getKnownStock(item);
+            return stock === null || stock > 0;
+        })
+        .map((item) => String(item.id));
 
     const allSelected =
         availableCartIds.length > 0 &&
@@ -217,31 +229,29 @@ function Cart() {
     };
 
     const requestRemoveItem = (item) => {
-        setDeleteTarget(item);
+        setDeleteTarget({ items: [item], bulk: false });
     };
 
     const confirmRemoveItem = () => {
-        if (!deleteTarget) {
+        if (!deleteTarget?.items?.length) {
             return;
         }
 
-        const id = deleteTarget.id;
+        const removedIds = new Set(deleteTarget.items.map((item) => String(item.id)));
 
         const nextCart = cart.filter(
-            (cartItem) => cartItem.id !== id
+            (cartItem) => !removedIds.has(String(cartItem.id))
         );
 
         saveCart(nextCart);
 
         setSelectedIds((current) =>
-            current.filter(
-                (selectedId) => selectedId !== id
-            )
+            current.filter((selectedId) => !removedIds.has(String(selectedId)))
         );
 
-        showNotice(
-            `${deleteTarget.name} removed from your cart.`
-        );
+        showNotice(deleteTarget.bulk
+            ? `${removedIds.size} selected item${removedIds.size === 1 ? "" : "s"} removed from your cart.`
+            : `${deleteTarget.items[0].name} removed from your cart.`);
 
         setDeleteTarget(null);
     };
@@ -251,15 +261,20 @@ function Cart() {
     };
 
     const selectedItems = useMemo(() => {
-        return cart.filter((item) =>
-            selectedIds.includes(item.id)
-        );
+        const selectedSet = new Set(selectedIds.map(String));
+        return cart.filter((item) => selectedSet.has(String(item.id)));
     }, [cart, selectedIds]);
+
+    const requestRemoveSelected = () => {
+        if (selectedItems.length) {
+            setDeleteTarget({ items: selectedItems, bulk: true });
+        }
+    };
 
     const selectedItemCount = useMemo(() => {
         return selectedItems.reduce(
             (count, item) =>
-                count + Number(item.quantity || 0),
+                count + Number(item.quantity || 1),
             0
         );
     }, [selectedItems]);
@@ -267,7 +282,7 @@ function Cart() {
     const selectedSubtotal = useMemo(() => {
         return selectedItems.reduce((sum, item) => {
             const price = Number(item.price || 0);
-            const quantity = Number(item.quantity || 0);
+            const quantity = Number(item.quantity || 1);
 
             return sum + price * quantity;
         }, 0);
@@ -276,16 +291,17 @@ function Cart() {
     const totalItemCount = useMemo(() => {
         return cart.reduce(
             (count, item) =>
-                count + Number(item.quantity || 0),
+                count + Number(item.quantity || 1),
             0
         );
     }, [cart]);
 
     const hasInvalidSelectedStock = selectedItems.some(
-        (item) =>
-            Number(item.stock || 0) <= 0 ||
-            Number(item.quantity || 0) >
-                Number(item.stock || 0)
+        (item) => {
+            const stock = getKnownStock(item);
+            const quantity = Number(item.quantity || 1);
+            return quantity < 1 || (stock !== null && (stock <= 0 || quantity > stock));
+        }
     );
 
     const proceedToCheckout = () => {
@@ -320,7 +336,7 @@ function Cart() {
         navigate("/checkout");
     };
 
-    if (!isLoggedIn) {
+    if (!hasBuyerAccess) {
         return null;
     }
 
@@ -369,8 +385,7 @@ function Cart() {
                     <h2>Your cart is empty</h2>
 
                     <p>
-                        Add products you want to purchase
-                        and they will appear here.
+                        Looks like you haven't added anything yet.
                     </p>
 
                     <Link
@@ -414,6 +429,16 @@ function Cart() {
                                 {cart.length} products
                                 selected
                             </span>
+                            {selectedItems.length > 0 && (
+                                <button
+                                    type="button"
+                                    className="cart-delete-selected"
+                                    onClick={requestRemoveSelected}
+                                >
+                                    <Trash2 size={14} />
+                                    Delete selected
+                                </button>
+                            )}
                         </div>
 
                         <div className="cart-items-heading">
@@ -443,9 +468,7 @@ function Cart() {
                                     item.quantity || 1
                                 );
 
-                                const stock = Number(
-                                    item.stock || 0
-                                );
+                                const stock = getKnownStock(item);
 
                                 const sellerName =
                                     getSellerName(
@@ -456,12 +479,15 @@ function Cart() {
                                     price * quantity;
 
                                 const unavailable =
-                                    stock <= 0;
+                                    stock !== null && stock <= 0;
 
                                 const selected =
                                     selectedIds.includes(
-                                        item.id
+                                        String(item.id)
                                     );
+                                const itemImage = [item.image, item.image_url, item.thumbnail, item.displayImage]
+                                    .find((value) => typeof value === "string" && value.trim());
+                                const variant = item.variant_name || item.variant?.name || (typeof item.variant === "string" ? item.variant : "");
 
                                 return (
                                     <article
@@ -502,11 +528,9 @@ function Cart() {
                                         </label>
 
                                         <div className="cart-item-image">
-                                            {item.image ? (
+                                            {itemImage ? (
                                                 <img
-                                                    src={
-                                                        item.image
-                                                    }
+                                                    src={itemImage}
                                                     alt={
                                                         item.name
                                                     }
@@ -546,20 +570,22 @@ function Cart() {
                                                 </p>
                                             )}
 
-                                            <div className="cart-item-stock">
+                                            {variant && (
+                                                <p className="cart-item-variant">{variant}</p>
+                                            )}
+
+                                            {stock !== null && <div className="cart-item-stock">
                                                 {unavailable ? (
                                                     <strong className="cart-stock-out">
                                                         Out of stock
                                                     </strong>
                                                 ) : (
                                                     <span>
-                                                        {
-                                                            stock
-                                                        }{" "}
+                                                        {stock}{" "}
                                                         available
                                                     </span>
                                                 )}
-                                            </div>
+                                            </div>}
 
                                             <button
                                                 className="cart-remove"
@@ -611,8 +637,7 @@ function Cart() {
                                                     type="number"
                                                     min="1"
                                                     max={
-                                                        stock ||
-                                                        1
+                                                        stock === null ? undefined : stock
                                                     }
                                                     value={
                                                         quantity
@@ -638,8 +663,7 @@ function Cart() {
                                                     aria-label={`Increase quantity for ${item.name}`}
                                                     disabled={
                                                         unavailable ||
-                                                        quantity >=
-                                                            stock
+                                                        (stock !== null && quantity >= stock)
                                                     }
                                                     onClick={() =>
                                                         updateQuantity(
@@ -673,38 +697,20 @@ function Cart() {
                             ORDER SUMMARY
                         </p>
 
-                        <h2>Order total</h2>
+                        <h2>Order Summary</h2>
 
                         <div className="cart-summary-line">
-                            <span>
-                                Selected products
-                            </span>
-
-                            <strong>
-                                {selectedItems.length}
-                            </strong>
+                            <span>Subtotal ({selectedItemCount} items)</span>
+                            <strong>₱{selectedSubtotal.toLocaleString()}</strong>
                         </div>
 
                         <div className="cart-summary-line">
-                            <span>
-                                Total quantity
-                            </span>
-
-                            <strong>
-                                {selectedItemCount}
-                            </strong>
-                        </div>
-
-                        <div className="cart-summary-line">
-                            <span>Delivery</span>
-
-                            <span>
-                                Calculated at checkout
-                            </span>
+                            <span>Shipping</span>
+                            <span>Calculated at checkout</span>
                         </div>
 
                         <div className="cart-summary-total">
-                            <span>Subtotal</span>
+                            <span>Total</span>
 
                             <strong>
                                 ₱
@@ -757,15 +763,15 @@ function Cart() {
                         </div>
 
                         <h2 id="cart-delete-title">
-                            Remove this item?
+                            {deleteTarget.bulk ? "Remove selected items?" : "Remove this item?"}
                         </h2>
 
                         <p>
-                            Are you sure you want to remove{" "}
-                            <strong>
-                                {deleteTarget.name}
-                            </strong>{" "}
-                            from your cart?
+                            {deleteTarget.bulk ? (
+                                <>Are you sure you want to remove <strong>{deleteTarget.items.length} selected items</strong> from your cart?</>
+                            ) : (
+                                <>Are you sure you want to remove <strong>{deleteTarget.items[0].name}</strong> from your cart?</>
+                            )}
                         </p>
 
                         <div className="cart-delete-actions">
@@ -782,7 +788,7 @@ function Cart() {
                                 className="cart-delete-confirm"
                                 onClick={confirmRemoveItem}
                             >
-                                Remove Item
+                                {deleteTarget.bulk ? "Remove Selected" : "Remove Item"}
                             </button>
                         </div>
                     </div>

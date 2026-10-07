@@ -2,34 +2,14 @@
    CRYMA ADMIN LAYOUT
    ========================================================= */
 
-:root {
-    --cryma-primary: #0f4c4c;
-    --cryma-primary-dark: #0a3638;
-    --cryma-primary-deep: #082b2d;
-    --cryma-accent: #4fa6a0;
-
-    --cryma-white: #ffffff;
-    --cryma-text: #243536;
-    --cryma-muted: #718080;
-    --cryma-border: #e5eaea;
-    --cryma-background: #f5f8f8;
-    --cryma-danger: #d9534f;
-
-    --sidebar-width: 260px;
-    --sidebar-collapsed-width: 82px;
-    --header-height: 72px;
-
-    --transition: 180ms ease;
-}
-
 /* =========================================================
    ROOT
    ========================================================= */
 
 .al-root {
     min-height: 100vh;
-    background: var(--cryma-background);
-    color: var(--cryma-text);
+    background: var(--rose-cream);
+    color: var(--text-primary);
     font-family: "Poppins", sans-serif;
     display: flex;
 }
@@ -55,19 +35,17 @@
     display: flex;
     flex-direction: column;
 
-    background: linear-gradient(
-        180deg,
-        var(--cryma-primary-dark),
-        var(--cryma-primary-deep)
-    );
+    background: #fff;
 
-    color: var(--cryma-white);
+    color: var(--text-primary);
 
     z-index: 1000;
 
-    box-shadow: 8px 0 30px rgba(8, 43, 45, 0.08);
+    box-shadow: 5px 0 24px rgba(75, 23, 37, 0.035);
 
     transition: width var(--transition);
+
+    border-right: 1px solid var(--color-border);
 }
 
 /* =========================================================
@@ -83,6 +61,8 @@
     justify-content: space-between;
 
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+    border-bottom-color: var(--color-border);
 }
 
 .al-brand {
@@ -105,13 +85,14 @@
 
     border-radius: 11px;
 
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--blush);
     border: 1px solid rgba(255, 255, 255, 0.13);
 
-    color: #ffffff;
+    color: var(--crimson);
 
     font-size: 17px;
     font-weight: 700;
+    border-color: var(--color-border);
 }
 
 .al-brand-copy {
@@ -122,7 +103,7 @@
 }
 
 .al-brand-name {
-    color: #ffffff;
+    color: var(--wine);
 
     font-size: 17px;
     font-weight: 700;
@@ -137,7 +118,7 @@
 }
 
 .al-brand-sub {
-    color: rgba(255, 255, 255, 0.48);
+    color: var(--text-muted);
 
     font-size: 9px;
     font-weight: 500;
@@ -170,11 +151,13 @@
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 10px;
 
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--rose-cream);
 
     cursor: pointer;
 
     transition: 180ms ease;
+
+    border-color: var(--color-border);
 }
 
 .al-sidebar-toggle:hover {
@@ -189,7 +172,7 @@
 
     border-radius: 10px;
 
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--crimson);
 }
 
 /* =========================================================
@@ -199,7 +182,7 @@
 .al-section-label {
     padding: 24px 22px 10px;
 
-    color: rgba(255, 255, 255, 0.36);
+    color: var(--text-muted);
 
     font-size: 9px;
     font-weight: 600;
@@ -235,7 +218,7 @@
     border: 1px solid transparent;
     border-radius: 11px;
 
-    color: rgba(255, 255, 255, 0.61);
+    color: #70535C;
 
     text-decoration: none;
 
@@ -249,22 +232,22 @@
 }
 
 .al-nav a:hover {
-    color: #ffffff;
+    color: var(--crimson);
 
-    background: rgba(255, 255, 255, 0.065);
+    background: var(--rose-cream);
 
     transform: translateX(2px);
 }
 
 .al-nav a.active {
-    color: #ffffff;
+    color: var(--crimson);
 
-    background: rgba(79, 166, 160, 0.18);
+    background: var(--blush);
 
-    border-color: rgba(79, 166, 160, 0.18);
+    border-color: #F2CAD4;
 
     box-shadow:
-        inset 3px 0 0 var(--cryma-accent);
+        inset 3px 0 0 var(--crimson);
 }
 
 /* =========================================================
@@ -283,9 +266,11 @@
 
     border-radius: 7px;
 
-    color: rgba(255, 255, 255, 0.52);
+    color: var(--crimson);
 
     font-size: 15px;
+
+    background: transparent;
 }
 
 .al-nav a:hover .al-nav-icon,
@@ -294,7 +279,8 @@
 }
 
 .al-nav a.active .al-nav-icon {
-    background: rgba(79, 166, 160, 0.18);
+    background: transparent;
+    color: var(--crimson);
 }
 
 /* =========================================================
@@ -322,7 +308,7 @@
 
     border-radius: 50%;
 
-    background: var(--cryma-accent);
+    background: var(--floral-pink);
 
     opacity: 0;
 }
@@ -341,6 +327,8 @@
     padding: 14px;
 
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+    border-top-color: var(--color-border);
 }
 
 .al-profile-wrapper {
@@ -363,7 +351,7 @@
 
     background: transparent;
 
-    color: #ffffff;
+    color: var(--text-primary);
 
     cursor: pointer;
 
@@ -387,14 +375,15 @@
 
     border-radius: 10px;
 
-    background: rgba(79, 166, 160, 0.2);
+    background: var(--blush);
 
     border: 1px solid rgba(79, 166, 160, 0.25);
 
-    color: #ffffff;
+    color: var(--crimson);
 
     font-size: 12px;
     font-weight: 700;
+    border-color: var(--color-border);
 }
 
 .al-user-info {
@@ -407,7 +396,7 @@
 }
 
 .al-user-info strong {
-    color: #ffffff;
+    color: var(--text-primary);
 
     font-size: 11px;
     font-weight: 600;
@@ -418,13 +407,13 @@
 }
 
 .al-user-info span {
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-muted);
 
     font-size: 9px;
 }
 
 .al-profile-chevron {
-    color: rgba(255, 255, 255, 0.38);
+    color: var(--text-muted);
 
     font-size: 14px;
 }
@@ -444,7 +433,7 @@
 
     background: #ffffff;
 
-    border: 1px solid var(--cryma-border);
+    border: 1px solid var(--color-border);
     border-radius: 14px;
 
     box-shadow: 0 18px 45px rgba(8, 43, 45, 0.16);
@@ -461,7 +450,7 @@
 }
 
 .al-avatar--menu {
-    background: var(--cryma-primary);
+    background: var(--crimson);
 }
 
 .al-profile-menu-head > div:last-child {
@@ -472,13 +461,13 @@
 }
 
 .al-profile-menu-head strong {
-    color: var(--cryma-text);
+    color: var(--text-primary);
 
     font-size: 11px;
 }
 
 .al-profile-menu-head span {
-    color: var(--cryma-muted);
+    color: var(--text-muted);
 
     font-size: 9px;
 }
@@ -488,7 +477,7 @@
 
     margin: 7px 0;
 
-    background: var(--cryma-border);
+    background: var(--color-border);
 }
 
 .al-profile-action {
@@ -507,7 +496,7 @@
 
     background: transparent;
 
-    color: var(--cryma-text);
+    color: var(--text-primary);
 
     font-family: inherit;
     font-size: 10px;
@@ -518,7 +507,7 @@
 }
 
 .al-profile-action:hover {
-    background: var(--cryma-background);
+    background: var(--rose-cream);
 }
 
 .al-profile-action span {
@@ -531,7 +520,7 @@
 }
 
 .al-profile-action--danger {
-    color: var(--cryma-danger);
+    color: var(--color-danger);
 }
 
 /* =========================================================
@@ -548,6 +537,8 @@
     transition:
         width var(--transition),
         margin-left var(--transition);
+
+    background: var(--rose-cream);
 }
 
 /* =========================================================
@@ -566,11 +557,13 @@
 
     padding: 0 30px;
 
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255,255,255,.96);
 
-    border-bottom: 1px solid var(--cryma-border);
+    border-bottom: 1px solid var(--color-border);
 
     z-index: 900;
+
+    border-bottom-color: var(--color-border);
 }
 
 .al-header-left {
@@ -590,7 +583,7 @@
 }
 
 .al-breadcrumb strong {
-    color: var(--cryma-text);
+    color: var(--wine);
 }
 
 /* =========================================================
@@ -611,9 +604,9 @@
 
     border-radius: 20px;
 
-    background: #f1f7f6;
+    background: var(--blush);
 
-    color: #55706e;
+    color: var(--deep-crimson);
 
     font-size: 9px;
     font-weight: 500;
@@ -625,7 +618,7 @@
 
     border-radius: 50%;
 
-    background: var(--cryma-accent);
+    background: var(--crimson);
 
     box-shadow: 0 0 0 4px rgba(79, 166, 160, 0.1);
 }
@@ -638,6 +631,8 @@
     min-height: calc(100vh - var(--header-height));
 
     padding: 28px 30px 40px;
+
+    color: var(--text-primary);
 }
 
 /* =========================================================
@@ -727,11 +722,13 @@
 
     background: #ffffff;
 
-    border-radius: 20px;
+    border-radius: var(--radius-lg);
 
     box-shadow: 0 25px 70px rgba(5, 27, 29, 0.24);
 
     text-align: center;
+
+    border: 1px solid var(--color-border);
 }
 
 .al-logout-icon {
@@ -748,7 +745,7 @@
 
     background: rgba(217, 83, 79, 0.08);
 
-    color: var(--cryma-danger);
+    color: var(--color-danger);
 
     font-size: 21px;
 }
@@ -756,7 +753,7 @@
 .al-logout-content h2 {
     margin: 0 0 7px;
 
-    color: var(--cryma-text);
+    color: var(--text-primary);
 
     font-size: 18px;
 }
@@ -766,7 +763,7 @@
 
     max-width: 310px;
 
-    color: var(--cryma-muted);
+    color: var(--text-muted);
 
     font-size: 10px;
 
@@ -799,17 +796,17 @@
 }
 
 .al-modal-cancel {
-    border: 1px solid var(--cryma-border);
+    border: 1px solid var(--color-border);
 
     background: #ffffff;
 
-    color: var(--cryma-text);
+    color: var(--text-primary);
 }
 
 .al-modal-confirm {
-    border: 1px solid var(--cryma-danger);
+    border: 1px solid var(--color-danger);
 
-    background: var(--cryma-danger);
+    background: var(--color-danger);
 
     color: #ffffff;
 }
@@ -868,10 +865,13 @@
         transform: translateX(-100%);
 
         transition: transform var(--transition);
+
+        background: #fff;
     }
 
     .al-root--mobile-open .al-sidebar {
         transform: translateX(0);
+        z-index: 1000;
     }
 
     .al-main,
@@ -909,5 +909,24 @@
     .al-modal-cancel,
     .al-modal-confirm {
         width: 100%;
+    }
+}
+
+.al-profile-trigger:hover {
+    background: var(--rose-cream);
+}
+
+.al-profile-trigger.open {
+    background: var(--rose-cream);
+}
+
+@media (max-width: 700px) {
+
+    .al-root--mobile-open::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        background: rgba(38, 21, 26, 0.28);
     }
 }

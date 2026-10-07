@@ -73,7 +73,7 @@ function App() {
                     path="/seller-register"
                     element={
                         <Navigate
-                            to="/register/seller"
+                            to="/register"
                             replace
                         />
                     }
@@ -102,10 +102,7 @@ function App() {
                         element={<BuyerProductDetails />}
                     />
 
-                    <Route
-                        path="/cart"
-                        element={<BuyerCart />}
-                    />
+
 
                     {/* BUYER AUTHENTICATED */}
 
@@ -116,6 +113,10 @@ function App() {
                             />
                         }
                     >
+                        <Route
+                            path="/cart"
+                            element={<BuyerCart />}
+                        />
 
                         <Route
                             path="/checkout"

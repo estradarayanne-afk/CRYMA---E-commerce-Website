@@ -186,7 +186,7 @@
 }
 
 .buyer-login-back:hover {
-    color: #0d5a54;
+    color: #B21F3A;
     transform: translateX(-2px);
 }
 
@@ -419,7 +419,7 @@
     margin-top: 4px;
     border: 0;
     border-radius: 9px;
-    background: #0b514d;
+    background: #7E1830;
     color: #ffffff;
     cursor: pointer;
     font-family: inherit;
@@ -525,6 +525,55 @@
     line-height: 1.5;
 }
 
+/* CRYMA auth refresh: shared visual proportions and accessible control sizing. */
+.buyer-login { grid-template-columns: 42% 58%; background: var(--rose-cream); color: var(--text-primary); }
+.buyer-login-brand { background: linear-gradient(145deg, var(--wine), var(--deep-crimson)); }
+.buyer-login-brand-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .52; mix-blend-mode: screen; }
+.buyer-login-brand-inner { background: linear-gradient(145deg, rgba(75,23,37,.88), rgba(126,24,48,.7)); }
+.buyer-login-brand-content h2 span { color: var(--floral-pink); }
+.buyer-login-eyebrow { color: rgba(255,255,255,.84); font-size: 12px; }
+.buyer-login-brand-content p { color: rgba(255,255,255,.84); font-size: 15px; }
+.buyer-login-brand-footer { color: rgba(255,255,255,.7); font-size: 12px; }
+.buyer-login-brand-badge { position: relative; z-index: 2; align-self: flex-end; margin-top: -22px; padding: 11px 15px; border: 1px solid rgba(255,255,255,.28); border-radius: 10px; background: rgba(38,21,26,.42); color: #fff; font-size: 12px; box-shadow: 0 12px 30px rgba(38,21,26,.2); backdrop-filter: blur(10px); }
+.buyer-login-brand-badge span { margin-right: 8px; color: var(--floral-pink); font-weight: 800; }
+.buyer-login-form-section { background: var(--rose-cream); }
+.buyer-login-form-wrap { max-width: 680px; }
+.buyer-login-back { font-size: 13px; color: var(--text-muted); }
+.buyer-login-heading h1 { color: var(--text-primary); font-size: 36px; }
+.buyer-login-heading p { color: var(--text-muted); font-size: 15px; }
+.buyer-login-field label { color: var(--text-primary); font-size: 15px; }
+.buyer-login-forgot { color: var(--crimson); font-size: 13px; }
+.buyer-login-input-wrap input { height: 52px; border-color: #cbbbc0; color: var(--text-primary); font-size: 16px; }
+.buyer-login-input-wrap input::placeholder { color: #806d72; }
+.buyer-login-input-wrap input:focus { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(178,31,58,.12); }
+.buyer-login-input-wrap:focus-within .buyer-login-input-icon { color: var(--crimson); }
+.buyer-login-submit { height: 52px; background: linear-gradient(110deg, var(--crimson), var(--deep-crimson)); font-size: 16px; box-shadow: 0 8px 20px rgba(75,23,37,.18); }
+.buyer-login-submit:hover:not(:disabled) { background: var(--wine); box-shadow: 0 11px 24px rgba(75,23,37,.23); }
+.buyer-login-alert { font-size: 13px; }
+.buyer-login-divider small { font-size: 11px; }
+.buyer-login-register { height: 48px; border-color: #cbbbc0; color: var(--deep-crimson); font-size: 15px; }
+.buyer-login-register:hover { border-color: var(--crimson); background: var(--soft-rose); color: var(--wine); }
+.buyer-login-security { font-size: 12px; }
+
+@media (max-width: 900px) {
+    .buyer-login { grid-template-columns: 1fr; }
+    .buyer-login-brand { display: block; min-height: 240px; height: 240px; }
+    .buyer-login-brand-inner { min-height: 240px; padding: 24px 32px; }
+    .buyer-login-brand-content { margin: auto 0; padding-top: 14px; }
+    .buyer-login-brand-content h2 { font-size: 30px; }
+    .buyer-login-brand-content p, .buyer-login-brand-footer, .buyer-login-brand-badge { display: none; }
+    .buyer-login-form-section { min-height: auto; }
+    .buyer-login-form-wrap { max-width: 680px; }
+}
+
+@media (max-width: 480px) {
+    .buyer-login-brand { min-height: 190px; height: 190px; }
+    .buyer-login-brand-inner { min-height: 190px; padding: 18px 22px; }
+    .buyer-login-brand-content h2 { font-size: 25px; }
+    .buyer-login-heading h1 { font-size: 30px; }
+    .buyer-login-heading p { font-size: 14px; }
+}
+
 /* =========================================================
    RESPONSIVE
    ========================================================= */
@@ -559,7 +608,7 @@
         justify-content: center;
         margin-bottom: 17px;
         border-radius: 9px;
-        background: #0b514d;
+        background: #7E1830;
         color: #ffffff;
         font-size: 15px;
         font-weight: 700;
@@ -602,4 +651,20 @@
     .buyer-login-security {
         text-align: center;
     }
+}
+
+@media (max-width: 900px) {
+    .buyer-login-brand { display: block; height: 240px; min-height: 240px; }
+    .buyer-login-brand-inner { min-height: 240px; padding: 24px 32px; }
+    .buyer-login-brand-content { margin: auto 0; padding-top: 14px; }
+    .buyer-login-brand-content p, .buyer-login-brand-footer, .buyer-login-brand-badge { display: none; }
+    .buyer-login-form-section { min-height: auto; padding: 32px 24px; }
+    .buyer-login-form-wrap { max-width: 680px; }
+}
+
+@media (max-width: 480px) {
+    .buyer-login-brand { height: 190px; min-height: 190px; }
+    .buyer-login-brand-inner { min-height: 190px; padding: 18px 22px; }
+    .buyer-login-brand-content h2 { font-size: 25px; }
+    .buyer-login-form-section { padding: 25px 19px; }
 }

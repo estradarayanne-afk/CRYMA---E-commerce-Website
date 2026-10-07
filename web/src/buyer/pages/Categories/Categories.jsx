@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+    AlertCircle,
     Check,
     ChevronDown,
     Filter,
+    RefreshCw,
     RotateCcw,
     SlidersHorizontal,
-    Star,
     X,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import api from "../../../shared/services/api";
-import ProductCard from "../../components/ProductCard.jsx/ProductCard";
+import ProductCard from "../../components/ProductCard/ProductCard";
 import { CATEGORY_FILTERS } from "../../../shared/constants/categories";
+import { LANDING_VISUALS } from "../../../shared/constants/landingVisuals";
 import "./Categories.css";
 
 function Categories() {
@@ -21,6 +23,8 @@ function Categories() {
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     const [filterOpen, setFilterOpen] = useState(false);
 
@@ -28,7 +32,6 @@ function Categories() {
         category: searchParams.get("category") || "All",
         minPrice: searchParams.get("minPrice") || "",
         maxPrice: searchParams.get("maxPrice") || "",
-        rating: searchParams.get("rating") || "0",
         stock: searchParams.get("stock") === "1",
     });
 
@@ -37,26 +40,36 @@ function Categories() {
 
         const loadProducts = async () => {
             setLoading(true);
+            setLoadError(false);
 
             try {
                 const response = await api.get("/products", {
                     params: {
                         per_page: 100,
+                        page: 1,
                     },
                 });
 
                 const payload = response.data;
+                const pageData = payload?.data;
+                const getItems = (value) => Array.isArray(value)
+                    ? value
+                    : Array.isArray(value?.data?.data)
+                        ? value.data.data
+                        : Array.isArray(value?.data)
+                            ? value.data
+                            : Array.isArray(value?.products)
+                                ? value.products
+                                : [];
+                const items = getItems(payload);
+                const pages = Math.max(1, Number(pageData?.last_page) || 1);
 
-                let items = [];
-
-                if (Array.isArray(payload)) {
-                    items = payload;
-                } else if (Array.isArray(payload?.data?.data)) {
-                    items = payload.data.data;
-                } else if (Array.isArray(payload?.data)) {
-                    items = payload.data;
-                } else if (Array.isArray(payload?.products)) {
-                    items = payload.products;
+                for (let page = 2; page <= pages; page += 1) {
+                    if (cancelled) break;
+                    const nextResponse = await api.get("/products", {
+                        params: { per_page: 100, page },
+                    });
+                    items.push(...getItems(nextResponse.data));
                 }
 
                 if (!cancelled) {
@@ -67,6 +80,7 @@ function Categories() {
 
                 if (!cancelled) {
                     setProducts([]);
+                    setLoadError(true);
                 }
             } finally {
                 if (!cancelled) {
@@ -80,14 +94,13 @@ function Categories() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [reloadKey]);
 
     const category = searchParams.get("category") || "All";
     const search = searchParams.get("search") || "";
     const sort = searchParams.get("sort") || "featured";
     const minPrice = searchParams.get("minPrice") || "";
     const maxPrice = searchParams.get("maxPrice") || "";
-    const rating = Number(searchParams.get("rating") || 0);
     const stockOnly = searchParams.get("stock") === "1";
 
     const updateParams = (updates = {}) => {
@@ -146,15 +159,6 @@ function Categories() {
             params.delete("maxPrice");
         }
 
-        if (
-            draftFilters.rating &&
-            draftFilters.rating !== "0"
-        ) {
-            params.set("rating", draftFilters.rating);
-        } else {
-            params.delete("rating");
-        }
-
         if (draftFilters.stock) {
             params.set("stock", "1");
         } else {
@@ -171,7 +175,6 @@ function Categories() {
         params.delete("category");
         params.delete("minPrice");
         params.delete("maxPrice");
-        params.delete("rating");
         params.delete("stock");
 
         setSearchParams(params);
@@ -180,7 +183,6 @@ function Categories() {
             category: "All",
             minPrice: "",
             maxPrice: "",
-            rating: "0",
             stock: false,
         });
     };
@@ -235,13 +237,6 @@ function Categories() {
             );
         }
 
-        if (rating > 0) {
-            result = result.filter(
-                (product) =>
-                    Number(product?.rating || 0) >= rating
-            );
-        }
-
         if (stockOnly) {
             result = result.filter(
                 (product) =>
@@ -262,14 +257,6 @@ function Categories() {
                 (a, b) =>
                     Number(b?.price || 0) -
                     Number(a?.price || 0)
-            );
-        }
-
-        if (sort === "rating") {
-            result.sort(
-                (a, b) =>
-                    Number(b?.rating || 0) -
-                    Number(a?.rating || 0)
             );
         }
 
@@ -301,7 +288,6 @@ function Categories() {
         search,
         minPrice,
         maxPrice,
-        rating,
         stockOnly,
         sort,
     ]);
@@ -310,7 +296,6 @@ function Categories() {
         category !== "All",
         minPrice !== "",
         maxPrice !== "",
-        rating > 0,
         stockOnly,
     ].filter(Boolean).length;
 
@@ -330,16 +315,28 @@ function Categories() {
                         CRYMA MARKETPLACE
                     </span>
 
-                    <h1>
-                        Shop everything
-                    </h1>
-
-                    <p>
-                        Find products, compare options,
-                        and discover your next favorite.
-                    </p>
+                    <h1>Explore Products</h1>
+                    <p>Find what you need from trusted sellers on CRYMA.</p>
+                </div>
+                <div className="shop-header-visual">
+                    <img src={LANDING_VISUALS.hero.src} alt={LANDING_VISUALS.hero.alt} />
+                    <span>Find your next favorite</span>
                 </div>
             </section>
+
+            <nav className="shop-category-nav" aria-label="Shop by category">
+                {CATEGORY_FILTERS.map((item) => (
+                    <button
+                        key={item}
+                        type="button"
+                        className={category === item ? "active" : ""}
+                        aria-pressed={category === item}
+                        onClick={() => updateParams({ category: item })}
+                    >
+                        {item === "All" ? "All Products" : item}
+                    </button>
+                ))}
+            </nav>
 
             {/* SHOP CONTROLS */}
 
@@ -354,9 +351,15 @@ function Categories() {
                                 ? "has-filters"
                                 : ""
                         }`}
-                        onClick={() =>
-                            setFilterOpen(true)
-                        }
+                        onClick={() => {
+                            setDraftFilters({
+                                category,
+                                minPrice,
+                                maxPrice,
+                                stock: stockOnly,
+                            });
+                            setFilterOpen(true);
+                        }}
                     >
                         <Filter size={16} />
 
@@ -415,20 +418,6 @@ function Categories() {
                             </button>
                         )}
 
-                        {rating > 0 && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    updateParams({
-                                        rating: "0",
-                                    })
-                                }
-                            >
-                                {rating}★ & up
-                                <X size={12} />
-                            </button>
-                        )}
-
                         {stockOnly && (
                             <button
                                 type="button"
@@ -445,6 +434,10 @@ function Categories() {
 
                     </div>
                 </div>
+
+                <p className="shop-result-count" aria-live="polite">
+                    {loading ? "Loading products" : loadError ? "Products unavailable" : `${filteredProducts.length} products`}
+                </p>
 
                 <div className="shop-sort-control">
                     <span>
@@ -464,10 +457,6 @@ function Categories() {
 
                             <option value="newest">
                                 Newest
-                            </option>
-
-                            <option value="rating">
-                                Top Rated
                             </option>
 
                             <option value="price-low">
@@ -492,10 +481,6 @@ function Categories() {
                 <div className="shop-results-heading">
 
                     <div>
-                        <span>
-                            {filteredProducts.length} PRODUCTS
-                        </span>
-
                         <h2>
                             {categoryTitle}
                         </h2>
@@ -513,12 +498,22 @@ function Categories() {
                 </div>
 
                 {loading ? (
-                    <div className="shop-empty">
-                        <div className="shop-loading-spinner" />
-
-                        <p>
-                            Loading products...
-                        </p>
+                    <div className="shop-product-grid shop-skeleton-grid" aria-label="Loading products" aria-busy="true">
+                        {Array.from({ length: 12 }, (_, index) => (
+                            <div className="shop-skeleton-card" key={index}>
+                                <div className="shop-skeleton-image" />
+                                <div className="shop-skeleton-copy"><span /><span /><span /></div>
+                            </div>
+                        ))}
+                    </div>
+                ) : loadError ? (
+                    <div className="shop-empty shop-error-state" role="alert">
+                        <div className="shop-empty-icon"><AlertCircle size={24} /></div>
+                        <h2>Unable to load products</h2>
+                        <p>Please check your connection and try again.</p>
+                        <button type="button" onClick={() => setReloadKey((value) => value + 1)}>
+                            <RefreshCw size={14} /> Try again
+                        </button>
                     </div>
                 ) : filteredProducts.length > 0 ? (
                     <div className="shop-product-grid">
@@ -530,14 +525,12 @@ function Categories() {
                                     product={product}
                                     onOpen={openProduct}
                                     onAddToCart={(item) => {
-                                        window.dispatchEvent(
-                                            new CustomEvent(
+                                        const event = new CustomEvent(
                                                 "cryma-add-to-cart",
-                                                {
-                                                    detail: item,
-                                                }
-                                            )
-                                        );
+                                                { detail: item, cancelable: true }
+                                            );
+                                        window.dispatchEvent(event);
+                                        return !event.defaultPrevented;
                                     }}
                                 />
                             )
@@ -745,128 +738,6 @@ function Categories() {
                                             }
                                         />
                                     </label>
-
-                                </div>
-
-                            </div>
-
-                            {/* RATING */}
-
-                            <div className="shop-filter-section">
-
-                                <div className="shop-filter-section-title">
-                                    <strong>
-                                        Rating
-                                    </strong>
-                                </div>
-
-                                <div className="shop-rating-options">
-
-                                    {[4, 3, 2].map(
-                                        (value) => (
-                                            <button
-                                                type="button"
-                                                key={value}
-                                                className={
-                                                    Number(
-                                                        draftFilters.rating
-                                                    ) ===
-                                                    value
-                                                        ? "active"
-                                                        : ""
-                                                }
-                                                onClick={() =>
-                                                    setDraftFilters(
-                                                        (
-                                                            current
-                                                        ) => ({
-                                                            ...current,
-                                                            rating:
-                                                                String(
-                                                                    value
-                                                                ),
-                                                        })
-                                                    )
-                                                }
-                                            >
-                                                <span className="rating-stars">
-                                                    {Array.from(
-                                                        {
-                                                            length: 5,
-                                                        }
-                                                    ).map(
-                                                        (
-                                                            _,
-                                                            index
-                                                        ) => (
-                                                            <Star
-                                                                key={
-                                                                    index
-                                                                }
-                                                                size={
-                                                                    14
-                                                                }
-                                                                fill={
-                                                                    index <
-                                                                    value
-                                                                        ? "currentColor"
-                                                                        : "none"
-                                                                }
-                                                            />
-                                                        )
-                                                    )}
-                                                </span>
-
-                                                <span>
-                                                    {value}★
-                                                    & up
-                                                </span>
-
-                                                {Number(
-                                                    draftFilters.rating
-                                                ) ===
-                                                    value && (
-                                                    <Check
-                                                        size={
-                                                            15
-                                                        }
-                                                    />
-                                                )}
-                                            </button>
-                                        )
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        className={
-                                            draftFilters.rating ===
-                                            "0"
-                                                ? "active"
-                                                : ""
-                                        }
-                                        onClick={() =>
-                                            setDraftFilters(
-                                                (
-                                                    current
-                                                ) => ({
-                                                    ...current,
-                                                    rating:
-                                                        "0",
-                                                })
-                                            )
-                                        }
-                                    >
-                                        <span>
-                                            Any rating
-                                        </span>
-
-                                        {draftFilters.rating ===
-                                            "0" && (
-                                            <Check
-                                                size={15}
-                                            />
-                                        )}
-                                    </button>
 
                                 </div>
 

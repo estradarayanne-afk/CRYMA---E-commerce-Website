@@ -1,0 +1,3 @@
+.sl-timeline-step.done .sl-timeline-dot { background: var(--crimson); border-color: var(--crimson); }
+.sl-timeline-step.done .sl-timeline-line { background: var(--crimson); }
+.sl-timeline-step.done span { color: var(--text-secondary); font-weight: 600; }

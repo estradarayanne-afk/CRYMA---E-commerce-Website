@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getPhilPostPostalCode } from "../utils/postalCode";
 
 const API_BASE = "https://psgc.cloud/api/v2";
 
@@ -8,6 +9,7 @@ function PhilippineAddressFields({
     city,
     barangay,
     onChange,
+    onPostalCodeChange,
 }) {
     const [regions, setRegions] = useState([]);
     const [provinces, setProvinces] = useState([]);
@@ -88,13 +90,6 @@ function PhilippineAddressFields({
     useEffect(() => {
         let cancelled = false;
 
-        setProvinces([]);
-        setCities([]);
-        setBarangays([]);
-
-        setProvinceCode("");
-        setCityCode("");
-
         if (!regionCode) {
             return;
         }
@@ -156,10 +151,6 @@ function PhilippineAddressFields({
 
     useEffect(() => {
         let cancelled = false;
-
-        setCities([]);
-        setBarangays([]);
-        setCityCode("");
 
         if (!regionCode || !provinceCode) {
             return;
@@ -224,8 +215,6 @@ function PhilippineAddressFields({
 
     useEffect(() => {
         let cancelled = false;
-
-        setBarangays([]);
 
         if (
             !regionCode ||
@@ -302,10 +291,20 @@ function PhilippineAddressFields({
         const selectedCode = event.target.value;
 
         const selectedRegion = regions.find(
-            (item) => item.code === selectedCode
+            (item) => String(item.code) === String(selectedCode)
         );
 
         setRegionCode(selectedCode);
+        setProvinceCode("");
+        setCityCode("");
+        setProvinces([]);
+        setCities([]);
+        setBarangays([]);
+        setLoadingProvinces(false);
+        setLoadingCities(false);
+        setLoadingBarangays(false);
+        setAddressError("");
+        onPostalCodeChange?.("");
 
         onChange({
             region: selectedRegion?.name || "",
@@ -323,10 +322,18 @@ function PhilippineAddressFields({
         const selectedCode = event.target.value;
 
         const selectedProvince = provinces.find(
-            (item) => item.code === selectedCode
+            (item) => String(item.code) === String(selectedCode)
         );
 
         setProvinceCode(selectedCode);
+        setCityCode("");
+        setCityCode("");
+        setCities([]);
+        setBarangays([]);
+        setLoadingCities(false);
+        setLoadingBarangays(false);
+        setAddressError("");
+        onPostalCodeChange?.("");
 
         onChange({
             region,
@@ -344,10 +351,14 @@ function PhilippineAddressFields({
         const selectedCode = event.target.value;
 
         const selectedCity = cities.find(
-            (item) => item.code === selectedCode
+            (item) => String(item.code) === String(selectedCode)
         );
 
         setCityCode(selectedCode);
+        onPostalCodeChange?.(getPhilPostPostalCode(province, selectedCity?.name));
+        setBarangays([]);
+        setLoadingBarangays(false);
+        setAddressError("");
 
         onChange({
             region,
@@ -367,6 +378,12 @@ function PhilippineAddressFields({
         const selectedBarangay = barangays.find(
             (item) => item.code === selectedCode
         );
+
+        const selectedCity = cities.find(
+            (item) => String(item.code) === String(cityCode)
+        );
+
+        onPostalCodeChange?.(getPhilPostPostalCode(province, selectedCity?.name));
 
         onChange({
             region,
@@ -414,7 +431,7 @@ function PhilippineAddressFields({
                 {/* PROVINCE */}
                 <div className="auth-field">
                     <label htmlFor="province">
-                        Province
+                        Province <b>*</b>
                     </label>
 
                     <select
@@ -448,7 +465,7 @@ function PhilippineAddressFields({
                 {/* CITY / MUNICIPALITY */}
                 <div className="auth-field">
                     <label htmlFor="city">
-                        City / Municipality
+                        Municipality <b>*</b>
                     </label>
 
                     <select
@@ -482,7 +499,7 @@ function PhilippineAddressFields({
                 {/* BARANGAY */}
                 <div className="auth-field">
                     <label htmlFor="barangay">
-                        Barangay
+                        Barangay <b>*</b>
                     </label>
 
                         <select

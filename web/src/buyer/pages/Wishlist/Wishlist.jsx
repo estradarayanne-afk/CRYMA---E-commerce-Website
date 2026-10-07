@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Heart, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../shared/services/api";
-import ProductCard from "../../components/ProductCard.jsx/ProductCard";
+import ProductCard from "../../components/ProductCard/ProductCard";
 import "./Wishlist.css";
 
 const WISHLIST_KEY = "cryma_wishlist";
@@ -135,14 +135,12 @@ function Wishlist() {
                                 product={product}
                                 onOpen={openProduct}
                                 onAddToCart={(item) => {
-                                    window.dispatchEvent(
-                                        new CustomEvent(
-                                            "cryma-add-to-cart",
-                                            {
-                                                detail: item,
-                                            }
-                                        )
+                                    const event = new CustomEvent(
+                                        "cryma-add-to-cart",
+                                        { detail: item, cancelable: true }
                                     );
+                                    window.dispatchEvent(event);
+                                    return !event.defaultPrevented;
                                 }}
                             />
                         ))}

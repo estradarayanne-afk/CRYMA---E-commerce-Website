@@ -12,11 +12,11 @@ import {
 } from "lucide-react";
 import {
     Link,
-    useNavigate,
     useSearchParams,
 } from "react-router-dom";
 
 import api from "../../../shared/services/api";
+import { requestBuyerSignIn } from "../../../shared/utils/buyerAccess";
 
 import "./Reviews.css";
 
@@ -49,7 +49,6 @@ function getProductImage(item) {
 }
 
 function Reviews() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
     const orderId = searchParams.get("order");
@@ -134,11 +133,7 @@ function Reviews() {
                 requestError.response?.status ===
                 401
             ) {
-                navigate("/login", {
-                    state: {
-                        from: `/reviews?order=${orderId}`,
-                    },
-                });
+                requestBuyerSignIn({ from: `/reviews?order=${orderId}` });
 
                 return;
             }
@@ -151,7 +146,7 @@ function Reviews() {
         } finally {
             setLoading(false);
         }
-    }, [navigate, orderId]);
+    }, [orderId]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {

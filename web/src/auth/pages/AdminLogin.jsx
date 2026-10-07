@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import api from "../../shared/services/api";
+import "../styles/AuthPages.css";
+import "../../shared/styles/feedback.css";
 
 function AdminLogin() {
     const navigate = useNavigate();

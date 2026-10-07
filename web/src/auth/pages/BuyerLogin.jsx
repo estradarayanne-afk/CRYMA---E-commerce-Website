@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import api from "../../shared/services/api";
+import AuthShell from "../components/AuthShell";
 import "./BuyerLogin.css";
 
-function Login() {
+function Login({
+    embedded = false,
+    authOptions = {},
+    onSwitchToRegister,
+}) {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from || "/";
+    const from =
+    authOptions.from ||
+    location.state?.from ||
+    "/";
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -49,7 +57,13 @@ function Login() {
 
             const destination = roleHome[data.user.role] || "/";
 
-            navigate(destination, { replace: true });
+            window.dispatchEvent(
+                new Event("cryma-close-auth")
+            );
+
+            navigate(destination, {
+                replace: true,
+            });
         } catch (err) {
             setError(
                 err.response?.data?.message ||
@@ -62,44 +76,11 @@ function Login() {
         }
     };
 
-    return (
-        <main className="buyer-login">
-            {/* LEFT BRAND PANEL */}
-            <section className="buyer-login-brand">
-                <div className="buyer-login-brand-inner">
-                    <Link to="/" className="buyer-login-logo">
-                        <span className="buyer-login-logo-mark">C</span>
-
-                        <span className="buyer-login-logo-name">
-                            CRYMA
-                        </span>
-                    </Link>
-
-                    <div className="buyer-login-brand-content">
-                        <span className="buyer-login-eyebrow">
-                            YOUR EVERYDAY MARKETPLACE
-                        </span>
-
-                        <h2>
-                            Everything you need,
-                            <br />
-                            <span>all in one place.</span>
-                        </h2>
-
-                        <p>
-                            Discover products, manage your orders,
-                            and enjoy a simpler shopping experience
-                            with CRYMA.
-                        </p>
-                    </div>
-
-                    <div className="buyer-login-brand-footer">
-                        <span>© 2026 CRYMA</span>
-                        <span className="buyer-login-brand-dot" />
-                        <span>Secure shopping experience</span>
-                    </div>
-                </div>
-            </section>
+    const content = (<main
+        className={`buyer-login ${
+            embedded ? "embedded" : ""
+        }`}
+    >
 
             {/* LOGIN PANEL */}
             <section className="buyer-login-form-section">
@@ -365,12 +346,22 @@ function Login() {
                         <span />
                     </div>
 
-                    <Link
-                        to="/register"
-                        className="buyer-login-register"
-                    >
-                        Create an account
-                    </Link>
+                    {embedded ? (
+                        <button
+                            type="button"
+                            className="buyer-login-register"
+                            onClick={onSwitchToRegister}
+                        >
+                            Create an account
+                        </button>
+                    ) : (
+                        <Link
+                            to="/register"
+                            className="buyer-login-register"
+                        >
+                            Create an account
+                        </Link>
+                    )}
 
                     <p className="buyer-login-security">
                         <svg
@@ -399,6 +390,7 @@ function Login() {
             </section>
         </main>
     );
+    return embedded ? content : <AuthShell>{content}</AuthShell>;
 }
 
 export default Login;

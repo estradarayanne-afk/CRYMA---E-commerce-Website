@@ -4,6 +4,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
     CheckCheck,
     LoaderCircle,
@@ -11,6 +12,8 @@ import {
     Send,
 } from "lucide-react";
 import api from "../../../shared/services/api";
+import { showBuyerToast } from "../../../shared/utils/buyerAccess";
+import { getConversationIdentity } from "../../../shared/utils/getConversationIdentity";
 import "./Chat.css";
 
 function getStoredUser() {
@@ -21,25 +24,6 @@ function getStoredUser() {
     } catch {
         return null;
     }
-}
-
-function getUserName(user) {
-    return (
-        `${user?.first_name || ""} ${
-            user?.last_name || ""
-        }`.trim() ||
-        user?.email?.split("@")[0] ||
-        "You"
-    );
-}
-
-function getInitials(firstName, lastName) {
-    const initials =
-        `${firstName?.charAt(0) || ""}${
-            lastName?.charAt(0) || ""
-        }`.toUpperCase();
-
-    return initials || "CS";
 }
 
 function formatTime(value) {
@@ -91,6 +75,8 @@ function formatConversationTime(value) {
 
 function Chat() {
     const user = getStoredUser();
+    const [searchParams] = useSearchParams();
+    const requestedConversationId = searchParams.get("conversation");
 
     const [conversations, setConversations] =
         useState([]);
@@ -128,6 +114,11 @@ function Chat() {
             await api.patch(
                 `/buyer/chat/conversations/${id}/read`
             );
+            setConversations((previous) => previous.map((item) =>
+                String(item.id) === String(id)
+                    ? { ...item, messages: (item.messages || []).map((lastMessage) => ({ ...lastMessage, is_read: true })) }
+                    : item
+            ));
         } catch (requestError) {
             console.error(
                 "Failed to load conversation:",
@@ -161,13 +152,9 @@ function Chat() {
                     Array.isArray(data) ? data : []
                 );
 
-                if (
-                    !selectedConversation &&
-                    data.length > 0
-                ) {
-                    await openConversation(
-                        data[0].id
-                    );
+                if (data.length > 0) {
+                    const requested = data.find((conversation) => String(conversation.id) === String(requestedConversationId));
+                    await openConversation(requested?.id || data[0].id);
                 }
             } catch (requestError) {
                 console.error(
@@ -184,7 +171,7 @@ function Chat() {
                 setLoading(false);
             }
         },
-        [selectedConversation, openConversation]
+        [openConversation, requestedConversationId]
     );
 
     useEffect(() => {
@@ -304,6 +291,7 @@ function Chat() {
             }
 
             setMessage("");
+            showBuyerToast("Message sent");
 
             window.setTimeout(() => {
                 inputRef.current?.focus();
@@ -334,19 +322,7 @@ function Chat() {
         }
     };
 
-    const admin =
-        selectedConversation?.admin;
-
-    const adminName = admin
-        ? getUserName(admin)
-        : "CRYMA Support";
-
-    const adminInitials = admin
-        ? getInitials(
-              admin.first_name,
-              admin.last_name
-          )
-        : "CS";
+    const activeIdentity = getConversationIdentity(selectedConversation);
 
     return (
         <main className="buyer-chat-page">
@@ -422,16 +398,10 @@ function Chat() {
                                         const lastMessage =
                                             conversation
                                                 .messages?.[0];
+                                        const identity = getConversationIdentity(conversation);
 
-                                        const conversationAdmin =
-                                            conversation.admin;
-
-                                        const name =
-                                            conversationAdmin
-                                                ? getUserName(
-                                                      conversationAdmin
-                                                  )
-                                                : "CRYMA Support";
+                                        const latestSenderId = Number(lastMessage?.sender_id);
+                                        const hasUnread = Boolean(lastMessage && !lastMessage.is_read && latestSenderId !== Number(user?.id));
 
                                         return (
                                             <button
@@ -451,19 +421,14 @@ function Chat() {
                                                     )
                                                 }
                                             >
-                                                <div className="buyer-chat-avatar">
-                                                    {conversationAdmin
-                                                        ? getInitials(
-                                                              conversationAdmin.first_name,
-                                                              conversationAdmin.last_name
-                                                          )
-                                                        : "CS"}
+                                                <div className={`buyer-chat-avatar ${identity.type}`}>
+                                                    {identity.initials}
                                                 </div>
 
                                                 <div className="buyer-chat-conversation-info">
                                                     <div className="buyer-chat-conversation-top">
                                                         <strong>
-                                                            {name}
+                                                            {identity.name}
                                                         </strong>
 
                                                         <span>
@@ -473,6 +438,8 @@ function Chat() {
                                                             )}
                                                         </span>
                                                     </div>
+
+                                                    {hasUnread && <span className="buyer-chat-unread">New</span>}
 
                                                     <p>
                                                         {lastMessage?.message ||
@@ -509,17 +476,17 @@ function Chat() {
                         ) : (
                             <>
                                 <header className="buyer-chat-window-header">
-                                    <div className="buyer-chat-avatar large">
-                                        {adminInitials}
+                                    <div className={`buyer-chat-avatar large ${activeIdentity.type}`}>
+                                        {activeIdentity.initials}
                                     </div>
 
                                     <div>
                                         <h2>
-                                            {adminName}
+                                            {activeIdentity.name}
                                         </h2>
 
                                         <span>
-                                            CRYMA Support
+                                            {activeIdentity.description}
                                         </span>
                                     </div>
                                 </header>

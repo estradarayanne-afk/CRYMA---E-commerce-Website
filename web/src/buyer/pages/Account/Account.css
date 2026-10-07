@@ -28,7 +28,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: #0f5a50;
+    background: var(--deep-crimson);
     color: #ffffff;
     font-size: 20px;
     font-weight: 800;
@@ -50,7 +50,7 @@
 
 .account-hero h1 {
     margin: 5px 0 4px;
-    color: #173b39;
+    color: var(--wine);
     font-size: 27px;
     line-height: 1.15;
     letter-spacing: -0.035em;
@@ -58,7 +58,7 @@
 
 .account-hero-copy > p:last-child {
     margin: 0;
-    color: #899692;
+    color: var(--text-muted);
     font-size: 10px;
     line-height: 1.5;
 }
@@ -103,7 +103,7 @@
     align-items: center;
     gap: 11px;
     padding-bottom: 18px;
-    border-bottom: 1px solid #edf1ef;
+    border-bottom: 1px solid var(--border-neutral);
 }
 
 .account-heading-icon {
@@ -115,7 +115,7 @@
     justify-content: center;
     border-radius: 8px;
     background: #edf6f3;
-    color: #0f5a50;
+    color: var(--deep-crimson);
 }
 
 .account-card h2 {
@@ -135,7 +135,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    border-bottom: 1px solid #edf1ef;
+    border-bottom: 1px solid var(--border-neutral);
 }
 
 .account-info-row:last-child {
@@ -184,7 +184,7 @@
     padding: 12px;
     border: 1px solid #e3ece8;
     border-radius: 8px;
-    background: #f7faf9;
+    background: var(--surface-neutral);
 }
 
 .account-security-dot {
@@ -239,6 +239,26 @@
     background: #fff8f8;
     transform: translateY(-1px);
 }
+
+.account-support-button {
+    width: 100%;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 17px;
+    border: 1px solid var(--crimson);
+    border-radius: 7px;
+    background: var(--white);
+    color: var(--deep-crimson);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.account-support-button:hover { background: var(--surface-neutral); }
 
 .account-modal-backdrop {
     position: fixed;
@@ -309,8 +329,8 @@
 }
 
 .account-modal-confirm {
-    border: 1px solid #0f5a50;
-    background: #0f5a50;
+    border: 1px solid var(--deep-crimson);
+    background: var(--deep-crimson);
     color: #ffffff;
 }
 
@@ -373,4 +393,12 @@
     .account-info-row strong {
         text-align: left;
     }
+}
+
+/* Shared buyer rules scoped to this UI unit. */
+.account-page .account-panel--actions {
+    display: none !important;
+}
+.account-page .account-grid {
+    grid-template-columns: minmax(0, 1fr);
 }

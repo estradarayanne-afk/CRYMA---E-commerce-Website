@@ -1,19 +1,13 @@
 import { useEffect, useState } from "react";
-import { Heart, ShoppingCart } from "lucide-react";
-
-const WISHLIST_KEY = "cryma_wishlist";
-
-function getWishlist() {
-    try {
-        const value = JSON.parse(
-            localStorage.getItem(WISHLIST_KEY) || "[]"
-        );
-
-        return Array.isArray(value) ? value : [];
-    } catch {
-        return [];
-    }
-}
+import { Heart, ShoppingCart, Star } from "lucide-react";
+import {
+    getBuyerWishlist,
+    isBuyerSession,
+    requestBuyerSignIn,
+    saveBuyerWishlist,
+    showBuyerToast,
+} from "../../../shared/utils/buyerAccess";
+import "./ProductCard.css";
 
 function ProductCard({
     product,
@@ -22,7 +16,14 @@ function ProductCard({
     onAddToCart,
     onOpen,
 }) {
-    const [wishlist, setWishlist] = useState(getWishlist);
+    const [wishlist, setWishlist] = useState(getBuyerWishlist);
+    const imageCandidates = [product?.image, product?.image_url, product?.thumbnail, product?.displayImage];
+    const imageArray = Array.isArray(product?.images)
+        ? product.images.map((image) => typeof image === "string" ? image : image?.url || image?.image_url)
+        : [];
+    const productImage = [...imageCandidates, ...imageArray]
+        .find((image) => typeof image === "string" && image.trim()) || "";
+    const [failedImage, setFailedImage] = useState("");
 
     const localSaved = wishlist.includes(Number(product?.id));
 
@@ -32,7 +33,7 @@ function ProductCard({
             : localSaved;
 
     useEffect(() => {
-        const syncWishlist = () => setWishlist(getWishlist());
+        const syncWishlist = () => setWishlist(getBuyerWishlist());
         window.addEventListener("cryma-wishlist-updated", syncWishlist);
         window.addEventListener("storage", syncWishlist);
         return () => {
@@ -43,14 +44,25 @@ function ProductCard({
 
     const price = Number(product?.price || 0);
     const stock = Number(product?.stock || 0);
+    const rating = Number(product?.average_rating ?? product?.rating ?? 0);
+    const reviewCount = Number(product?.review_count ?? product?.reviews_count ?? 0);
+    const originalPrice = Number(product?.original_price ?? product?.compare_at_price ?? 0);
 
     const sellerName =
         typeof product?.seller === "string"
             ? product.seller
-            : product?.seller?.name || "";
+        : product?.seller?.name || [product?.seller?.first_name, product?.seller?.last_name].filter(Boolean).join(" ");
 
     const handleSave = () => {
-        const wishlist = getWishlist();
+        if (!isBuyerSession()) {
+            requestBuyerSignIn({
+                title: "Sign in to save favorites",
+                message: "Create an account or sign in to save products to your wishlist.",
+            });
+            return;
+        }
+
+        const wishlist = getBuyerWishlist();
         const productId = Number(product?.id);
 
         const exists = wishlist.includes(productId);
@@ -59,18 +71,26 @@ function ProductCard({
             ? wishlist.filter((id) => id !== productId)
             : [...wishlist, productId];
 
-        localStorage.setItem(
-            WISHLIST_KEY,
-            JSON.stringify(updated)
-        );
+        if (!saveBuyerWishlist(updated)) return;
 
         setWishlist(updated);
-
-        window.dispatchEvent(
-            new Event("cryma-wishlist-updated")
-        );
+        showBuyerToast(exists ? "Removed from Wishlist" : "Added to Wishlist");
 
         onSave?.(product);
+    };
+
+    const handleAddToCart = () => {
+        if (!isBuyerSession()) {
+            requestBuyerSignIn({
+                title: "Sign in to add to cart",
+                message: "Create an account or sign in to shop on CRYMA.",
+            });
+            return;
+        }
+
+        const result = onAddToCart?.(product);
+        if (result === false) return;
+        showBuyerToast("Added to Cart");
     };
 
     return (
@@ -85,16 +105,18 @@ function ProductCard({
                 }`}
             >
                 <div className="buyer-product-image">
-                    {product?.image ? (
+                    {productImage && failedImage !== productImage ? (
                         <img
-                            src={product.image}
-                            alt={product.name}
+                            src={productImage}
+                            alt={product?.name || "Product"}
+                            loading="lazy"
+                            decoding="async"
+                            onError={() => setFailedImage(productImage)}
                         />
                     ) : (
-                        <span>
-                            {product?.name
-                                ?.charAt(0)
-                                ?.toUpperCase() || "C"}
+                        <span className="buyer-product-image-fallback" aria-label="Product photo unavailable">
+                            <span aria-hidden="true">{product?.name?.charAt(0)?.toUpperCase() || "C"}</span>
+                            <small>Photo unavailable</small>
                         </span>
                     )}
                 </div>
@@ -140,8 +162,23 @@ function ProductCard({
                 </button>
 
                 <strong className="buyer-product-price">
-                    ₱{price.toLocaleString()}
+                    {String.fromCharCode(8369)}{price.toLocaleString()}
                 </strong>
+
+                {originalPrice > price && (
+                    <div className="buyer-product-deal">
+                        <del>{String.fromCharCode(8369)}{originalPrice.toLocaleString()}</del>
+                        <span>{Math.round((1 - price / originalPrice) * 100)}% off</span>
+                    </div>
+                )}
+
+                {rating > 0 && (
+                    <div className="buyer-product-rating" aria-label={`${rating.toFixed(1)} out of 5 stars${reviewCount ? `, ${reviewCount} reviews` : ""}`}>
+                        <Star size={14} fill="currentColor" aria-hidden="true" />
+                        <strong>{rating.toFixed(1)}</strong>
+                        {reviewCount > 0 && <span>({reviewCount.toLocaleString()})</span>}
+                    </div>
+                )}
 
                 <div className="buyer-product-meta">
 
@@ -163,9 +200,7 @@ function ProductCard({
                     type="button"
                     className="buyer-product-add"
                     disabled={stock <= 0}
-                    onClick={() =>
-                        onAddToCart?.(product)
-                    }
+                onClick={handleAddToCart}
                 >
                     <ShoppingCart size={15} />
 

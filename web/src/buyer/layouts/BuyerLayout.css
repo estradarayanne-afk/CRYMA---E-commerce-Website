@@ -1,0 +1,50 @@
+/* Buyer styles migrated from shared stylesheet. */
+.buyer-global-shell {
+    min-height: 100vh;
+    width: 100%;
+    background: #f7f8f7;
+    color: var(--wine);
+}
+.buyer-global-main {
+    min-height: calc(100vh - 72px);
+}
+.buyer-toast {
+    position: fixed;
+    z-index: 7000;
+    right: 24px;
+    bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 0 12px 0 16px;
+    border: 1px solid var(--border-neutral);
+    border-radius: 10px;
+    background: var(--white);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-popover);
+    font-size: 13px;
+    animation: buyerToastIn 180ms ease-out;
+}
+
+.buyer-toast > svg { color: var(--crimson); }
+.buyer-toast button {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+@keyframes buyerToastIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+    .buyer-toast { right: 12px; bottom: 14px; left: 12px; }
+}
