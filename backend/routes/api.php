@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\BuyerOrderController;
 use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Api\BuyerChatController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [RegistrationController::class, 'store']);
+Route::post('/verify-email', [EmailVerificationController::class, 'verify']);
 
 // Public product routes
 Route::get('/products', [ProductController::class, 'publicIndex']);

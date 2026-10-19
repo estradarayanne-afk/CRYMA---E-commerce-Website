@@ -47,6 +47,86 @@ function DocumentUploadField({ id, label, file, onSelect, onRemove }) {
     );
 }
 
+function EmailOtpInput({ value, onChange }) {
+    const inputs = useRef([]);
+
+    const handleChange = (index, event) => {
+        const rawValue = event.target.value;
+        const digits = rawValue.replace(/[^0-9]/g, "").slice(0, 6 - index);
+
+        if (!rawValue) {
+            onChange((current) => current.map((digit, currentIndex) =>
+                currentIndex === index ? "" : digit
+            ));
+            return;
+        }
+
+        if (!digits) {
+            return;
+        }
+
+        onChange((current) => {
+            const next = [...current];
+            [...digits].forEach((digit, offset) => {
+                next[index + offset] = digit;
+            });
+            return next;
+        });
+        inputs.current[Math.min(index + digits.length, 5)]?.focus();
+    };
+
+    const handleKeyDown = (index, event) => {
+        if (event.key === "Backspace" && !value[index] && index > 0) {
+            event.preventDefault();
+            onChange((current) => current.map((digit, currentIndex) =>
+                currentIndex === index - 1 ? "" : digit
+            ));
+            inputs.current[index - 1]?.focus();
+        } else if (event.key === "ArrowLeft" && index > 0) {
+            event.preventDefault();
+            inputs.current[index - 1]?.focus();
+        } else if (event.key === "ArrowRight" && index < 5) {
+            event.preventDefault();
+            inputs.current[index + 1]?.focus();
+        }
+    };
+
+    const handlePaste = (event) => {
+        event.preventDefault();
+        const digits = event.clipboardData.getData("text").replace(/[^0-9]/g, "").slice(0, 6);
+
+        if (digits) {
+            onChange([...digits, ...Array(6 - digits.length).fill("")]);
+            inputs.current[Math.min(digits.length - 1, 5)]?.focus();
+        }
+    };
+
+    return (
+        <div className="email-otp-inputs" role="group" aria-labelledby="email-otp-label">
+            {Array.from({ length: 6 }, (_, index) => (
+                <input
+                    key={index}
+                    ref={(element) => {
+                        inputs.current[index] = element;
+                    }}
+                    id={index === 0 ? "email-otp" : undefined}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete={index === 0 ? "one-time-code" : "off"}
+                    pattern="[0-9]*"
+                    maxLength={index === 0 ? 6 : 1}
+                    value={value[index]}
+                    onChange={(event) => handleChange(index, event)}
+                    onKeyDown={(event) => handleKeyDown(index, event)}
+                    onPaste={handlePaste}
+                    aria-label={`Digit ${index + 1} of 6`}
+                    required
+                />
+            ))}
+        </div>
+    );
+}
+
 function Register({
     embedded = false,
     selectedRole,
@@ -76,6 +156,8 @@ function Register({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [otp, setOtp] = useState(() => Array(6).fill(""));
+    const [emailVerified, setEmailVerified] = useState(false);
     const submitButtonClicked = useRef(false);
 
     // =========================
@@ -598,6 +680,8 @@ function Register({
             );
 
             setSubmitted(true);
+            setEmailVerified(false);
+            setOtp(Array(6).fill(""));
         } catch (err) {
             console.error(
                 "Registration error:",
@@ -629,6 +713,43 @@ function Register({
         }
     };
 
+const handleVerifyEmail = async (event) => {
+    event.preventDefault();
+    setError("");
+
+    const otpCode = otp.join("");
+
+    if (!/^\d{6}$/.test(otpCode)) {
+        setError("Please enter the six-digit verification code.");
+        return;
+    }
+
+    setLoading(true);
+
+    try {
+        await api.post("/verify-email", {
+            email: email.trim().toLowerCase(),
+            otp: otpCode,
+        });
+
+        setEmailVerified(true);
+    } catch (err) {
+        const validationErrors = err.response?.data?.errors;
+        const firstError = validationErrors
+            ? Object.values(validationErrors)?.[0]?.[0]
+            : null;
+
+        setError(
+            firstError ||
+            err.response?.data?.message ||
+            "Email verification failed. Please try again."
+        );
+    } finally {
+        setLoading(false);
+    }
+};
+
+
     const fullName = [
         firstName,
         middleName,
@@ -655,19 +776,68 @@ function Register({
                     FORM PANEL
                 ========================== */}
                 <main className="register-content">
-                    {submitted ? (
+                    {emailVerified ? (
                         <section className="register-submission-success" role="status">
-                            <span className="register-success-mark" aria-hidden="true">✓</span>
-                            <span className="register-success-eyebrow">APPLICATION RECEIVED</span>
-                            <h2>{registrationRole === "rider" ? "Pending Logistics/Sorting Center Approval" : "Pending Administrator Approval"}</h2>
+                            <span className="register-success-eyebrow">EMAIL VERIFIED</span>
+                            <h2>
+                                {registrationRole === "rider"
+                                    ? "Pending Logistics/Sorting Center Approval"
+                                    : "Pending Administrator Approval"}
+                            </h2>
                             <p>
-                                After submitting your registration, please wait for {registrationRole === "rider" ? "the Logistics/Sorting Center's" : "the administrator's"} approval, which will be sent to your email.
+                                Your email has been verified. Please wait for{" "}
+                                {registrationRole === "rider"
+                                    ? "the Logistics/Sorting Center's"
+                                    : "the administrator's"}{" "}
+                                approval before accessing your account.
                             </p>
                             <Link to="/" className="primary-action">Return to CRYMA</Link>
                         </section>
+
+                    ) : submitted ? (
+                        <section className="register-submission-success">
+                            <span className="register-success-eyebrow">
+                                EMAIL VERIFICATION
+                            </span>
+
+                            <h2>Verify your email</h2>
+
+                            <p>
+                                We sent a six-digit verification code to{" "}
+                                <strong>{email}</strong>. Enter it below to verify your CRYMA account.
+                            </p>
+
+                            {error && (
+                                <div className="register-error" role="alert">
+                                    <span>!</span>
+                                    <p>{error}</p>
+                                </div>
+                            )}
+
+                            <form onSubmit={handleVerifyEmail} className="register-form">
+                                <div className="auth-field">
+                                    <label id="email-otp-label" htmlFor="email-otp">
+                                        Verification code
+                                    </label>
+                                    <EmailOtpInput value={otp} onChange={setOtp} />
+                                    <small className="email-otp-hint">
+                                        Enter the six-digit code from your email.
+                                    </small>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="primary-action"
+                                    disabled={loading}
+                                >
+                                    {loading ? "Verifying..." : "Verify email"}
+                                </button>
+                            </form>
+                        </section>
                     ) : (
                         <>
-                    <div className="register-top">
+                        <div className="register-top">
+
                         <div>
                             <span className="register-mobile-eyebrow">
                                 CRYMA ACCOUNT
