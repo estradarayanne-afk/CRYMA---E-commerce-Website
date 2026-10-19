@@ -54,11 +54,20 @@ class AuthController extends Controller
             ], 401);
         }
 
-        if ($user->status !== 'active') {
+
+        if ($user->email_verified_at === null) {
             return response()->json([
-                'message' => 'Your account is not active.'
+                'message' => 'Please verify your email address before signing in.',
+                'email_verified' => false,
             ], 403);
         }
+
+        if ($user->status !== 'active') {
+            return response()->json([
+                'message' => 'Your account is not active. Please wait for administrator approval.'
+            ], 403);
+        }
+
 
         $token = $user->createToken('web-token')->plainTextToken;
 

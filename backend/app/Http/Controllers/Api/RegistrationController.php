@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use App\Mail\RegistrationOtpMail;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class RegistrationController extends Controller
@@ -134,8 +136,10 @@ class RegistrationController extends Controller
             ],
         ]);
 
+        $otp = (string) random_int(100000, 999999);
+
         try {
-            $user = DB::transaction(function () use ($request, $validated) {
+            $user = DB::transaction(function () use ($request, $validated, $otp) {
                 /*
                  * Create base user account.
                  */
@@ -148,6 +152,9 @@ class RegistrationController extends Controller
                     'password' => Hash::make($validated['password']),
                     'role' => $validated['role'],
                     'status' => 'pending',
+                    'email_otp_hash' => Hash::make($otp),
+                    'email_otp_expires_at' => now()->addMinutes(10),
+                    'email_otp_attempts' => 0,
                 ]);
 
                 /*
@@ -240,15 +247,31 @@ class RegistrationController extends Controller
                 return $user;
             });
 
+            try {
+                Mail::to($user->email)->send(
+                    new RegistrationOtpMail($otp)
+                );
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account was created, but we could not send the verification email. Please contact support.',
+                ], 500);
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Registration submitted successfully. Please wait for administrator approval.',
+                'message' => 'Registration submitted. Please check your email for the verification code.',
                 'data' => [
                     'id' => $user->id,
                     'status' => $user->status,
                     'role' => $user->role,
+                    'email' => $user->email,
+                    'email_verified' => false,
                 ],
             ], 201);
+
         } catch (Throwable $exception) {
             report($exception);
 

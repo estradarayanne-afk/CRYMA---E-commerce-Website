@@ -1117,3 +1117,37 @@
     .register-step { font-size: 10px; }
     .register-step-number { width: 28px; height: 28px; }
 }
+
+.email-otp-inputs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.register-content .email-otp-inputs input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 58px;
+    min-height: 58px;
+    padding: 0;
+    border: 1px solid var(--border-neutral);
+    border-radius: 10px;
+    color: var(--wine);
+    background: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.register-content .email-otp-inputs input:focus {
+    border-color: var(--crimson);
+    box-shadow: 0 0 0 3px rgba(178, 31, 58, 0.12);
+}
+
+.email-otp-hint {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+}

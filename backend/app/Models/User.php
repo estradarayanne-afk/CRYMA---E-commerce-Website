@@ -29,6 +29,9 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'email_otp_hash',
+        'email_otp_expires_at',
+        'email_otp_attempts',
     ];
 
     /**
