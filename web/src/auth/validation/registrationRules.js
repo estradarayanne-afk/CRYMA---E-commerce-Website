@@ -112,11 +112,13 @@ export function getRegistrationStepErrors(step, values) {
         else if (values.password !== values.passwordConfirmation) errors.passwordConfirmation = "Passwords do not match.";
     }
 
-    if (step === 4 && values.registrationRole === "seller") {
+    if (step === 4 && ["seller", "logistics"].includes(values.registrationRole)) {
         add("businessName", requiredTextError(values.businessName, "Business name", REGISTRATION_LIMITS.businessName));
-        if (!PRODUCT_CATEGORIES.includes(values.lineOfBusiness)) errors.lineOfBusiness = "Choose a valid business category.";
-        const tin = String(values.tin ?? "").trim();
-        if (tin && !/^\d{9,13}$/.test(tin)) errors.tin = "Enter a TIN containing 9 to 13 digits, or leave it blank.";
+        if (values.registrationRole === "seller") {
+            if (!PRODUCT_CATEGORIES.includes(values.lineOfBusiness)) errors.lineOfBusiness = "Choose a valid business category.";
+            const tin = String(values.tin ?? "").trim();
+            if (tin && !/^\d{9,13}$/.test(tin)) errors.tin = "Enter a TIN containing 9 to 13 digits, or leave it blank.";
+        }
     }
     if (step === 4 && values.registrationRole === "rider") {
         if (!["motorcycle", "tricycle", "car", "van", "truck"].includes(values.vehicleType)) errors.vehicleType = "Choose a supported vehicle type.";
@@ -124,7 +126,7 @@ export function getRegistrationStepErrors(step, values) {
     }
     if (step === values.verificationStep) {
         if (!values.validId) errors.validId = "Upload a valid ID.";
-        if (values.registrationRole === "seller" && !values.businessPermit) errors.businessPermit = "Upload your business permit.";
+        if (["seller", "logistics"].includes(values.registrationRole) && !values.businessPermit) errors.businessPermit = "Upload your business permit.";
         if (values.registrationRole === "rider" && !values.orCr) errors.orCr = "Upload the vehicle OR/CR.";
         if (values.registrationRole === "rider" && !values.driversLicense) errors.driversLicense = "Upload your driver's license.";
     }

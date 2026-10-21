@@ -31,6 +31,10 @@ use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController
 use App\Http\Controllers\Admin\LogisticsController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\Courier\PickupController;
+use App\Http\Controllers\Courier\DeliveryProofController;
+use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboardController;
+use App\Http\Controllers\Logistics\RiderManagementController;
+use App\Http\Controllers\Logistics\ParcelOperationsController;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:5,1');
@@ -77,6 +81,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::patch('/admin/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
         Route::patch('/admin/orders/{orderId}/legacy-sorting-receipt', [LogisticsController::class, 'confirmLegacySortingReceipt']);
         Route::get('/admin/deliveries/{id}', [AdminDeliveryController::class, 'show']);
+        Route::get('/admin/deliveries/{id}/proof/{kind}', [DeliveryProofController::class, 'showForStaff']);
         Route::post('/admin/orders/{orderId}/delivery-assignment', [LogisticsController::class, 'reassignDelivery']);
         Route::patch('/admin/orders/{orderId}/delivery-resolution', [AdminDeliveryController::class, 'resolve']);
     });
@@ -90,6 +95,30 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/courier/delivery-history', [CourierDeliveryController::class, 'history']);
         Route::get('/courier/deliveries/{id}', [CourierDeliveryController::class, 'show']);
         Route::patch('/courier/deliveries/{id}/status', [CourierDeliveryController::class, 'updateStatus']);
+        Route::post('/courier/deliveries/{id}/proof', [DeliveryProofController::class, 'store']);
+        Route::get('/courier/deliveries/{id}/proof/{kind}', [DeliveryProofController::class, 'showForCourier']);
+    });
+
+    Route::middleware('role:logistics')->group(function () {
+        Route::get('/logistics/dashboard', [LogisticsDashboardController::class, 'index']);
+        Route::get('/logistics/operations', [LogisticsController::class, 'queue']);
+        Route::get('/logistics/deliveries/{id}/proof/{kind}', [DeliveryProofController::class, 'showForStaff']);
+        Route::get('/logistics/delivery-areas', [LogisticsController::class, 'areas']);
+        Route::post('/logistics/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
+        Route::patch('/logistics/orders/{orderId}/sorting-receipt', [ParcelOperationsController::class, 'confirmSortingReceipt']);
+        Route::patch('/logistics/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
+        Route::post('/logistics/orders/{orderId}/delivery-assignment', [LogisticsController::class, 'reassignDelivery']);
+        Route::patch('/logistics/orders/{orderId}/delivery-resolution', [AdminDeliveryController::class, 'resolve']);
+        Route::patch('/logistics/orders/{orderId}/legacy-sorting-receipt', [LogisticsController::class, 'confirmLegacySortingReceipt']);
+        Route::get('/logistics/profile', [AccountController::class, 'logisticsProfile']);
+        Route::patch('/logistics/profile', [AccountController::class, 'updateProfile']);
+        Route::patch('/logistics/account/password', [AccountController::class, 'updatePassword']);
+        Route::get('/logistics/riders', [RiderManagementController::class, 'index']);
+        Route::get('/logistics/riders/{id}/documents/{documentId}', [RiderManagementController::class, 'showDocument']);
+        Route::patch('/logistics/riders/{id}/documents/{documentId}/approve', [RiderManagementController::class, 'approveDocument']);
+        Route::patch('/logistics/riders/{id}/documents/{documentId}/reject', [RiderManagementController::class, 'rejectDocument']);
+        Route::patch('/logistics/riders/{id}/approve', [RiderManagementController::class, 'approve']);
+        Route::patch('/logistics/riders/{id}/reject', [RiderManagementController::class, 'reject']);
     });
 
     Route::get('/admin/dashboard', [

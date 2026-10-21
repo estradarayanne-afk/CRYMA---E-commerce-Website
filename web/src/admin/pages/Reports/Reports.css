@@ -24,9 +24,9 @@
     display: block;
     margin-bottom: 7px;
 
-    color: #EFA7B8;
+    color: #B21F3A;
 
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 700;
 
     letter-spacing: 1.2px;
@@ -75,7 +75,7 @@
     width: 19px;
     height: 19px;
 
-    color: #EFA7B8;
+    color: #B21F3A;
 }
 
 .reports-header-date div {
@@ -85,9 +85,9 @@
 }
 
 .reports-header-date span {
-    color: #9aa5a5;
+    color: #6f6265;
 
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 500;
 }
 
@@ -130,7 +130,7 @@
 
     background: rgba(217, 83, 79, 0.08);
 
-    color: #d9534f;
+    color: #B21F3A;
 }
 
 .reports-error-icon svg {
@@ -154,7 +154,7 @@
 
     color: #9a6967;
 
-    font-size: 9px;
+    font-size: 11px;
 }
 
 /* =========================================================
@@ -171,7 +171,7 @@
     border: 1px solid #F0DDE2;
     border-radius: 15px;
 
-    box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
+    box-shadow: 0 5px 18px rgba(75, 23, 37, 0.035);
 
     overflow: hidden;
 }
@@ -184,7 +184,7 @@
 
     padding: 18px 19px;
 
-    border-bottom: 1px solid #edf0f0;
+    border-bottom: 1px solid #F0DDE2;
 }
 
 .reports-panel-header h2 {
@@ -199,16 +199,16 @@
 .reports-panel-header p {
     margin: 0;
 
-    color: #9aa5a5;
+    color: #6f6265;
 
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.5;
 }
 
 .reports-panel-eyebrow {
     margin-bottom: 5px;
 
-    font-size: 7px;
+    font-size: 10px;
     letter-spacing: 1px;
 }
 
@@ -226,7 +226,7 @@
     border: 1px solid #F0DDE2;
     border-radius: 15px;
 
-    box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
+    box-shadow: 0 5px 18px rgba(75, 23, 37, 0.035);
 
     overflow: hidden;
 }
@@ -234,7 +234,7 @@
 .reports-filter-heading {
     padding: 18px 19px;
 
-    border-bottom: 1px solid #edf0f0;
+    border-bottom: 1px solid #F0DDE2;
 }
 
 .reports-filter-heading h2 {
@@ -249,9 +249,9 @@
 .reports-filter-heading p {
     margin: 0;
 
-    color: #9aa5a5;
+    color: #6f6265;
 
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.5;
 }
 
@@ -274,7 +274,7 @@
 .reports-filter-field label {
     color: #8A6871;
 
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 600;
 
     letter-spacing: 0.5px;
@@ -290,13 +290,13 @@
 
     background: #ffffff;
 
-    border: 1px solid #dfe6e5;
+    border: 1px solid #E7E5E2;
     border-radius: 8px;
 
-    color: #354747;
+    color: #4B3038;
 
     font-family: inherit;
-    font-size: 9px;
+    font-size: 12px;
 
     outline: none;
 
@@ -313,10 +313,10 @@
 
 .reports-filter-field select:focus,
 .reports-filter-field input:focus {
-    border-color: #EFA7B8;
+    border-color: #B21F3A;
 
     box-shadow:
-        0 0 0 3px rgba(79, 166, 160, 0.08);
+        0 0 0 3px rgba(178, 31, 58, 0.08);
 }
 
 .reports-generate-button {
@@ -332,7 +332,7 @@
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
 
     white-space: nowrap;
@@ -346,7 +346,7 @@
 }
 
 .reports-generate-button:hover:not(:disabled) {
-    background: #123c3c;
+    background: #7E1830;
 
     transform: translateY(-1px);
 
@@ -363,17 +363,17 @@
 .reports-date-range {
     padding: 11px 19px;
 
-    background: #fafcfc;
+    background: #FFF7F8;
 
-    border-top: 1px solid #edf0f0;
+    border-top: 1px solid #F0DDE2;
 
-    color: #8d9999;
+    color: #6F6265;
 
-    font-size: 8px;
+    font-size: 10px;
 }
 
 .reports-date-range strong {
-    color: #536363;
+    color: #4B3038;
 
     font-weight: 600;
 }
@@ -404,7 +404,7 @@
     border-radius: 12px;
 
     box-shadow:
-        0 3px 12px rgba(8, 43, 45, 0.025);
+        0 3px 12px rgba(75, 23, 37, 0.025);
 
     transition:
         transform 180ms ease,
@@ -416,10 +416,10 @@
     transform: translateY(-2px);
 
     border-color:
-        rgba(79, 166, 160, 0.25);
+        rgba(178, 31, 58, 0.25);
 
     box-shadow:
-        0 8px 20px rgba(8, 43, 45, 0.06);
+        0 8px 20px rgba(75, 23, 37, 0.06);
 }
 
 .reports-stat-top {
@@ -442,7 +442,7 @@
 
     border-radius: 8px;
 
-    background: #edf6f5;
+    background: #FFF7F8;
 
     color: #B21F3A;
 }
@@ -455,7 +455,7 @@
 .reports-stat-top > span {
     color: #8A6871;
 
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 600;
 
     letter-spacing: 0.3px;
@@ -477,9 +477,9 @@
 }
 
 .reports-stat-card > small {
-    color: #9aa5a5;
+    color: #6f6265;
 
-    font-size: 7px;
+    font-size: 10px;
 
     line-height: 1.5;
 }
@@ -491,17 +491,17 @@
 .commission-grid
     .reports-stat-card:nth-child(2)
     .reports-stat-icon {
-    background: rgba(79, 166, 160, 0.11);
+    background: rgba(178, 31, 58, 0.11);
 
-    color: #397f7a;
+    color: #7E1830;
 }
 
 .commission-grid
     .reports-stat-card:nth-child(3)
     .reports-stat-icon {
-    background: rgba(79, 166, 160, 0.15);
+    background: rgba(178, 31, 58, 0.15);
 
-    color: #2f7772;
+    color: #7E1830;
 }
 
 /* =========================================================
@@ -533,9 +533,9 @@
 }
 
 .reports-trend-date {
-    color: #617171;
+    color: #6F6265;
 
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 600;
 
     white-space: nowrap;
@@ -544,7 +544,7 @@
 .reports-trend-bar-area {
     height: 9px;
 
-    background: #edf3f2;
+    background: #FFF7F8;
 
     border-radius: 20px;
 
@@ -564,9 +564,9 @@
 }
 
 .reports-trend-value {
-    color: #354747;
+    color: #4B3038;
 
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 600;
 
     text-align: right;
@@ -575,9 +575,9 @@
 }
 
 .reports-trend-orders {
-    color: #9aa5a5;
+    color: #6f6265;
 
-    font-size: 7px;
+    font-size: 10px;
 
     text-align: right;
 
@@ -591,9 +591,9 @@
     align-items: center;
     justify-content: center;
 
-    color: #9aa5a5;
+    color: #6f6265;
 
-    font-size: 8px;
+    font-size: 10px;
 
     text-align: center;
 }
@@ -604,7 +604,7 @@
 
 .commission-trend-row
     .reports-trend-bar {
-    background: #397f7a;
+    background: #7E1830;
 }
 
 /* =========================================================
@@ -725,10 +725,10 @@
     }
 
     .reports-trend-date {
-        font-size: 7px;
+        font-size: 10px;
     }
 
     .reports-trend-value {
-        font-size: 7px;
+        font-size: 10px;
     }
 }

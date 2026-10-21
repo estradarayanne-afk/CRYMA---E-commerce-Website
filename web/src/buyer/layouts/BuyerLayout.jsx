@@ -9,6 +9,7 @@ import {
     saveBuyerCart,
 } from "../../shared/utils/buyerAccess";
 import { addProductToCart } from "../../shared/utils/buyerProductActions";
+import BuyerSellerChatWidget from "../components/BuyerSellerChatWidget/BuyerSellerChatWidget";
 import "./BuyerLayout.css";
 
 function BuyerLayout() {
@@ -60,6 +61,8 @@ function BuyerLayout() {
             <main className="buyer-global-main">
                 <Outlet />
             </main>
+
+            <BuyerSellerChatWidget />
 
             {toast && (
                 <Toast

@@ -29,6 +29,7 @@ class DeliveryController extends Controller
             'order.items.product:id,name,image',
             'order.items.seller:id,first_name,last_name',
             'deliveryArea:id,name',
+            'proof',
             'events',
         ]);
     }
@@ -44,6 +45,10 @@ class DeliveryController extends Controller
             'delivery_picked_up_at' => $delivery->delivery_picked_up_at,
             'delivered_at' => $delivery->delivered_at,
             'failure_reason' => $delivery->failure_reason,
+            'proof' => $delivery->proof ? [
+                'recipient_full_name' => $delivery->proof->recipient_full_name,
+                'captured_at' => $delivery->proof->captured_at,
+            ] : null,
             'delivery_area' => $delivery->deliveryArea ? ['id' => $delivery->deliveryArea->id, 'name' => $delivery->deliveryArea->name] : null,
             'order' => $order ? [
                 'id' => $order->id,
@@ -98,7 +103,7 @@ class DeliveryController extends Controller
     public function updateStatus(Request $request, int $id, CourierEligibility $eligibility)
     {
         $validated = $request->validate([
-            'status' => ['required', 'in:OUT_FOR_DELIVERY,DELIVERED,DELIVERY_FAILED'],
+            'status' => ['required', 'in:OUT_FOR_DELIVERY,DELIVERY_FAILED'],
             'expected_status' => ['required', 'in:ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ]);

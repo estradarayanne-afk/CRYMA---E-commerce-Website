@@ -18,8 +18,8 @@
 .account-eyebrow {
     display: block;
     margin-bottom: 7px;
-    color: #EFA7B8;
-    font-size: 9px;
+    color: #B21F3A;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 1.2px;
     text-transform: uppercase;
@@ -51,16 +51,16 @@
     border: 1px solid rgba(217, 83, 79, 0.14);
     border-radius: 12px;
     color: #a34a47;
-    font-size: 9px;
+    font-size: 12px;
 }
 
 .account-success {
     padding: 10px 12px;
-    background: rgba(79, 166, 160, 0.07);
-    border: 1px solid rgba(79, 166, 160, 0.15);
+    background: rgba(178, 31, 58, 0.07);
+    border: 1px solid rgba(178, 31, 58, 0.15);
     border-radius: 8px;
-    color: #397f7a;
-    font-size: 8px;
+    color: #7E1830;
+    font-size: 10px;
 }
 
 /* =========================================================
@@ -69,8 +69,8 @@
 
 .account-settings-loading {
     padding: 50px 20px;
-    color: #9aa5a5;
-    font-size: 9px;
+    color: #6f6265;
+    font-size: 12px;
     text-align: center;
 }
 
@@ -84,7 +84,7 @@
     background: #ffffff;
     border: 1px solid #F0DDE2;
     border-radius: 15px;
-    box-shadow: 0 5px 18px rgba(8, 43, 45, 0.035);
+    box-shadow: 0 5px 18px rgba(75, 23, 37, 0.035);
 }
 
 /* =========================================================
@@ -102,8 +102,8 @@
 .account-section-label {
     display: block;
     margin-bottom: 5px;
-    color: #EFA7B8;
-    font-size: 7px;
+    color: #B21F3A;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 1px;
 }
@@ -117,8 +117,8 @@
 
 .account-card-header p {
     margin: 0;
-    color: #9aa5a5;
-    font-size: 8px;
+    color: #6f6265;
+    font-size: 10px;
     line-height: 1.5;
 }
 
@@ -138,8 +138,8 @@
 
     border-radius: 50%;
 
-    background: #edf6f5;
-    color: #397f7a;
+    background: #FFF7F8;
+    color: #7E1830;
 
     font-size: 13px;
     font-weight: 700;
@@ -158,8 +158,8 @@
     max-width: 720px;
     padding: 17px;
 
-    background: #fafcfc;
-    border: 1px solid #edf0f0;
+    background: #FFF7F8;
+    border: 1px solid #F0DDE2;
     border-radius: 12px;
 }
 
@@ -177,7 +177,7 @@
 
 .account-field label {
     color: #8A6871;
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -189,14 +189,14 @@
 
     padding: 10px 11px;
 
-    border: 1px solid #dfe6e5;
+    border: 1px solid #E7E5E2;
     border-radius: 8px;
 
     background: #ffffff;
-    color: #354747;
+    color: #4B3038;
 
     font-family: inherit;
-    font-size: 9px;
+    font-size: 11px;
 
     outline: none;
 
@@ -206,14 +206,14 @@
 }
 
 .account-field input:focus {
-    border-color: #EFA7B8;
+    border-color: #B21F3A;
 
     box-shadow:
-        0 0 0 3px rgba(79, 166, 160, 0.08);
+        0 0 0 3px rgba(178, 31, 58, 0.08);
 }
 
 .account-field input::placeholder {
-    color: #b2baba;
+    color: #6F6265;
 }
 
 /* =========================================================
@@ -232,7 +232,7 @@
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 600;
 
     cursor: pointer;
@@ -244,7 +244,7 @@
 }
 
 .account-submit:hover {
-    background: #123c3c;
+    background: #7E1830;
 
     transform: translateY(-1px);
 
@@ -271,9 +271,9 @@
 .account-info-item {
     padding: 14px;
 
-    background: #fafcfc;
+    background: #FFF7F8;
 
-    border: 1px solid #edf0f0;
+    border: 1px solid #F0DDE2;
     border-radius: 10px;
 }
 
@@ -282,9 +282,9 @@
 
     margin-bottom: 6px;
 
-    color: #9aa5a5;
+    color: #6f6265;
 
-    font-size: 7px;
+    font-size: 10px;
     font-weight: 600;
 
     text-transform: uppercase;
@@ -294,16 +294,16 @@
 .account-info-item strong {
     display: block;
 
-    color: #354747;
+    color: #4B3038;
 
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 650;
 
     word-break: break-word;
 }
 
 .account-info-item .account-status {
-    color: #397f7a;
+    color: #7E1830;
 }
 
 /* =========================================================
@@ -353,7 +353,7 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: rgba(15, 35, 36, 0.48);
+    background: rgba(38, 21, 26, 0.48);
 }
 
 .account-confirmation-modal {
@@ -363,7 +363,7 @@
     border: 1px solid #F0DDE2;
     border-radius: 15px;
     background: #ffffff;
-    box-shadow: 0 20px 50px rgba(8, 43, 45, 0.2);
+    box-shadow: 0 20px 50px rgba(75, 23, 37, 0.2);
     text-align: center;
 }
 
@@ -375,8 +375,8 @@
     height: 44px;
     margin: 0 auto 14px;
     border-radius: 50%;
-    background: #edf6f5;
-    color: #397f7a;
+    background: #FFF7F8;
+    color: #7E1830;
     font-size: 22px;
     font-weight: 700;
 }
@@ -385,7 +385,7 @@
 .account-confirmation-modal p { margin: 0; color: #8A6871; font-size: 11px; line-height: 1.55; }
 .account-confirmation-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 .account-confirm-cancel, .account-confirm-action { min-height: 36px; padding: 8px 13px; border-radius: 8px; font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
-.account-confirm-cancel { border: 1px solid #dfe6e5; background: #ffffff; color: #8A6871; }
+.account-confirm-cancel { border: 1px solid #E7E5E2; background: #ffffff; color: #8A6871; }
 .account-confirm-action { border: 0; background: #B21F3A; color: #ffffff; }
 
 @media (max-width: 700px) {

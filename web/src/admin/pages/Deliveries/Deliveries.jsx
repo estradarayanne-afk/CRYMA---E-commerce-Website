@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../../shared/services/api";
+import PrivateDeliveryProof from "../../../shared/components/PrivateDeliveryProof";
 import "./Deliveries.css";
 
 const courierName = (profile) => [profile?.user?.first_name, profile?.user?.last_name].filter(Boolean).join(" ") || `Courier #${profile?.id}`;
-const label = (status) => String(status || "").replaceAll("_", " ");
+const label = (status) => String(status || "Unknown").replaceAll("_", " ").toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
 
 export default function Deliveries() {
     const [queue, setQueue] = useState({ pickup_orders: [], pickup_assignments: [], sorting_orders: [], deliveries: [], areas: [], eligible_pickup_couriers: [], eligible_delivery_couriers: [] });
@@ -124,7 +125,7 @@ export default function Deliveries() {
             })}
         </section>
         <section className="ad-section"><div className="ad-section-title"><div><h2>Parcel event history</h2><p>Persisted parcel stages and actors. Imported legacy entries are identified as historical imports.</p></div><span>{queue.deliveries.length}</span></div>
-            {loading ? <div className="ad-empty" role="status">Loading parcel history…</div> : queue.deliveries.length === 0 ? <div className="ad-empty">No parcel records yet.</div> : <div className="ad-history-list">{queue.deliveries.map((delivery) => <details key={`history-${delivery.id}`}><summary>Order #{delivery.order_id} · {label(delivery.status)}{delivery.legacy_imported ? " · legacy import" : ""}</summary><div>{(delivery.events || []).map((event) => <p key={event.id}><strong>{label(event.new_status)}</strong><span>{event.actor ? courierName({ user: event.actor }) : "Historical import; actor unavailable"}</span><time>{event.created_at ? new Date(event.created_at).toLocaleString("en-PH") : ""}</time>{event.reason && <small>{event.reason}</small>}</p>)}</div></details>)}</div>}
+            {loading ? <div className="ad-empty" role="status">Loading parcel history…</div> : queue.deliveries.length === 0 ? <div className="ad-empty">No parcel records yet.</div> : <div className="ad-history-list">{queue.deliveries.map((delivery) => <details key={`history-${delivery.id}`}><summary>Order #{delivery.order_id} · {label(delivery.status)}{delivery.legacy_imported ? " · legacy import" : ""}</summary><div>{(delivery.events || []).map((event) => <p key={event.id}><strong>{label(event.new_status)}</strong><span>{event.actor ? courierName({ user: event.actor }) : "Historical import; actor unavailable"}</span><time>{event.created_at ? new Date(event.created_at).toLocaleString("en-PH") : ""}</time>{event.reason && <small>{event.reason}</small>}</p>)}<PrivateDeliveryProof proof={delivery.proof} basePath={`/admin/deliveries/${delivery.id}/proof`} /></div></details>)}</div>}
         </section>
     </main>;
 }

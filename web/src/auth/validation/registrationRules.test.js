@@ -92,7 +92,26 @@ test("enforces email and password boundaries", () => {
 test("enforces role-specific business and vehicle limits", () => {
     assert.deepEqual(getRegistrationStepErrors(4, { registrationRole: "seller", businessName: "Local Shop", lineOfBusiness: "Pet Supplies" }), {});
     assert.ok(getRegistrationStepErrors(4, { registrationRole: "seller", businessName: "B".repeat(101), lineOfBusiness: "Pet Supplies" }).businessName);
+    assert.deepEqual(getRegistrationStepErrors(4, { registrationRole: "logistics", businessName: "North Sorting Center" }), {});
+    assert.ok(getRegistrationStepErrors(4, { registrationRole: "logistics", businessName: " " }).businessName);
     assert.ok(getRegistrationStepErrors(4, { registrationRole: "rider", vehicleType: "motorcycle", plateNumber: "P".repeat(16) }).plateNumber);
+});
+
+test("requires valid ID and business permit for logistics registration", () => {
+    const errors = getRegistrationStepErrors(5, {
+        registrationRole: "logistics",
+        verificationStep: 5,
+        validId: null,
+        businessPermit: null,
+    });
+    assert.ok(errors.validId);
+    assert.ok(errors.businessPermit);
+    assert.deepEqual(getRegistrationStepErrors(5, {
+        registrationRole: "logistics",
+        verificationStep: 5,
+        validId: { name: "id.pdf" },
+        businessPermit: { name: "permit.pdf" },
+    }), {});
 });
 
 test("TIN is optional for sellers and accepts supported numeric TIN lengths only", () => {

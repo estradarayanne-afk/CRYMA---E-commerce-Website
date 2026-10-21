@@ -1,9 +1,15 @@
-.account-vouchers {
+.buyer-vouchers {
+    width: min(100% - 40px, 1040px);
+    margin: 32px auto;
     display: grid;
     gap: 16px;
 }
 
-.account-vouchers-header {
+.buyer-vouchers-page {
+    min-height: 60vh;
+}
+
+.buyer-vouchers-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -14,18 +20,27 @@
     background: var(--white);
 }
 
-.account-vouchers-header h2,
-.account-voucher-details p {
+.buyer-vouchers-header h1,
+.buyer-voucher-details p {
     margin: 5px 0;
 }
 
-.account-vouchers-header p:last-child {
+.buyer-vouchers-eyebrow {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.buyer-vouchers-header p:last-child {
     margin: 4px 0 0;
     color: var(--text-muted);
     font-size: 13px;
 }
 
-.account-vouchers-icon {
+.buyer-vouchers-icon {
     display: grid;
     place-items: center;
     width: 44px;
@@ -36,8 +51,8 @@
     color: var(--deep-crimson);
 }
 
-.account-vouchers-state,
-.account-vouchers-empty {
+.buyer-vouchers-state,
+.buyer-vouchers-empty {
     padding: 32px 20px;
     border: 1px dashed var(--color-border);
     border-radius: var(--radius-md);
@@ -45,20 +60,20 @@
     text-align: center;
 }
 
-.account-vouchers-empty svg {
+.buyer-vouchers-empty svg {
     color: var(--deep-crimson);
 }
 
-.account-vouchers-empty h3 {
+.buyer-vouchers-empty h2 {
     margin: 8px 0 4px;
     color: var(--text-primary);
 }
 
-.account-vouchers-empty p {
+.buyer-vouchers-empty p {
     margin: 0;
 }
 
-.account-vouchers-alert {
+.buyer-vouchers-alert {
     margin: 0;
     padding: 11px 13px;
     border: 1px solid #e9bdc5;
@@ -68,12 +83,12 @@
     font-size: 13px;
 }
 
-.account-voucher-list {
+.buyer-voucher-list {
     display: grid;
     gap: 12px;
 }
 
-.account-voucher-card {
+.buyer-voucher-card {
     display: grid;
     grid-template-columns: minmax(130px, 0.35fr) minmax(0, 1fr);
     overflow: hidden;
@@ -82,7 +97,7 @@
     background: var(--white);
 }
 
-.account-voucher-value {
+.buyer-voucher-value {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -93,29 +108,29 @@
     color: var(--deep-crimson);
 }
 
-.account-voucher-value strong {
+.buyer-voucher-value strong {
     font-size: 18px;
 }
 
-.account-voucher-value span {
+.buyer-voucher-value span {
     color: var(--text-muted);
     font-size: 12px;
     font-weight: 700;
 }
 
-.account-voucher-details {
+.buyer-voucher-details {
     min-width: 0;
     padding: 15px 18px;
 }
 
-.account-voucher-code-row {
+.buyer-voucher-code-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
 }
 
-.account-voucher-code-row code {
+.buyer-voucher-code-row code {
     overflow-wrap: anywhere;
     color: var(--text-primary);
     font-size: 14px;
@@ -123,8 +138,8 @@
     letter-spacing: 0.04em;
 }
 
-.account-voucher-code-row button,
-.account-voucher-shop-link {
+.buyer-voucher-code-row button,
+.buyer-voucher-shop-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -141,18 +156,18 @@
     cursor: pointer;
 }
 
-.account-voucher-details p {
+.buyer-voucher-details p {
     color: var(--text-secondary);
     font-size: 13px;
 }
 
-.account-voucher-details .account-voucher-status-reason {
+.buyer-voucher-details .buyer-voucher-status-reason {
     color: var(--deep-crimson);
     font-size: 12px;
     font-weight: 650;
 }
 
-.account-voucher-details ul {
+.buyer-voucher-details ul {
     display: flex;
     flex-wrap: wrap;
     gap: 6px 18px;
@@ -162,25 +177,30 @@
     font-size: 12px;
 }
 
-.status-expired .account-voucher-value,
-.status-ineligible .account-voucher-value,
-.status-used .account-voucher-value {
+.status-expired .buyer-voucher-value,
+.status-ineligible .buyer-voucher-value,
+.status-used .buyer-voucher-value {
     background: #f6f5f5;
     color: var(--text-muted);
 }
 
-.account-voucher-code-row button:focus-visible,
-.account-voucher-shop-link:focus-visible {
+.buyer-voucher-code-row button:focus-visible,
+.buyer-voucher-shop-link:focus-visible {
     outline: 3px solid rgba(178, 31, 58, 0.28);
     outline-offset: 2px;
 }
 
 @media (max-width: 560px) {
-    .account-voucher-card {
+    .buyer-vouchers {
+        width: min(100% - 28px, 1040px);
+        margin-block: 20px;
+    }
+
+    .buyer-voucher-card {
         grid-template-columns: 1fr;
     }
 
-    .account-voucher-value {
+    .buyer-voucher-value {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;

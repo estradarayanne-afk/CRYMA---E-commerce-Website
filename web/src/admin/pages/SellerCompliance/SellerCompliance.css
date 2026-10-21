@@ -6,7 +6,7 @@
     width: 100%;
     padding: 32px;
     box-sizing: border-box;
-    color: #172b2b;
+    color: #4B1725;
 }
 
 
@@ -28,7 +28,7 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.12em;
-    color: #668080;
+    color: #6F6265;
 }
 
 .seller-compliance-header h1 {
@@ -36,13 +36,13 @@
     font-size: 30px;
     line-height: 1.2;
     font-weight: 700;
-    color: #163b3b;
+    color: #7E1830;
 }
 
 .seller-compliance-header p {
     margin: 8px 0 0;
     font-size: 14px;
-    color: #718282;
+    color: #6F6265;
 }
 
 
@@ -53,7 +53,7 @@
 .seller-compliance-count {
     min-width: 90px;
     padding: 14px 18px;
-    border: 1px solid #dce7e5;
+    border: 1px solid #FFF7F8;
     border-radius: 12px;
     background: #ffffff;
     text-align: center;
@@ -62,14 +62,14 @@
 .seller-compliance-count strong {
     display: block;
     font-size: 24px;
-    color: #174848;
+    color: #7E1830;
 }
 
 .seller-compliance-count span {
     display: block;
     margin-top: 2px;
     font-size: 12px;
-    color: #7a8b8b;
+    color: #6F6265;
 }
 
 
@@ -93,9 +93,9 @@
 }
 
 .seller-compliance-success {
-    border: 1px solid #c9e5d8;
-    background: #f3fbf6;
-    color: #28734e;
+    border: 1px solid #F0DDE2;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 
@@ -105,10 +105,10 @@
 
 .seller-compliance-card {
     overflow: hidden;
-    border: 1px solid #dfe9e7;
+    border: 1px solid #FFF7F8;
     border-radius: 16px;
     background: #ffffff;
-    box-shadow: 0 5px 20px rgba(24, 62, 62, 0.05);
+    box-shadow: 0 5px 20px rgba(75, 23, 37, 0.05);
 }
 
 
@@ -122,7 +122,7 @@
     justify-content: space-between;
     gap: 16px;
     padding: 18px 20px;
-    border-bottom: 1px solid #e7eeee;
+    border-bottom: 1px solid #F0DDE2;
 }
 
 .seller-compliance-search {
@@ -132,20 +132,20 @@
     max-width: 520px;
     height: 42px;
     padding: 0 13px;
-    border: 1px solid #d7e3e1;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
-    background: #fafcfc;
+    background: #FFF7F8;
 }
 
 .seller-compliance-search:focus-within {
-    border-color: #367777;
+    border-color: #B21F3A;
     background: #ffffff;
 }
 
 .seller-compliance-search span {
     margin-right: 9px;
     font-size: 21px;
-    color: #7b8d8d;
+    color: #6F6265;
 }
 
 .seller-compliance-search input {
@@ -155,11 +155,11 @@
     background: transparent;
     font-family: inherit;
     font-size: 13px;
-    color: #263b3b;
+    color: #4B1725;
 }
 
 .seller-compliance-search input::placeholder {
-    color: #9aa9a9;
+    color: #6f6265;
 }
 
 
@@ -176,25 +176,25 @@
 .seller-compliance-filter label {
     font-size: 12px;
     font-weight: 600;
-    color: #657777;
+    color: #6F6265;
 }
 
 .seller-compliance-filter select {
     height: 42px;
     min-width: 135px;
     padding: 0 12px;
-    border: 1px solid #d7e3e1;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
     outline: none;
     background: #ffffff;
-    color: #334b4b;
+    color: #4B1725;
     font-family: inherit;
     font-size: 13px;
     cursor: pointer;
 }
 
 .seller-compliance-filter select:focus {
-    border-color: #367777;
+    border-color: #B21F3A;
 }
 
 
@@ -215,9 +215,9 @@
 
 .seller-compliance-table th {
     padding: 14px 20px;
-    border-bottom: 1px solid #e6eeee;
-    background: #f8faf9;
-    color: #738383;
+    border-bottom: 1px solid #FFF7F8;
+    background: #FFF7F8;
+    color: #6F6265;
     text-align: left;
     font-size: 11px;
     font-weight: 700;
@@ -227,8 +227,8 @@
 
 .seller-compliance-table td {
     padding: 16px 20px;
-    border-bottom: 1px solid #edf2f1;
-    color: #405555;
+    border-bottom: 1px solid #FFF7F8;
+    color: #6F6265;
     font-size: 13px;
     vertical-align: middle;
 }
@@ -238,7 +238,7 @@
 }
 
 .seller-compliance-table tbody tr:hover {
-    background: #f9fbfb;
+    background: #FFF7F8;
 }
 
 .seller-compliance-table tbody tr:last-child td {
@@ -263,8 +263,8 @@
     justify-content: center;
     flex-shrink: 0;
     border-radius: 50%;
-    background: #e4eeee;
-    color: #245858;
+    background: #FFF7F8;
+    color: #7E1830;
     font-weight: 700;
 }
 
@@ -277,13 +277,13 @@
 .seller-info strong {
     display: block;
     margin-bottom: 3px;
-    color: #233b3b;
+    color: #4B1725;
     font-size: 13px;
 }
 
 .seller-info span {
     display: block;
-    color: #91a0a0;
+    color: #6f6265;
     font-size: 11px;
 }
 
@@ -298,7 +298,7 @@
     gap: 7px;
     padding: 6px 10px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: capitalize;
 }
@@ -310,12 +310,12 @@
 }
 
 .seller-status.active {
-    background: #eaf7f0;
-    color: #2b7651;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 .seller-status.active > span {
-    background: #3c9a69;
+    background: #7E1830;
 }
 
 .seller-status.pending {
@@ -343,10 +343,10 @@
 
 .seller-view-button {
     padding: 7px 14px;
-    border: 1px solid #cbdcda;
+    border: 1px solid #F0DDE2;
     border-radius: 7px;
     background: #ffffff;
-    color: #285d5d;
+    color: #7E1830;
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
@@ -355,8 +355,8 @@
 }
 
 .seller-view-button:hover {
-    border-color: #397878;
-    background: #edf5f4;
+    border-color: #7E1830;
+    background: #FFF7F8;
 }
 
 
@@ -367,14 +367,14 @@
 .seller-compliance-loading {
     padding: 55px 20px;
     text-align: center;
-    color: #788989;
+    color: #6F6265;
     font-size: 13px;
 }
 
 .seller-compliance-empty {
     padding: 55px 20px !important;
     text-align: center;
-    color: #899898 !important;
+    color: #6F6265 !important;
 }
 
 
@@ -392,7 +392,7 @@
     justify-content: center;
 
     padding: 24px;
-    background: rgba(15, 38, 38, 0.48);
+    background: rgba(38, 21, 26, 0.48);
 }
 
 
@@ -421,19 +421,19 @@
     justify-content: space-between;
 
     padding: 22px 24px;
-    border-bottom: 1px solid #e7eeee;
+    border-bottom: 1px solid #F0DDE2;
 }
 
 .seller-modal-header span {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.12em;
-    color: #718383;
+    color: #6F6265;
 }
 
 .seller-modal-header h2 {
     margin: 5px 0 0;
-    color: #183d3d;
+    color: #4B1725;
     font-size: 22px;
 }
 
@@ -442,14 +442,14 @@
     height: 32px;
     border: none;
     border-radius: 7px;
-    background: #f2f6f5;
-    color: #607171;
+    background: #FFF7F8;
+    color: #6F6265;
     font-size: 22px;
     cursor: pointer;
 }
 
 .seller-modal-header button:hover {
-    background: #e7eeee;
+    background: #F0DDE2;
 }
 
 
@@ -462,7 +462,7 @@
     align-items: center;
     gap: 14px;
     padding: 22px 24px;
-    background: #f8fbfa;
+    background: #FFF7F8;
 }
 
 .seller-profile-avatar {
@@ -473,13 +473,13 @@
 
 .seller-profile h3 {
     margin: 0;
-    color: #183d3d;
+    color: #4B1725;
     font-size: 17px;
 }
 
 .seller-profile p {
     margin: 4px 0 0;
-    color: #7d8d8d;
+    color: #6F6265;
     font-size: 12px;
 }
 
@@ -490,12 +490,12 @@
 
 .seller-detail-section {
     padding: 22px 24px;
-    border-bottom: 1px solid #edf2f1;
+    border-bottom: 1px solid #FFF7F8;
 }
 
 .seller-detail-section h4 {
     margin: 0 0 16px;
-    color: #315858;
+    color: #7E1830;
     font-size: 13px;
     font-weight: 700;
 }
@@ -509,13 +509,13 @@
 .seller-detail-grid > div span {
     display: block;
     margin-bottom: 5px;
-    color: #879696;
+    color: #6F6265;
     font-size: 11px;
 }
 
 .seller-detail-grid > div strong {
     display: block;
-    color: #304949;
+    color: #4B3038;
     font-size: 13px;
     font-weight: 600;
     word-break: break-word;
@@ -539,28 +539,28 @@
     gap: 15px;
 
     padding: 12px 14px;
-    border: 1px solid #e0eae8;
+    border: 1px solid #FFF7F8;
     border-radius: 9px;
-    background: #fbfcfc;
+    background: #FFF7F8;
 }
 
 .seller-document strong {
     display: block;
-    color: #385252;
+    color: #4B3038;
     font-size: 12px;
 }
 
 .seller-document span {
     display: block;
     margin-top: 4px;
-    color: #8a9999;
+    color: #6F6265;
     font-size: 10px;
     text-transform: capitalize;
 }
 
 .seller-document a {
     flex-shrink: 0;
-    color: #286161;
+    color: #7E1830;
     font-size: 12px;
     font-weight: 600;
     text-decoration: none;
@@ -572,7 +572,7 @@
 
 .seller-no-documents {
     margin: 0;
-    color: #899898;
+    color: #6F6265;
     font-size: 12px;
 }
 
@@ -586,7 +586,7 @@
     justify-content: flex-end;
     gap: 10px;
     padding: 18px 24px;
-    background: #fafcfc;
+    background: #FFF7F8;
 }
 
 .seller-reject-button,
@@ -611,13 +611,13 @@
 }
 
 .seller-approve-button {
-    border: 1px solid #285f5f;
-    background: #285f5f;
+    border: 1px solid #B21F3A;
+    background: #B21F3A;
     color: #fff;
 }
 
 .seller-approve-button:hover {
-    background: #214f4f;
+    background: #7E1830;
 }
 
 .seller-reject-button:disabled,
@@ -707,8 +707,8 @@
     margin: 0 auto 16px;
 
     border-radius: 50%;
-    background: #eaf7f0;
-    color: #28734e;
+    background: #FFF7F8;
+    color: #7E1830;
 
     font-size: 24px;
     font-weight: 700;
@@ -716,13 +716,13 @@
 
 .seller-confirmation-modal h3 {
     margin: 0;
-    color: #183d3d;
+    color: #4B1725;
     font-size: 19px;
 }
 
 .seller-confirmation-modal > p {
     margin: 10px 0 0;
-    color: #718282;
+    color: #6F6265;
     font-size: 13px;
     line-height: 1.6;
 }
@@ -740,7 +740,7 @@
 .seller-rejection-field label {
     display: block;
     margin-bottom: 7px;
-    color: #405555;
+    color: #6F6265;
     font-size: 12px;
     font-weight: 600;
 }
@@ -752,26 +752,26 @@
 
     box-sizing: border-box;
 
-    border: 1px solid #d7e3e1;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
 
     outline: none;
     resize: vertical;
 
-    background: #fafcfc;
-    color: #304949;
+    background: #FFF7F8;
+    color: #4B3038;
 
     font-family: inherit;
     font-size: 13px;
 }
 
 .seller-rejection-field textarea:focus {
-    border-color: #367777;
+    border-color: #B21F3A;
     background: #ffffff;
 }
 
 .seller-rejection-field textarea::placeholder {
-    color: #9aa9a9;
+    color: #6f6265;
 }
 
 
@@ -801,13 +801,13 @@
 }
 
 .seller-cancel-button {
-    border: 1px solid #d5e1df;
+    border: 1px solid #E7E5E2;
     background: #ffffff;
-    color: #607171;
+    color: #6F6265;
 }
 
 .seller-cancel-button:hover {
-    background: #f5f8f7;
+    background: #FFF7F8;
 }
 
 .seller-confirm-button {
@@ -816,11 +816,11 @@
 }
 
 .seller-confirm-button.approve {
-    background: #285f5f;
+    background: #B21F3A;
 }
 
 .seller-confirm-button.approve:hover {
-    background: #214f4f;
+    background: #7E1830;
 }
 
 .seller-confirm-button.reject {
@@ -861,8 +861,8 @@
     margin: 0 auto 16px;
 
     border-radius: 50%;
-    background: #eaf7f0;
-    color: #28734e;
+    background: #FFF7F8;
+    color: #7E1830;
 
     font-size: 27px;
     font-weight: 700;
@@ -870,13 +870,13 @@
 
 .seller-success-modal h3 {
     margin: 0;
-    color: #183d3d;
+    color: #4B1725;
     font-size: 20px;
 }
 
 .seller-success-modal p {
     margin: 10px 0 22px;
-    color: #718282;
+    color: #6F6265;
     font-size: 13px;
     line-height: 1.6;
 }
@@ -888,7 +888,7 @@
     border: none;
     border-radius: 8px;
 
-    background: #285f5f;
+    background: #B21F3A;
     color: #ffffff;
 
     font-family: inherit;
@@ -899,7 +899,7 @@
 }
 
 .seller-success-button:hover {
-    background: #214f4f;
+    background: #7E1830;
 }
 
 /* =========================================
@@ -916,14 +916,14 @@
     justify-content: center;
 
     padding: 20px;
-    background: rgba(15, 38, 38, 0.52);
+    background: rgba(38, 21, 26, 0.52);
 }
 
 .seller-action-modal {
     width: min(440px, 100%);
     padding: 28px;
 
-    border: 1px solid #e0e9e7;
+    border: 1px solid #F0DDE2;
     border-radius: 16px;
     background: #ffffff;
 
@@ -949,8 +949,8 @@
 }
 
 .seller-action-modal-icon--approve {
-    background: #eaf7f0;
-    color: #2d7a52;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 .seller-action-modal-icon--reject {
@@ -961,7 +961,7 @@
 .seller-action-modal h3 {
     margin: 0;
 
-    color: #183d3d;
+    color: #4B1725;
     font-size: 19px;
     font-weight: 700;
 }
@@ -969,13 +969,13 @@
 .seller-action-modal p {
     margin: 10px 0 0;
 
-    color: #617474;
+    color: #6F6265;
     font-size: 13px;
     line-height: 1.6;
 }
 
 .seller-action-modal p strong {
-    color: #294b4b;
+    color: #4B3038;
 }
 
 .seller-action-modal-note {
@@ -983,7 +983,7 @@
 
     margin-top: 10px;
 
-    color: #899898;
+    color: #6F6265;
     font-size: 11px;
     line-height: 1.5;
 }
@@ -1000,13 +1000,13 @@
 
     box-sizing: border-box;
 
-    border: 1px solid #d7e3e1;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
     outline: none;
 
-    background: #fafcfc;
+    background: #FFF7F8;
 
-    color: #304949;
+    color: #4B3038;
     font-family: inherit;
     font-size: 13px;
 
@@ -1014,12 +1014,12 @@
 }
 
 .seller-rejection-textarea:focus {
-    border-color: #367777;
+    border-color: #B21F3A;
     background: #ffffff;
 }
 
 .seller-rejection-textarea::placeholder {
-    color: #9aa9a9;
+    color: #6f6265;
 }
 
 
@@ -1051,13 +1051,13 @@
 }
 
 .seller-action-cancel {
-    border: 1px solid #d7e3e1;
+    border: 1px solid #E7E5E2;
     background: #ffffff;
-    color: #526969;
+    color: #4B3038;
 }
 
 .seller-action-cancel:hover {
-    background: #f5f8f7;
+    background: #FFF7F8;
 }
 
 .seller-action-confirm {
@@ -1066,12 +1066,12 @@
 }
 
 .seller-action-confirm--approve {
-    background: #285f5f;
-    border-color: #285f5f;
+    background: #B21F3A;
+    border-color: #B21F3A;
 }
 
 .seller-action-confirm--approve:hover {
-    background: #214f4f;
+    background: #7E1830;
 }
 
 .seller-action-confirm--reject {
@@ -1115,22 +1115,22 @@
     justify-content: space-between;
     gap: 20px;
     padding: 16px 20px;
-    border-top: 1px solid #e8ecef;
+    border-top: 1px solid #E7E5E2;
 }
-.seller-compliance-pagination-info { color: #737e84; font-size: 12px; }
-.seller-compliance-pagination-info strong { color: #344249; }
+.seller-compliance-pagination-info { color: #6F6265; font-size: 12px; }
+.seller-compliance-pagination-info strong { color: #4B3038; }
 .seller-compliance-pagination-controls, .seller-compliance-pagination-pages { display: flex; align-items: center; gap: 6px; }
 .seller-compliance-pagination-pages { gap: 4px; }
 .seller-compliance-pagination-button, .seller-compliance-pagination-page {
     display: inline-flex; align-items: center; justify-content: center;
-    height: 34px; border: 1px solid #d8dfe3; border-radius: 7px;
-    background: #fff; color: #4b5960; font-family: inherit;
+    height: 34px; border: 1px solid #E7E5E2; border-radius: 7px;
+    background: #fff; color: #4B3038; font-family: inherit;
     font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .seller-compliance-pagination-button { padding: 0 12px; }
 .seller-compliance-pagination-page { width: 34px; }
-.seller-compliance-pagination-button:hover:not(:disabled), .seller-compliance-pagination-page:hover { background: #f5f7f8; }
-.seller-compliance-pagination-page.active { border-color: #245c61; background: #245c61; color: #fff; }
+.seller-compliance-pagination-button:hover:not(:disabled), .seller-compliance-pagination-page:hover { background: #FFF7F8; }
+.seller-compliance-pagination-page.active { border-color: #B21F3A; background: #B21F3A; color: #fff; }
 .seller-compliance-pagination-button:disabled { opacity: .4; cursor: not-allowed; }
 
 @media (max-width: 600px) {

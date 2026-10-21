@@ -23,6 +23,7 @@ class DeliveryController extends Controller
             'events.actor:id,first_name,last_name,email',
             'events.previousCourierProfile.user:id,first_name,last_name',
             'events.courierProfile.user:id,first_name,last_name',
+            'proof',
         ])->find($id);
 
         return $delivery

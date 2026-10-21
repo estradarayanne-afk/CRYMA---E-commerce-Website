@@ -9,6 +9,7 @@ const roles = [
     { key: "buyer", title: "Buyer", description: "Shop from trusted CRYMA sellers and manage your orders.", visual: LANDING_VISUALS.hero },
     { key: "seller", title: "Seller", description: "List your products and reach customers across the marketplace.", visual: LANDING_VISUALS.sellerRegistration },
     { key: "rider", title: "Courier", description: "Deliver orders and work with CRYMA’s logistics system.", visual: LANDING_VISUALS.logistics },
+    { key: "logistics", title: "Logistics / Sorting Center", description: "Manage CRYMA parcel operations after administrator approval.", visual: LANDING_VISUALS.logistics },
 ];
 
 function RoleChoices({ embedded = false, onChooseRole }) {
