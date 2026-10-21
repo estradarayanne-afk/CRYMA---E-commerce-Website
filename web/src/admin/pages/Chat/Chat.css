@@ -180,6 +180,12 @@
     white-space: nowrap;
 }
 
+.conversation-info .chat-unread-indicator {
+    align-self: flex-start;
+    color: var(--crimson);
+    font-weight: 700;
+}
+
 /* =========================================================
    CHAT WINDOW
    ========================================================= */

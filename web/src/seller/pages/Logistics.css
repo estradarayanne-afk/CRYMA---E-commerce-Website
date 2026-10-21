@@ -1,3 +1,14 @@
 .sl-timeline-step.done .sl-timeline-dot { background: var(--crimson); border-color: var(--crimson); }
 .sl-timeline-step.done .sl-timeline-line { background: var(--crimson); }
 .sl-timeline-step.done span { color: var(--text-secondary); font-weight: 600; }
+.sl-logistics-note {
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--crimson);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.6;
+}

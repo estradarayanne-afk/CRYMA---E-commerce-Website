@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Heart, ShoppingCart, Star } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
     getBuyerWishlist,
     isBuyerSession,
@@ -7,6 +8,8 @@ import {
     saveBuyerWishlist,
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
+import { getProductDetailPath, toggleWishlistProduct } from "../../../shared/utils/buyerProductActions";
+import { getProductCategory, getProductSellerName } from "../../../shared/utils/productDiscovery";
 import "./ProductCard.css";
 
 function ProductCard({
@@ -14,18 +17,18 @@ function ProductCard({
     saved,
     onSave,
     onAddToCart,
-    onOpen,
 }) {
     const [wishlist, setWishlist] = useState(getBuyerWishlist);
     const imageCandidates = [product?.image, product?.image_url, product?.thumbnail, product?.displayImage];
     const imageArray = Array.isArray(product?.images)
         ? product.images.map((image) => typeof image === "string" ? image : image?.url || image?.image_url)
         : [];
-    const productImage = [...imageCandidates, ...imageArray]
-        .find((image) => typeof image === "string" && image.trim()) || "";
+    const productImages = [...new Set([...imageCandidates, ...imageArray]
+        .filter((image) => typeof image === "string" && image.trim()))];
     const [failedImage, setFailedImage] = useState("");
+    const productImage = productImages.find((image) => image !== failedImage) || "";
 
-    const localSaved = wishlist.includes(Number(product?.id));
+    const localSaved = wishlist.some((id) => String(id) === String(product?.id));
 
     const isSaved =
         typeof saved === "boolean"
@@ -48,10 +51,8 @@ function ProductCard({
     const reviewCount = Number(product?.review_count ?? product?.reviews_count ?? 0);
     const originalPrice = Number(product?.original_price ?? product?.compare_at_price ?? 0);
 
-    const sellerName =
-        typeof product?.seller === "string"
-            ? product.seller
-        : product?.seller?.name || [product?.seller?.first_name, product?.seller?.last_name].filter(Boolean).join(" ");
+    const sellerName = getProductSellerName(product?.seller);
+    const productCategory = getProductCategory(product);
 
     const handleSave = () => {
         if (!isBuyerSession()) {
@@ -63,20 +64,20 @@ function ProductCard({
         }
 
         const wishlist = getBuyerWishlist();
-        const productId = Number(product?.id);
+        const productId = product?.id;
+        if (productId === null || productId === undefined || String(productId).trim() === "") return;
 
-        const exists = wishlist.includes(productId);
+        const { ids: updated, added } = toggleWishlistProduct(wishlist, productId);
 
-        const updated = exists
-            ? wishlist.filter((id) => id !== productId)
-            : [...wishlist, productId];
-
-        if (!saveBuyerWishlist(updated)) return;
+        if (!saveBuyerWishlist(updated)) {
+            showBuyerToast("Unable to update favorites. Please try again.", "error");
+            return;
+        }
 
         setWishlist(updated);
-        showBuyerToast(exists ? "Removed from Wishlist" : "Added to Wishlist");
+        showBuyerToast(added ? "Added to favorites" : "Removed from favorites");
 
-        onSave?.(product);
+        onSave?.(product, added);
     };
 
     const handleAddToCart = () => {
@@ -88,18 +89,21 @@ function ProductCard({
             return;
         }
 
-        const result = onAddToCart?.(product);
-        if (result === false) return;
-        showBuyerToast("Added to Cart");
+        try {
+            const result = onAddToCart?.(product);
+            if (result !== true) return;
+            showBuyerToast("Added to cart");
+        } catch {
+            showBuyerToast("Unable to add this item to your cart. Please try again.", "error");
+        }
     };
 
     return (
         <article className="buyer-product-card">
 
-            <button
-                type="button"
+            <Link
+                to={getProductDetailPath(product?.id)}
                 className="buyer-product-image-button"
-                onClick={() => onOpen?.(product)}
                 aria-label={`View ${
                     product?.name || "product"
                 }`}
@@ -120,7 +124,7 @@ function ProductCard({
                         </span>
                     )}
                 </div>
-            </button>
+            </Link>
 
             <button
                 type="button"
@@ -128,6 +132,7 @@ function ProductCard({
                     isSaved ? "saved" : ""
                 }`}
                 onClick={handleSave}
+                aria-pressed={isSaved}
                 aria-label={
                     isSaved
                         ? `Remove ${product.name} from wishlist`
@@ -146,20 +151,20 @@ function ProductCard({
 
             <div className="buyer-product-content">
 
-                {product?.category && (
+                {productCategory && (
                     <span className="buyer-product-category">
-                        {product.category}
+                        {productCategory}
                     </span>
                 )}
 
-                <button
-                    type="button"
+                <Link
+                    to={getProductDetailPath(product?.id)}
                     className="buyer-product-name"
-                    onClick={() => onOpen?.(product)}
+                    aria-label={`View ${product?.name || "product"} details and reviews`}
                 >
                     {product?.name ||
                         "Unnamed product"}
-                </button>
+                </Link>
 
                 <strong className="buyer-product-price">
                     {String.fromCharCode(8369)}{price.toLocaleString()}

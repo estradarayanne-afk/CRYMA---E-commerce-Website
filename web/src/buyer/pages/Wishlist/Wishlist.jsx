@@ -24,9 +24,11 @@ function Wishlist() {
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
 
     const loadWishlist = async () => {
         setLoading(true);
+        setLoadError(false);
 
         try {
             const wishlistIds = getWishlist();
@@ -36,34 +38,35 @@ function Wishlist() {
                 return;
             }
 
-            const response = await api.get("/products", {
-                params: {
-                    per_page: 100,
-                },
-            });
+            const wantedIds = new Set(wishlistIds.map(String));
+            const items = [];
+            let lastPage = 1;
 
-            const payload = response.data;
+            for (let page = 1; page <= lastPage; page += 1) {
+                const response = await api.get("/products", {
+                    params: { per_page: 100, page },
+                });
+                const payload = response.data;
+                const pageItems = Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(payload?.data?.data)
+                        ? payload.data.data
+                        : Array.isArray(payload?.data)
+                            ? payload.data
+                            : Array.isArray(payload?.products)
+                                ? payload.products
+                                : [];
 
-            let items = [];
+                items.push(...pageItems);
+                lastPage = Math.max(1, Number(payload?.data?.last_page) || 1);
 
-            if (Array.isArray(payload)) {
-                items = payload;
-            } else if (
-                Array.isArray(payload?.data?.data)
-            ) {
-                items = payload.data.data;
-            } else if (
-                Array.isArray(payload?.data)
-            ) {
-                items = payload.data;
-            } else if (
-                Array.isArray(payload?.products)
-            ) {
-                items = payload.products;
+                if (wantedIds.size && items.filter((product) => wantedIds.has(String(product.id))).length >= wantedIds.size) {
+                    break;
+                }
             }
 
             const savedProducts = items.filter((product) =>
-                wishlistIds.includes(Number(product.id))
+                wantedIds.has(String(product.id))
             );
 
             setProducts(savedProducts);
@@ -74,6 +77,7 @@ function Wishlist() {
             );
 
             setProducts([]);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -96,10 +100,6 @@ function Wishlist() {
             window.clearTimeout(initialLoad);
         };
     }, []);
-
-    const openProduct = (product) => {
-        navigate(`/products/${product.id}`);
-    };
 
     return (
         <main className="wishlist-page">
@@ -127,13 +127,25 @@ function Wishlist() {
                             Loading your favorites...
                         </p>
                     </div>
+                ) : loadError ? (
+                    <div className="wishlist-empty" role="alert">
+                        <h2>Unable to load favorites</h2>
+                        <p>Please check your connection and try again.</p>
+                        <button type="button" onClick={loadWishlist}>Try again</button>
+                    </div>
                 ) : products.length > 0 ? (
                     <div className="wishlist-grid">
                         {products.map((product) => (
                             <ProductCard
                                 key={product.id}
                                 product={product}
-                                onOpen={openProduct}
+                                onSave={(savedProduct, added) => {
+                                    if (!added) {
+                                        setProducts((current) => current.filter(
+                                            (item) => String(item.id) !== String(savedProduct.id)
+                                        ));
+                                    }
+                                }}
                                 onAddToCart={(item) => {
                                     const event = new CustomEvent(
                                         "cryma-add-to-cart",

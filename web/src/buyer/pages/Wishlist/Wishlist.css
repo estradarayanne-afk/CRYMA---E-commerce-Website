@@ -1,7 +1,7 @@
 .wishlist-page {
     min-height: calc(100vh - 72px);
     padding: 34px 24px 70px;
-    background: #f8faf9;
+    background: var(--surface-neutral);
 }
 
 .wishlist-container {
@@ -14,7 +14,7 @@
     align-items: center;
     gap: 13px;
     padding-bottom: 22px;
-    border-bottom: 1px solid #e4ebe8;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .wishlist-heading-icon {
@@ -24,14 +24,14 @@
     align-items: center;
     justify-content: center;
     border-radius: 9px;
-    background: #edf6f3;
+    background: var(--rose-cream);
     color: var(--deep-crimson);
 }
 
 .wishlist-header p {
     margin: 0;
-    color: #84928f;
-    font-size: 8px;
+    color: var(--text-muted);
+    font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.13em;
 }
@@ -46,13 +46,13 @@
 
 .wishlist-header span {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .wishlist-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 12px;
+    gap: 16px;
     padding-top: 24px;
 }
 
@@ -73,43 +73,46 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: #edf6f3;
+    background: var(--rose-cream);
     color: var(--deep-crimson);
 }
 
 .wishlist-empty h2 {
     margin: 15px 0 5px;
-    color: #294743;
-    font-size: 17px;
+    color: var(--text-primary);
+    font-size: 20px;
 }
 
 .wishlist-empty p {
     margin: 0;
-    font-size: 10px;
+    font-size: 14px;
 }
 
 .wishlist-empty button {
-    min-height: 38px;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
     gap: 7px;
     margin-top: 17px;
     padding: 0 13px;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--radius-sm);
     background: var(--deep-crimson);
     color: #ffffff;
     font-family: inherit;
-    font-size: 9px;
+    font-size: 14px;
     font-weight: 800;
     cursor: pointer;
 }
+.wishlist-empty button:hover { background: var(--crimson); }
+.wishlist-empty button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.wishlist-empty[role="alert"] h2 { margin-top: 0; }
 
 .wishlist-spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid #dbe7e3;
-    border-top-color: var(--deep-crimson);
+    border: 2px solid var(--color-border);
+    border-top-color: var(--crimson);
     border-radius: 50%;
     animation: wishlistSpin 0.7s linear infinite;
 }

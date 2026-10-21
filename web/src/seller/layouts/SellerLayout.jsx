@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../shared/services/api";
 import "../../admin/layouts/AdminLayout.css";
 import "../../shared/styles/feedback.css";
@@ -20,6 +20,7 @@ function SellerLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [logoutModalOpen, setLogoutModalOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
@@ -29,6 +30,15 @@ function SellerLayout() {
     })();
 
     const token = localStorage.getItem("token");
+    useEffect(() => {
+        if (!mobileNavOpen) return undefined;
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape") setMobileNavOpen(false);
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [mobileNavOpen]);
+
     if (!token || !user || user.role !== "seller") {
         return <Navigate to="/login" replace />;
     }
@@ -47,7 +57,7 @@ function SellerLayout() {
     };
 
     return (
-        <div className={`al-root${sidebarCollapsed ? " al-root--collapsed" : ""}`}>
+        <div className={`al-root${sidebarCollapsed ? " al-root--collapsed" : ""}${mobileNavOpen ? " al-root--mobile-open" : ""}`}>
 
             {/* ── SIDEBAR ── */}
             <aside className="al-sidebar">
@@ -72,11 +82,12 @@ function SellerLayout() {
 
                 <div className="al-section-label"><span>Workspace</span></div>
 
-                <nav className="al-nav">
+                <nav className="al-nav" id="seller-workspace-navigation" aria-label="Seller workspace">
                     {NAV.map(({ to, label, icon }) => (
                         <NavLink
                             key={to}
                             to={to}
+                            onClick={() => setMobileNavOpen(false)}
                             title={sidebarCollapsed ? label : undefined}
                             className={({ isActive }) => isActive ? "active" : ""}
                         >
@@ -139,6 +150,19 @@ function SellerLayout() {
             <div className="al-main">
                 <header className="al-header">
                     <div className="al-header-left">
+                        <button
+                            type="button"
+                            className="al-mobile-menu-toggle"
+                            onClick={() => {
+                                setSidebarCollapsed(false);
+                                setMobileNavOpen((open) => !open);
+                            }}
+                            aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+                            aria-expanded={mobileNavOpen}
+                            aria-controls="seller-workspace-navigation"
+                        >
+                            <span /><span /><span />
+                        </button>
                         <div className="al-breadcrumb">
                             <span>CRYMA</span>
                             <span>/</span>

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../../shared/services/api";
+import { getChatMessageRequestId } from "../../../shared/utils/chatMessageRequest";
 import "./Chat.css";
 
 function Chat() {
@@ -11,6 +12,8 @@ function Chat() {
     const [messagesLoading, setMessagesLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState("");
+    const pendingMessageRef = useRef(null);
+    const openRequestRef = useRef(0);
 
     const loadConversations = useCallback(async () => {
         try {
@@ -35,6 +38,7 @@ function Chat() {
     }, []);
 
     const openConversation = async (id) => {
+        const requestId = ++openRequestRef.current;
         try {
             setMessagesLoading(true);
             setError("");
@@ -43,12 +47,20 @@ function Chat() {
                 `/admin/chat/conversations/${id}`
             );
 
+            if (requestId !== openRequestRef.current) return;
             setSelectedConversation(response.data.data);
 
             await api.patch(
                 `/admin/chat/conversations/${id}/read`
             );
+            if (requestId !== openRequestRef.current) return;
+            setConversations((previous) => previous.map((item) => (
+                String(item.id) === String(id)
+                    ? { ...item, unread_messages_count: 0 }
+                    : item
+            )));
         } catch (err) {
+            if (requestId !== openRequestRef.current) return;
             console.error(
                 "Failed to load conversation:",
                 err
@@ -56,7 +68,9 @@ function Chat() {
 
             setError("Unable to load conversation.");
         } finally {
-            setMessagesLoading(false);
+            if (requestId === openRequestRef.current) {
+                setMessagesLoading(false);
+            }
         }
     };
 
@@ -71,9 +85,17 @@ function Chat() {
     const handleSendMessage = async (e) => {
         e.preventDefault();
 
-        if (!message.trim() || !selectedConversation) {
+        const trimmedMessage = message.trim();
+        if (!trimmedMessage || !selectedConversation || sending) {
             return;
         }
+
+        const requestId = getChatMessageRequestId(
+            pendingMessageRef.current,
+            trimmedMessage,
+            selectedConversation.id
+        );
+        pendingMessageRef.current = { message: trimmedMessage, scope: selectedConversation.id, id: requestId };
 
         try {
             setSending(true);
@@ -81,19 +103,22 @@ function Chat() {
             const response = await api.post(
                 `/admin/chat/conversations/${selectedConversation.id}/messages`,
                 {
-                    message: message.trim(),
+                    message: trimmedMessage,
+                    client_message_id: requestId,
                 }
             );
 
-            setSelectedConversation((previous) => ({
-                ...previous,
-                messages: [
-                    ...(previous.messages || []),
-                    response.data.data,
-                ],
-            }));
+            setSelectedConversation((previous) => previous?.id === selectedConversation.id
+                ? {
+                      ...previous,
+                      messages: (previous.messages || []).some((item) => item.id === response.data.data.id)
+                          ? previous.messages
+                          : [...(previous.messages || []), response.data.data],
+                  }
+                : previous);
 
             setMessage("");
+            pendingMessageRef.current = null;
         } catch (err) {
             console.error(
                 "Failed to send message:",
@@ -194,6 +219,9 @@ function Chat() {
                                                     ?.message ||
                                                     "No messages yet"}
                                             </span>
+                                            {Number(conversation.unread_messages_count || 0) > 0 && (
+                                                <span className="chat-unread-indicator">Unread messages</span>
+                                            )}
                                         </div>
                                     </button>
                                 )
@@ -267,8 +295,8 @@ function Chat() {
                                     selectedConversation.messages.map(
                                         (item) => {
                                             const isAdmin =
-                                                item.sender_id !==
-                                                selectedConversation.buyer_id;
+                                                Number(item.sender_id) !==
+                                                Number(selectedConversation.buyer_id);
 
                                             return (
                                                 <div
@@ -298,6 +326,7 @@ function Chat() {
                             >
                                 <input
                                     type="text"
+                                    maxLength={2000}
                                     value={message}
                                     onChange={(e) =>
                                         setMessage(
@@ -305,13 +334,14 @@ function Chat() {
                                         )
                                     }
                                     placeholder="Type a message..."
-                                    disabled={sending}
+                                    disabled={sending || messagesLoading}
                                 />
 
                                 <button
                                     type="submit"
                                     disabled={
                                         sending ||
+                                        messagesLoading ||
                                         !message.trim()
                                     }
                                 >

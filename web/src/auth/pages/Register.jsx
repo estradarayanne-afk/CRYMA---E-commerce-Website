@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Navigate,
     Link,
@@ -7,13 +7,15 @@ import {
 } from "react-router-dom";
 import api from "../../shared/services/api";
 import { PRODUCT_CATEGORIES } from "../../shared/constants/categories";
+import { POLICY_VERSIONS } from "../../shared/constants/policyVersions";
 import { LANDING_VISUALS } from "../../shared/constants/landingVisuals";
 import PhilippineAddressFields from "../components/PhilippineAddressFields";
 import AuthShell from "../components/AuthShell";
+import { calculateAgeOnDate, capitalizeNameWords, getPhilippineCalendarDate, getRegistrationStepErrors, normalizePhilippineMobile, REGISTRATION_LIMITS } from "../validation/registrationRules";
 import "./Register.css";
 import "../styles/AuthPages.css";
 
-function DocumentUploadField({ id, label, file, onSelect, onRemove }) {
+function DocumentUploadField({ id, label, file, onSelect, onRemove, errorMessage }) {
     return (
         <div className="auth-field document-upload-field">
             <label htmlFor={id}>
@@ -43,6 +45,7 @@ function DocumentUploadField({ id, label, file, onSelect, onRemove }) {
                 aria-label={label}
             />
             <small className="file-help">Accepted by CRYMA: JPG, JPEG, PNG, or PDF. Maximum 5MB.</small>
+            {errorMessage && <small className="registration-field-error">{errorMessage}</small>}
         </div>
     );
 }
@@ -146,6 +149,7 @@ function Register({
 
     // SELLER
     const [businessName, setBusinessName] = useState("");
+    const [tin, setTin] = useState("");
     const [lineOfBusiness, setLineOfBusiness] = useState("");
     const [businessPermit, setBusinessPermit] = useState(null);
     const [vehicleType, setVehicleType] = useState("");
@@ -156,9 +160,13 @@ function Register({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
+    const [acceptanceError, setAcceptanceError] = useState("");
     const [otp, setOtp] = useState(() => Array(6).fill(""));
     const [emailVerified, setEmailVerified] = useState(false);
-    const submitButtonClicked = useRef(false);
+    const stepTransitionLocked = useRef(false);
+    const registrationSubmissionLocked = useRef(false);
 
     // =========================
     // PERSONAL INFORMATION
@@ -205,6 +213,7 @@ function Register({
     // REQUIREMENTS
     // =========================
     const [validId, setValidId] = useState(null);
+    const [driversLicense, setDriversLicense] = useState(null);
 
     const roleInfoStep = registrationRole === "buyer" ? null : 4;
     const verificationStep = roleInfoStep ? 5 : 4;
@@ -233,29 +242,7 @@ function Register({
     // =========================
     const calculateAge = (birthdate) => {
         if (!birthdate) return "";
-
-        const today = new Date();
-        const birth = new Date(`${birthdate}T00:00:00`);
-
-        let years =
-            today.getFullYear() -
-            birth.getFullYear();
-
-        const monthDiff =
-            today.getMonth() -
-            birth.getMonth();
-
-        if (
-            monthDiff < 0 ||
-            (
-                monthDiff === 0 &&
-                today.getDate() < birth.getDate()
-            )
-        ) {
-            years--;
-        }
-
-        return years >= 0 ? years : "";
+        return calculateAgeOnDate(birthdate) ?? "";
     };
 
     const handleBirthDateChange = (value) => {
@@ -301,130 +288,36 @@ function Register({
     // =========================
     // VALIDATE EACH STEP
     // =========================
-    const validateStep = () => {
+    const validationValues = {
+        firstName, middleName, lastName, birthDate, sex, phone, region,
+        province, municipality, barangay, houseNumber, street, buildingName,
+        unitNumber, postalCode, email, password, passwordConfirmation,
+        businessName, tin, lineOfBusiness, vehicleType, plateNumber, validId,
+        businessPermit, orCr, driversLicense, registrationRole, verificationStep,
+    };
+    const currentStepErrors = getRegistrationStepErrors(step, validationValues);
+
+    useEffect(() => {
+        stepTransitionLocked.current = false;
+    }, [step]);
+
+    const validateStep = (stepToValidate = step) => {
+        const errors = getRegistrationStepErrors(stepToValidate, validationValues);
         setError("");
-
-        // STEP 1
-        if (step === 1) {
-            if (
-                !firstName.trim() ||
-                !lastName.trim() ||
-                !birthDate ||
-                !sex
-            ) {
-                setError(
-                    "Please complete all required personal information."
-                );
-
-                return false;
-            }
-
-        }
-
-        // STEP 2
-        if (step === 2) {
-            if (
-                !phone.trim() ||
-                !province ||
-                !municipality ||
-                !barangay
-            ) {
-                setError(
-                    "Please complete your contact and Philippine address."
-                );
-
-                return false;
-            }
-
-            if (!postalCode.trim()) {
-                setError(
-                    "Postal code could not be determined for this address. Please reselect your municipality or contact support."
-                );
-
-                return false;
-            }
-
-            if (!houseNumber.trim() || !street.trim()) {
-                setError(
-                    "Please enter both your house number and street."
-                );
-
-                return false;
-            }
-        }
-
-        // STEP 3
-        if (step === 3) {
-            if (!email.trim() || !password) {
-                setError(
-                    "Please provide your email and password."
-                );
-
-                return false;
-            }
-
-            if (password.length < 8) {
-                setError(
-                    "Password must be at least 8 characters."
-                );
-
-                return false;
-            }
-
-            if (
-                password !== passwordConfirmation
-            ) {
-                setError(
-                    "Passwords do not match."
-                );
-
-                return false;
-            }
-        }
-
-        if (step === roleInfoStep && registrationRole === "seller") {
-            if (!businessName.trim() || !lineOfBusiness) {
-                setError("Complete your business name and category.");
-                return false;
-            }
-        }
-
-        if (step === roleInfoStep && registrationRole === "rider") {
-            if (!vehicleType || !plateNumber.trim()) {
-                setError("Complete your vehicle type and plate number.");
-                return false;
-            }
-        }
-
-        if (step === verificationStep) {
-            if (!validId) {
-                setError("Please upload a valid ID before submitting your application.");
-                return false;
-            }
-            if (registrationRole === "seller" && !businessPermit) {
-                setError("Please upload your business permit.");
-                return false;
-            }
-            if (registrationRole === "rider" && !orCr) {
-                setError("Please upload your vehicle OR/CR.");
-                return false;
-            }
-        }
-
-        return true;
+        return Object.keys(errors).length === 0;
     };
 
     // =========================
     // NEXT
     // =========================
     const handleNext = () => {
+        if (stepTransitionLocked.current || loading) return;
         if (!validateStep()) {
             return;
         }
 
-        setStep((current) =>
-            Math.min(current + 1, reviewStep)
-        );
+        stepTransitionLocked.current = true;
+        setStep(Math.min(step + 1, reviewStep));
 
         window.scrollTo({
             top: 0,
@@ -499,18 +392,23 @@ function Register({
     const handleRegister = async (event) => {
         event.preventDefault();
 
-        if (!submitButtonClicked.current || step !== reviewStep) {
-            submitButtonClicked.current = false;
-            return;
-        }
-        submitButtonClicked.current = false;
+        if (step !== reviewStep || loading || registrationSubmissionLocked.current) return;
 
         setError("");
 
-        if (!validateStep()) {
+        const stepsToValidate = [1, 2, 3, ...(registrationRole !== "buyer" ? [4] : []), verificationStep];
+        const firstInvalidStep = stepsToValidate.find((stepToValidate) => !validateStep(stepToValidate));
+        if (firstInvalidStep !== undefined) {
+            setStep(firstInvalidStep);
             return;
         }
+        if (!termsAccepted || !privacyAcknowledged) {
+            setAcceptanceError("Accept the Terms and Conditions and acknowledge the Privacy Notice to submit your registration.");
+            return;
+        }
+        setAcceptanceError("");
 
+        registrationSubmissionLocked.current = true;
         setLoading(true);
 
         try {
@@ -551,17 +449,23 @@ function Register({
             // CONTACT
             formData.append(
                 "phone",
-                phone.trim()
+                normalizePhilippineMobile(phone)
             );
 
             // ROLE
             formData.append("role", registrationRole);
+            formData.append("terms_accepted", "1");
+            formData.append("terms_version", POLICY_VERSIONS.terms);
+            formData.append("privacy_notice_acknowledged", "1");
+            formData.append("privacy_version", POLICY_VERSIONS.privacy);
 
             if (registrationRole === "seller") {
                 formData.append(
                     "business_name",
                     businessName.trim()
                 );
+
+                if (tin.trim()) formData.append("tin", tin.trim());
 
                 formData.append(
                     "line_of_business",
@@ -578,13 +482,11 @@ function Register({
                 formData.append("vehicle_type", vehicleType);
                 formData.append("plate_number", plateNumber.trim());
                 formData.append("or_cr", orCr);
-                // The current API requires both fields for rider registrations.
-                // One driver's license image satisfies the shared valid ID and
-                // courier driver's license document requirements.
-                formData.append("drivers_license", validId);
+                formData.append("drivers_license", driversLicense);
             }
 
             // ADDRESS
+            formData.append("region", region);
             formData.append(
                 "province",
                 province
@@ -708,9 +610,18 @@ function Register({
                 );
             }
         } finally {
-            submitButtonClicked.current = false;
+            registrationSubmissionLocked.current = false;
             setLoading(false);
         }
+    };
+
+    const handleFormSubmit = (event) => {
+        if (step < reviewStep) {
+            event.preventDefault();
+            handleNext();
+            return;
+        }
+        handleRegister(event);
     };
 
 const handleVerifyEmail = async (event) => {
@@ -749,6 +660,19 @@ const handleVerifyEmail = async (event) => {
     }
 };
 
+const handleResendVerification = async () => {
+    setError("");
+    setLoading(true);
+    try {
+        const response = await api.post("/resend-verification", { email: email.trim().toLowerCase() });
+        setError(response.data?.message || "If this address has a pending registration, a new verification code has been sent.");
+    } catch (err) {
+        setError(err.response?.data?.message || "Unable to request a new code right now. Please try again shortly.");
+    } finally {
+        setLoading(false);
+    }
+};
+
 
     const fullName = [
         firstName,
@@ -757,13 +681,7 @@ const handleVerifyEmail = async (event) => {
     ]
         .filter(Boolean)
         .join(" ");
-    const latestBirthday = new Date();
-    latestBirthday.setDate(latestBirthday.getDate() - 1);
-    const maxBirthday = [
-        latestBirthday.getFullYear(),
-        String(latestBirthday.getMonth() + 1).padStart(2, "0"),
-        String(latestBirthday.getDate()).padStart(2, "0"),
-    ].join("-");
+    const maxBirthday = getPhilippineCalendarDate();
 
     if (routeRole && !location.state?.accountTypeSelected) {
         return <Navigate to="/register" replace />;
@@ -795,17 +713,23 @@ const handleVerifyEmail = async (event) => {
                         </section>
 
                     ) : submitted ? (
-                        <section className="register-submission-success">
-                            <span className="register-success-eyebrow">
-                                EMAIL VERIFICATION
-                            </span>
-
-                            <h2>Verify your email</h2>
-
-                            <p>
-                                We sent a six-digit verification code to{" "}
-                                <strong>{email}</strong>. Enter it below to verify your CRYMA account.
+                        <section className="register-submission-success otp-verification-card" aria-labelledby="otp-verification-title">
+                            <div className="otp-verification-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M4.75 7.25A2.25 2.25 0 0 1 7 5h10a2.25 2.25 0 0 1 2.25 2.25v9.5A2.25 2.25 0 0 1 17 19H7a2.25 2.25 0 0 1-2.25-2.25v-9.5Z" />
+                                    <path d="m5.5 7 6.5 5 6.5-5" />
+                                    <path d="m15.5 16 1.5 1.5 3-3" />
+                                </svg>
+                            </div>
+                            <span className="register-success-eyebrow">EMAIL VERIFICATION</span>
+                            <h2 id="otp-verification-title">Confirm your email address</h2>
+                            <p className="otp-verification-copy">
+                                Enter the six-digit code we sent to this address to verify your CRYMA account.
                             </p>
+                            <div className="otp-email-callout">
+                                <span className="otp-email-label">Verification email sent to</span>
+                                <strong>{email}</strong>
+                            </div>
 
                             {error && (
                                 <div className="register-error" role="alert">
@@ -816,23 +740,31 @@ const handleVerifyEmail = async (event) => {
 
                             <form onSubmit={handleVerifyEmail} className="register-form">
                                 <div className="auth-field">
-                                    <label id="email-otp-label" htmlFor="email-otp">
-                                        Verification code
+                                    <label id="email-otp-label" htmlFor="email-otp" className="otp-code-label">
+                                        <span>Enter verification code</span>
+                                        <span className="otp-code-count">6 digits</span>
                                     </label>
                                     <EmailOtpInput value={otp} onChange={setOtp} />
                                     <small className="email-otp-hint">
-                                        Enter the six-digit code from your email.
+                                        Use the code from your inbox. It expires after 10 minutes.
                                     </small>
                                 </div>
 
                                 <button
                                     type="submit"
-                                    className="primary-action"
+                                    className="primary-action otp-verify-action"
                                     disabled={loading}
+                                    aria-busy={loading}
                                 >
                                     {loading ? "Verifying..." : "Verify email"}
                                 </button>
                             </form>
+                            <div className="otp-resend-area">
+                                <span>Didn’t receive the email?</span>
+                                <button type="button" className="secondary-action otp-resend-action" onClick={handleResendVerification} disabled={loading} aria-busy={loading}>
+                                {loading ? "Please wait..." : "Resend verification code"}
+                                </button>
+                            </div>
                         </section>
                     ) : (
                         <>
@@ -925,9 +857,7 @@ const handleVerifyEmail = async (event) => {
 
                     <form
                         className="register-form"
-                        onSubmit={
-                            handleRegister
-                        }
+                        onSubmit={handleFormSubmit}
                     >
 
                         {/* =========================
@@ -959,19 +889,20 @@ const handleVerifyEmail = async (event) => {
 
                                         <input
                                             type="text"
+                                            maxLength={REGISTRATION_LIMITS.firstName}
+                                            required
+                                            aria-invalid={Boolean(currentStepErrors.firstName)}
                                             value={
                                                 firstName
                                             }
                                             onChange={(
                                                 e
                                             ) =>
-                                                setFirstName(
-                                                    e.target
-                                                        .value
-                                                )
+                                                setFirstName(capitalizeNameWords(e.target.value))
                                             }
                                             placeholder="Enter first name"
                                         />
+                                        {currentStepErrors.firstName && <small className="registration-field-error">{currentStepErrors.firstName}</small>}
                                     </div>
 
                                     <div className="auth-field">
@@ -981,20 +912,19 @@ const handleVerifyEmail = async (event) => {
 
                                         <input
                                             type="text"
+                                            maxLength={REGISTRATION_LIMITS.middleName}
+                                            aria-invalid={Boolean(currentStepErrors.middleName)}
                                             value={
                                                 middleName
                                             }
                                             onChange={(
                                                 e
                                             ) =>
-                                                setMiddleName(
-                                                    e.target
-                                                        .value
-                                                )
+                                                setMiddleName(capitalizeNameWords(e.target.value))
                                             }
                                                 placeholder="e.g. A"
-                                                maxLength={1}
                                         />
+                                        {currentStepErrors.middleName && <small className="registration-field-error">{currentStepErrors.middleName}</small>}
                                     </div>
                                 </div>
 
@@ -1007,19 +937,20 @@ const handleVerifyEmail = async (event) => {
 
                                         <input
                                             type="text"
+                                            maxLength={REGISTRATION_LIMITS.lastName}
+                                            required
+                                            aria-invalid={Boolean(currentStepErrors.lastName)}
                                             value={
                                                 lastName
                                             }
                                             onChange={(
                                                 e
                                             ) =>
-                                                setLastName(
-                                                    e.target
-                                                        .value
-                                                )
+                                                setLastName(capitalizeNameWords(e.target.value))
                                             }
                                             placeholder="Enter last name"
                                         />
+                                        {currentStepErrors.lastName && <small className="registration-field-error">{currentStepErrors.lastName}</small>}
                                     </div>
 
                                     <div className="auth-field">
@@ -1031,6 +962,8 @@ const handleVerifyEmail = async (event) => {
                                         <input
                                             type="date"
                                                 max={maxBirthday}
+                                            required
+                                            aria-invalid={Boolean(currentStepErrors.birthDate)}
                                             value={
                                                 birthDate
                                             }
@@ -1043,6 +976,7 @@ const handleVerifyEmail = async (event) => {
                                                 )
                                             }
                                         />
+                                        {currentStepErrors.birthDate && <small className="registration-field-error">{currentStepErrors.birthDate}</small>}
                                     </div>
                                 </div>
 
@@ -1118,6 +1052,7 @@ const handleVerifyEmail = async (event) => {
                                                 Prefer not to say
                                             </button>
                                         </div>
+                                        {currentStepErrors.sex && <small className="registration-field-error">{currentStepErrors.sex}</small>}
                                     </div>
                                 </div>
                             </section>
@@ -1151,19 +1086,23 @@ const handleVerifyEmail = async (event) => {
                                         <b>*</b>
                                     </label>
 
-                                    <input
-                                        type="tel"
-                                        value={phone}
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setPhone(
-                                                e.target
-                                                    .value
-                                            )
-                                        }
-                                        placeholder="09XXXXXXXXX"
-                                    />
+                                    <div className="registration-phone-input">
+                                        <span className="registration-phone-prefix" aria-hidden="true">+63</span>
+                                        <input
+                                            type="tel"
+                                            inputMode="numeric"
+                                            maxLength={REGISTRATION_LIMITS.phone}
+                                            autoComplete="tel-national"
+                                            pattern="9[0-9]{9}"
+                                            required
+                                            aria-label="Mobile number after +63"
+                                            aria-invalid={Boolean(currentStepErrors.phone)}
+                                            value={phone}
+                                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, REGISTRATION_LIMITS.phone))}
+                                            placeholder="9171234567"
+                                        />
+                                    </div>
+                                    {currentStepErrors.phone && <small className="registration-field-error">{currentStepErrors.phone}</small>}
                                 </div>
 
                                 <div className="address-api-label">
@@ -1187,6 +1126,7 @@ const handleVerifyEmail = async (event) => {
                                     barangay={
                                         barangay
                                     }
+                                    errors={currentStepErrors}
                                     onChange={
                                         handleAddressChange
                                     }
@@ -1201,6 +1141,9 @@ const handleVerifyEmail = async (event) => {
 
                                         <input
                                             type="text"
+                                            maxLength={REGISTRATION_LIMITS.houseNumber}
+                                            required
+                                            aria-invalid={Boolean(currentStepErrors.houseNumber)}
                                             value={
                                                 houseNumber
                                             }
@@ -1214,6 +1157,7 @@ const handleVerifyEmail = async (event) => {
                                             }
                                             placeholder="e.g. 123"
                                         />
+                                        {currentStepErrors.houseNumber && <small className="registration-field-error">{currentStepErrors.houseNumber}</small>}
                                     </div>
 
                                     <div className="auth-field">
@@ -1223,6 +1167,9 @@ const handleVerifyEmail = async (event) => {
 
                                         <input
                                             type="text"
+                                            maxLength={REGISTRATION_LIMITS.street}
+                                            required
+                                            aria-invalid={Boolean(currentStepErrors.street)}
                                             value={
                                                 street
                                             }
@@ -1236,6 +1183,7 @@ const handleVerifyEmail = async (event) => {
                                             }
                                             placeholder="e.g. Rizal Street"
                                         />
+                                        {currentStepErrors.street && <small className="registration-field-error">{currentStepErrors.street}</small>}
                                     </div>
                                 </div>
 
@@ -1248,6 +1196,8 @@ const handleVerifyEmail = async (event) => {
 
                                         <input
                                             type="text"
+                                            maxLength={REGISTRATION_LIMITS.buildingName}
+                                            aria-invalid={Boolean(currentStepErrors.buildingName)}
                                             value={
                                                 buildingName
                                             }
@@ -1261,6 +1211,7 @@ const handleVerifyEmail = async (event) => {
                                             }
                                             placeholder="Optional"
                                         />
+                                        {currentStepErrors.buildingName && <small className="registration-field-error">{currentStepErrors.buildingName}</small>}
                                     </div>
 
                                     <div className="auth-field">
@@ -1270,6 +1221,8 @@ const handleVerifyEmail = async (event) => {
 
                                         <input
                                             type="text"
+                                            maxLength={REGISTRATION_LIMITS.unitNumber}
+                                            aria-invalid={Boolean(currentStepErrors.unitNumber)}
                                             value={
                                                 unitNumber
                                             }
@@ -1283,13 +1236,15 @@ const handleVerifyEmail = async (event) => {
                                             }
                                             placeholder="Optional"
                                         />
+                                        {currentStepErrors.unitNumber && <small className="registration-field-error">{currentStepErrors.unitNumber}</small>}
                                     </div>
                                 </div>
 
                                 <div className="auth-field">
-                                    <label htmlFor="registration-postal-code">Postal Code <span className="auto-generated-label">Auto-generated</span></label>
-                                    <input id="registration-postal-code" type="text" value={postalCode} readOnly placeholder={municipality ? "Postal code unavailable" : "Select municipality"} aria-readonly="true" />
-                                    <small className="field-hint">{postalCode ? "Auto-generated from selected address" : municipality ? "Postal code unavailable for this municipality" : "Automatically filled when available"}</small>
+                                    <label htmlFor="registration-postal-code">Postal Code <b>*</b></label>
+                                    <input id="registration-postal-code" type="text" inputMode="numeric" maxLength={REGISTRATION_LIMITS.postalCode} value={postalCode} onChange={(event) => setPostalCode(event.target.value.replace(/\D/g, "").slice(0, REGISTRATION_LIMITS.postalCode))} placeholder={municipality ? "Enter postal code" : "Select municipality"} aria-invalid={Boolean(currentStepErrors.postalCode)} />
+                                    {currentStepErrors.postalCode && <small className="registration-field-error">{currentStepErrors.postalCode}</small>}
+                                    <small className="field-hint">{postalCode ? "Suggested from the locality reference; verify it is correct for your address" : municipality ? "No verified locality code is available; enter the correct four-digit postal code" : "Suggested automatically when locality data is available"}</small>
                                 </div>
                             </section>
                         )}
@@ -1323,6 +1278,11 @@ const handleVerifyEmail = async (event) => {
 
                                     <input
                                         type="email"
+                                        minLength={3}
+                                        maxLength={REGISTRATION_LIMITS.email}
+                                        autoComplete="email"
+                                        required
+                                        aria-invalid={Boolean(currentStepErrors.email)}
                                         value={email}
                                         onChange={(
                                             e
@@ -1334,6 +1294,7 @@ const handleVerifyEmail = async (event) => {
                                         }
                                         placeholder="you@example.com"
                                     />
+                                    {currentStepErrors.email && <small className="registration-field-error">{currentStepErrors.email}</small>}
                                 </div>
 
                                 <div className="auth-field">
@@ -1349,6 +1310,11 @@ const handleVerifyEmail = async (event) => {
                                                     ? "text"
                                                     : "password"
                                             }
+                                            minLength={8}
+                                            maxLength={REGISTRATION_LIMITS.password}
+                                            autoComplete="new-password"
+                                            required
+                                            aria-invalid={Boolean(currentStepErrors.password)}
                                             value={
                                                 password
                                             }
@@ -1362,6 +1328,7 @@ const handleVerifyEmail = async (event) => {
                                             }
                                             placeholder="Create a password"
                                         />
+                                        {currentStepErrors.password && <small className="registration-field-error">{currentStepErrors.password}</small>}
 
                                         <button
                                             type="button"
@@ -1408,6 +1375,11 @@ const handleVerifyEmail = async (event) => {
                                                     ? "text"
                                                     : "password"
                                             }
+                                            minLength={8}
+                                            maxLength={REGISTRATION_LIMITS.password}
+                                            autoComplete="new-password"
+                                            required
+                                            aria-invalid={Boolean(currentStepErrors.passwordConfirmation)}
                                             value={
                                                 passwordConfirmation
                                             }
@@ -1422,6 +1394,7 @@ const handleVerifyEmail = async (event) => {
                                             }
                                             placeholder="Repeat your password"
                                         />
+                                        {currentStepErrors.passwordConfirmation && <small className="registration-field-error">{currentStepErrors.passwordConfirmation}</small>}
 
                                         <button
                                             type="button"
@@ -1447,8 +1420,9 @@ const handleVerifyEmail = async (event) => {
                             <section className="register-section">
                                 <div className="section-heading"><span>STEP 04</span><h3>Business information</h3><p>Tell us about the store you are applying to operate.</p></div>
                                 <div className="review-card seller-registration-card">
-                                    <div className="auth-field"><label htmlFor="business-name">Business Name <b>*</b></label><input id="business-name" type="text" value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="Enter your business name" /></div>
-                                    <div className="auth-field"><label htmlFor="line-of-business">Line of Business / Category <b>*</b></label><select id="line-of-business" value={lineOfBusiness} onChange={(event) => setLineOfBusiness(event.target.value)}><option value="">Select a category</option>{PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></div>
+                                    <div className="auth-field"><label htmlFor="business-name">Business Name <b>*</b></label><input id="business-name" type="text" maxLength={REGISTRATION_LIMITS.businessName} required aria-invalid={Boolean(currentStepErrors.businessName)} value={businessName} onChange={(event) => setBusinessName(capitalizeNameWords(event.target.value))} placeholder="Enter your business name" />{currentStepErrors.businessName && <small className="registration-field-error">{currentStepErrors.businessName}</small>}</div>
+                                    <div className="auth-field"><label htmlFor="seller-tin">Tax Identification Number (TIN) <span className="auto-generated-label">Optional</span></label><input id="seller-tin" type="text" inputMode="numeric" autoComplete="off" maxLength={REGISTRATION_LIMITS.tin} value={tin} onChange={(event) => setTin(event.target.value.replace(/\D/g, "").slice(0, REGISTRATION_LIMITS.tin))} placeholder="Enter 9 to 13 digit TIN" aria-invalid={Boolean(currentStepErrors.tin)} aria-describedby="seller-tin-help" /><small id="seller-tin-help" className="field-hint">For your seller tax and business records. Enter digits only; you may add it later.</small>{currentStepErrors.tin && <small className="registration-field-error">{currentStepErrors.tin}</small>}</div>
+                                    <div className="auth-field"><label htmlFor="line-of-business">Line of Business / Category <b>*</b></label><select id="line-of-business" required aria-invalid={Boolean(currentStepErrors.lineOfBusiness)} value={lineOfBusiness} onChange={(event) => setLineOfBusiness(event.target.value)}><option value="">Select a category</option>{PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select>{currentStepErrors.lineOfBusiness && <small className="registration-field-error">{currentStepErrors.lineOfBusiness}</small>}</div>
                                 </div>
                             </section>
                         )}
@@ -1457,8 +1431,8 @@ const handleVerifyEmail = async (event) => {
                             <section className="register-section">
                                 <div className="section-heading"><span>STEP 04</span><h3>Vehicle information</h3><p>Tell us which vehicle you will use for CRYMA deliveries.</p></div>
                                 <div className="review-card seller-registration-card form-grid two">
-                                    <div className="auth-field"><label htmlFor="vehicle-type">Choose Vehicle <b>*</b></label><select id="vehicle-type" value={vehicleType} onChange={(event) => setVehicleType(event.target.value)}><option value="">Select vehicle</option><option value="motorcycle">Motorcycle</option><option value="tricycle">Tricycle</option><option value="car">Car</option><option value="van">Van</option><option value="truck">Truck</option></select></div>
-                                    <div className="auth-field"><label htmlFor="plate-number">Plate Number <b>*</b></label><input id="plate-number" type="text" value={plateNumber} onChange={(event) => setPlateNumber(event.target.value)} placeholder="Enter vehicle plate number" /></div>
+                                    <div className="auth-field"><label htmlFor="vehicle-type">Choose Vehicle <b>*</b></label><select id="vehicle-type" required aria-invalid={Boolean(currentStepErrors.vehicleType)} value={vehicleType} onChange={(event) => setVehicleType(event.target.value)}><option value="">Select vehicle</option><option value="motorcycle">Motorcycle</option><option value="tricycle">Tricycle</option><option value="car">Car</option><option value="van">Van</option><option value="truck">Truck</option></select>{currentStepErrors.vehicleType && <small className="registration-field-error">{currentStepErrors.vehicleType}</small>}</div>
+                                    <div className="auth-field"><label htmlFor="plate-number">Plate Number <b>*</b></label><input id="plate-number" type="text" maxLength={REGISTRATION_LIMITS.plateNumber} required aria-invalid={Boolean(currentStepErrors.plateNumber)} value={plateNumber} onChange={(event) => setPlateNumber(event.target.value)} placeholder="Enter vehicle plate number" />{currentStepErrors.plateNumber && <small className="registration-field-error">{currentStepErrors.plateNumber}</small>}</div>
                                 </div>
                             </section>
                         )}
@@ -1467,9 +1441,10 @@ const handleVerifyEmail = async (event) => {
                             <section className="register-section">
                                 <div className="section-heading"><span>STEP {String(verificationStep).padStart(2, "0")}</span><h3>Verification documents</h3><p>Upload clear images or PDF files of the documents required for your {accountType.toLowerCase()} application.</p></div>
                                 <div className="review-card seller-registration-card">
-                                    <DocumentUploadField id="valid-id" label={registrationRole === "rider" ? "Upload Valid ID / Driver’s License" : "Upload Valid ID"} file={validId} onSelect={handleValidIdChange} onRemove={() => setValidId(null)} />
-                                    {registrationRole === "seller" && <DocumentUploadField id="business-permit" label="Upload Business Permit" file={businessPermit} onSelect={(event) => handleDocumentChange(event, setBusinessPermit, "Business Permit")} onRemove={() => setBusinessPermit(null)} />}
-                                    {registrationRole === "rider" && <DocumentUploadField id="or-cr" label="Upload OR/CR" file={orCr} onSelect={(event) => handleDocumentChange(event, setOrCr, "OR/CR")} onRemove={() => setOrCr(null)} />}
+                                    <DocumentUploadField id="valid-id" label="Upload Valid ID" file={validId} onSelect={handleValidIdChange} onRemove={() => setValidId(null)} errorMessage={currentStepErrors.validId} />
+                                    {registrationRole === "seller" && <DocumentUploadField id="business-permit" label="Upload Business Permit" file={businessPermit} onSelect={(event) => handleDocumentChange(event, setBusinessPermit, "Business Permit")} onRemove={() => setBusinessPermit(null)} errorMessage={currentStepErrors.businessPermit} />}
+                                    {registrationRole === "rider" && <DocumentUploadField id="drivers-license" label="Upload Driver's License" file={driversLicense} onSelect={(event) => handleDocumentChange(event, setDriversLicense, "Driver's License")} onRemove={() => setDriversLicense(null)} errorMessage={currentStepErrors.driversLicense} />}
+                                    {registrationRole === "rider" && <DocumentUploadField id="or-cr" label="Upload OR/CR" file={orCr} onSelect={(event) => handleDocumentChange(event, setOrCr, "OR/CR")} onRemove={() => setOrCr(null)} errorMessage={currentStepErrors.orCr} />}
                                 </div>
                             </section>
                         )}
@@ -1596,8 +1571,7 @@ const handleVerifyEmail = async (event) => {
                                             </small>
 
                                             <strong>
-                                                {phone ||
-                                                    "\u2014"}
+                                                {phone ? `+63 ${phone}` : "\u2014"}
                                             </strong>
                                         </div>
 
@@ -1718,14 +1692,27 @@ const handleVerifyEmail = async (event) => {
                                         <button type="button" onClick={() => setStep(verificationStep)}>Edit</button>
                                     </div>
                                     <div className="review-grid">
-                                        <div><small>{registrationRole === "rider" ? "Valid ID / Driver’s License" : "Valid ID"}</small><strong>{validId?.name || "Not uploaded"}</strong></div>
+                                        <div><small>Valid ID</small><strong>{validId?.name || "Not uploaded"}</strong></div>
                                         {registrationRole === "seller" && <div><small>Business Permit</small><strong>{businessPermit?.name || "Not uploaded"}</strong></div>}
-                                        {registrationRole === "rider" && <div><small>OR/CR</small><strong>{orCr?.name || "Not uploaded"}</strong></div>}
+                                        {registrationRole === "rider" && <><div><small>Driver's License</small><strong>{driversLicense?.name || "Not uploaded"}</strong></div><div><small>OR/CR</small><strong>{orCr?.name || "Not uploaded"}</strong></div></>}
                                     </div>
                                 </div>
 
                                 {registrationRole === "seller" && <div className="review-card"><div className="review-card-header"><div><span>SELLER</span><h4>Business information</h4></div><button type="button" onClick={() => setStep(roleInfoStep)}>Edit</button></div><div className="review-grid"><div><small>Business Name</small><strong>{businessName || "—"}</strong></div><div><small>Line of Business / Category</small><strong>{lineOfBusiness || "—"}</strong></div></div></div>}
                                 {registrationRole === "rider" && <div className="review-card"><div className="review-card-header"><div><span>COURIER</span><h4>Vehicle information</h4></div><button type="button" onClick={() => setStep(roleInfoStep)}>Edit</button></div><div className="review-grid"><div><small>Vehicle</small><strong>{vehicleType || "—"}</strong></div><div><small>Plate Number</small><strong>{plateNumber || "—"}</strong></div></div></div>}
+
+                                <div className="policy-acceptance-card" aria-labelledby="policy-acceptance-heading">
+                                    <h4 id="policy-acceptance-heading">Review CRYMA’s terms and privacy notice</h4>
+                                    <label className="policy-acceptance-option">
+                                        <input type="checkbox" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); setAcceptanceError(""); }} />
+                                        <span>I have read and agree to the <Link to="/terms" target="_blank" rel="noreferrer">Terms and Conditions</Link> (version {POLICY_VERSIONS.terms}).</span>
+                                    </label>
+                                    <label className="policy-acceptance-option">
+                                        <input type="checkbox" checked={privacyAcknowledged} onChange={(event) => { setPrivacyAcknowledged(event.target.checked); setAcceptanceError(""); }} />
+                                        <span>I acknowledge that I have read the <Link to="/privacy" target="_blank" rel="noreferrer">Privacy Notice</Link> (version {POLICY_VERSIONS.privacy}), including its notice about identity and verification documents.</span>
+                                    </label>
+                                    {acceptanceError && <small className="registration-field-error" role="alert">{acceptanceError}</small>}
+                                </div>
 
                             </section>
                         )}
@@ -1766,11 +1753,9 @@ const handleVerifyEmail = async (event) => {
 
                             {step < reviewStep ? (
                                 <button
-                                    type="button"
+                                    type="submit"
                                     className="primary-action"
-                                    onClick={
-                                        handleNext
-                                    }
+                                    disabled={loading || Object.keys(currentStepErrors).length > 0}
                                 >
                                     Continue
                                 </button>
@@ -1778,11 +1763,6 @@ const handleVerifyEmail = async (event) => {
                                 <button
                                     type="submit"
                                     className="primary-action"
-                                    onClick={(event) => {
-                                        submitButtonClicked.current =
-                                            event.detail > 0 ||
-                                            document.activeElement === event.currentTarget;
-                                    }}
                                     disabled={
                                         loading
                                     }

@@ -1,2 +1,4 @@
-function Page() { return null; }
-export default Page;
+import CourierWorkspaceUnavailable from "../components/CourierWorkspaceUnavailable";
+
+function Earnings() { return <CourierWorkspaceUnavailable title="Courier earnings" />; }
+export default Earnings;

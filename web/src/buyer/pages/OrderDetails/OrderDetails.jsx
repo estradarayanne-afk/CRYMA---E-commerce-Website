@@ -16,6 +16,7 @@ import {
 } from "react-router-dom";
 
 import api from "../../../shared/services/api";
+import Dialog from "../../../shared/components/Dialog";
 
 import "./OrderDetails.css";
 
@@ -49,6 +50,18 @@ const STATUS_STEPS = [
         icon: Package,
     },
     {
+        key: "ASSIGNED_TO_PICKUP_RIDER",
+        title: "Pickup rider assigned",
+        description: "A rider is assigned to collect the parcel from the seller.",
+        icon: Truck,
+    },
+    {
+        key: "ACCEPTED_BY_PICKUP_RIDER",
+        title: "Pickup accepted",
+        description: "The pickup rider accepted the collection assignment.",
+        icon: Check,
+    },
+    {
         key: "PICKED_UP",
         title: "Picked up",
         description:
@@ -71,9 +84,9 @@ const STATUS_STEPS = [
     },
     {
         key: "ASSIGNED_TO_RIDER",
-        title: "Rider assigned",
+        title: "Delivery rider assigned",
         description:
-            "A delivery rider has been assigned.",
+            "A delivery rider has been assigned for your area.",
         icon: Truck,
     },
     {
@@ -248,6 +261,10 @@ function OrderDetails() {
 
     const [error, setError] =
         useState("");
+    const [notice, setNotice] = useState("");
+    const [confirming, setConfirming] = useState(false);
+    const [receiptConfirmOpen, setReceiptConfirmOpen] = useState(false);
+    const [receiptActionError, setReceiptActionError] = useState("");
 
     const isLoggedIn =
         !!localStorage.getItem(
@@ -306,6 +323,30 @@ function OrderDetails() {
         navigate,
     ]);
 
+    const confirmReceipt = async () => {
+        setConfirming(true);
+        setReceiptActionError("");
+        setError("");
+        setNotice("");
+        try {
+            await api.post(`/orders/${id}/confirm-received`);
+            setNotice("Receipt confirmed. The order is complete.");
+            setReceiptConfirmOpen(false);
+            try {
+                const response = await api.get(`/orders/${id}`);
+                setOrder(response?.data?.data || null);
+            } catch (refreshError) {
+                setError(refreshError?.response?.data?.message || "Receipt was confirmed, but order details could not be refreshed. Reload the page to see the latest status.");
+            }
+        } catch (requestError) {
+            const message = requestError?.response?.data?.message || "Unable to confirm receipt. Refresh the order and try again.";
+            setError(message);
+            setReceiptActionError(message);
+        } finally {
+            setConfirming(false);
+        }
+    };
+
     const currentStatus =
         normalizeStatus(
             order?.status
@@ -313,17 +354,21 @@ function OrderDetails() {
 
     const currentStepIndex =
         useMemo(() => {
+            const eventStatus = [...(order?.delivery_progress?.events || [])].reverse().find((event) =>
+                ["ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(event.new_status)
+            )?.new_status;
+            const trackingStatus = currentStatus === "READY_FOR_PICKUP" && eventStatus ? eventStatus : currentStatus;
             const index =
                 STATUS_STEPS.findIndex(
                     (step) =>
                         step.key ===
-                        currentStatus
+                        trackingStatus
                 );
 
             return index >= 0
                 ? index
                 : 0;
-        }, [currentStatus]);
+        }, [currentStatus, order?.delivery_progress?.events]);
 
     const items = Array.isArray(
         order?.items
@@ -492,6 +537,9 @@ function OrderDetails() {
                 </span>
             </header>
 
+            {error && <div className="order-inline-alert" role="alert">{error}</div>}
+            {notice && <div className="order-inline-notice" role="status">{notice}</div>}
+
             <section
                 className={`order-current-status ${
                     isFailed ||
@@ -572,6 +620,9 @@ function OrderDetails() {
                                             const active =
                                                 index ===
                                                 currentStepIndex;
+                                            const deliveryEvent = [...(order.delivery_progress?.events || [])].reverse().find(
+                                                (event) => event.new_status === step.key
+                                            );
 
                                             return (
                                                 <div
@@ -617,6 +668,9 @@ function OrderDetails() {
                                                                 : completed
                                                                 ? "Completed"
                                                                 : "Waiting for this step."}
+                                                            {deliveryEvent?.created_at && (
+                                                                <><br />{new Date(deliveryEvent.created_at).toLocaleString("en-PH")}</>
+                                                            )}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -794,6 +848,8 @@ function OrderDetails() {
                                     {order.delivery_address ||
                                         "Delivery address not available."}
                                 </p>
+                                {order.delivery_progress?.delivery_area?.name && <small>Delivery area: {order.delivery_progress.delivery_area.name}</small>}
+                                {order.delivery_progress?.pickup?.status && <small>Seller pickup: {String(order.delivery_progress.pickup.status).replaceAll("_", " ")}</small>}
                             </div>
                         </div>
                     </section>
@@ -817,11 +873,15 @@ function OrderDetails() {
 
                                     <p>
                                         {isCompleted
-                                            ? "You have confirmed receipt of this order."
+                                            ? "This order is complete."
                                             : "Your parcel has been delivered."}
                                     </p>
                                 </div>
                             </div>
+
+                            {isDelivered && <button type="button" className="order-confirm-received" onClick={() => { setReceiptActionError(""); setReceiptConfirmOpen(true); }} disabled={confirming}>
+                                {confirming ? "Confirming…" : "Confirm order received"}
+                            </button>}
 
                             {isCompleted && (
                                 <Link to={`/reviews?order=${order.id}`}>
@@ -868,6 +928,17 @@ function OrderDetails() {
                                       )}
                             </strong>
                         </div>
+
+                        {Number(order?.voucher_discount || 0) > 0 && (
+                            <div className="order-summary-line">
+                                <span>
+                                    Voucher{order?.voucher_code ? ` (${order.voucher_code})` : ""}
+                                </span>
+                                <strong>
+                                    −{formatMoney(Number(order.voucher_discount))}
+                                </strong>
+                            </div>
+                        )}
 
                         <div className="order-summary-total">
                             <span>
@@ -937,13 +1008,30 @@ function OrderDetails() {
                         <span className="order-summary-eyebrow">NEED HELP?</span>
                         <strong>CRYMA Customer Service</strong>
                         <p>Ask us about this order, delivery, payment, or a return.</p>
-                        <button type="button" onClick={() => navigate("/buyer/chat")}>
+                        <button type="button" onClick={() => navigate("/buyer/support")}>
                             <MessageCircle size={15} />
                             Contact Customer Service
                         </button>
                     </section>
                 </aside>
             </div>
+            <Dialog
+                open={receiptConfirmOpen}
+                onClose={() => setReceiptConfirmOpen(false)}
+                ariaLabelledBy="receipt-confirm-title"
+                className="order-confirm-dialog"
+                busy={confirming}
+            >
+                <h2 id="receipt-confirm-title">Confirm order received?</h2>
+                <p>Please confirm only if you have received this order.</p>
+                {receiptActionError && <p className="order-confirm-error" role="alert">{receiptActionError}</p>}
+                <div className="order-confirm-dialog-actions">
+                    <button type="button" onClick={() => setReceiptConfirmOpen(false)} disabled={confirming}>Cancel</button>
+                    <button type="button" className="order-confirm-received" onClick={() => void confirmReceipt()} disabled={confirming}>
+                        {confirming ? "Confirming…" : "Confirm receipt"}
+                    </button>
+                </div>
+            </Dialog>
         </main>
     );
 }

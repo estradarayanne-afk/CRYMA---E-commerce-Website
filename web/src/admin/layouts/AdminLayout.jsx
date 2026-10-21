@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../shared/services/api";
 
 import "./AdminLayout.css";
@@ -8,9 +8,11 @@ const NAV = [
     { to: "/admin/dashboard", label: "Dashboard", icon: "▦" },
     { to: "/admin/registrations", label: "Registrations", icon: "◌" },
     { to: "/admin/users", label: "User Accounts", icon: "♙" },
+    { to: "/admin/deliveries", label: "Courier Deliveries", icon: "⇄" },
     { to: "/admin/seller-compliance", label: "Seller Compliance", icon: "✓" },
     { to: "/admin/complaints", label: "Complaints", icon: "!" },
     { to: "/admin/commission", label: "Commission", icon: "₱" },
+    { to: "/admin/vouchers", label: "Vouchers", icon: "◇" },
     { to: "/admin/reports", label: "Reports", icon: "▤" },
     { to: "/admin/settings", label: "Settings", icon: "⚙" },
     { to: "/admin/chat", label: "Customer Service", icon: "◍" },
@@ -20,9 +22,19 @@ function AdminLayout() {
 const navigate = useNavigate();
 
 const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+const [mobileNavOpen, setMobileNavOpen] = useState(false);
 const [profileOpen, setProfileOpen] = useState(false);
 const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 const [loggingOut, setLoggingOut] = useState(false);
+
+useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+    const handleKeyDown = (event) => {
+        if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+}, [mobileNavOpen]);
 
 const user = (() => {
     try {
@@ -69,7 +81,7 @@ const handleLogout = async () => {
 };
 
 return (
-    <div className={`al-root ${sidebarCollapsed ? "al-root--collapsed" : ""}`}>
+    <div className={`al-root ${sidebarCollapsed ? "al-root--collapsed" : ""}${mobileNavOpen ? " al-root--mobile-open" : ""}`}>
         {/* SIDEBAR */}
         <aside className="al-sidebar">
             <div className="al-sidebar-top">
@@ -101,11 +113,12 @@ return (
                 <span>Workspace</span>
             </div>
 
-            <nav className="al-nav">
+            <nav className="al-nav" id="admin-workspace-navigation" aria-label="Administrator workspace">
                 {NAV.map(({ to, label, icon }) => (
                     <NavLink
                         key={to}
                         to={to}
+                        onClick={() => setMobileNavOpen(false)}
                         title={sidebarCollapsed ? label : undefined}
                         className={({ isActive }) =>
                             isActive ? "active" : ""
@@ -193,6 +206,19 @@ return (
         <div className="al-main">
             <header className="al-header">
                 <div className="al-header-left">
+                    <button
+                        type="button"
+                        className="al-mobile-menu-toggle"
+                        onClick={() => {
+                            setSidebarCollapsed(false);
+                            setMobileNavOpen((open) => !open);
+                        }}
+                        aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+                        aria-expanded={mobileNavOpen}
+                        aria-controls="admin-workspace-navigation"
+                    >
+                        <span /><span /><span />
+                    </button>
                     <div className="al-breadcrumb">
                         <span>CRYMA</span>
                         <span>/</span>

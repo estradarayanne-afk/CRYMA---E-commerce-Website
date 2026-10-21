@@ -1104,6 +1104,9 @@
 .register-content .auth-field input:focus,
 .register-content .auth-field select:focus,
 .register-content .password-field input:focus { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(178,31,58,.12); outline: 0; }
+.registration-phone-input { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; }
+.registration-phone-prefix { display: flex; align-items: center; padding: 0 14px; border: 1px solid #cbbbc0; border-right: 0; border-radius: 10px 0 0 10px; background: #f8f3f4; color: var(--text-primary); font-weight: 700; }
+.register-content .registration-phone-input input { min-width: 0; border-radius: 0 10px 10px 0; }
 .register-actions .primary-action { min-height: 50px; font-size: 15px; }
 .register-actions .secondary-action { min-height: 48px; font-size: 14px; }
 .auto-generated-label { margin-left: 8px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
@@ -1145,9 +1148,296 @@
     box-shadow: 0 0 0 3px rgba(178, 31, 58, 0.12);
 }
 
+.registration-field-error {
+    display: block;
+    margin-top: 6px;
+    color: #b4233d;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.register-form [aria-invalid="true"] {
+    border-color: #b4233d;
+}
+
+.register-actions .primary-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 .email-otp-hint {
     display: block;
     margin-top: 8px;
     color: var(--text-muted);
     font-size: 12px;
+}
+
+.policy-acceptance-card { display: grid; gap: 14px; margin-top: 18px; padding: 18px; border: 1px solid var(--border-neutral); border-radius: 12px; background: #fffafb; }
+.policy-acceptance-card h4 { margin: 0; color: var(--wine); }
+.policy-acceptance-option { display: flex; align-items: flex-start; gap: 10px; color: var(--text-primary); font-size: 13px; line-height: 1.6; cursor: pointer; }
+.policy-acceptance-option input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 2px; accent-color: var(--crimson); }
+.policy-acceptance-option a { color: var(--crimson); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.policy-acceptance-option a:focus-visible { outline: 2px solid var(--crimson); outline-offset: 3px; }
+
+/* Email OTP verification presentation */
+.register-submission-success.otp-verification-card {
+    position: relative;
+    isolation: isolate;
+    max-width: 560px;
+    padding: clamp(30px, 4.2vw, 52px);
+    border-color: rgba(126, 24, 48, 0.12);
+    border-radius: 24px;
+    box-shadow: 0 24px 65px rgba(75, 23, 37, 0.1), 0 4px 14px rgba(75, 23, 37, 0.035);
+}
+
+.otp-verification-card::after {
+    position: absolute;
+    z-index: -1;
+    top: -95px;
+    right: -95px;
+    width: 210px;
+    height: 210px;
+    border: 1px solid rgba(178, 31, 58, 0.075);
+    border-radius: 50%;
+    box-shadow: 0 0 0 24px rgba(178, 31, 58, 0.025);
+    content: "";
+    pointer-events: none;
+}
+
+.otp-verification-icon {
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 24px;
+    border: 1px solid rgba(178, 31, 58, 0.12);
+    border-radius: 17px;
+    background: #fff5f7;
+    color: var(--deep-crimson);
+}
+
+.otp-verification-icon svg {
+    width: 27px;
+    height: 27px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.65;
+}
+
+.otp-verification-card .register-success-eyebrow {
+    margin-bottom: 9px;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+}
+
+.otp-verification-card h2 {
+    max-width: 430px;
+    font-size: clamp(27px, 3vw, 36px);
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+}
+
+.otp-verification-card .otp-verification-copy {
+    max-width: 430px;
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.otp-email-callout {
+    display: grid;
+    gap: 4px;
+    margin-top: 22px;
+    padding: 14px 16px;
+    border: 1px solid rgba(126, 24, 48, 0.11);
+    border-radius: 12px;
+    background: #fff9fa;
+}
+
+.otp-email-label {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.otp-email-callout strong {
+    color: var(--wine);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.otp-verification-card .register-error {
+    max-width: none;
+    margin: 20px 0 0;
+    padding: 13px 15px;
+    border-radius: 11px;
+}
+
+.otp-verification-card .register-error p {
+    font-size: 13px;
+}
+
+.otp-verification-card .register-form {
+    max-width: none;
+    margin-top: 26px;
+}
+
+.otp-verification-card .auth-field {
+    margin-bottom: 20px;
+}
+
+.otp-code-label {
+    display: flex !important;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px !important;
+    color: var(--text-primary) !important;
+    font-size: 14px !important;
+}
+
+.otp-code-count {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.otp-verification-card .email-otp-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.otp-verification-card .otp-verify-action {
+    width: 100%;
+    min-height: 54px;
+    border-radius: 11px;
+    font-size: 15px;
+    box-shadow: 0 7px 18px rgba(126, 24, 48, 0.14);
+}
+
+.otp-verification-card .otp-verify-action:focus-visible,
+.otp-verification-card .otp-resend-action:focus-visible {
+    outline: 3px solid rgba(178, 31, 58, 0.25);
+    outline-offset: 3px;
+}
+
+.otp-verification-card .otp-verify-action:disabled {
+    transform: none;
+    box-shadow: none;
+}
+
+.otp-resend-area {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 5px 8px;
+    margin-top: 18px;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+.otp-verification-card .otp-resend-action {
+    min-height: 34px;
+    padding: 0 8px;
+    border-color: transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--deep-crimson);
+    font-size: 12px;
+    text-decoration: underline;
+    text-decoration-color: rgba(126, 24, 48, 0.35);
+    text-underline-offset: 3px;
+}
+
+.otp-verification-card .otp-resend-action:hover:not(:disabled) {
+    border-color: rgba(126, 24, 48, 0.1);
+    background: #fff5f7;
+    color: var(--wine);
+}
+
+.otp-verification-card .otp-resend-action:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+@media (max-width: 640px) {
+    .register-submission-success.otp-verification-card {
+        padding: 28px 22px;
+        border-radius: 18px;
+    }
+
+    .otp-verification-icon {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 20px;
+        border-radius: 15px;
+    }
+
+    .otp-verification-card h2 {
+        font-size: clamp(25px, 7vw, 31px);
+    }
+
+    .otp-verification-card .otp-verification-copy {
+        font-size: 13px;
+    }
+
+    .otp-email-callout {
+        margin-top: 18px;
+        padding: 12px 13px;
+    }
+
+    .otp-verification-card .register-form {
+        margin-top: 22px;
+    }
+}
+
+@media (max-width: 380px) {
+    .register-submission-success.otp-verification-card {
+        padding: 24px 16px;
+    }
+}
+
+/* Embedded registration should fit the auth panel without page-level x-scroll. */
+.register-page.embedded .register-stepper {
+    min-width: 0;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+}
+
+.register-page.embedded .register-stepper::-webkit-scrollbar { display: none; }
+.register-page.embedded .register-step { flex: 0 0 auto; gap: 6px; white-space: nowrap; font-size: 11px; }
+.register-page.embedded .register-step-line { flex: 1 1 34px; width: auto; min-width: 20px; max-width: 60px; margin: 0 8px; }
+.register-page.embedded .register-section,
+.register-page.embedded .register-form,
+.register-page.embedded .form-grid,
+.register-page.embedded .auth-field { min-width: 0; }
+.register-page.embedded .register-section { padding: 22px; }
+.register-page.embedded .register-section { animation: registration-step-enter 240ms cubic-bezier(.2,.75,.25,1) both; }
+.register-page.embedded .form-grid.two { gap: 14px; }
+.register-page.embedded input,
+.register-page.embedded select,
+.register-page.embedded textarea { box-sizing: border-box; max-width: 100%; }
+
+@media (max-width: 720px) {
+    .register-page.embedded .register-section { padding: 18px; }
+    .register-page.embedded .register-step { gap: 4px; font-size: 9px; }
+    .register-page.embedded .register-step-line { min-width: 8px; margin-inline: 3px; }
+}
+
+@keyframes registration-step-enter {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .register-page.embedded .register-section { animation: none; }
 }

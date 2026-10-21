@@ -28,7 +28,11 @@ function SellerAccountSettings() {
         e.preventDefault();
         setError(""); setProfileMsg(""); setSavingProfile(true);
         try {
-            await api.patch(`/admin/users/${user.id}`, profileForm);
+            await api.patch("/account/profile", {
+                first_name: profileForm.first_name,
+                last_name: profileForm.last_name,
+                phone: profileForm.phone || null,
+            });
             const updated = { ...user, ...profileForm };
             setUser(updated);
             localStorage.setItem("user", JSON.stringify(updated));
@@ -46,7 +50,7 @@ function SellerAccountSettings() {
         }
         setSavingPassword(true);
         try {
-            await api.patch(`/admin/users/${user.id}/password`, passwordForm);
+            await api.patch("/account/password", passwordForm);
             setPasswordForm({ current_password: "", password: "", password_confirmation: "" });
             setPasswordMsg("Password changed successfully.");
         } catch (err) {
@@ -81,22 +85,23 @@ function SellerAccountSettings() {
                 <form onSubmit={saveProfile} style={{ padding: "20px 20px 24px" }}>
                     <div className="sl-form-row">
                         <div className="sl-field">
-                            <label>First Name</label>
-                            <input name="first_name" value={profileForm.first_name} onChange={setP} required />
+                            <label htmlFor="seller-first-name">First Name</label>
+                            <input id="seller-first-name" name="first_name" value={profileForm.first_name} onChange={setP} maxLength={30} required />
                         </div>
                         <div className="sl-field">
-                            <label>Last Name</label>
-                            <input name="last_name" value={profileForm.last_name} onChange={setP} required />
+                            <label htmlFor="seller-last-name">Last Name</label>
+                            <input id="seller-last-name" name="last_name" value={profileForm.last_name} onChange={setP} maxLength={30} required />
                         </div>
                     </div>
                     <div className="sl-form-row">
                         <div className="sl-field">
-                            <label>Email Address</label>
-                            <input name="email" type="email" value={profileForm.email} onChange={setP} required />
+                            <label htmlFor="seller-account-email">Email Address</label>
+                            <input id="seller-account-email" name="email" type="email" value={profileForm.email} readOnly aria-describedby="seller-email-help" />
+                            <small id="seller-email-help">Email changes require a separate verification flow.</small>
                         </div>
                         <div className="sl-field">
-                            <label>Contact No.</label>
-                            <input name="phone" type="tel" value={profileForm.phone} onChange={setP} />
+                            <label htmlFor="seller-account-phone">Contact No.</label>
+                            <input id="seller-account-phone" name="phone" type="tel" value={profileForm.phone} onChange={setP} maxLength={13} placeholder="+639XXXXXXXXX" />
                         </div>
                     </div>
                     {profileMsg && <div className="auth-notice auth-notice--success" style={{ marginBottom: 12 }}>{profileMsg}</div>}
@@ -114,16 +119,16 @@ function SellerAccountSettings() {
                 <form onSubmit={savePassword} style={{ padding: "20px 20px 24px" }}>
                     <div className="sl-field" style={{ marginBottom: 16 }}>
                         <label>Current Password</label>
-                        <input name="current_password" type="password" value={passwordForm.current_password} onChange={setPw} required />
+                        <input name="current_password" type="password" value={passwordForm.current_password} onChange={setPw} maxLength={128} required />
                     </div>
                     <div className="sl-form-row">
                         <div className="sl-field">
                             <label>New Password</label>
-                            <input name="password" type="password" value={passwordForm.password} onChange={setPw} required />
+                            <input name="password" type="password" value={passwordForm.password} onChange={setPw} minLength={8} maxLength={128} required />
                         </div>
                         <div className="sl-field">
                             <label>Confirm Password</label>
-                            <input name="password_confirmation" type="password" value={passwordForm.password_confirmation} onChange={setPw} required />
+                            <input name="password_confirmation" type="password" value={passwordForm.password_confirmation} onChange={setPw} minLength={8} maxLength={128} required />
                         </div>
                     </div>
                     {passwordMsg && <div className="auth-notice auth-notice--success" style={{ marginBottom: 12 }}>{passwordMsg}</div>}
