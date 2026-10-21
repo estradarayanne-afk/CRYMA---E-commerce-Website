@@ -1,0 +1,32 @@
+# Local secrets and environment files (keep example templates tracked)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local databases, logs, and generated diagnostics
+**/database/*.sqlite
+**/database/*.sqlite-*
+**/*.sqlite
+**/*.sqlite-*
+**/storage/logs/*
+**/storage/framework/cache/**
+**/storage/framework/sessions/**
+**/storage/framework/views/**
+
+# Private uploads and generated public uploads
+backend/storage/app/private/**
+backend/storage/app/public/registration-documents/**
+
+# Local dependencies and build output
+**/node_modules/
+**/vendor/
+**/dist/
+**/public/build/
+
+# Local editor and OS files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.log

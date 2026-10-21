@@ -2,13 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ArrowRight,
     CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
     MessageCircle,
     PackageOpen,
     ShieldCheck,
     Truck,
     Users,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../../shared/services/api";
 import ProductCard from "../../components/ProductCard/ProductCard";
@@ -26,6 +28,21 @@ import {
 } from "../../../shared/utils/buyerAccess";
 
 import "./Home.css";
+
+const HERO_CAROUSEL_SLIDES = HERO_DISCOVERY_CATEGORIES.map((category) => ({
+    category,
+    ...getLandingCategoryVisual(category),
+})).filter((slide) => slide.src);
+
+function getBuyerGreetingName() {
+    try {
+        const user = JSON.parse(localStorage.getItem("user") || "null");
+        const firstName = user?.first_name || user?.firstName || user?.name?.split(" ")[0] || user?.username;
+        return typeof firstName === "string" && firstName.trim() ? firstName.trim() : "";
+    } catch {
+        return "";
+    }
+}
 
 function getProductImage(product) {
     if (!product) {
@@ -78,13 +95,28 @@ function normalizeProduct(product) {
 
 function Home() {
     const navigate = useNavigate();
+    const buyerSession = isBuyerSession();
+    const greetingName = buyerSession ? getBuyerGreetingName() : "";
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [activeHeroSlide, setActiveHeroSlide] = useState(0);
+    const [heroPaused, setHeroPaused] = useState(false);
 
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [cartModalOpen, setCartModalOpen] = useState(false);
+
+    useEffect(() => {
+        const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        if (heroPaused || prefersReducedMotion || HERO_CAROUSEL_SLIDES.length < 2) return undefined;
+
+        const interval = window.setInterval(() => {
+            setActiveHeroSlide((current) => (current + 1) % HERO_CAROUSEL_SLIDES.length);
+        }, 5000);
+
+        return () => window.clearInterval(interval);
+    }, [heroPaused]);
 
     useEffect(() => {
         let mounted = true;
@@ -168,10 +200,6 @@ function Home() {
         );
     };
 
-    const handleProductClick = (product) => {
-        navigate(`/products/${product.id}`);
-    };
-
     const handleAddToCart = (product) => {
         if (!isBuyerSession()) {
             requestBuyerSignIn({
@@ -196,7 +224,7 @@ function Home() {
 
         if (Number.isFinite(stock) && nextQuantity > stock) {
             window.dispatchEvent(new CustomEvent("cryma-toast", {
-                detail: { message: `Only ${stock} item${stock === 1 ? "" : "s"} available.` },
+                detail: { message: `Only ${stock} item${stock === 1 ? "" : "s"} available.`, type: "error" },
             }));
             return false;
         }
@@ -207,7 +235,12 @@ function Home() {
             existingCart.push({ ...product, quantity: 1 });
         }
 
-        if (!saveBuyerCart(existingCart)) return;
+        if (!saveBuyerCart(existingCart)) {
+            window.dispatchEvent(new CustomEvent("cryma-toast", {
+                detail: { message: "Unable to save your cart. Please try again.", type: "error" },
+            }));
+            return false;
+        }
         setSelectedProduct(product);
         setCartModalOpen(true);
         return true;
@@ -223,21 +256,38 @@ function Home() {
                     <div className="buyer-landing-hero-content">
 
                         <span className="buyer-landing-eyebrow">
-                            WELCOME TO CRYMA
+                            {buyerSession ? "YOUR CRYMA MARKETPLACE" : "WELCOME TO CRYMA"}
                         </span>
 
+                        {buyerSession && (
+                            <span className="buyer-welcome-badge">
+                                <span aria-hidden="true">&#x1F44B;</span>
+                                Welcome back{greetingName ? `, ${greetingName}` : ""}!
+                            </span>
+                        )}
+
                         <h1>
-                            Shopping should
-                            <br />
-                            feel a little
-                            <br />
-                            <em>more personal.</em>
+                            {buyerSession ? (
+                                <>
+                                    Find your next
+                                    <br />
+                                    <em>favorite thing.</em>
+                                </>
+                            ) : (
+                                <>
+                                    Shopping should
+                                    <br />
+                                    feel a little
+                                    <br />
+                                    <em>more personal.</em>
+                                </>
+                            )}
                         </h1>
 
                         <p>
                             Discover everyday finds from independent
                             sellers, curated products, and people
-                            worth discovering — all in one marketplace.
+                            worth discovering &mdash; all in one marketplace.
                         </p>
 
                         <div className="buyer-landing-actions">
@@ -246,17 +296,19 @@ function Home() {
                                 className="buyer-primary-button"
                                 onClick={handleStartShopping}
                             >
-                                Explore CRYMA
+                                {buyerSession ? "Browse All Categories" : "Explore CRYMA"}
                                 <ArrowRight size={17} />
                             </button>
 
-                            <button
-                                type="button"
-                                className="buyer-secondary-button"
-                                onClick={() => navigate("/register")}
-                            >
-                                Join the marketplace
-                            </button>
+                            {buyerSession ? (
+                                <button type="button" className="buyer-secondary-button" onClick={() => navigate("/orders")}>
+                                    View My Orders
+                                </button>
+                            ) : (
+                                <button type="button" className="buyer-secondary-button" onClick={() => navigate("/register")}>
+                                    Join the marketplace
+                                </button>
+                            )}
                         </div>
 
                         <div className="buyer-hero-trust">
@@ -280,12 +332,21 @@ function Home() {
 
                     </div>
 
-                    <div className="buyer-landing-hero-visual">
+                    <div
+                        className="buyer-landing-hero-visual"
+                        onMouseEnter={() => setHeroPaused(true)}
+                        onMouseLeave={() => setHeroPaused(false)}
+                        onFocusCapture={() => setHeroPaused(true)}
+                        onBlurCapture={(event) => {
+                            if (!event.currentTarget.contains(event.relatedTarget)) setHeroPaused(false);
+                        }}
+                    >
 
                         <div className="buyer-hero-main-photo">
                             <img
-                                src={LANDING_VISUALS.hero.src}
-                                alt={LANDING_VISUALS.hero.alt}
+                                key={HERO_CAROUSEL_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
+                                src={HERO_CAROUSEL_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
+                                alt={HERO_CAROUSEL_SLIDES[activeHeroSlide]?.alt || LANDING_VISUALS.hero.alt}
                                 fetchPriority="high"
                                 decoding="async"
                                 onError={(event) => {
@@ -297,45 +358,50 @@ function Home() {
                             <div className="buyer-hero-photo-overlay">
                                 <span>DISCOVER</span>
                                 <strong>
-                                    Things you'll love.
+                                    {HERO_CAROUSEL_SLIDES[activeHeroSlide]?.category || "Things you'll love."}
                                 </strong>
+                                {HERO_CAROUSEL_SLIDES[activeHeroSlide] && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCategoryClick(HERO_CAROUSEL_SLIDES[activeHeroSlide].category)}
+                                    >
+                                        Explore category <ArrowRight size={15} aria-hidden="true" />
+                                    </button>
+                                )}
                             </div>
-                        </div>
 
-                        {HERO_DISCOVERY_CATEGORIES.map((category, index) => {
-                            const visual = getLandingCategoryVisual(category);
-
-                            return (
-                                <button
-                                    key={category}
-                                    type="button"
-                                    className={`buyer-hero-product buyer-hero-product-${index + 1}`}
-                                    onClick={() => handleCategoryClick(category)}
-                                    aria-label={`Explore ${category}`}
-                                >
-                                    <img
-                                        src={visual.src}
-                                        alt=""
-                                        loading="lazy"
-                                        decoding="async"
-                                        onError={(event) => {
-                                            event.currentTarget.hidden = true;
-                                            event.currentTarget.parentElement?.classList.add("image-unavailable");
-                                        }}
-                                    />
-                                    <span>{category}</span>
-                                </button>
-                            );
-                        })}
-
-                        <div className="buyer-hero-floating-note">
-                            <CheckCircle2 size={16} />
-                            <div>
-                                <strong>Made for everyday</strong>
-                                <span>
-                                    Discover something new today.
-                                </span>
-                            </div>
+                            {HERO_CAROUSEL_SLIDES.length > 1 && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="buyer-hero-carousel-arrow buyer-hero-carousel-prev"
+                                        aria-label="Show previous featured category"
+                                        onClick={() => setActiveHeroSlide((current) => (current - 1 + HERO_CAROUSEL_SLIDES.length) % HERO_CAROUSEL_SLIDES.length)}
+                                    >
+                                        <ChevronLeft size={19} aria-hidden="true" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="buyer-hero-carousel-arrow buyer-hero-carousel-next"
+                                        aria-label="Show next featured category"
+                                        onClick={() => setActiveHeroSlide((current) => (current + 1) % HERO_CAROUSEL_SLIDES.length)}
+                                    >
+                                        <ChevronRight size={19} aria-hidden="true" />
+                                    </button>
+                                    <div className="buyer-hero-carousel-dots" aria-label="Featured category slides">
+                                        {HERO_CAROUSEL_SLIDES.map((slide, index) => (
+                                            <button
+                                                key={slide.category}
+                                                type="button"
+                                                className={index === activeHeroSlide ? "active" : ""}
+                                                aria-label={`Show ${slide.category}`}
+                                                aria-current={index === activeHeroSlide ? "true" : undefined}
+                                                onClick={() => setActiveHeroSlide(index)}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                     </div>
@@ -424,7 +490,6 @@ function Home() {
                                 <ProductCard
                                     key={product.id}
                                     product={product}
-                                    onOpen={handleProductClick}
                                     onAddToCart={handleAddToCart}
                                 />
                             ))}
@@ -501,6 +566,7 @@ function Home() {
                 </section>
 
 
+                {!buyerSession && <>
                 {/* WHY CRYMA */}
                 <section className="buyer-landing-section buyer-landing-value-section">
 
@@ -719,6 +785,7 @@ function Home() {
 
                     </div>
                 </section>
+                </>}
 
 
                 {/* FOOTER */}
@@ -728,13 +795,13 @@ function Home() {
 
                         <div className="buyer-footer-brand">
 
-                            <button
-                                type="button"
+                            <Link
                                 className="buyer-footer-logo"
-                                onClick={() => navigate("/")}
+                                to="/"
+                                aria-label="Go to the CRYMA home page"
                             >
                                 CRYMA
-                            </button>
+                            </Link>
 
                             <p>
                                 A modern marketplace connecting
@@ -762,8 +829,8 @@ function Home() {
                                     type="button"
                                     aria-label="Messages"
                                     onClick={() => isBuyerSession()
-                                        ? navigate("/buyer/chat")
-                                        : requestBuyerSignIn({ title: "Sign in to contact support", message: "Sign in to message CRYMA Customer Service.", from: "/buyer/chat" })}
+                                        ? navigate("/buyer/support")
+                                        : requestBuyerSignIn({ title: "Sign in to contact support", message: "Sign in to message CRYMA Customer Service.", from: "/buyer/support" })}
                                 >
                                     <MessageCircle size={16} />
                                 </button>
@@ -774,26 +841,8 @@ function Home() {
                         <div className="buyer-footer-column">
                             <h3>Shop</h3>
 
-                            <button
-                                type="button"
-                                onClick={handleStartShopping}
-                            >
-                                All Products
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={handleStartShopping}
-                            >
-                                Categories
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={handleStartShopping}
-                            >
-                                New Finds
-                            </button>
+                            <Link to="/shop">Browse products</Link>
+                            <Link to="/shop">All Categories</Link>
                         </div>
 
                         <div className="buyer-footer-column">
@@ -847,8 +896,8 @@ function Home() {
                             <button
                                 type="button"
                                 onClick={() => isBuyerSession()
-                                    ? navigate("/buyer/chat")
-                                    : requestBuyerSignIn({ title: "Contact CRYMA Customer Service", message: "Sign in to send a message to our support team.", from: "/buyer/chat" })}
+                                    ? navigate("/buyer/support")
+                                    : requestBuyerSignIn({ title: "Contact CRYMA Customer Service", message: "Sign in to send a message to our support team.", from: "/buyer/support" })}
                             >
                                 Contact CRYMA
                             </button>
@@ -863,17 +912,9 @@ function Home() {
                         </span>
 
                         <div>
-                            <button type="button">
-                                Privacy
-                            </button>
-
-                            <button type="button">
-                                Terms
-                            </button>
-
-                            <button type="button">
-                                Guidelines
-                            </button>
+                            <Link to="/privacy">Privacy</Link>
+                            <Link to="/terms">Terms</Link>
+                            <Link to="/delivery-and-payments">Delivery &amp; payments</Link>
                         </div>
 
                     </div>

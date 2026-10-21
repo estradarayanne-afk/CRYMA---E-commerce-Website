@@ -527,7 +527,11 @@ function Cart() {
                                             </span>
                                         </label>
 
-                                        <div className="cart-item-image">
+                                        <Link
+                                            className="cart-item-image cart-item-product-link"
+                                            to={`/products/${item.id}`}
+                                            aria-label={`View ${item.name || "product"}`}
+                                        >
                                             {itemImage ? (
                                                 <img
                                                     src={itemImage}
@@ -545,7 +549,7 @@ function Cart() {
                                                         "C"}
                                                 </span>
                                             )}
-                                        </div>
+                                        </Link>
 
                                         <div className="cart-item-info">
                                             {item.category && (
@@ -557,8 +561,9 @@ function Cart() {
                                             )}
 
                                             <h2>
-                                                {item.name ||
-                                                    "Unnamed product"}
+                                                <Link to={`/products/${item.id}`}>
+                                                    {item.name || "Unnamed product"}
+                                                </Link>
                                             </h2>
 
                                             {sellerName && (

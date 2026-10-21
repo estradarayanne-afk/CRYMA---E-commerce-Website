@@ -7,6 +7,8 @@ import Login from "./auth/pages/BuyerLogin";
 import AdminLogin from "./auth/pages/AdminLogin";
 import Register from "./auth/pages/Register";
 import RegistrationChoice from "./auth/pages/RegistrationChoice";
+import PasswordRecovery from "./auth/pages/PasswordRecovery";
+import PolicyPage from "./shared/pages/PolicyPage";
 
 // ── ADMIN ──
 import AdminLayout from "./admin/layouts/AdminLayout";
@@ -45,12 +47,17 @@ import SellerFeedback from "./seller/pages/Feedback";
 import SellerReports from "./seller/pages/Reports";
 import SellerChat from "./seller/pages/Chat";
 import SellerAccountSettings from "./seller/pages/AccountSettings";
+import CourierLayout from "./courier/layouts/CourierLayout";
+import AdminDeliveries from "./admin/pages/Deliveries/Deliveries";
+import AdminVouchers from "./admin/pages/Vouchers/Vouchers";
 
 // ── COURIER ──
 import CourierDashboard from "./courier/pages/Dashboard";
 import CourierChat from "./courier/pages/Chat";
 import CourierDeliveries from "./courier/pages/Deliveries";
 import CourierDeliveryDetails from "./courier/pages/DeliveryDetails";
+import CourierPickups from "./courier/pages/Pickups";
+import CourierPickupDetails from "./courier/pages/PickupDetails";
 import CourierEarnings from "./courier/pages/Earnings";
 import CourierHistory from "./courier/pages/History";
 
@@ -64,6 +71,8 @@ function App() {
                    ===================================================== */}
 
                 <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<PasswordRecovery />} />
+                <Route path="/reset-password" element={<PasswordRecovery reset />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
 
                 <Route path="/register" element={<RegistrationChoice />} />
@@ -84,6 +93,10 @@ function App() {
                 ===================================================== */}
 
                 <Route element={<BuyerLayout />}>
+
+                    <Route path="/terms" element={<PolicyPage type="terms" />} />
+                    <Route path="/privacy" element={<PolicyPage type="privacy" />} />
+                    <Route path="/delivery-and-payments" element={<PolicyPage type="delivery" />} />
 
                     {/* PUBLIC / GUEST */}
 
@@ -150,7 +163,12 @@ function App() {
 
                         <Route
                             path="/buyer/chat"
-                            element={<BuyerChat />}
+                            element={<BuyerChat key="seller-messages" />}
+                        />
+
+                        <Route
+                            path="/buyer/support"
+                            element={<BuyerChat key="customer-support" supportOnly />}
                         />
 
                     </Route>
@@ -189,6 +207,9 @@ function App() {
                             path="users"
                             element={<AdminUsers />}
                         />
+
+                        <Route path="deliveries" element={<AdminDeliveries />} />
+                        <Route path="vouchers" element={<AdminVouchers />} />
 
                         <Route
                             path="seller-compliance"
@@ -299,37 +320,17 @@ function App() {
                    ===================================================== */}
 
                 <Route element={<ProtectedRoute allowedRoles={["rider"]} />}>
-
-                    <Route
-                        path="/courier/dashboard"
-                        element={<CourierDashboard />}
-                    />
-
-                    <Route
-                        path="/courier/deliveries"
-                        element={<CourierDeliveries />}
-                    />
-
-                    <Route
-                        path="/courier/deliveries/:id"
-                        element={<CourierDeliveryDetails />}
-                    />
-
-                    <Route
-                        path="/courier/earnings"
-                        element={<CourierEarnings />}
-                    />
-
-                    <Route
-                        path="/courier/history"
-                        element={<CourierHistory />}
-                    />
-
-                    <Route
-                        path="/courier/chat"
-                        element={<CourierChat />}
-                    />
-
+                    <Route path="/courier" element={<CourierLayout />}>
+                        <Route index element={<Navigate to="/courier/dashboard" replace />} />
+                        <Route path="dashboard" element={<CourierDashboard />} />
+                        <Route path="pickups" element={<CourierPickups />} />
+                        <Route path="pickups/:id" element={<CourierPickupDetails />} />
+                        <Route path="deliveries" element={<CourierDeliveries />} />
+                        <Route path="deliveries/:id" element={<CourierDeliveryDetails />} />
+                        <Route path="history" element={<CourierHistory />} />
+                        <Route path="earnings" element={<CourierEarnings />} />
+                        <Route path="chat" element={<CourierChat />} />
+                    </Route>
                 </Route>
 
                 {/* =====================================================

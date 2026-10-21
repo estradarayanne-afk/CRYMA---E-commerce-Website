@@ -884,6 +884,10 @@
 .cart-quantity-control button:hover:not(:disabled) { background: var(--blush); color: var(--deep-crimson); }
 .cart-quantity-control input { width: 48px; height: 38px; color: var(--text-primary); font-size: 14px; }
 .cart-item-controls { min-width: 126px; }
+.cart-item-product-link { flex: 0 0 auto; color: inherit; text-decoration: none; }
+.cart-item-product-link:focus-visible { outline: 3px solid var(--crimson); outline-offset: 3px; }
+.cart-item-info h2 a { color: inherit; text-decoration: none; }
+.cart-item-info h2 a:hover { color: var(--crimson); text-decoration: underline; text-underline-offset: 3px; }
 .cart-item-total { color: var(--crimson); }
 .cart-remove { color: var(--text-muted); font-size: 13px; }
 .cart-remove:hover { color: var(--crimson); }

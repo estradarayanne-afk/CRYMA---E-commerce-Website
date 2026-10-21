@@ -104,6 +104,7 @@ function Login({
                     </Link>
 
                     <div className="buyer-login-heading">
+                        <span className="buyer-login-kicker">CRYMA ACCOUNT</span>
                         <span className="buyer-login-mobile-logo">
                             C
                         </span>
@@ -180,6 +181,7 @@ function Login({
                                 <input
                                     id="email"
                                     type="email"
+                                    maxLength={254}
                                     value={email}
                                     onChange={(e) =>
                                         setEmail(e.target.value)
@@ -203,11 +205,7 @@ function Login({
                                 <button
                                     type="button"
                                     className="buyer-login-forgot"
-                                    onClick={() =>
-                                        setError(
-                                            "Password recovery is not available yet."
-                                        )
-                                    }
+                                    onClick={() => navigate("/forgot-password")}
                                     disabled={loading}
                                 >
                                     Forgot password?
@@ -244,6 +242,7 @@ function Login({
                                             : "password"
                                     }
                                     value={password}
+                                    maxLength={128}
                                     onChange={(e) =>
                                         setPassword(e.target.value)
                                     }

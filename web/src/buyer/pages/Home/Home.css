@@ -108,6 +108,14 @@
         crymaHeroIn 700ms ease both;
 }
 
+.buyer-landing-hero .buyer-primary-button {
+    background: #800020;
+}
+
+.buyer-landing-hero .buyer-primary-button:hover {
+    background: #650019;
+}
+
 @keyframes crymaHeroIn {
     from {
         opacity: 0;
@@ -1545,6 +1553,7 @@
 }
 
 .buyer-footer-logo {
+    display: inline-block;
     padding: 0;
 
     border: 0;
@@ -1557,6 +1566,7 @@
     letter-spacing: -0.06em;
 
     cursor: pointer;
+    text-decoration: none;
 }
 
 .buyer-footer-logo::after {
@@ -1637,7 +1647,8 @@
     text-transform: uppercase;
 }
 
-.buyer-footer-column button {
+.buyer-footer-column button,
+.buyer-footer-column a {
     padding: 0;
 
     border: 0;
@@ -1648,13 +1659,15 @@
     font-size: 11px;
 
     cursor: pointer;
+    text-decoration: none;
 
     transition:
         color 200ms ease,
         transform 200ms ease;
 }
 
-.buyer-footer-column button:hover {
+.buyer-footer-column button:hover,
+.buyer-footer-column a:hover {
     transform: translateX(3px);
 
     color: var(--floral-pink);
@@ -1684,7 +1697,8 @@
     gap: 15px;
 }
 
-.buyer-footer-bottom button {
+.buyer-footer-bottom button,
+.buyer-footer-bottom a {
     padding: 0;
 
     border: 0;
@@ -1696,6 +1710,9 @@
 
     cursor: pointer;
 }
+
+.buyer-footer-bottom a { color: inherit; text-decoration: none; }
+.buyer-footer-bottom a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 
 /* =========================================================
@@ -2115,6 +2132,7 @@
         transition-duration: 0.01ms !important;
     }
 }
+
 /* Buyer styles migrated from shared stylesheet. */
 .buyer-footer {
     background: radial-gradient(
@@ -2231,4 +2249,530 @@ min-height: 100vh;
         padding-left: 10px;
         padding-right: 10px;
     }
+}
+
+/* Shared CRYMA landing and buyer-home layout refinements */
+.buyer-home {
+    width: 100%;
+    background: var(--rose-cream);
+}
+
+.buyer-home-main {
+    width: min(var(--container-wide), 100%);
+    margin-inline: auto;
+    padding: 0 clamp(12px, 2vw, 24px) 48px;
+}
+
+.buyer-landing-hero {
+    min-height: 660px;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: clamp(24px, 3.5vw, 48px);
+    padding: clamp(48px, 5.5vw, 76px) clamp(24px, 5.5vw, 76px);
+    background: linear-gradient(135deg, var(--white), var(--rose-cream));
+}
+
+.buyer-landing-hero h1 {
+    font-size: clamp(44px, 5.4vw, 72px);
+    line-height: 1.02;
+    letter-spacing: -0.055em;
+}
+
+.buyer-landing-hero-content > p {
+    max-width: 540px;
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.75;
+}
+
+.buyer-landing-hero-visual {
+    min-height: 520px;
+}
+
+.buyer-hero-main-photo {
+    width: min(400px, 74%);
+    height: 490px;
+    border-width: 6px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+
+.buyer-landing-section,
+.buyer-how-section {
+    padding: clamp(54px, 6vw, 78px) clamp(22px, 5vw, 72px);
+}
+
+.buyer-landing-section-heading {
+    margin-bottom: clamp(28px, 3.5vw, 42px);
+}
+
+.buyer-landing-section-heading p {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.buyer-landing-product-grid {
+    gap: clamp(14px, 1.6vw, 22px);
+}
+
+.buyer-landing-category-grid {
+    gap: clamp(14px, 1.6vw, 20px);
+}
+
+.buyer-footer {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: clamp(48px, 5.5vw, 68px) clamp(24px, 5vw, 72px) 24px;
+}
+
+.buyer-footer-main,
+.buyer-footer-bottom {
+    max-width: 1240px;
+}
+
+.buyer-footer-column button,
+.buyer-footer-column a,
+.buyer-footer-logo,
+.buyer-footer-socials button,
+.buyer-primary-button,
+.buyer-secondary-button,
+.buyer-section-link,
+.buyer-logistics-button {
+    transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.buyer-footer-logo:focus-visible,
+.buyer-footer-column a:focus-visible,
+.buyer-footer-column button:focus-visible,
+.buyer-footer-socials button:focus-visible,
+.buyer-primary-button:focus-visible,
+.buyer-secondary-button:focus-visible,
+.buyer-section-link:focus-visible,
+.buyer-logistics-button:focus-visible,
+.buyer-landing-category-card:focus-visible {
+    outline: 3px solid var(--crimson);
+    outline-offset: 3px;
+}
+
+.buyer-primary-button:active,
+.buyer-secondary-button:active,
+.buyer-section-link:active,
+.buyer-logistics-button:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 1050px) {
+    .buyer-landing-hero {
+        min-height: auto;
+        grid-template-columns: minmax(0, 1fr);
+        padding-block: 56px 36px;
+    }
+
+    .buyer-landing-hero-visual {
+        min-height: 500px;
+    }
+}
+
+@media (max-width: 700px) {
+    .buyer-home-main {
+        padding-inline: 12px;
+        padding-bottom: 28px;
+    }
+
+    .buyer-landing-hero {
+        padding: 42px 20px 18px;
+    }
+
+    .buyer-landing-hero h1 {
+        font-size: clamp(36px, 10vw, 46px);
+        line-height: 1.04;
+    }
+
+    .buyer-landing-hero-content > p {
+        font-size: 14px;
+    }
+
+    .buyer-landing-hero-visual {
+        min-height: 420px;
+    }
+
+    .buyer-hero-main-photo {
+        width: min(360px, 70%);
+        height: 360px;
+    }
+
+    .buyer-landing-section,
+    .buyer-how-section {
+        padding: 50px 18px;
+    }
+
+    .buyer-footer {
+        padding: 44px 22px 22px;
+    }
+}
+
+@media (max-width: 430px) {
+    .buyer-home-main {
+        padding-inline: 8px;
+    }
+
+    .buyer-landing-hero {
+        padding-inline: 16px;
+    }
+
+    .buyer-landing-hero-visual {
+        min-height: 380px;
+    }
+
+    .buyer-footer {
+        padding-inline: 18px;
+    }
+}
+
+/* Personalized hero and accessible featured category carousel */
+.buyer-landing-hero {
+    border: 1px solid rgba(75, 23, 37, 0.07);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+}
+
+.buyer-welcome-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 8px 13px;
+    border: 1px solid rgba(178, 31, 58, 0.15);
+    border-radius: var(--radius-pill);
+    background: #fff;
+    color: var(--deep-crimson);
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(75, 23, 37, 0.06);
+}
+
+.buyer-hero-photo-overlay {
+    bottom: 54px;
+}
+
+.buyer-hero-photo-overlay button {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 12px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: var(--radius-pill);
+    background: rgba(75, 23, 37, 0.68);
+    color: #fff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.buyer-hero-photo-overlay button:hover {
+    background: var(--crimson);
+    transform: translateY(-1px);
+}
+
+.buyer-hero-carousel-arrow {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    border-radius: 50%;
+    background: rgba(38, 21, 26, 0.48);
+    color: #fff;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.buyer-hero-carousel-arrow:hover {
+    background: rgba(178, 31, 58, 0.92);
+    transform: translateY(-50%) scale(1.04);
+}
+
+.buyer-hero-carousel-prev { left: 14px; }
+.buyer-hero-carousel-next { right: 14px; }
+
+.buyer-hero-carousel-dots {
+    position: absolute;
+    z-index: 4;
+    right: 0;
+    bottom: 18px;
+    left: 0;
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+}
+
+.buyer-hero-carousel-dots button {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 1px solid #fff;
+    border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: width var(--transition-fast), background-color var(--transition-fast);
+}
+
+.buyer-hero-carousel-dots button.active {
+    width: 22px;
+    background: #fff;
+}
+
+.buyer-hero-carousel-arrow:focus-visible,
+.buyer-hero-carousel-dots button:focus-visible,
+.buyer-hero-photo-overlay button:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+    .buyer-hero-photo-overlay { bottom: 50px; }
+    .buyer-hero-photo-overlay strong { font-size: 22px; }
+    .buyer-hero-carousel-arrow { width: 32px; height: 32px; }
+    .buyer-hero-carousel-prev { left: 8px; }
+    .buyer-hero-carousel-next { right: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .buyer-hero-carousel-arrow,
+    .buyer-hero-carousel-dots button,
+    .buyer-hero-photo-overlay button { transition: none; }
+}
+
+/* Full-bleed split hero: clear copy on the left, carousel image on the right. */
+.buyer-landing-hero {
+    min-height: 640px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+}
+
+.buyer-landing-hero-content {
+    width: 100%;
+    max-width: none;
+    align-self: center;
+    padding: clamp(32px, 5vw, 76px);
+}
+
+.buyer-landing-hero-visual {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 640px;
+    align-self: stretch;
+    display: block;
+    overflow: hidden;
+    perspective: none;
+}
+
+.buyer-hero-main-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transform: none;
+}
+
+.buyer-hero-main-photo img {
+    object-fit: cover;
+}
+
+.buyer-hero-main-photo::after {
+    background: linear-gradient(180deg, rgba(38, 10, 20, 0.04) 20%, rgba(38, 10, 20, 0.76) 100%);
+}
+
+.buyer-hero-photo-overlay {
+    right: clamp(42px, 6vw, 76px);
+    bottom: 62px;
+    left: clamp(42px, 6vw, 76px);
+}
+
+@media (max-width: 767px) {
+    .buyer-landing-hero {
+        min-height: 0;
+        grid-template-columns: minmax(0, 1fr);
+        padding: 0;
+    }
+
+    .buyer-landing-hero-content {
+        padding: clamp(38px, 6vw, 64px);
+    }
+
+    .buyer-landing-hero-visual {
+        min-height: 420px;
+        height: 420px;
+    }
+}
+
+@media (max-width: 700px) {
+    .buyer-landing-hero-content { padding: 34px 22px; }
+    .buyer-landing-hero-visual { min-height: 360px; height: 360px; }
+    .buyer-hero-photo-overlay { right: 42px; bottom: 54px; left: 42px; }
+}
+
+@media (max-width: 430px) {
+    .buyer-landing-hero-content { padding: 30px 18px; }
+    .buyer-landing-hero-visual { min-height: 320px; height: 320px; }
+    .buyer-hero-photo-overlay { right: 34px; left: 34px; }
+}
+
+/* Landing page polish */
+.buyer-home-main {
+    padding-top: clamp(18px, 3vw, 34px);
+}
+
+.buyer-landing-hero {
+    min-height: 500px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(75, 23, 37, 0.09);
+    border-radius: 22px;
+    background: linear-gradient(135deg, #fff 0%, #fff8fa 100%);
+    box-shadow: 0 16px 42px rgba(75, 23, 37, 0.09);
+}
+
+.buyer-landing-hero::before,
+.buyer-landing-hero::after {
+    display: none;
+}
+
+.buyer-landing-hero-content {
+    max-width: none;
+    padding: clamp(30px, 4vw, 56px);
+}
+
+.buyer-landing-eyebrow {
+    margin: 0 0 14px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #a51e39;
+    font-size: 10px;
+    letter-spacing: 0.17em;
+    backdrop-filter: none;
+}
+
+.buyer-welcome-badge {
+    margin-bottom: 20px;
+    padding: 7px 12px;
+    font-size: 12px;
+}
+
+.buyer-landing-hero h1 {
+    max-width: 590px;
+    font-size: clamp(40px, 3.8vw, 54px);
+    line-height: 1.06;
+}
+
+.buyer-landing-hero-content > p {
+    max-width: 470px;
+    margin-top: 18px;
+    font-size: 14px;
+}
+
+.buyer-landing-actions {
+    margin-top: 25px;
+}
+
+.buyer-landing-hero-visual {
+    min-width: 0;
+    min-height: 500px;
+    height: 100%;
+    perspective: 1400px;
+    perspective-origin: 50% 50%;
+}
+
+.buyer-hero-main-photo {
+    transform-style: preserve-3d;
+    transform-origin: center;
+    animation: buyerHero3dFloat 9s ease-in-out infinite;
+    will-change: transform;
+}
+
+.buyer-hero-main-photo img {
+    animation: buyerLandingSlideIn 650ms cubic-bezier(.2, .75, .25, 1) both;
+}
+
+@keyframes buyerHero3dFloat {
+    0%, 100% { transform: perspective(1400px) rotateX(.35deg) rotateY(-1deg) scale(1.045); }
+    50% { transform: perspective(1400px) rotateX(-.35deg) rotateY(1deg) translateY(-3px) scale(1.055); }
+}
+
+@keyframes buyerLandingSlideIn {
+    from { opacity: .72; transform: scale(1.035); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.buyer-hero-photo-overlay {
+    right: clamp(32px, 4vw, 58px);
+    bottom: 58px;
+    left: clamp(32px, 4vw, 58px);
+}
+
+.buyer-landing-section {
+    padding: clamp(54px, 6vw, 76px) clamp(14px, 3vw, 38px);
+}
+
+.buyer-landing-featured {
+    margin-top: 22px;
+    border: 1px solid rgba(75, 23, 37, 0.07);
+    border-radius: 20px;
+    box-shadow: 0 8px 26px rgba(75, 23, 37, 0.045);
+}
+
+.buyer-landing-category-section {
+    margin-top: 22px;
+    border-radius: 20px;
+}
+
+.buyer-landing-category-card {
+    border-radius: 16px;
+    box-shadow: 0 10px 24px rgba(75, 23, 37, 0.09);
+}
+
+@media (max-width: 1050px) {
+    .buyer-landing-hero { min-height: 440px; }
+    .buyer-landing-hero-visual { min-height: 440px; }
+}
+
+@media (max-width: 767px) {
+    .buyer-home-main { padding-top: 12px; }
+    .buyer-landing-hero {
+        min-height: 0;
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .buyer-landing-hero-content { padding: 32px 26px; }
+    .buyer-landing-hero-visual {
+        min-height: 340px;
+        height: 340px;
+    }
+    .buyer-landing-section { padding: 48px 18px; }
+}
+
+@media (max-width: 430px) {
+    .buyer-landing-hero-content { padding: 30px 20px; }
+    .buyer-landing-hero h1 { font-size: clamp(36px, 9vw, 44px); }
+    .buyer-landing-hero-visual { min-height: 290px; height: 290px; }
+    .buyer-landing-category-card { min-height: 170px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .buyer-hero-main-photo,
+    .buyer-hero-main-photo img { animation: none; }
 }

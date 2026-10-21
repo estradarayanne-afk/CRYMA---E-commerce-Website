@@ -1,25 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     AlertCircle,
+    ArrowRight,
     Check,
+    ChevronLeft,
     ChevronDown,
+    ChevronRight,
     Filter,
     RefreshCw,
     RotateCcw,
     SlidersHorizontal,
     X,
 } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import api from "../../../shared/services/api";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import { CATEGORY_FILTERS } from "../../../shared/constants/categories";
-import { LANDING_VISUALS } from "../../../shared/constants/landingVisuals";
+import { HERO_DISCOVERY_CATEGORIES, LANDING_VISUALS, getLandingCategoryVisual } from "../../../shared/constants/landingVisuals";
+import { isBuyerSession } from "../../../shared/utils/buyerAccess";
+import {
+    matchesProductCategory,
+    matchesProductSearch,
+} from "../../../shared/utils/productDiscovery";
 import "./Categories.css";
+
+const SHOP_HERO_SLIDES = HERO_DISCOVERY_CATEGORIES.map((category) => ({
+    category,
+    ...getLandingCategoryVisual(category),
+})).filter((slide) => slide.src);
+
+function getBuyerGreetingName() {
+    try {
+        const user = JSON.parse(localStorage.getItem("user") || "null");
+        const firstName = user?.first_name || user?.firstName || user?.name?.split(" ")[0] || user?.username;
+        return typeof firstName === "string" && firstName.trim() ? firstName.trim() : "";
+    } catch {
+        return "";
+    }
+}
 
 function Categories() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const navigate = useNavigate();
+    const buyerSession = isBuyerSession();
+    const greetingName = buyerSession ? getBuyerGreetingName() : "";
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,6 +51,8 @@ function Categories() {
     const [reloadKey, setReloadKey] = useState(0);
 
     const [filterOpen, setFilterOpen] = useState(false);
+    const [activeHeroSlide, setActiveHeroSlide] = useState(0);
+    const [heroPaused, setHeroPaused] = useState(false);
 
     const [draftFilters, setDraftFilters] = useState({
         category: searchParams.get("category") || "All",
@@ -34,6 +60,17 @@ function Categories() {
         maxPrice: searchParams.get("maxPrice") || "",
         stock: searchParams.get("stock") === "1",
     });
+
+    useEffect(() => {
+        const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        if (heroPaused || prefersReducedMotion || SHOP_HERO_SLIDES.length < 2) return undefined;
+
+        const interval = window.setInterval(() => {
+            setActiveHeroSlide((current) => (current + 1) % SHOP_HERO_SLIDES.length);
+        }, 5000);
+
+        return () => window.clearInterval(interval);
+    }, [heroPaused]);
 
     useEffect(() => {
         let cancelled = false;
@@ -125,10 +162,6 @@ function Categories() {
         setSearchParams(params);
     };
 
-    const openProduct = (product) => {
-        navigate(`/products/${product.id}`);
-    };
-
     const handleSort = (event) => {
         updateParams({
             sort: event.target.value,
@@ -191,34 +224,11 @@ function Categories() {
         let result = [...products];
 
         if (category !== "All") {
-            result = result.filter(
-                (product) =>
-                    product?.category?.toLowerCase() ===
-                    category.toLowerCase()
-            );
+            result = result.filter((product) => matchesProductCategory(product, category));
         }
 
         if (search.trim()) {
-            const keyword = search.toLowerCase().trim();
-
-            result = result.filter((product) => {
-                const name =
-                    product?.name?.toLowerCase() || "";
-
-                const productCategory =
-                    product?.category?.toLowerCase() || "";
-
-                const seller =
-                    typeof product?.seller === "string"
-                        ? product.seller.toLowerCase()
-                        : product?.seller?.name?.toLowerCase() || "";
-
-                return (
-                    name.includes(keyword) ||
-                    productCategory.includes(keyword) ||
-                    seller.includes(keyword)
-                );
-            });
+            result = result.filter((product) => matchesProductSearch(product, search));
         }
 
         if (minPrice !== "") {
@@ -301,8 +311,8 @@ function Categories() {
 
     const categoryTitle =
         category === "All"
-            ? "All products"
-            : category;
+            ? "Showing all products"
+            : `Showing: ${category}`;
 
     return (
         <div className="shop-page">
@@ -315,28 +325,62 @@ function Categories() {
                         CRYMA MARKETPLACE
                     </span>
 
+                    {buyerSession && <span className="shop-welcome-badge"><span aria-hidden="true">👋</span> Welcome back{greetingName ? `, ${greetingName}` : ""}!</span>}
+
                     <h1>Explore Products</h1>
                     <p>Find what you need from trusted sellers on CRYMA.</p>
+                    <div className="shop-header-actions">
+                        <button type="button" className="shop-header-primary" onClick={() => updateParams({ category: SHOP_HERO_SLIDES[activeHeroSlide]?.category || "All" })}>
+                            Explore {SHOP_HERO_SLIDES[activeHeroSlide]?.category || "products"}
+                            <ArrowRight size={16} aria-hidden="true" />
+                        </button>
+                        <button type="button" className="shop-header-secondary" onClick={() => updateParams({ category: "All" })}>View all products</button>
+                    </div>
                 </div>
-                <div className="shop-header-visual">
-                    <img src={LANDING_VISUALS.hero.src} alt={LANDING_VISUALS.hero.alt} />
-                    <span>Find your next favorite</span>
+                <div className="shop-header-visual"
+                    onMouseEnter={() => setHeroPaused(true)}
+                    onMouseLeave={() => setHeroPaused(false)}
+                    onFocusCapture={() => setHeroPaused(true)}
+                    onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setHeroPaused(false); }}
+                >
+                    <img
+                        key={SHOP_HERO_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
+                        src={SHOP_HERO_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
+                        alt={SHOP_HERO_SLIDES[activeHeroSlide]?.alt || LANDING_VISUALS.hero.alt}
+                        decoding="async"
+                    />
+                    <div className="shop-header-visual-caption">
+                        <span>FEATURED CATEGORY</span>
+                        <strong>{SHOP_HERO_SLIDES[activeHeroSlide]?.category || "Find your next favorite"}</strong>
+                        <button type="button" onClick={() => updateParams({ category: SHOP_HERO_SLIDES[activeHeroSlide]?.category || "All" })}>
+                            Shop this category <ArrowRight size={14} aria-hidden="true" />
+                        </button>
+                    </div>
+                    {SHOP_HERO_SLIDES.length > 1 && <>
+                        <button type="button" className="shop-hero-arrow shop-hero-prev" aria-label="Show previous category" onClick={() => setActiveHeroSlide((current) => (current - 1 + SHOP_HERO_SLIDES.length) % SHOP_HERO_SLIDES.length)}><ChevronLeft size={18} aria-hidden="true" /></button>
+                        <button type="button" className="shop-hero-arrow shop-hero-next" aria-label="Show next category" onClick={() => setActiveHeroSlide((current) => (current + 1) % SHOP_HERO_SLIDES.length)}><ChevronRight size={18} aria-hidden="true" /></button>
+                        <div className="shop-hero-dots" aria-label="Featured categories">
+                            {SHOP_HERO_SLIDES.map((slide, index) => <button key={slide.category} type="button" className={index === activeHeroSlide ? "active" : ""} aria-label={`Show ${slide.category}`} aria-current={index === activeHeroSlide ? "true" : undefined} onClick={() => setActiveHeroSlide(index)} />)}
+                        </div>
+                    </>}
                 </div>
             </section>
 
-            <nav className="shop-category-nav" aria-label="Shop by category">
-                {CATEGORY_FILTERS.map((item) => (
-                    <button
-                        key={item}
-                        type="button"
-                        className={category === item ? "active" : ""}
-                        aria-pressed={category === item}
-                        onClick={() => updateParams({ category: item })}
-                    >
-                        {item === "All" ? "All Products" : item}
-                    </button>
-                ))}
-            </nav>
+            <div className="shop-category-nav-shell">
+                <nav className="shop-category-nav" aria-label="Shop by category">
+                    {CATEGORY_FILTERS.map((item) => (
+                        <button
+                            key={item}
+                            type="button"
+                            className={category === item ? "active" : ""}
+                            aria-pressed={category === item}
+                            onClick={() => updateParams({ category: item })}
+                        >
+                            {item === "All" ? "All Products" : item}
+                        </button>
+                    ))}
+                </nav>
+            </div>
 
             {/* SHOP CONTROLS */}
 
@@ -523,7 +567,6 @@ function Categories() {
                                 <ProductCard
                                     key={product.id}
                                     product={product}
-                                    onOpen={openProduct}
                                     onAddToCart={(item) => {
                                         const event = new CustomEvent(
                                                 "cryma-add-to-cart",

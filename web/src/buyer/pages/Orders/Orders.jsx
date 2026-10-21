@@ -155,6 +155,10 @@ function Orders() {
             String(status || "")
                 .toLowerCase();
 
+        if (normalized === "pending") {
+            return "Order placed";
+        }
+
         const match =
             STATUS_OPTIONS.find(
                 (option) =>

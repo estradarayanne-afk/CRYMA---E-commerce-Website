@@ -1,16 +1,45 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../shared/services/api";
 
 function Dashboard() {
     const navigate = useNavigate();
     const [products, setProducts] = useState([]);
+    const [inventoryLoading, setInventoryLoading] = useState(true);
+    const [inventoryError, setInventoryError] = useState("");
+
+    const fetchProducts = useCallback(async () => {
+        const { data } = await api.get("/seller/products", { params: { per_page: 100 } });
+        return data.data?.data ?? data.data ?? [];
+    }, []);
+
+    const loadProducts = async () => {
+        setInventoryLoading(true);
+        setInventoryError("");
+        try {
+            setProducts(await fetchProducts());
+        } catch {
+            setProducts([]);
+            setInventoryError("We couldn't load your inventory. Check your connection and try again.");
+        } finally {
+            setInventoryLoading(false);
+        }
+    };
 
     useEffect(() => {
-        api.get("/seller/products", { params: { per_page: 100 } })
-            .then(({ data }) => setProducts(data.data?.data ?? data.data ?? []));
-    }, []);
+        let cancelled = false;
+        fetchProducts()
+            .then((data) => { if (!cancelled) setProducts(data); })
+            .catch(() => {
+                if (!cancelled) {
+                    setProducts([]);
+                    setInventoryError("We couldn't load your inventory. Check your connection and try again.");
+                }
+            })
+            .finally(() => { if (!cancelled) setInventoryLoading(false); });
+        return () => { cancelled = true; };
+    }, [fetchProducts]);
 
     const user = (() => {
         try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
@@ -37,13 +66,22 @@ function Dashboard() {
                 <button className="sl-btn-primary" onClick={() => navigate("/seller/inventory")}>+ Add Product</button>
             </section>
 
+            {inventoryError && (
+                <div className="sl-dashboard-error" role="alert">
+                    <span>{inventoryError}</span>
+                    <button type="button" onClick={() => void loadProducts()} disabled={inventoryLoading}>
+                        {inventoryLoading ? "Retrying…" : "Retry"}
+                    </button>
+                </div>
+            )}
+
             {/* STATS */}
             <div className="sl-stats">
                 {inventoryStats.map((s) => (
                     <div className="sl-stat-card" key={s.label}>
                         <span className="sl-stat-label">{s.label}</span>
-                        <strong className="sl-stat-value" style={{ color: s.color }}>{s.value}</strong>
-                        <span className="sl-stat-change">{s.change}</span>
+                        <strong className="sl-stat-value" style={{ color: s.color }}>{inventoryLoading || inventoryError ? "—" : s.value}</strong>
+                        <span className="sl-stat-change">{inventoryLoading ? "Loading inventory" : inventoryError ? "Unavailable" : s.change}</span>
                     </div>
                 ))}
             </div>
@@ -81,7 +119,7 @@ function Dashboard() {
                         <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>View all</button>
                     </div>
                     <div className="sl-list">
-                        {products.slice(0, 4).map((product) => (
+                        {inventoryLoading ? <p className="sl-empty" role="status">Loading products…</p> : products.slice(0, 4).map((product) => (
                             <div className="sl-list-row" key={product.id}>
                                 <div className="sl-list-main">
                                     <strong>{product.name}</strong>
@@ -92,7 +130,7 @@ function Dashboard() {
                                 </div>
                             </div>
                         ))}
-                        {products.length === 0 && <p className="sl-empty">No products listed yet.</p>}
+                        {!inventoryLoading && !inventoryError && products.length === 0 && <p className="sl-empty">No products listed yet.</p>}
                     </div>
                 </div>
             </div>
@@ -104,13 +142,13 @@ function Dashboard() {
                     <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>Manage inventory</button>
                 </div>
                 <div className="sl-list">
-                    {lowStockProducts.map((product) => (
+                    {inventoryLoading ? <p className="sl-empty" role="status">Loading stock levels…</p> : lowStockProducts.map((product) => (
                         <div className="sl-list-row" key={product.id}>
                             <span>{product.name}</span>
                             <span className="sl-badge sl-badge--red">{product.stock} left</span>
                         </div>
                     ))}
-                    {lowStockProducts.length === 0 && <p className="sl-empty">No low-stock products.</p>}
+                    {!inventoryLoading && !inventoryError && lowStockProducts.length === 0 && <p className="sl-empty">No low-stock products.</p>}
                 </div>
             </div>
         </div>

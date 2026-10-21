@@ -22,7 +22,7 @@ body {
     margin: 0;
     color: var(--text-primary);
     background: var(--rose-cream);
-    font-family: Poppins, Inter, sans-serif;
+    font-family: var(--font-family-base);
 }
 
 button,
@@ -62,8 +62,13 @@ button:disabled {
 }
 
 :focus-visible {
-    outline: 3px solid rgba(178, 31, 58, 0.28);
+    outline: 3px solid rgba(178, 31, 58, 0.48);
     outline-offset: 2px;
+}
+
+::selection {
+    color: var(--wine);
+    background: var(--blush);
 }
 
 @media (prefers-reduced-motion: reduce) {

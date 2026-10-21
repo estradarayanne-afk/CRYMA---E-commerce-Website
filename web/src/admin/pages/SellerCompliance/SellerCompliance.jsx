@@ -1163,6 +1163,8 @@ function SellerCompliance() {
                                 <textarea
                                     id="rejection-reason"
                                     rows="4"
+                                    maxLength={500}
+                                    required
                                     placeholder="Enter the reason for rejecting this seller..."
                                     value={
                                         rejectionReason

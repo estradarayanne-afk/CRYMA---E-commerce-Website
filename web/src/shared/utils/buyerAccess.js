@@ -9,10 +9,14 @@ export function getStoredUser() {
 }
 
 export function isBuyerSession() {
-    return Boolean(
-        localStorage.getItem("token") &&
-        getStoredUser()?.role === "buyer"
-    );
+    try {
+        return Boolean(
+            localStorage.getItem("token") &&
+            getStoredUser()?.role === "buyer"
+        );
+    } catch {
+        return false;
+    }
 }
 
 export function requestBuyerSignIn(options = {}) {
@@ -36,10 +40,14 @@ export function getBuyerWishlist() {
 }
 
 export function saveBuyerWishlist(ids) {
-    if (!isBuyerSession()) return false;
-    localStorage.setItem("cryma_wishlist", JSON.stringify(ids));
-    window.dispatchEvent(new Event("cryma-wishlist-updated"));
-    return true;
+    try {
+        if (!isBuyerSession()) return false;
+        localStorage.setItem("cryma_wishlist", JSON.stringify(ids));
+        window.dispatchEvent(new Event("cryma-wishlist-updated"));
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export function getBuyerCart() {
@@ -54,12 +62,16 @@ export function getBuyerCart() {
 }
 
 export function saveBuyerCart(cart) {
-    if (!isBuyerSession()) return false;
-    localStorage.setItem("cryma_cart", JSON.stringify(cart));
-    window.dispatchEvent(new Event("cryma-cart-updated"));
-    return true;
+    try {
+        if (!isBuyerSession()) return false;
+        localStorage.setItem("cryma_cart", JSON.stringify(cart));
+        window.dispatchEvent(new Event("cryma-cart-updated"));
+        return true;
+    } catch {
+        return false;
+    }
 }
 
-export function showBuyerToast(message) {
-    window.dispatchEvent(new CustomEvent("cryma-toast", { detail: { message } }));
+export function showBuyerToast(message, type = "success") {
+    window.dispatchEvent(new CustomEvent("cryma-toast", { detail: { message, type } }));
 }

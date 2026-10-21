@@ -103,7 +103,7 @@
 .cryma-logo-word {
     color: #4b1725;
 
-    font-family: Poppins, Inter, sans-serif;
+    font-family: var(--font-family-base);
     font-size: 19px;
     font-weight: 800;
 
@@ -282,6 +282,8 @@
 .cryma-notification-dropdown {
     width: 290px;
     padding: 14px;
+    max-height: min(520px, calc(100vh - 100px));
+    overflow-y: auto;
 }
 
 @keyframes crymaDropdownIn {
@@ -422,6 +424,104 @@
     line-height: 1.5;
 }
 
+.cryma-notification-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    display: grid;
+    place-items: center;
+    border: 2px solid #fff9fa;
+    border-radius: 999px;
+    background: #b21f3a;
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.cryma-dropdown-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.cryma-dropdown-title button,
+.cryma-empty-notification button,
+.cryma-notification-footer {
+    border: 0;
+    background: transparent;
+    color: #9b1834;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.cryma-notification-list {
+    display: grid;
+    gap: 5px;
+}
+
+.cryma-notification-item {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: #fff;
+    color: #4b1725;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cryma-notification-item:hover,
+.cryma-notification-item:focus-visible {
+    border-color: #f0d9df;
+    background: #fff8fa;
+    outline: none;
+}
+
+.cryma-notification-item.unread {
+    background: #fff3f6;
+}
+
+.cryma-notification-item-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #f9e7ec;
+    color: #a51e39;
+}
+
+.cryma-notification-item-copy {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+}
+
+.cryma-notification-item-copy strong {
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.cryma-notification-item-copy small {
+    color: #80646c;
+    font-size: 10px;
+}
+
+.cryma-notification-footer {
+    padding: 10px 4px 2px;
+}
+
 /* =========================================================
    MOBILE TOGGLE
    ========================================================= */
@@ -510,6 +610,9 @@
 
     font-size: 14px;
     font-weight: 800;
+}
+.cryma-mobile-avatar.has-photo {
+    background: transparent;
 }
 
 .cryma-mobile-user strong,
@@ -1173,8 +1276,11 @@
     border-color: var(--border-neutral);
 }
 .cryma-avatar {
+    position: relative;
     width: 30px;
     height: 30px;
+    flex: 0 0 30px;
+    overflow: hidden;
 
     display: flex;
     align-items: center;
@@ -1187,6 +1293,19 @@
 
     font-size: 10px;
     font-weight: 800;
+}
+.cryma-avatar img,
+.cryma-dropdown-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.cryma-avatar > span,
+.cryma-dropdown-avatar > span {
+    position: relative;
+    z-index: 1;
 }
 .cryma-account-name {
     max-width: 105px;
@@ -1228,8 +1347,10 @@
     overflow: hidden;
 }
 .cryma-dropdown-avatar {
+    position: relative;
     width: 38px;
     height: 38px;
+    overflow: hidden;
 
     display: flex;
     align-items: center;
@@ -1491,6 +1612,18 @@
     font-size: 9px;
     font-weight: 800;
 }
+.cryma-mobile-navigation a .cryma-mobile-link-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+}
 .cryma-mobile-signin {
     width: 100%;
     height: 43px;
@@ -1581,7 +1714,7 @@
 
     font-size: 20px;
 
-    font-family: Poppins, sans-serif;
+    font-family: var(--font-family-base);
 }
 .cryma-logout-modal p {
     margin: 9px 28px 22px;
@@ -1825,4 +1958,202 @@
 @media (max-width: 700px) {
     .cryma-search-suggestions { top: calc(100% + 7px); width: 100%; }
     .cryma-messages-popover,.cryma-mini-cart { top: 72px; right: 12px; width: calc(100vw - 24px); }
+}
+
+/* Shared storefront navigation refinements */
+.cryma-navbar-inner {
+    width: min(var(--container-wide), calc(100% - 48px));
+    gap: clamp(10px, 1.4vw, 18px);
+}
+
+.cryma-navbar-logo {
+    width: auto;
+    min-width: 122px;
+    margin-right: 0;
+    gap: 9px;
+}
+
+.cryma-logo-mark {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 12px;
+    background: linear-gradient(145deg, var(--crimson), var(--deep-crimson));
+    box-shadow: 0 7px 18px rgba(178, 31, 58, 0.18);
+    transform: none;
+}
+
+.cryma-logo-mark::before {
+    display: none;
+}
+
+.cryma-logo-mark::after {
+    width: 6px;
+    height: 6px;
+    right: 5px;
+    top: 5px;
+}
+
+.cryma-navbar-logo:hover .cryma-logo-mark,
+.cryma-mobile-logo:hover .cryma-logo-mark {
+    transform: translateY(-1px);
+    box-shadow: 0 9px 22px rgba(178, 31, 58, 0.22);
+}
+
+.cryma-logo-word {
+    color: var(--wine);
+    font-size: 18px;
+    letter-spacing: 0.08em;
+}
+
+.cryma-main-navigation {
+    gap: 4px;
+}
+
+.cryma-nav-link {
+    min-height: 42px;
+    padding-inline: 14px;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.cryma-nav-link:hover,
+.cryma-nav-link.active {
+    color: var(--crimson);
+    background: var(--rose-cream);
+}
+
+.cryma-nav-link:focus-visible,
+.cryma-navbar-search button:focus-visible,
+.cryma-navbar-actions button:focus-visible,
+.cryma-mobile-toggle:focus-visible,
+.cryma-mobile-navigation a:focus-visible,
+.cryma-mobile-navigation button:focus-visible {
+    outline: 3px solid var(--crimson);
+    outline-offset: 2px;
+}
+
+.cryma-navbar-search {
+    min-width: 240px;
+    height: 46px;
+    border-radius: var(--radius-pill);
+    border-color: var(--color-border);
+    box-shadow: none;
+}
+
+.cryma-navbar-search:focus-within {
+    border-color: var(--crimson);
+    box-shadow: var(--focus-ring);
+}
+
+.cryma-search-submit {
+    min-width: 76px;
+    border-radius: var(--radius-pill);
+    background: var(--crimson);
+}
+
+.cryma-search-submit:hover {
+    background: var(--deep-crimson);
+}
+
+.cryma-navbar-search {
+    display: flex;
+    align-items: center;
+}
+
+.cryma-navbar-search > svg {
+    display: block;
+    flex: 0 0 auto;
+}
+
+.cryma-navbar-search input {
+    box-sizing: border-box;
+    align-self: stretch;
+    padding-block: 0;
+    line-height: normal;
+}
+
+.cryma-search-submit {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.cryma-mobile-navigation a,
+.cryma-mobile-navigation button {
+    min-height: 46px;
+}
+
+@media (max-width: 1180px) {
+    .cryma-navbar-inner {
+        width: min(var(--container-wide), calc(100% - 32px));
+    }
+
+    .cryma-main-navigation {
+        display: none;
+    }
+
+    .cryma-mobile-toggle {
+        display: flex;
+    }
+}
+
+@media (max-width: 700px) {
+    .cryma-navbar-inner {
+        width: calc(100% - 24px);
+        gap: 8px;
+    }
+
+    .cryma-navbar-logo {
+        min-width: 116px;
+    }
+
+    .cryma-logo-word {
+        font-size: 17px;
+    }
+}
+
+@media (max-width: 360px) {
+    .cryma-navbar-logo {
+        min-width: 108px;
+    }
+
+    .cryma-logo-mark {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
+        font-size: 19px;
+    }
+
+    .cryma-logo-word {
+        font-size: 16px;
+    }
+}
+
+/* Keep the account identity grouped on the maroon cover. */
+.cryma-account-hero {
+    background: linear-gradient(115deg, var(--deep-crimson), var(--wine));
+}
+
+.cryma-account-cover {
+    height: 0;
+}
+
+.cryma-account-profile {
+    min-height: 82px;
+    margin-top: 0;
+    padding: 12px;
+}
+
+.cryma-account-profile strong {
+    color: #fff;
+}
+
+.cryma-account-profile small {
+    color: rgba(255, 255, 255, 0.84);
 }

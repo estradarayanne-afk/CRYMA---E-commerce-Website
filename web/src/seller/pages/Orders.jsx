@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Check,
     Package,
@@ -7,6 +7,7 @@ import {
     X,
 } from "lucide-react";
 import api from "../../shared/services/api";
+import ParcelSlip from "../components/ParcelSlip";
 
 const STATUS_FLOW = [
     "PLACED",
@@ -111,7 +112,7 @@ function Orders() {
     const [actionLoading, setActionLoading] = useState(false);
     const [notice, setNotice] = useState("");
 
-    const loadOrders = async () => {
+    const loadOrders = useCallback(async () => {
         setLoading(true);
         setError("");
 
@@ -139,11 +140,12 @@ function Orders() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        loadOrders();
-    }, []);
+        const timer = window.setTimeout(() => { void loadOrders(); }, 0);
+        return () => window.clearTimeout(timer);
+    }, [loadOrders]);
 
     const normalizedOrders = useMemo(() => {
         return orders.map((order) => ({
@@ -249,8 +251,8 @@ function Orders() {
                     <h1 className="sl-h1">Orders</h1>
 
                     <p>
-                        View customer orders and prepare them for
-                        pickup.
+                        Review customer orders, pack items, and update
+                        the order status when ready.
                     </p>
                 </div>
             </div>
@@ -445,6 +447,7 @@ function Orders() {
 
                 {selected && (
                     <div className="sl-card sl-order-detail">
+                        <ParcelSlip order={selected} />
                         <div className="sl-detail-head">
                             <div>
                                 <h3>
@@ -573,6 +576,39 @@ function Orders() {
                             </div>
                         </div>
 
+                        {["CONFIRMED", "PREPARING", "READY_FOR_PICKUP"].includes(
+                            normalizeStatus(selected.status)
+                        ) && (
+                            <section className="sl-preparation-panel" aria-labelledby="sl-preparation-title">
+                                <div className="sl-preparation-heading">
+                                    <Package size={18} aria-hidden="true" />
+                                    <div>
+                                        <h4 id="sl-preparation-title">Parcel preparation</h4>
+                                        <p>Order status is the authoritative fulfillment record.</p>
+                                    </div>
+                                </div>
+                                {normalizeStatus(selected.status) === "READY_FOR_PICKUP" ? (
+                                    <div className="sl-preparation-ready" role="status">
+                                        This order is marked ready for pickup. Carrier assignment, pickup scheduling, and shipment tracking are not available in this seller workspace.
+                                    </div>
+                                ) : (
+                                    <>
+                                        <ol className="sl-preparation-steps">
+                                            <li>Match each item and quantity to the order.</li>
+                                            <li>Check item condition and pack the parcel securely.</li>
+                                            <li>Print and attach the CRYMA parcel slip.</li>
+                                        </ol>
+                                        <p className="sl-preparation-note">
+                                            The preparation guide does not save a separate packing status. Select “Mark Ready for Pickup” only after the parcel is packed; that action updates the order status.
+                                        </p>
+                                        <p className="sl-preparation-note">
+                                            Carrier assignment, pickup scheduling, and shipment tracking are not connected to this workspace.
+                                        </p>
+                                    </>
+                                )}
+                            </section>
+                        )}
+
                         <div className="sl-detail-section">
                             <p className="sl-detail-label">
                                 Order Total
@@ -612,7 +648,7 @@ function Orders() {
                                     }
                                 >
                                     <Printer size={15} />
-                                    Print Waybill
+                                    Print Parcel Slip
                                 </button>
                             )}
 

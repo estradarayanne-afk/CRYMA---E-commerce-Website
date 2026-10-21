@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ArrowLeft,
     Heart,
+    MessageCircle,
     Minus,
     Plus,
+    Play,
     ShoppingCart,
     Star,
 } from "lucide-react";
@@ -23,6 +25,7 @@ import {
     saveBuyerWishlist,
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
+import { addProductToCart } from "../../../shared/utils/buyerProductActions";
 
 import "./ProductDetails.css";
 
@@ -37,6 +40,7 @@ function ProductDetails() {
     const [error, setError] = useState("");
     const [quantity, setQuantity] = useState(1);
     const [saved, setSaved] = useState(false);
+    const [activeMediaIndex, setActiveMediaIndex] = useState(0);
     const [activeTab, setActiveTab] = useState("Description");
     const [reviews, setReviews] = useState([]);
     const [reviewSummary, setReviewSummary] = useState({
@@ -46,6 +50,7 @@ function ProductDetails() {
     const [reviewsLoading, setReviewsLoading] =
         useState(false);
     const [actionMessage, setActionMessage] = useState("");
+    const [actionMessageType, setActionMessageType] = useState("success");
 
     useEffect(() => {
         let cancelled = false;
@@ -63,6 +68,7 @@ function ProductDetails() {
                     setProduct(
                         response.data?.data || null
                     );
+                    setActiveMediaIndex(0);
                 }
             } catch (requestError) {
                 console.error(
@@ -93,7 +99,7 @@ function ProductDetails() {
 
     useEffect(() => {
         const syncSaved = () => {
-            setSaved(getBuyerWishlist().includes(Number(id)));
+            setSaved(getBuyerWishlist().some((savedId) => String(savedId) === String(id)));
         };
         syncSaved();
         window.addEventListener("cryma-wishlist-updated", syncSaved);
@@ -197,8 +203,9 @@ function ProductDetails() {
         return Number(item?.quantity || 0);
     }, [product?.id]);
 
-    const showMessage = (message) => {
+    const showMessage = (message, type = "success") => {
         setActionMessage(message);
+        setActionMessageType(type);
 
         window.setTimeout(() => {
             setActionMessage("");
@@ -212,6 +219,12 @@ function ProductDetails() {
             return;
         }
 
+        const requestedQuantity = Number(quantity);
+        if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
+            showMessage("Enter a whole quantity of at least 1.", "error");
+            return;
+        }
+
         if (!isBuyerSession()) {
             requestBuyerSignIn({
                 title: "Sign in to add to cart",
@@ -220,39 +233,21 @@ function ProductDetails() {
             return;
         }
 
-        const cart = getBuyerCart();
-
-        const existing = cart.find(
-            (item) => String(item.id) === String(product.id)
-        );
-
-        const currentQuantity = Number(
-            existing?.quantity || 0
-        );
-
-        const nextQuantity =
-            currentQuantity + quantity;
-
-        if (nextQuantity > stock) {
+        const result = addProductToCart(getBuyerCart(), product, requestedQuantity);
+        if (!result.success) {
             showMessage(
-                `Only ${stock} item${
-                    stock === 1 ? "" : "s"
-                } available.`
+                result.reason === "insufficient_stock"
+                    ? `Only ${result.stock} item${result.stock === 1 ? "" : "s"} available.`
+                    : "Unable to add this product to your cart.",
+                "error"
             );
-
             return;
         }
 
-        if (existing) {
-            existing.quantity = nextQuantity;
-        } else {
-            cart.push({
-                ...product,
-                quantity,
-            });
+        if (!saveBuyerCart(result.cart)) {
+            showMessage("Unable to save your cart. Please try again.", "error");
+            return;
         }
-
-        if (!saveBuyerCart(cart)) return;
 
         if (redirectToCheckout) {
             localStorage.setItem(
@@ -264,14 +259,38 @@ function ProductDetails() {
             return;
         }
 
-        showMessage("Added to cart.");
-        showBuyerToast("Added to Cart");
+        showBuyerToast("Added to cart");
     };
 
     const handleBuyNow = () => {
         addToCart({
             redirectToCheckout: true,
         });
+    };
+
+    const contactSeller = async () => {
+        if (!isBuyerSession()) {
+            requestBuyerSignIn({
+                title: "Sign in to contact the seller",
+                message: "Create an account or sign in to ask the seller about this product.",
+                from: window.location.pathname,
+            });
+            return;
+        }
+
+        try {
+            const { data } = await api.post("/buyer/chat/seller-conversations", { product_id: Number(id) });
+            const conversationId = data?.data?.id;
+            if (!conversationId) {
+                throw new Error("Could not open a conversation with this seller.");
+            }
+            navigate(`/buyer/chat?conversation=${conversationId}`);
+        } catch (requestError) {
+            showBuyerToast(
+                requestError.response?.data?.message || requestError.message || "Unable to contact this seller right now.",
+                "error"
+            );
+        }
     };
 
     const handleSave = () => {
@@ -285,13 +304,15 @@ function ProductDetails() {
 
         const wishlist = getBuyerWishlist();
         const productId = Number(product?.id);
-        const exists = wishlist.includes(productId);
+        const exists = wishlist.some((savedId) => String(savedId) === String(productId));
         const next = exists
-            ? wishlist.filter((savedId) => savedId !== productId)
+            ? wishlist.filter((savedId) => String(savedId) !== String(productId))
             : [...wishlist, productId];
         if (saveBuyerWishlist(next)) {
             setSaved(!exists);
-            showBuyerToast(exists ? "Removed from Wishlist" : "Added to Wishlist");
+            showBuyerToast(exists ? "Removed from favorites" : "Added to favorites");
+        } else {
+            showBuyerToast("Unable to update favorites. Please try again.", "error");
         }
     };
 
@@ -358,7 +379,18 @@ function ProductDetails() {
         );
     }
 
-    const image = product.image || null;
+    const mediaItems = Array.isArray(product.media) && product.media.length
+        ? product.media.filter((media) => media?.url && ["image", "video"].includes(media.type))
+        : [
+            ...(Array.isArray(product.images)
+                ? product.images.map((image) => typeof image === "string" ? image : image?.url || image?.image_url)
+                : []),
+            product.image,
+        ]
+            .filter((url, index, urls) => typeof url === "string" && url.trim() && urls.indexOf(url) === index)
+            .map((url) => ({ type: "image", url }));
+    const activeMedia = mediaItems[activeMediaIndex] || mediaItems[0] || null;
+    const image = activeMedia?.type === "image" ? activeMedia.url : product.image || null;
 
     return (
         <main className="product-details-page">
@@ -393,26 +425,27 @@ function ProductDetails() {
                 <section className="product-details-card">
                     <div className="product-gallery">
                         <div className="product-thumbnails">
-                            <button
-                                type="button"
-                                className="product-thumbnail active"
-                                aria-label="Product image"
-                            >
-                                {image ? (
-                                    <img
-                                        src={image}
-                                        alt=""
-                                    />
-                                ) : (
-                                    <span>
-                                        CRYMA
-                                    </span>
-                                )}
-                            </button>
+                            {mediaItems.map((media, index) => (
+                                <button
+                                    type="button"
+                                    key={`${media.type}-${media.id || media.url}`}
+                                    className={`product-thumbnail${index === activeMediaIndex ? " active" : ""}`}
+                                    aria-label={`${media.type === "video" ? "Play product video" : "View product photo"} ${index + 1}`}
+                                    aria-pressed={index === activeMediaIndex}
+                                    onClick={() => setActiveMediaIndex(index)}
+                                >
+                                    {media.type === "video" ? <span className="product-video-thumb"><Play size={17} aria-hidden="true" /></span> : <img src={media.url} alt="" />}
+                                </button>
+                            ))}
+                            {!mediaItems.length && (
+                                <div className="product-thumbnail product-thumbnail-placeholder" aria-hidden="true">CRYMA</div>
+                            )}
                         </div>
 
                         <div className="product-main-image">
-                            {image ? (
+                            {activeMedia?.type === "video" ? (
+                                <video src={activeMedia.url} controls playsInline preload="metadata" aria-label={`${product.name} product video`} />
+                            ) : image ? (
                                 <img
                                     src={image}
                                     alt={
@@ -463,6 +496,7 @@ function ProductDetails() {
                                         ? "Remove from wishlist"
                                         : "Save product"
                                 }
+                                aria-pressed={saved}
                             >
                                 <Heart
                                     size={18}
@@ -480,6 +514,12 @@ function ProductDetails() {
                                 ₱
                                 {price.toLocaleString()}
                             </strong>
+                            {Number(product.original_price) > price && (
+                                <span className="product-detail-sale-price">
+                                    <del>₱{Number(product.original_price).toLocaleString()}</del>
+                                    <b>{Math.round((1 - price / Number(product.original_price)) * 100)}% off</b>
+                                </span>
+                            )}
                         </div>
 
                         <div className="product-stock-row">
@@ -521,6 +561,7 @@ function ProductDetails() {
                                     type="number"
                                     min="1"
                                     max={stock}
+                                    step="1"
                                     value={quantity}
                                     onChange={(event) => {
                                         const value = Number(event.target.value);
@@ -606,7 +647,7 @@ function ProductDetails() {
                         </div>
 
                         {actionMessage && (
-                            <div className="product-action-message">
+                            <div className={`product-action-message ${actionMessageType}`} role="status" aria-live="polite">
                                 {actionMessage}
                             </div>
                         )}
@@ -627,6 +668,9 @@ function ProductDetails() {
                                     {sellerName}
                                 </strong>
                             </div>
+                            <button type="button" className="product-contact-seller" onClick={contactSeller}>
+                                <MessageCircle size={14} /> Contact seller
+                            </button>
                         </div>
                     </div>
                 </section>

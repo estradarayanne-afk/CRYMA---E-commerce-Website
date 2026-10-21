@@ -1,25 +1,45 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowLeft,
     Check,
     MapPin,
     PackageCheck,
-    Phone,
+    Plus,
     ShoppingBag,
+    Ticket,
     X,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../../shared/services/api";
+import BuyerAddressForm from "../../components/BuyerAddressForm";
+import Dialog from "../../../shared/components/Dialog";
 import {
     getBuyerCart,
     isBuyerSession,
     saveBuyerCart,
 } from "../../../shared/utils/buyerAccess";
+import { normalizeBuyerAddress, validateBuyerAddress } from "../Account/addressValidation";
+import { calculateVoucherTotal, formatVoucherDiscount } from "../../../shared/utils/voucherPresentation";
 import "./Checkout.css";
 
 const SELECTED_CART_KEY = "cryma_selected_cart_ids";
 const CHECKOUT_ITEMS_KEY = "cryma_checkout_item_ids";
+const CHECKOUT_IDEMPOTENCY_KEY = "cryma_checkout_order_idempotency_key";
+const blankAddress = {
+    label: "home", recipient_name: "", phone: "", is_default: false,
+    region: "", province: "", municipality: "", barangay: "", street: "",
+    house_number: "", building_name: "", unit_number: "", postal_code: "",
+};
+
+function getCheckoutIdempotencyKey() {
+    const existingKey = sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_KEY);
+    if (existingKey) return existingKey;
+
+    const key = crypto.randomUUID();
+    sessionStorage.setItem(CHECKOUT_IDEMPOTENCY_KEY, key);
+    return key;
+}
 
 function readLocalArray(key) {
     try {
@@ -54,28 +74,37 @@ function Checkout() {
     });
 
     const [profile, setProfile] = useState(null);
+    const [savedAddresses, setSavedAddresses] = useState([]);
+    const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
     const [loadingProfile, setLoadingProfile] =
         useState(true);
+    const [showAddressForm, setShowAddressForm] = useState(false);
+    const [addressDraft, setAddressDraft] = useState(blankAddress);
+    const [addressSaving, setAddressSaving] = useState(false);
+    const [addressErrors, setAddressErrors] = useState({});
+    const [addressSaveError, setAddressSaveError] = useState("");
+    const addressSubmitLock = useRef(false);
 
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
-
-    const [address, setAddress] = useState({
-        house_number: "",
-        building_name: "",
-        unit_number: "",
-        street: "",
-        barangay: "",
-        municipality: "",
-        province: "",
-        postal_code: "",
-    });
+    const submissionLock = useRef(false);
+    const checkoutIdempotencyKey = useRef(null);
 
     const [paymentMethod, setPaymentMethod] =
         useState("cash_on_delivery");
+    const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
 
     const [showConfirmModal, setShowConfirmModal] =
         useState(false);
+    const [vouchers, setVouchers] = useState([]);
+    const [loadingVouchers, setLoadingVouchers] = useState(true);
+    const [voucherCodeInput, setVoucherCodeInput] = useState("");
+    const [appliedVoucherCode, setAppliedVoucherCode] = useState("");
+    const [voucherPreview, setVoucherPreview] = useState(null);
+    const [voucherLoading, setVoucherLoading] = useState(false);
+    const [voucherError, setVoucherError] = useState("");
+    const voucherValidationSequence = useRef(0);
+    const voucherCartFingerprint = useRef("");
 
     const [notice] = useState("");
 
@@ -104,6 +133,10 @@ function Checkout() {
             selectedSet.has(String(item.id))
         );
     }, [cart, selectedIds]);
+    const voucherCartKey = useMemo(
+        () => selectedCartItems.map((item) => `${item.id}:${item.quantity}:${item.price}:${item.category || ""}`).join("|"),
+        [selectedCartItems]
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -125,7 +158,101 @@ function Checkout() {
 
     const shippingFee = 0;
 
-    const total = subtotal + shippingFee;
+    const checkoutSubtotal = Number(voucherPreview?.subtotal ?? subtotal);
+    const voucherDiscount = Number(voucherPreview?.discount_amount || 0);
+    const total = calculateVoucherTotal(checkoutSubtotal, shippingFee, voucherDiscount);
+
+    useEffect(() => {
+        if (!isLoggedIn) return undefined;
+        let cancelled = false;
+        api.get("/buyer/vouchers")
+            .then(({ data }) => {
+                if (!cancelled) setVouchers(Array.isArray(data?.data) ? data.data : []);
+            })
+            .catch(() => {
+                if (!cancelled) setVoucherError("Unable to load vouchers. You can still enter a voucher code.");
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingVouchers(false);
+            });
+        return () => { cancelled = true; };
+    }, [isLoggedIn]);
+
+    useEffect(() => {
+        if (!appliedVoucherCode || voucherCartFingerprint.current === voucherCartKey) return undefined;
+        let cancelled = false;
+        const sequence = ++voucherValidationSequence.current;
+        setVoucherLoading(true);
+        setVoucherPreview(null);
+        setVoucherError("");
+        api.post("/buyer/vouchers/validate", {
+            code: appliedVoucherCode,
+            items: selectedCartItems.map((item) => ({ product_id: item.id, quantity: Number(item.quantity) })),
+        })
+            .then(({ data }) => {
+                if (cancelled || sequence !== voucherValidationSequence.current) return;
+                setVoucherPreview(data?.data || null);
+                voucherCartFingerprint.current = voucherCartKey;
+            })
+            .catch((requestError) => {
+                if (!cancelled && sequence === voucherValidationSequence.current) {
+                    const errors = requestError.response?.data?.errors;
+                    setVoucherError(errors ? Object.values(errors).flat()[0] : requestError.response?.data?.message || "This voucher is no longer eligible for your cart.");
+                }
+            })
+            .finally(() => {
+                if (!cancelled && sequence === voucherValidationSequence.current) setVoucherLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [appliedVoucherCode, selectedCartItems, voucherCartKey]);
+
+    const applyVoucherCode = async (rawCode) => {
+        const code = String(rawCode || "").trim();
+        if (!code) {
+            setVoucherError("Enter a voucher code.");
+            return;
+        }
+        if (selectedCartItems.length === 0) {
+            setVoucherError("Add items to your order before applying a voucher.");
+            return;
+        }
+        const sequence = ++voucherValidationSequence.current;
+        setVoucherLoading(true);
+        setVoucherError("");
+        setVoucherPreview(null);
+        try {
+            const { data } = await api.post("/buyer/vouchers/validate", {
+                code,
+                items: selectedCartItems.map((item) => ({ product_id: item.id, quantity: Number(item.quantity) })),
+            });
+            if (sequence !== voucherValidationSequence.current) return;
+            const preview = data?.data;
+            if (!preview?.voucher?.code || preview.discount_amount === undefined) {
+                throw new Error("Voucher validation response was incomplete.");
+            }
+            setAppliedVoucherCode(preview.voucher.code);
+            setVoucherPreview(preview);
+            voucherCartFingerprint.current = voucherCartKey;
+            setVoucherCodeInput("");
+        } catch (requestError) {
+            if (sequence === voucherValidationSequence.current) {
+                const errors = requestError.response?.data?.errors;
+                setVoucherError(errors ? Object.values(errors).flat()[0] : requestError.response?.data?.message || requestError.message || "Unable to apply this voucher.");
+                setAppliedVoucherCode("");
+            }
+        } finally {
+            if (sequence === voucherValidationSequence.current) setVoucherLoading(false);
+        }
+    };
+
+    const removeVoucher = () => {
+        voucherValidationSequence.current += 1;
+        voucherCartFingerprint.current = "";
+        setAppliedVoucherCode("");
+        setVoucherPreview(null);
+        setVoucherError("");
+        setVoucherLoading(false);
+    };
 
     const itemCount = selectedCartItems.reduce(
         (sum, item) =>
@@ -176,39 +303,17 @@ function Checkout() {
 
                 const savedAddress =
                     checkoutData.address;
+                const savedAddressesPayload = Array.isArray(checkoutData.addresses)
+                    ? checkoutData.addresses
+                    : savedAddress ? [savedAddress] : [];
+                setSavedAddresses(savedAddressesPayload);
 
                 setProfile(
                     checkoutData.user || null
                 );
 
-                if (savedAddress) {
-                    setAddress({
-                        house_number:
-                            savedAddress.house_number ||
-                            "",
-                        building_name:
-                            savedAddress.building_name ||
-                            "",
-                        unit_number:
-                            savedAddress.unit_number ||
-                            "",
-                        street:
-                            savedAddress.street ||
-                            "",
-                        barangay:
-                            savedAddress.barangay ||
-                            "",
-                        municipality:
-                            savedAddress.municipality ||
-                            "",
-                        province:
-                            savedAddress.province ||
-                            "",
-                        postal_code:
-                            savedAddress.postal_code ||
-                            "",
-                    });
-                }
+                const preferredAddress = savedAddressesPayload.find((item) => item.is_default) || savedAddress || savedAddressesPayload[0];
+                setSelectedSavedAddressId(preferredAddress ? String(preferredAddress.id) : "");
             } catch (err) {
                 setError(
                     err.response?.data?.message ||
@@ -245,25 +350,76 @@ function Checkout() {
     |--------------------------------------------------------------------------
     */
 
-    const updateAddress = (field, value) => {
-        setAddress((current) => ({
-            ...current,
-            [field]: value,
-        }));
+    const selectSavedAddress = (id) => {
+        setSelectedSavedAddressId(id);
+    };
+
+    const startAddingAddress = () => {
+        setAddressDraft({
+            ...blankAddress,
+            recipient_name: [profile?.first_name, profile?.last_name].filter(Boolean).join(" "),
+            phone: profile?.phone || "",
+            is_default: savedAddresses.length === 0,
+        });
+        setAddressErrors({});
+        setAddressSaveError("");
+        setShowAddressForm(true);
+    };
+
+    const saveAddressDuringCheckout = async (event) => {
+        event.preventDefault();
+        if (addressSubmitLock.current) return;
+        const validationErrors = validateBuyerAddress(addressDraft);
+        setAddressErrors(validationErrors);
+        setAddressSaveError("");
+        if (Object.keys(validationErrors).length) return;
+
+        addressSubmitLock.current = true;
+        setAddressSaving(true);
+        try {
+            const { data } = await api.post("/buyer/addresses", normalizeBuyerAddress(addressDraft));
+            const savedAddress = data.data;
+            setSavedAddresses((current) => {
+                const next = savedAddress.is_default
+                    ? current.map((item) => ({ ...item, is_default: false }))
+                    : current;
+                return [savedAddress, ...next];
+            });
+            setSelectedSavedAddressId(String(savedAddress.id));
+            setShowAddressForm(false);
+            setAddressErrors({});
+        } catch (requestError) {
+            const serverErrors = requestError.response?.data?.errors;
+            if (serverErrors) {
+                setAddressErrors(Object.fromEntries(
+                    Object.entries(serverErrors).map(([field, messages]) => [field, messages[0]])
+                ));
+            } else {
+                setAddressSaveError(
+                    requestError.response?.data?.message || "Unable to save this address. Please try again."
+                );
+            }
+        } finally {
+            addressSubmitLock.current = false;
+            setAddressSaving(false);
+        }
     };
 
     const formatAddress = () => {
+        const selected = savedAddresses.find((item) => String(item.id) === String(selectedSavedAddressId));
+        if (!selected) return "";
         const parts = [
-            address.house_number,
-            address.building_name,
-            address.unit_number,
-            address.street,
-            address.barangay,
-            address.municipality,
-            address.province,
-            address.postal_code,
+            selected.house_number,
+            selected.building_name,
+            selected.unit_number,
+            selected.street,
+            selected.barangay,
+            selected.municipality,
+            selected.province,
+            selected.region,
+            selected.postal_code,
         ]
-            .map((value) => value.trim())
+            .map((value) => String(value || "").trim())
             .filter(Boolean);
 
         return parts.join(", ");
@@ -316,26 +472,25 @@ function Checkout() {
             return false;
         }
 
-        const deliveryAddress =
-            formatAddress();
-
-        if (!deliveryAddress) {
-            setError(
-                "Please provide your delivery address."
-            );
-
+        if (appliedVoucherCode && (voucherLoading || !voucherPreview)) {
+            setError(voucherError || "Wait for the selected voucher to finish validating, or remove it before placing your order.");
             return false;
         }
 
-        if (
-            !address.barangay.trim() ||
-            !address.municipality.trim() ||
-            !address.province.trim()
-        ) {
-            setError(
-                "Please complete your barangay, municipality, and province."
-            );
+        const selectedAddress = savedAddresses.find(
+            (item) => String(item.id) === String(selectedSavedAddressId)
+        );
+        if (!selectedAddress) {
+            setError("Choose a saved delivery address or add a new one.");
+            return false;
+        }
+        if (!selectedAddress.barangay || !selectedAddress.municipality || !selectedAddress.province) {
+            setError("This saved address is incomplete. Edit it in My Account or add a complete address.");
+            return false;
+        }
 
+        if (!["cash_on_delivery", "gcash"].includes(paymentMethod)) {
+            setError("Please select one of the available payment methods.");
             return false;
         }
 
@@ -373,7 +528,7 @@ function Checkout() {
     */
 
     const requestPlaceOrder = () => {
-        if (submitting) {
+        if (submissionLock.current || submitting) {
             return;
         }
 
@@ -391,20 +546,30 @@ function Checkout() {
     */
 
     const placeOrder = async () => {
-        if (submitting) {
+        if (submissionLock.current || submitting) {
             return;
         }
 
+        if (!validateCheckout()) {
+            setShowConfirmModal(false);
+            return;
+        }
+
+        submissionLock.current = true;
         setSubmitting(true);
         setError("");
 
         try {
             const deliveryAddress =
                 formatAddress();
+            const idempotencyKey = checkoutIdempotencyKey.current || getCheckoutIdempotencyKey();
+            checkoutIdempotencyKey.current = idempotencyKey;
 
             const { data } = await api.post(
                 "/orders",
                 {
+                    ...(selectedSavedAddressId ? { address_id: Number(selectedSavedAddressId) } : {}),
+                    ...(appliedVoucherCode ? { voucher_code: appliedVoucherCode } : {}),
                     delivery_address:
                         deliveryAddress,
 
@@ -419,8 +584,18 @@ function Checkout() {
                             ),
                         })
                     ),
+                },
+                {
+                    headers: {
+                        "Idempotency-Key": idempotencyKey,
+                    },
                 }
             );
+
+            const orderId = data?.data?.id;
+            if (!orderId) {
+                throw new Error("Order confirmation was not received. Your cart has been kept.");
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -456,19 +631,38 @@ function Checkout() {
                 JSON.stringify([])
             );
 
+            sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
+            checkoutIdempotencyKey.current = null;
+
             setShowConfirmModal(false);
 
             navigate(
-                `/orders/${data.data.id}`
+                `/orders/${orderId}`
             );
         } catch (err) {
             setShowConfirmModal(false);
 
+            if (err.response?.status && err.response.status < 500) {
+                sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
+                checkoutIdempotencyKey.current = null;
+            }
+
+            const validationErrors = err.response?.data?.errors;
+            const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : "";
+            if (validationErrors?.voucher_code) {
+                setVoucherError(validationErrors.voucher_code[0]);
+                setAppliedVoucherCode("");
+                setVoucherPreview(null);
+                voucherCartFingerprint.current = "";
+            }
             setError(
-                err.response?.data?.message ||
+                firstValidationError ||
+                    err.response?.data?.message ||
+                    err.message ||
                     "Unable to place your order. Please try again."
             );
         } finally {
+            submissionLock.current = false;
             setSubmitting(false);
         }
     };
@@ -591,7 +785,7 @@ function Checkout() {
             {/* ERROR */}
 
             {error && (
-                <div className="checkout-error">
+                <div className="checkout-error" role="alert" aria-live="assertive">
                     {error}
                 </div>
             )}
@@ -630,172 +824,67 @@ function Checkout() {
                             </div>
                         </div>
 
-                        {profile && (
-                            <div className="checkout-contact">
-                                <div>
-                                    <strong>
-                                        {profile.first_name}{" "}
-                                        {profile.last_name}
-                                    </strong>
-
-                                    <span>
-                                        <Phone size={12} />
-
-                                        {profile.phone ||
-                                            "No phone number"}
+                        <div className="checkout-address-list" role="radiogroup" aria-label="Saved delivery addresses">
+                            {savedAddresses.map((saved) => (
+                                <label
+                                    key={saved.id}
+                                    className={`checkout-address-option ${String(saved.id) === String(selectedSavedAddressId) ? "selected" : ""}`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="saved-address"
+                                        value={saved.id}
+                                        checked={String(saved.id) === String(selectedSavedAddressId)}
+                                        onChange={() => selectSavedAddress(String(saved.id))}
+                                    />
+                                    <span className="checkout-address-option-content">
+                                        <span className="checkout-address-option-heading">
+                                            <strong>{saved.label ? saved.label[0].toUpperCase() + saved.label.slice(1) : "Address"}</strong>
+                                            {saved.is_default && <small>Default</small>}
+                                        </span>
+                                        <strong>{saved.recipient_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(" ")}</strong>
+                                        <span>{saved.phone || profile?.phone || "No contact number"}</span>
+                                        <span>{[saved.house_number, saved.building_name, saved.unit_number, saved.street, saved.barangay, saved.municipality, saved.province, saved.region, saved.postal_code].filter(Boolean).join(", ")}</span>
                                     </span>
-                                </div>
-                            </div>
+                                </label>
+                            ))}
+                        </div>
+
+                        {!savedAddresses.length && (
+                            <p className="checkout-address-empty">Add a delivery address to continue. Your cart and checkout selections will be kept.</p>
                         )}
 
-                        <div className="checkout-form-grid">
-
-                            <label>
-                                House / Lot No.
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.house_number
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "house_number",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="e.g. 123"
-                                />
-                            </label>
-
-                            <label>
-                                Building
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.building_name
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "building_name",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Optional"
-                                />
-                            </label>
-
-                            <label>
-                                Unit / Floor
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.unit_number
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "unit_number",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Optional"
-                                />
-                            </label>
-
-                            <label>
-                                Street
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.street
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "street",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Street name"
-                                />
-                            </label>
-
-                            <label>
-                                Barangay
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.barangay
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "barangay",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Barangay"
-                                />
-                            </label>
-
-                            <label>
-                                Municipality / City
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.municipality
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "municipality",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Municipality / City"
-                                />
-                            </label>
-
-                            <label>
-                                Province
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.province
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "province",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Province"
-                                />
-                            </label>
-
-                            <label>
-                                Postal Code
-
-                                <input
-                                    type="text"
-                                    value={
-                                        address.postal_code
-                                    }
-                                    onChange={(event) =>
-                                        updateAddress(
-                                            "postal_code",
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Optional"
-                                />
-                            </label>
-
-                        </div>
+                        <button type="button" className="checkout-add-address" onClick={startAddingAddress}>
+                            <Plus size={16} /> Add a new address
+                        </button>
                     </div>
+
+                    {showAddressForm && (
+                        <Dialog
+                            open={showAddressForm}
+                            onClose={() => setShowAddressForm(false)}
+                            ariaLabelledBy="checkout-address-modal-title"
+                            className="checkout-address-modal"
+                            busy={addressSaving}
+                        >
+                                <header>
+                                    <div>
+                                        <p className="checkout-eyebrow">DELIVERY DETAILS</p>
+                                        <h2 id="checkout-address-modal-title">Add an address</h2>
+                                        <p>Your current cart, selected items, and payment choice will stay unchanged.</p>
+                                    </div>
+                                    <button type="button" aria-label="Close address form" disabled={addressSaving} onClick={() => setShowAddressForm(false)}><X size={18} /></button>
+                                </header>
+                                <form onSubmit={saveAddressDuringCheckout} noValidate>
+                                    <BuyerAddressForm address={addressDraft} errors={addressErrors} onChange={setAddressDraft} disabled={addressSaving} showDefault />
+                                    {addressSaveError && <p className="checkout-error" role="alert">{addressSaveError}</p>}
+                                    <div className="checkout-address-modal-actions">
+                                        <button type="button" className="checkout-address-cancel" disabled={addressSaving} onClick={() => setShowAddressForm(false)}>Cancel</button>
+                                        <button type="submit" className="checkout-address-save" disabled={addressSaving}>{addressSaving ? "Saving…" : "Save and select address"}</button>
+                                    </div>
+                                </form>
+                        </Dialog>
+                    )}
 
 
                     {/* ORDER REVIEW */}
@@ -902,40 +991,109 @@ function Checkout() {
                 {/* SUMMARY */}
 
                 <aside className="checkout-summary">
-                    <p className="checkout-summary-eyebrow">
-                        ORDER SUMMARY
-                    </p>
-
                     <h2>Order Summary</h2>
 
                     <div className="checkout-summary-row">
-                        <span>
-                            Items ({selectedCartItems.length})
-                        </span>
+                        <span>Estimated subtotal ({selectedCartItems.length} products)</span>
 
-                        <strong>
-                            ₱{subtotal.toLocaleString()}
-                        </strong>
+                        <strong>₱{checkoutSubtotal.toLocaleString()}</strong>
                     </div>
 
                     <div className="checkout-summary-row">
-                        <span>Delivery</span>
+                        <span>Delivery fee</span>
 
                         <strong className="checkout-free">
-                            FREE
+                            ₱{shippingFee.toLocaleString()}
                         </strong>
                     </div>
+
+                    {voucherDiscount > 0 && (
+                        <div className="checkout-summary-row checkout-voucher-discount-row">
+                            <span>Voucher discount</span>
+                            <strong>−₱{voucherDiscount.toLocaleString()}</strong>
+                        </div>
+                    )}
+
+                    <section className="checkout-voucher-box" aria-labelledby="checkout-voucher-title">
+                        <div className="checkout-voucher-heading">
+                            <Ticket size={16} />
+                            <strong id="checkout-voucher-title">Vouchers</strong>
+                        </div>
+                        {appliedVoucherCode && voucherPreview ? (
+                            <div className="checkout-voucher-applied">
+                                <div>
+                                    <strong>{voucherPreview.voucher.code}</strong>
+                                    <span>Saved ₱{Number(voucherPreview.discount_amount).toLocaleString()}</span>
+                                </div>
+                                <button type="button" onClick={removeVoucher} disabled={submitting}>Remove</button>
+                            </div>
+                        ) : (
+                            <form
+                                className="checkout-voucher-form"
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    applyVoucherCode(voucherCodeInput);
+                                }}
+                            >
+                                <label className="checkout-voucher-label" htmlFor="checkout-voucher-code">Voucher code</label>
+                                <input
+                                    id="checkout-voucher-code"
+                                    value={voucherCodeInput}
+                                    onChange={(event) => setVoucherCodeInput(event.target.value)}
+                                    placeholder="Enter voucher code"
+                                    maxLength={64}
+                                    disabled={voucherLoading || submitting}
+                                />
+                                <button type="submit" disabled={voucherLoading || submitting}>
+                                    {voucherLoading ? "Checking…" : "Apply"}
+                                </button>
+                            </form>
+                        )}
+                        {voucherError && <p className="checkout-voucher-error" role="alert">{voucherError}</p>}
+                        {voucherLoading && <p className="checkout-voucher-status" role="status">Checking voucher eligibility…</p>}
+                        {loadingVouchers && <p className="checkout-voucher-status" role="status">Loading available vouchers…</p>}
+                        {!appliedVoucherCode && vouchers.filter((voucher) => voucher.buyer_status === "available").length > 0 && (
+                            <div className="checkout-voucher-available">
+                                {vouchers.filter((voucher) => voucher.buyer_status === "available").map((voucher) => (
+                                    <button
+                                        type="button"
+                                        key={voucher.id}
+                                        onClick={() => applyVoucherCode(voucher.code)}
+                                        disabled={voucherLoading || submitting}
+                                    >
+                                        <span><strong>{voucher.code}</strong><small>{formatVoucherDiscount(voucher)}</small></span>
+                                        <small>{Number(voucher.minimum_spend) > 0 ? `Min. ₱${Number(voucher.minimum_spend).toLocaleString()}` : "Use voucher"}</small>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {!loadingVouchers && vouchers.length > 0 && vouchers.every((voucher) => voucher.buyer_status !== "available") && (
+                            <p className="checkout-voucher-status">There are no currently available vouchers for this account.</p>
+                        )}
+                    </section>
 
                     {/* PAYMENT IS HERE */}
                     <div className="checkout-summary-payment">
                         <div className="checkout-summary-payment-heading">
-                            <span>Payment Method</span>
-                            <span className="checkout-summary-change">
-                                Change
-                            </span>
+                            <div>
+                                <span>Payment Method</span>
+                                {!paymentOptionsOpen && (
+                                    <small className="checkout-payment-current">
+                                        {paymentMethod === "gcash" ? "GCash" : "Cash on Delivery"}
+                                    </small>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                className="checkout-summary-change"
+                                aria-expanded={paymentOptionsOpen}
+                                onClick={() => setPaymentOptionsOpen((open) => !open)}
+                            >
+                                {paymentOptionsOpen ? "Done" : "Change"}
+                            </button>
                         </div>
 
-                        <div className="checkout-payment-options checkout-payment-options-summary">
+                        {paymentOptionsOpen && <div className="checkout-payment-options checkout-payment-options-summary">
                             <label
                                 className={`checkout-payment-option ${
                                     paymentMethod === "cash_on_delivery"
@@ -948,9 +1106,10 @@ function Checkout() {
                                     name="payment"
                                     value="cash_on_delivery"
                                     checked={paymentMethod === "cash_on_delivery"}
-                                    onChange={(event) =>
-                                        setPaymentMethod(event.target.value)
-                                    }
+                                    onChange={(event) => {
+                                        setPaymentMethod(event.target.value);
+                                        setPaymentOptionsOpen(false);
+                                    }}
                                 />
 
                                 <span className="checkout-payment-radio">
@@ -973,26 +1132,30 @@ function Checkout() {
                                     name="payment"
                                     value="gcash"
                                     checked={paymentMethod === "gcash"}
-                                    onChange={(event) =>
-                                        setPaymentMethod(event.target.value)
-                                    }
+                                    onChange={(event) => {
+                                        setPaymentMethod(event.target.value);
+                                        setPaymentOptionsOpen(false);
+                                    }}
                                 />
 
                                 <span className="checkout-payment-radio">
                                     <strong>GCash</strong>
                                     <small>
-                                        Pay using your GCash account
+                                        GCash selected for this order
                                     </small>
                                 </span>
                             </label>
-                        </div>
+                        </div>}
                     </div>
 
                     <div className="checkout-summary-total">
-                        <span>Total</span>
+                        <div>
+                            <span>Estimated total</span>
+                            {voucherPreview && <small>Discount is applied to eligible merchandise only.</small>}
+                        </div>
 
                         <strong>
-                            ₱{subtotal.toLocaleString()}
+                            ₱{total.toLocaleString()}
                         </strong>
                     </div>
 
@@ -1010,7 +1173,7 @@ function Checkout() {
                     </button>
 
                     <p className="checkout-secure-note">
-                        Your order details are reviewed before checkout.
+                        CRYMA checks current prices and stock when you place your order.
                     </p>
                 </aside>
             </div>
@@ -1020,13 +1183,14 @@ function Checkout() {
             ===================================================== */}
 
             {showConfirmModal && (
-                <div
-                    className="checkout-confirm-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="checkout-confirm-title"
+                <Dialog
+                    open={showConfirmModal}
+                    onClose={() => setShowConfirmModal(false)}
+                    ariaLabelledBy="checkout-confirm-title"
+                    className="checkout-confirm-modal"
+                    overlayClassName="checkout-confirm-overlay"
+                    busy={submitting}
                 >
-                    <div className="checkout-confirm-modal">
 
                         <button
                             type="button"
@@ -1081,14 +1245,18 @@ function Checkout() {
                                 </strong>
                             </div>
 
+                            {voucherPreview && (
+                                <div>
+                                    <span>Voucher ({voucherPreview.voucher.code})</span>
+                                    <strong>−₱{Number(voucherPreview.discount_amount).toLocaleString()}</strong>
+                                </div>
+                            )}
+
                             <div className="total">
-                                <span>
-                                    Total
-                                </span>
+                                <span>Estimated total</span>
 
                                 <strong>
-                                    ₱
-                                    {total.toLocaleString()}
+                                    ₱{total.toLocaleString()}
                                 </strong>
                             </div>
 
@@ -1124,8 +1292,7 @@ function Checkout() {
 
                         </div>
 
-                    </div>
-                </div>
+                </Dialog>
             )}
 
         </main>

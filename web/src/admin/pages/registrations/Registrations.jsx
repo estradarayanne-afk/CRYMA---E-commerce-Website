@@ -66,7 +66,7 @@ function Registrations() {
         date ? new Date(date).toLocaleDateString() : "—";
 
     const showError = (error, fallback) =>
-        setError(error.response?.data?.message || fallback);
+        setError(error.response?.data?.message || error.message || fallback);
 
     // =========================================================
     // FETCH REGISTRATIONS
@@ -124,6 +124,14 @@ function Registrations() {
                 `/admin/registrations/${id}/${action}`
             );
 
+            const expectedStatus = action === "approve" ? "active" : "rejected";
+            if (data?.success !== true || data?.data?.status !== expectedStatus) {
+                throw new Error(
+                    data?.message ||
+                        `The server did not confirm that this registration was ${expectedStatus}.`
+                );
+            }
+
             setSuccess(
                 data.message ||
                     `Registration ${action}d successfully.`
@@ -134,6 +142,7 @@ function Registrations() {
             );
 
             setSelectedRegistration(null);
+            return true;
         } catch (error) {
             console.error(error);
 
@@ -141,6 +150,7 @@ function Registrations() {
                 error,
                 `Unable to ${action} registration.`
             );
+            return false;
         } finally {
             setProcessingId(null);
         }
@@ -173,10 +183,12 @@ function Registrations() {
 
         if (!registration || !action) return;
 
-        await updateRegistration(
+        const succeeded = await updateRegistration(
             registration.id,
             action
         );
+
+        if (!succeeded) return;
 
         setConfirmationModal({
             open: false,
@@ -1445,6 +1457,7 @@ function Registrations() {
                             </label>
 
                             <textarea
+                                maxLength={500}
                                 value={
                                     rejectionReason
                                 }

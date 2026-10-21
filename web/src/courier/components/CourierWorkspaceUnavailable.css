@@ -1,0 +1,54 @@
+.courier-unavailable-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--rose-cream, #fbf7f5);
+    color: var(--text-primary, #26151a);
+}
+
+.courier-unavailable-card {
+    width: min(560px, 100%);
+    padding: clamp(24px, 5vw, 42px);
+    border: 1px solid var(--color-border, #eadfe1);
+    border-radius: var(--radius-lg, 18px);
+    background: #fff;
+    box-shadow: var(--shadow-card, 0 10px 30px rgba(38, 21, 26, .08));
+}
+
+.courier-unavailable-eyebrow {
+    color: var(--crimson, #b21f3a);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+}
+
+.courier-unavailable-card h1 {
+    margin: 10px 0;
+    font-size: clamp(25px, 5vw, 34px);
+    line-height: 1.2;
+}
+
+.courier-unavailable-card p {
+    margin: 0 0 24px;
+    color: var(--text-muted, #6f6265);
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.courier-unavailable-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 18px;
+    border-radius: 9px;
+    background: var(--crimson, #b21f3a);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.courier-unavailable-link:hover { background: var(--deep-crimson, #8f1b32); }
+.courier-unavailable-link:focus-visible { outline: 3px solid var(--crimson, #b21f3a); outline-offset: 3px; }

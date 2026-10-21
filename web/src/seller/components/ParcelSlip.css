@@ -1,0 +1,180 @@
+.sl-parcel-slip {
+    display: none;
+}
+
+@media print {
+    @page {
+        size: 100mm 150mm portrait;
+        margin: 0;
+    }
+
+    html,
+    body {
+        width: 100mm !important;
+        height: 150mm !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        background: #fff !important;
+    }
+
+    #root {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100mm !important;
+        height: 150mm !important;
+        max-width: 100mm !important;
+        max-height: 150mm !important;
+        overflow: hidden !important;
+    }
+
+    body * {
+        visibility: hidden !important;
+    }
+
+    .sl-parcel-slip,
+    .sl-parcel-slip * {
+        visibility: visible !important;
+    }
+
+    .sl-parcel-slip {
+        position: fixed !important;
+        inset: 0 auto auto 0 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        max-width: 100mm !important;
+        max-height: 150mm !important;
+        width: 100mm !important;
+        height: 150mm !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        flex-direction: column !important;
+        gap: 4mm !important;
+        overflow: hidden !important;
+        padding: 7mm !important;
+        background: #fff !important;
+        color: #171717 !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 9pt !important;
+        line-height: 1.3 !important;
+    }
+
+    .sl-parcel-slip * {
+        box-sizing: border-box !important;
+    }
+
+    .sl-parcel-slip-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        gap: 4mm !important;
+        padding-bottom: 3mm !important;
+        border-bottom: 1px solid #222 !important;
+    }
+
+    .sl-parcel-slip-header p,
+    .sl-parcel-slip-header h1,
+    .sl-parcel-slip-header strong,
+    .sl-parcel-slip-parties h2,
+    .sl-parcel-slip-items h2,
+    .sl-parcel-slip-parties p {
+        margin: 0 !important;
+    }
+
+    .sl-parcel-slip-header p {
+        font-size: 7pt !important;
+        letter-spacing: .12em !important;
+    }
+
+    .sl-parcel-slip-header h1 {
+        margin-top: 1mm !important;
+        font-size: 17pt !important;
+    }
+
+    .sl-parcel-slip-header > strong {
+        align-self: center !important;
+        font-size: 11pt !important;
+        white-space: nowrap !important;
+    }
+
+    .sl-parcel-slip-parties {
+        display: grid !important;
+        gap: 3mm !important;
+    }
+
+    .sl-parcel-slip-parties section {
+        display: grid !important;
+        gap: 1mm !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .sl-parcel-slip-parties h2,
+    .sl-parcel-slip-items h2 {
+        font-size: 8pt !important;
+        letter-spacing: .1em !important;
+    }
+
+    .sl-parcel-slip-parties span,
+    .sl-parcel-slip-parties p {
+        font-size: 8.5pt !important;
+    }
+
+    .sl-parcel-slip-items {
+        display: grid !important;
+        gap: 1.5mm !important;
+    }
+
+    .sl-parcel-slip-items-head,
+    .sl-parcel-slip-item {
+        display: flex !important;
+        justify-content: space-between !important;
+        gap: 3mm !important;
+        padding: 1mm 0 !important;
+        border-bottom: 1px solid #ddd !important;
+    }
+
+    .sl-parcel-slip-items-head {
+        font-size: 7pt !important;
+        font-weight: bold !important;
+    }
+
+    .sl-parcel-slip-item > span {
+        overflow-wrap: anywhere !important;
+    }
+
+    .sl-parcel-slip-item > strong {
+        flex: 0 0 auto !important;
+    }
+
+    .sl-parcel-slip-payment {
+        display: flex !important;
+        justify-content: space-between !important;
+        padding: 2mm 0 !important;
+        border-top: 1px solid #222 !important;
+        border-bottom: 1px solid #222 !important;
+    }
+
+    .sl-parcel-slip-code {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 1mm !important;
+    }
+
+    .sl-parcel-barcode {
+        display: block !important;
+        width: 75mm !important;
+        height: 14mm !important;
+    }
+
+    .sl-parcel-slip-code > strong {
+        font-size: 8pt !important;
+        letter-spacing: .08em !important;
+    }
+
+    .sl-parcel-slip > footer {
+        margin-top: auto !important;
+        padding-top: 2mm !important;
+        border-top: 1px solid #aaa !important;
+        font-size: 7pt !important;
+        text-align: center !important;
+    }
+}

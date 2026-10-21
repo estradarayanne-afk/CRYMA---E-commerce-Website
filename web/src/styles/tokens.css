@@ -14,12 +14,29 @@
     --text-subtle: #B79EA5;
 
     --color-border: #F0DDE2;
+    --surface: var(--white);
+    --surface-raised: #FFFFFF;
     --surface-neutral: #F7F7F5;
     --border-neutral: #E7E5E2;
     --text-neutral-muted: #70696A;
     --color-success: #28705D;
     --color-success-soft: #F0FAF6;
+    --color-success-border: #C8E5D9;
+    --color-warning: #875D15;
+    --color-warning-soft: #FFF8E8;
     --color-danger: var(--crimson);
+    --color-danger-soft: #FFF3F5;
+    --focus-ring: 0 0 0 3px rgba(178, 31, 58, 0.16);
+
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-md: 1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.5rem;
+    --font-size-2xl: 2rem;
+    --font-family-base: Inter, "Segoe UI", Arial, sans-serif;
+    --line-height-tight: 1.2;
+    --line-height-normal: 1.5;
 
     --space-1: 4px;
     --space-2: 8px;
@@ -32,13 +49,16 @@
     --radius-sm: 8px;
     --radius-md: 14px;
     --radius-lg: 20px;
+    --radius-pill: 999px;
     --shadow-card: 0 12px 34px rgba(75, 23, 37, 0.08);
     --shadow-popover: 0 18px 45px rgba(75, 23, 37, 0.13);
+    --shadow-modal: 0 24px 64px rgba(75, 23, 37, 0.2);
     --transition-fast: 180ms ease;
     --transition-standard: 220ms ease;
     --container-wide: 1480px;
     --z-header: 200;
     --z-overlay: 900;
+    --z-toast: 950;
     --z-modal: 1000;
 
     --sidebar-width: 260px;
@@ -46,7 +66,7 @@
     --header-height: 72px;
     --transition: var(--transition-fast);
 
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-family-base);
     color: var(--text-primary);
     background: var(--rose-cream);
     font-synthesis: none;

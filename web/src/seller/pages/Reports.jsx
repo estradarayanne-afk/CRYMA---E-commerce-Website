@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../../shared/services/api";
 
 const TODAY = new Date().toISOString().split("T")[0];
@@ -13,7 +13,7 @@ function Reports() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const load = async (range = { from, to }) => {
+    const load = useCallback(async (range = { from, to }) => {
         setLoading(true);
         setError("");
 
@@ -25,9 +25,12 @@ function Reports() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [from, to]);
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        const timer = window.setTimeout(() => { void load(); }, 0);
+        return () => window.clearTimeout(timer);
+    }, [load]);
 
     const summary = report?.summary || { revenue: 0, orders: 0, units: 0 };
     const monthly = report?.monthly || [];

@@ -170,7 +170,7 @@ function AccountSettings() {
             setPasswordSaving(true);
 
             await api.patch(
-                `/admin/users/${user.id}/password`,
+                "/account/password",
                 passwordForm
             );
 

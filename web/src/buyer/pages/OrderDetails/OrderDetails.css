@@ -215,6 +215,44 @@
     gap: 10px;
 }
 
+.order-confirm-received {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--deep-crimson);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.order-confirm-received:disabled { opacity: .6; cursor: wait; }
+
+.order-confirm-dialog {
+    width: min(440px, 100%);
+    padding: 24px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--white);
+    box-shadow: var(--shadow-modal);
+}
+
+.order-confirm-dialog h2 { margin: 0; color: var(--text-primary); font-size: 20px; }
+.order-confirm-dialog > p { color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+.order-confirm-dialog .order-confirm-error { color: var(--deep-crimson); }
+.order-confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.order-confirm-dialog-actions > button { min-height: 42px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--white); color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 700; }
+.order-confirm-dialog-actions > .order-confirm-received { border-color: var(--crimson); background: var(--crimson); color: var(--white); }
+
+@media (max-width: 480px) {
+    .order-confirm-dialog { padding: 18px; }
+    .order-confirm-dialog-actions { flex-direction: column-reverse; }
+}
+.order-inline-alert,.order-inline-notice { margin: 12px 0; padding: 11px 13px; border-radius: 8px; font-size: 12px; }
+.order-inline-alert { background: #fff1f0; color: #8d2028; }
+.order-inline-notice { background: #eef8f0; color: #21643a; }
+
 .order-completed-panel a {
     min-height: 34px;
     display: inline-flex;
@@ -883,3 +921,29 @@
 .order-support-panel > strong { display: block; margin-top: 12px; color: var(--text-primary); font-size: 14px; }
 .order-support-panel > p { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 .order-support-panel > button { display: inline-flex; align-items: center; gap: 7px; min-height: 37px; padding: 0 11px; border: 1px solid var(--crimson); border-radius: 7px; background: var(--crimson); color: white; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+
+/* Order progress and detail hierarchy */
+.order-details-page { background: var(--rose-cream); color: var(--text-primary); }
+.order-back-link { min-height: 42px; border-color: var(--color-border); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 13px; }
+.order-details-header { border-bottom-color: var(--color-border); }
+.order-details-eyebrow { color: var(--crimson); font-size: 11px; }
+.order-details-header h1 { color: var(--wine); font-size: clamp(28px, 3vw, 38px); }
+.order-details-header p { color: var(--text-muted); font-size: 14px; }
+.order-current-status, .order-panel, .order-summary-panel, .order-mini-panel { border-color: var(--color-border); border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(75, 23, 37, .035); }
+.order-current-status { background: var(--white); }
+.order-current-icon { background: var(--rose-cream); color: var(--crimson); }
+.order-current-status > div:last-child > span, .order-information-box p, .order-panel-heading > span { color: var(--text-muted); }
+.order-current-status h2, .order-panel-heading h2 { color: var(--text-primary); }
+.order-panel-heading > div > span { color: var(--crimson); }
+.order-timeline-content strong { color: var(--text-primary); }
+.order-timeline-content span { color: var(--text-muted); }
+.order-timeline-item.active .order-timeline-marker, .order-timeline-item.completed .order-timeline-marker { background: var(--crimson); }
+.order-summary-panel { background: var(--white); }
+.order-summary-eyebrow { color: var(--crimson); }
+.order-summary-panel h2 { color: var(--text-primary); }
+.order-summary-line, .order-mini-panel span { color: var(--text-muted); }
+.order-summary-line strong, .order-mini-panel strong { color: var(--text-primary); }
+.order-summary-total { border-top-color: var(--color-border); }
+.order-summary-total strong { color: var(--crimson); }
+.order-support-panel > button { min-height: 42px; border-radius: var(--radius-sm); font-size: 13px; }
+.order-details-page a:focus-visible, .order-details-page button:focus-visible { outline: 3px solid var(--crimson); outline-offset: 3px; }

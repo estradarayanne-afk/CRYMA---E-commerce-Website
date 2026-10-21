@@ -377,7 +377,7 @@
 
     background: var(--blush);
 
-    border: 1px solid rgba(79, 166, 160, 0.25);
+    border: 1px solid var(--color-border);
 
     color: var(--crimson);
 
@@ -436,7 +436,7 @@
     border: 1px solid var(--color-border);
     border-radius: 14px;
 
-    box-shadow: 0 18px 45px rgba(8, 43, 45, 0.16);
+    box-shadow: var(--shadow-popover);
 
     z-index: 1200;
 }
@@ -569,6 +569,40 @@
 .al-header-left {
     display: flex;
     align-items: center;
+    gap: 12px;
+}
+
+.al-mobile-menu-toggle {
+    display: none;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--crimson);
+    cursor: pointer;
+    position: relative;
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.al-mobile-menu-toggle span {
+    width: 17px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+}
+
+.al-mobile-menu-toggle:focus-visible,
+.al-sidebar-toggle:focus-visible,
+.al-nav a:focus-visible,
+.al-profile-trigger:focus-visible {
+    outline: 3px solid var(--crimson);
+    outline-offset: 2px;
 }
 
 .al-breadcrumb {
@@ -576,7 +610,7 @@
     align-items: center;
     gap: 9px;
 
-    color: #9aa5a5;
+    color: var(--text-muted);
 
     font-size: 10px;
     font-weight: 500;
@@ -620,7 +654,7 @@
 
     background: var(--crimson);
 
-    box-shadow: 0 0 0 4px rgba(79, 166, 160, 0.1);
+    box-shadow: 0 0 0 4px rgba(178, 31, 58, 0.12);
 }
 
 /* =========================================================
@@ -859,6 +893,11 @@
 
 @media (max-width: 700px) {
 
+    .al-mobile-menu-toggle {
+        display: inline-flex;
+        flex-shrink: 0;
+    }
+
     .al-sidebar {
         width: 280px;
 
@@ -870,8 +909,21 @@
     }
 
     .al-root--mobile-open .al-sidebar {
+        width: 280px;
         transform: translateX(0);
+        z-index: 1001;
+    }
+
+    .al-root--mobile-open .al-header {
         z-index: 1000;
+    }
+
+    .al-root--mobile-open::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        background: rgba(38, 21, 26, 0.28);
     }
 
     .al-main,
@@ -918,15 +970,4 @@
 
 .al-profile-trigger.open {
     background: var(--rose-cream);
-}
-
-@media (max-width: 700px) {
-
-    .al-root--mobile-open::after {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: 999;
-        background: rgba(38, 21, 26, 0.28);
-    }
 }

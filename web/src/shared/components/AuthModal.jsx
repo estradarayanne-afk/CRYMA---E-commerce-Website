@@ -4,6 +4,7 @@ import Login from "../../auth/pages/BuyerLogin";
 import Register from "../../auth/pages/Register";
 import RegistrationChoice from "../../auth/pages/RegistrationChoice";
 import AuthShell from "../../auth/components/AuthShell";
+import Dialog from "./Dialog";
 import { CLOSE_EVENT, OPEN_EVENT } from "./authModalEvents";
 import "./AuthModal.css";
 
@@ -12,7 +13,6 @@ function AuthModal() {
     const [mode, setMode] = useState("login");
     const [registrationRole, setRegistrationRole] = useState("");
     const [authOptions, setAuthOptions] = useState({});
-
     useEffect(() => {
         const handleOpen = (event) => {
             setMode(
@@ -24,18 +24,10 @@ function AuthModal() {
 
             setAuthOptions(event.detail || {});
             setOpen(true);
-
-            document.body.classList.add(
-                "cryma-modal-open"
-            );
         };
 
         const handleClose = () => {
             setOpen(false);
-
-            document.body.classList.remove(
-                "cryma-modal-open"
-            );
         };
 
         window.addEventListener(
@@ -59,39 +51,8 @@ function AuthModal() {
                 handleClose
             );
 
-            document.body.classList.remove(
-                "cryma-modal-open"
-            );
         };
     }, []);
-
-    useEffect(() => {
-        if (!open) {
-            return undefined;
-        }
-
-        const handleKeyDown = (event) => {
-            if (event.key === "Escape") {
-                setOpen(false);
-
-                document.body.classList.remove(
-                    "cryma-modal-open"
-                );
-            }
-        };
-
-        document.addEventListener(
-            "keydown",
-            handleKeyDown
-        );
-
-        return () => {
-            document.removeEventListener(
-                "keydown",
-                handleKeyDown
-            );
-        };
-    }, [open]);
 
     if (!open) {
         return null;
@@ -109,27 +70,17 @@ function AuthModal() {
 
     const close = () => {
         setOpen(false);
-
-        document.body.classList.remove(
-            "cryma-modal-open"
-        );
     };
 
     return (
-        <div
-            className="cryma-auth-overlay"
-            role="presentation"
-            onMouseDown={(event) => {
-                if (
-                    event.target ===
-                    event.currentTarget
-                ) {
-                    close();
-                }
-            }}
+        <Dialog
+            open={open}
+            onClose={close}
+            ariaLabel={mode === "register" ? "Create a CRYMA account" : "Sign in to CRYMA"}
+            overlayClassName="cryma-auth-overlay"
+            className="cryma-auth-dialog"
         >
-            <div onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={mode === "register" ? "Create a CRYMA account" : "Sign in to CRYMA"}>
-              <AuthShell modal>
+            <AuthShell modal>
                 <button
                     type="button"
                     className="cryma-auth-close"
@@ -140,9 +91,6 @@ function AuthModal() {
                 </button>
 
                 <div className="cryma-auth-modal-content">
-                    <button type="button" className="cryma-auth-store-back" onClick={close}>
-                        ← Back to store
-                    </button>
                     {authOptions.promptTitle && (
                         <section className="cryma-auth-prompt">
                             <h2>{authOptions.promptTitle}</h2>
@@ -185,9 +133,8 @@ function AuthModal() {
                         />
                     )}
                 </div>
-              </AuthShell>
-            </div>
-        </div>
+            </AuthShell>
+        </Dialog>
     );
 }
 

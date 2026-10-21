@@ -6,6 +6,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+    Check,
     CheckCheck,
     LoaderCircle,
     MessageCircle,
@@ -13,7 +14,9 @@ import {
 } from "lucide-react";
 import api from "../../../shared/services/api";
 import { showBuyerToast } from "../../../shared/utils/buyerAccess";
+import { getChatMessageRequestId } from "../../../shared/utils/chatMessageRequest";
 import { getConversationIdentity } from "../../../shared/utils/getConversationIdentity";
+import { getBuyerInboxConversations } from "../../../shared/utils/buyerInboxConversations";
 import "./Chat.css";
 
 function getStoredUser() {
@@ -73,8 +76,9 @@ function formatConversationTime(value) {
     });
 }
 
-function Chat() {
+function Chat({ supportOnly = false }) {
     const user = getStoredUser();
+    const userId = user?.id;
     const [searchParams] = useSearchParams();
     const requestedConversationId = searchParams.get("conversation");
 
@@ -91,11 +95,15 @@ function Chat() {
         useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState("");
+    const [supportAvailable, setSupportAvailable] = useState(true);
 
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
+    const pendingMessageRef = useRef(null);
+    const openRequestRef = useRef(0);
 
     const openConversation = useCallback(async (id) => {
+        const requestId = ++openRequestRef.current;
         try {
             setMessagesLoading(true);
             setError("");
@@ -106,20 +114,37 @@ function Chat() {
 
             const conversation =
                 response.data?.data || null;
+            if (requestId !== openRequestRef.current) return;
 
-            setSelectedConversation(
-                conversation
-            );
-
-            await api.patch(
-                `/buyer/chat/conversations/${id}/read`
-            );
-            setConversations((previous) => previous.map((item) =>
-                String(item.id) === String(id)
-                    ? { ...item, messages: (item.messages || []).map((lastMessage) => ({ ...lastMessage, is_read: true })) }
-                    : item
-            ));
+            setSelectedConversation(conversation);
+            try {
+                await api.patch(`/buyer/chat/conversations/${id}/read`);
+                if (requestId !== openRequestRef.current) return;
+                setSelectedConversation((current) => current?.id === conversation?.id
+                    ? {
+                        ...current,
+                        messages: current.messages?.map((item) => (
+                            Number(item.sender_id) === Number(userId)
+                                ? item
+                                : { ...item, is_read: true }
+                        )),
+                    }
+                    : current);
+                setConversations((previous) => previous.map((item) =>
+                    String(item.id) === String(id)
+                        ? { ...item, unread_messages_count: 0, messages: (item.messages || []).map((lastMessage) => (
+                            Number(lastMessage.sender_id) === Number(userId)
+                                ? lastMessage
+                                : { ...lastMessage, is_read: true }
+                        )) }
+                        : item
+                ));
+            } catch (readError) {
+                console.error("Failed to mark conversation as read:", readError);
+                setError("Conversation opened, but its unread status couldn't be updated.");
+            }
         } catch (requestError) {
+            if (requestId !== openRequestRef.current) return;
             console.error(
                 "Failed to load conversation:",
                 requestError
@@ -131,9 +156,11 @@ function Chat() {
                     "We couldn't open this conversation."
             );
         } finally {
-            setMessagesLoading(false);
+            if (requestId === openRequestRef.current) {
+                setMessagesLoading(false);
+            }
         }
-    }, []);
+    }, [userId]);
 
     const loadConversations = useCallback(
         async () => {
@@ -145,16 +172,20 @@ function Chat() {
                     "/buyer/chat/conversations"
                 );
 
-                const data =
+                const allConversations =
                     response.data?.data || [];
+                setSupportAvailable(response.data?.support_available !== false);
 
-                setConversations(
-                    Array.isArray(data) ? data : []
-                );
+                const data = getBuyerInboxConversations(allConversations, supportOnly);
+
+                setConversations(data);
 
                 if (data.length > 0) {
                     const requested = data.find((conversation) => String(conversation.id) === String(requestedConversationId));
                     await openConversation(requested?.id || data[0].id);
+                } else {
+                    setSelectedConversation(null);
+                    setMessage("");
                 }
             } catch (requestError) {
                 console.error(
@@ -171,7 +202,7 @@ function Chat() {
                 setLoading(false);
             }
         },
-        [openConversation, requestedConversationId]
+        [openConversation, requestedConversationId, supportOnly]
     );
 
     useEffect(() => {
@@ -204,6 +235,7 @@ function Chat() {
         if (!selectedConversation?.id) {
             return undefined;
         }
+        const requestToken = openRequestRef.current;
 
         const intervalId = setInterval(async () => {
             try {
@@ -214,10 +246,24 @@ function Chat() {
                 const conversation =
                     response.data?.data || null;
 
-                if (conversation) {
-                    setSelectedConversation(
-                        conversation
-                    );
+                if (conversation && requestToken === openRequestRef.current) {
+                    const unread = conversation.messages?.some((item) => (
+                        Number(item.sender_id) !== Number(userId) && !item.is_read
+                    ));
+                    if (unread) {
+                        await api.patch(`/buyer/chat/conversations/${conversation.id}/read`);
+                        if (requestToken !== openRequestRef.current) return;
+                        conversation.messages = conversation.messages.map((item) => (
+                            Number(item.sender_id) === Number(userId)
+                                ? item
+                                : { ...item, is_read: true }
+                        ));
+                    }
+                    setSelectedConversation((current) => (
+                        String(current?.id) === String(conversation.id)
+                            ? conversation
+                            : current
+                    ));
 
                     setConversations(
                         (previous) =>
@@ -230,6 +276,7 @@ function Chat() {
                                               conversation.messages?.slice(
                                                   -1
                                               ),
+                                          unread_messages_count: 0,
                                           updated_at:
                                               conversation.updated_at,
                                       }
@@ -247,7 +294,7 @@ function Chat() {
 
         return () =>
             clearInterval(intervalId);
-    }, [selectedConversation?.id]);
+    }, [selectedConversation?.id, userId]);
 
     const handleSendMessage = async (event) => {
         event.preventDefault();
@@ -267,10 +314,17 @@ function Chat() {
             setSending(true);
             setError("");
 
+            const requestId = getChatMessageRequestId(
+                pendingMessageRef.current,
+                trimmedMessage,
+                selectedConversation.id
+            );
+            pendingMessageRef.current = { message: trimmedMessage, scope: selectedConversation.id, id: requestId };
             const response = await api.post(
                 `/buyer/chat/conversations/${selectedConversation.id}/messages`,
                 {
                     message: trimmedMessage,
+                    client_message_id: requestId,
                 }
             );
 
@@ -279,18 +333,20 @@ function Chat() {
 
             if (newMessage) {
                 setSelectedConversation(
-                    (previous) => ({
-                        ...previous,
-                        messages: [
-                            ...(previous.messages ||
-                                []),
-                            newMessage,
-                        ],
-                    })
+                    (previous) => previous?.id === selectedConversation.id
+                        ? {
+                            ...previous,
+                            messages: [
+                                ...(previous.messages || []),
+                                ...((previous.messages || []).some((item) => item.id === newMessage.id) ? [] : [newMessage]),
+                            ],
+                        }
+                        : previous
                 );
             }
 
             setMessage("");
+            pendingMessageRef.current = null;
             showBuyerToast("Message sent");
 
             window.setTimeout(() => {
@@ -323,6 +379,11 @@ function Chat() {
     };
 
     const activeIdentity = getConversationIdentity(selectedConversation);
+    const supportBlocked = Boolean(
+        selectedConversation &&
+        activeIdentity.type === "support" &&
+        !supportAvailable
+    );
 
     return (
         <main className="buyer-chat-page">
@@ -330,22 +391,27 @@ function Chat() {
                 <header className="buyer-chat-header">
                     <div>
                         <span className="buyer-chat-eyebrow">
-                            CRYMA SUPPORT
+                            {supportOnly ? "CRYMA CUSTOMER SERVICE" : "SELLER MESSAGES"}
                         </span>
 
-                        <h1>Messages</h1>
+                        <h1>{supportOnly ? "Customer Service" : "Seller messages"}</h1>
 
                         <p>
-                            Need help? Send us a
-                            message and our support
-                            team will assist you.
+                            {supportOnly
+                                ? "Contact CRYMA support about your account, orders, delivery, or payment questions."
+                                : "Ask marketplace sellers about their products and listings."}
                         </p>
                     </div>
                 </header>
 
                 {error && (
-                    <div className="buyer-chat-error">
+                    <div className="buyer-chat-error" role="alert" aria-live="assertive">
                         {error}
+                    </div>
+                )}
+                {supportOnly && !supportAvailable && (
+                    <div className="buyer-chat-support-unavailable" role="status">
+                        CRYMA Customer Service is currently unavailable. Please try again later.
                     </div>
                 )}
 
@@ -353,9 +419,7 @@ function Chat() {
                     <aside className="buyer-chat-sidebar">
                         <div className="buyer-chat-sidebar-heading">
                             <div>
-                                <span>
-                                    SUPPORT
-                                </span>
+                                <span>{supportOnly ? "SUPPORT INBOX" : "SELLER INBOX"}</span>
 
                                 <h2>
                                     Conversations
@@ -378,6 +442,12 @@ function Chat() {
                                     Loading messages...
                                 </span>
                             </div>
+                        ) : error && conversations.length === 0 ? (
+                            <div className="buyer-chat-empty" role="alert">
+                                <MessageCircle size={22} />
+                                <span>We couldn't load your conversations.</span>
+                                <button type="button" onClick={loadConversations}>Try again</button>
+                            </div>
                         ) : conversations.length ===
                           0 ? (
                             <div className="buyer-chat-empty">
@@ -399,9 +469,7 @@ function Chat() {
                                             conversation
                                                 .messages?.[0];
                                         const identity = getConversationIdentity(conversation);
-
-                                        const latestSenderId = Number(lastMessage?.sender_id);
-                                        const hasUnread = Boolean(lastMessage && !lastMessage.is_read && latestSenderId !== Number(user?.id));
+                                        const hasUnread = Number(conversation.unread_messages_count || 0) > 0;
 
                                         return (
                                             <button
@@ -439,11 +507,11 @@ function Chat() {
                                                         </span>
                                                     </div>
 
-                                                    {hasUnread && <span className="buyer-chat-unread">New</span>}
+                                                    {hasUnread && <span className="buyer-chat-unread" aria-label="Unread message">New</span>}
 
                                                     <p>
                                                         {lastMessage?.message ||
-                                                            "Start a conversation with CRYMA Support."}
+                                                            (identity.type === "support" ? "Start a conversation with CRYMA Support." : conversation.product?.name || "Start a conversation with this seller.")}
                                                     </p>
                                                 </div>
                                             </button>
@@ -463,14 +531,12 @@ function Chat() {
                                     />
                                 </div>
 
-                                <h2>
-                                    Your support inbox
-                                </h2>
+                                <h2>Your messages</h2>
 
                                 <p>
-                                    Your CRYMA support
-                                    conversation will
-                                    appear here.
+                                    {supportOnly
+                                        ? "Your CRYMA support conversation will appear here."
+                                        : "Your conversations with marketplace sellers will appear here."}
                                 </p>
                             </div>
                         ) : (
@@ -488,6 +554,7 @@ function Chat() {
                                         <span>
                                             {activeIdentity.description}
                                         </span>
+                                        {selectedConversation.product?.name && <span className="buyer-chat-product-context">About: {selectedConversation.product.name}</span>}
                                     </div>
                                 </header>
 
@@ -523,12 +590,9 @@ function Chat() {
                                             </strong>
 
                                             <span>
-                                                Send a
-                                                message
-                                                below and
-                                                our support
-                                                team can
-                                                assist you.
+                                                {supportOnly
+                                                    ? "Send a message below and CRYMA Customer Service can assist you."
+                                                    : "Send a message below to contact this seller."}
                                             </span>
                                         </div>
                                     ) : (
@@ -568,11 +632,9 @@ function Chat() {
                                                                 )}
 
                                                                 {isMine && (
-                                                                    <CheckCheck
-                                                                        size={
-                                                                            12
-                                                                        }
-                                                                    />
+                                                                    item.is_read
+                                                                        ? <CheckCheck size={12} aria-label="Read" />
+                                                                        : <Check size={12} aria-label="Sent" />
                                                                 )}
                                                             </span>
                                                         </div>
@@ -590,11 +652,16 @@ function Chat() {
                                 </div>
 
                                 <form
-                                    className="buyer-chat-input-area"
+                                    className={`buyer-chat-input-area${supportBlocked ? " support-unavailable" : ""}`}
                                     onSubmit={
                                         handleSendMessage
                                     }
                                 >
+                                    {supportBlocked && (
+                                        <span className="buyer-chat-composer-note" role="status">
+                                            Messages cannot be sent while Customer Service is unavailable.
+                                        </span>
+                                    )}
                                     <textarea
                                         ref={
                                             inputRef
@@ -617,8 +684,9 @@ function Chat() {
                                         rows={1}
                                         maxLength={2000}
                                         placeholder="Type a message..."
+                                        aria-label="Type a message"
                                         disabled={
-                                            sending
+                                            sending || messagesLoading || supportBlocked
                                         }
                                     />
 
@@ -626,6 +694,8 @@ function Chat() {
                                         type="submit"
                                         disabled={
                                             sending ||
+                                            messagesLoading ||
+                                            supportBlocked ||
                                             !message.trim()
                                         }
                                         aria-label="Send message"

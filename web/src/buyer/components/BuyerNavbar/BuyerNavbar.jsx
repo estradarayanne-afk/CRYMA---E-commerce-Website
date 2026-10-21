@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import {
     Bell,
+    Headset,
     ChevronDown,
     Heart,
     LogOut,
     Menu,
     MessageCircle,
+    Package,
     Search,
-    Settings,
     ShoppingCart,
+    Ticket,
     UserRound,
     X,
 } from "lucide-react";
@@ -39,6 +41,26 @@ function getCartCount() {
     return getBuyerCart().reduce((total, item) => total + Number(item.quantity || 1), 0);
 }
 
+function getNotificationReadAt(userId) {
+    try {
+        const value = localStorage.getItem(`cryma_order_activity_read_at:${userId}`);
+        return value ? new Date(value).getTime() || 0 : 0;
+    } catch {
+        return 0;
+    }
+}
+
+function getOrderActivity(orders) {
+    return (Array.isArray(orders) ? orders : []).flatMap((order) =>
+        (Array.isArray(order.delivery_progress?.events) ? order.delivery_progress.events : []).map((event, index) => {
+            const createdAt = event.created_at ? new Date(event.created_at).getTime() : 0;
+            const label = String(event.new_status || event.event_type || "Order updated")
+                .replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+            return { id: `${order.id}:${event.created_at || index}:${label}`, orderId: order.id, label, createdAt };
+        })
+    ).filter((item) => item.createdAt > 0).sort((a, b) => b.createdAt - a.createdAt).slice(0, 12);
+}
+
 function isAvailableCartItem(item) {
     if (item?.stock === null || item?.stock === undefined || item.stock === "") return true;
     const stock = Number(item.stock);
@@ -50,11 +72,22 @@ function BuyerNavbar() {
     const navbarRef = useRef(null);
 
     const [user, setUser] = useState(getStoredUser);
+    const profileImageReference = user?.profile_image_url || user?.profile_image_path || "";
+    const profileImageKey = user?.id && profileImageReference
+        ? `${user.id}:${profileImageReference}`
+        : "";
+    const [profilePhoto, setProfilePhoto] = useState({ key: "", url: "" });
+    const [failedProfilePhotoKey, setFailedProfilePhotoKey] = useState("");
     const [cartCount, setCartCount] = useState(getCartCount);
     const [search, setSearch] = useState("");
     const [mobileOpen, setMobileOpen] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
+    const [orderActivity, setOrderActivity] = useState([]);
+    const [activityLoading, setActivityLoading] = useState(false);
+    const [activityError, setActivityError] = useState("");
+    const [activityRefresh, setActivityRefresh] = useState(0);
+    const [activityReadAt, setActivityReadAt] = useState(() => getNotificationReadAt(getStoredUser()?.id));
     const [messagesOpen, setMessagesOpen] = useState(false);
     const [chatLoading, setChatLoading] = useState(false);
     const [chatError, setChatError] = useState("");
@@ -65,13 +98,41 @@ function BuyerNavbar() {
     const [logoutOpen, setLogoutOpen] = useState(false);
 
     useEffect(() => {
+        if (!profileImageKey || user?.role !== "buyer" || !localStorage.getItem("token")) return undefined;
+
+        let cancelled = false;
+        let objectUrl = "";
+        api.get("/account/profile-image", { responseType: "blob" })
+            .then(({ data }) => {
+                if (!data?.size) return;
+                objectUrl = URL.createObjectURL(data);
+                if (cancelled) {
+                    URL.revokeObjectURL(objectUrl);
+                    return;
+                }
+                setProfilePhoto({ key: profileImageKey, url: objectUrl });
+                setFailedProfilePhotoKey("");
+            })
+            .catch(() => {
+                if (!cancelled) setFailedProfilePhotoKey(profileImageKey);
+            });
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [profileImageKey, user?.role]);
+
+    useEffect(() => {
         const updateCart = () => {
             setCartCount(getCartCount());
             setCartItems(getBuyerCart());
         };
 
         const updateUser = () => {
-            setUser(getStoredUser());
+            const nextUser = getStoredUser();
+            setUser(nextUser);
+            setActivityReadAt(getNotificationReadAt(nextUser?.id));
         };
 
         window.addEventListener("cryma-cart-updated", updateCart);
@@ -88,6 +149,28 @@ function BuyerNavbar() {
             window.removeEventListener("storage", updateUser);
         };
     }, []);
+
+    useEffect(() => {
+        if (!notificationOpen || !isBuyerSession()) return undefined;
+        let cancelled = false;
+        const timeoutId = window.setTimeout(() => {
+            setActivityLoading(true);
+            setActivityError("");
+            api.get("/orders", { params: { sort: "newest", per_page: 10 } })
+                .then(({ data }) => {
+                    if (cancelled) return;
+                    const orders = data?.data?.data ?? data?.data ?? [];
+                    setOrderActivity(getOrderActivity(orders));
+                })
+                .catch((error) => {
+                    if (!cancelled) setActivityError(error.response?.data?.message || "Order activity could not be loaded.");
+                })
+                .finally(() => {
+                    if (!cancelled) setActivityLoading(false);
+                });
+        }, 0);
+        return () => { cancelled = true; window.clearTimeout(timeoutId); };
+    }, [notificationOpen, activityRefresh]);
 
     useEffect(() => {
         if (!messagesOpen || !isBuyerSession()) return undefined;
@@ -159,6 +242,11 @@ function BuyerNavbar() {
         userName.charAt(0).toUpperCase();
 
     const logoDestination = user ? "/shop" : "/";
+    const sellerConversations = conversations.filter((conversation) => Boolean(conversation.seller_id));
+    const unreadActivityCount = orderActivity.filter((item) => item.createdAt > activityReadAt).length;
+    const profilePhotoUrl = profilePhoto.key === profileImageKey && failedProfilePhotoKey !== profileImageKey
+        ? profilePhoto.url
+        : "";
 
     const handleSearch = (event) => {
         event.preventDefault();
@@ -261,7 +349,7 @@ function BuyerNavbar() {
                         to={logoDestination}
                         className="cryma-navbar-logo"
                         onClick={closeMenus}
-                        aria-label="CRYMA home"
+                        aria-label={user ? "CRYMA All Categories" : "CRYMA landing page"}
                     >
                         <span className="cryma-logo-mark">
                             C
@@ -277,24 +365,13 @@ function BuyerNavbar() {
                         className="cryma-main-navigation"
                         aria-label="Main navigation"
                     >
-                        {/* <NavLink
-                            to="/shop"
-                            onClick={closeMenus}
-                            className={({ isActive }) =>
-                                `cryma-nav-link ${
-                                    isActive ? "active" : ""
-                                }`
-                            }
-                        >
-                            Shop
-                        </NavLink> */}
-
                         <NavLink
                             to="/shop"
+                            end
                             onClick={closeMenus}
-                            className="cryma-nav-link"
+                            className={({ isActive }) => `cryma-nav-link${isActive ? " active" : ""}`}
                         >
-                            Discover
+                            All Categories
                         </NavLink>
                     </nav>
 
@@ -311,6 +388,7 @@ function BuyerNavbar() {
 
                         <input
                             type="search"
+                            maxLength={100}
                             value={search}
                             onChange={(event) =>
                                 setSearch(event.target.value)
@@ -388,29 +466,39 @@ function BuyerNavbar() {
                                 aria-expanded={notificationOpen}
                             >
                                 <Bell size={18} />
+                                {unreadActivityCount > 0 && <span className="cryma-notification-badge" aria-label={`${unreadActivityCount} unread order updates`}>{unreadActivityCount > 9 ? "9+" : unreadActivityCount}</span>}
                             </button>
 
                             {notificationOpen && (
                                 <div className="cryma-notification-dropdown">
                                     <div className="cryma-dropdown-title">
-                                        <strong>
-                                            Notifications
-                                        </strong>
+                                        <strong>Order activity</strong>
+                                        {unreadActivityCount > 0 && <button type="button" onClick={() => {
+                                            const readAt = Date.now();
+                                            setActivityReadAt(readAt);
+                                            try { localStorage.setItem(`cryma_order_activity_read_at:${user?.id}`, new Date(readAt).toISOString()); } catch { /* The feed remains available without local storage. */ }
+                                        }}>Mark all read</button>}
                                     </div>
 
-                                    <div className="cryma-empty-notification">
-                                        <div className="cryma-notification-icon">
-                                            <Bell size={20} />
+                                    {!isBuyerSession() ? (
+                                        <div className="cryma-empty-notification"><div className="cryma-notification-icon"><Bell size={20} /></div><strong>Sign in to see order updates</strong><span>Delivery activity for your purchases will appear here.</span><button type="button" onClick={() => requireAuth("login")}>Sign in</button></div>
+                                    ) : activityLoading ? (
+                                        <div className="cryma-empty-notification" role="status">Loading order activity…</div>
+                                    ) : activityError ? (
+                                        <div className="cryma-empty-notification" role="alert"><strong>{activityError}</strong><button type="button" onClick={() => setActivityRefresh((current) => current + 1)}>Retry</button></div>
+                                    ) : orderActivity.length > 0 ? (
+                                        <div className="cryma-notification-list">
+                                            {orderActivity.map((item) => (
+                                                <button type="button" className={`cryma-notification-item ${item.createdAt > activityReadAt ? "unread" : ""}`} key={item.id} onClick={() => goTo(`/orders/${item.orderId}`)}>
+                                                    <span className="cryma-notification-item-icon"><Package size={16} /></span>
+                                                    <span className="cryma-notification-item-copy"><strong>Order #{item.orderId}: {item.label}</strong><small>{new Date(item.createdAt).toLocaleString()}</small></span>
+                                                </button>
+                                            ))}
+                                            <button type="button" className="cryma-notification-footer" onClick={() => goTo("/orders")}>View all orders</button>
                                         </div>
-
-                                        <strong>
-                                            Notifications are not available yet
-                                        </strong>
-
-                                        <span>
-                                            Order, seller, delivery, and support updates will appear here when notifications are available.
-                                        </span>
-                                    </div>
+                                    ) : (
+                                        <div className="cryma-empty-notification"><div className="cryma-notification-icon"><Bell size={20} /></div><strong>No order updates yet</strong><span>Delivery progress will appear here as your orders move through fulfillment.</span><button type="button" onClick={() => goTo("/orders")}>View my orders</button></div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -421,12 +509,12 @@ function BuyerNavbar() {
                                 type="button"
                                 className={`cryma-icon-action ${messagesOpen ? "active" : ""}`}
                                 onClick={() => {
-                                    if (!requireBuyer("Sign in to view messages", "Sign in to contact sellers and CRYMA Customer Service.", "/buyer/chat")) return;
+                                    if (!requireBuyer("Sign in to view seller messages", "Sign in to contact marketplace sellers.", "/buyer/chat")) return;
                                     setMessagesOpen((current) => !current);
                                     setNotificationOpen(false);
                                     setCartOpen(false);
                                 }}
-                                aria-label="Messages"
+                                aria-label="Seller messages"
                                 aria-expanded={messagesOpen}
                             >
                                 <MessageCircle size={18} />
@@ -436,41 +524,28 @@ function BuyerNavbar() {
                         {messagesOpen && (
                             <section className="cryma-messages-popover" aria-label="Recent conversations">
                                 <header>
-                                    <strong>Messages</strong>
+                                    <strong>Seller messages</strong>
                                     <button type="button" onClick={() => setMessagesOpen(false)} aria-label="Close messages"><X size={17} /></button>
                                 </header>
-                                {conversations.length === 0 && (
-                                    <button
-                                        type="button"
-                                        className="cryma-support-shortcut"
-                                        onClick={() => {
-                                            setMessagesOpen(false);
-                                            navigate("/buyer/chat");
-                                        }}
-                                    >
-                                        <span className="cryma-support-avatar">C</span>
-                                        <span><strong>CRYMA Customer Service</strong><small>Contact Customer Service · Official Support</small></span>
-                                        <ChevronDown size={15} />
-                                    </button>
-                                )}
                                 {chatLoading ? (
-                                    <p className="cryma-messages-state">Loading conversations…</p>
+                                    <p className="cryma-messages-state">Loading seller messages…</p>
                                 ) : chatError ? (
                                     <p className="cryma-messages-state">{chatError}</p>
-                                ) : conversations.length > 0 ? conversations.map((conversation) => {
+                                ) : sellerConversations.length > 0 ? sellerConversations.map((conversation) => {
                                     const latest = conversation.messages?.[0];
                                     const identity = getConversationIdentity(conversation);
                                     return (
                                         <button key={conversation.id} type="button" className="cryma-message-preview" onClick={() => { setMessagesOpen(false); navigate(`/buyer/chat?conversation=${conversation.id}`); }}>
                                             <span className={`cryma-message-avatar ${identity.type}`}>{identity.initials}</span>
-                                            <span><strong>{identity.name}</strong><small>{latest?.message || (identity.type === "support" ? "How can we help you?" : "Start a conversation")}</small></span>
+                                            <span><strong>{identity.name}</strong><small>{latest?.message || conversation.product?.name || "Start a conversation"}</small></span>
                                             <time>{conversation.updated_at ? new Date(conversation.updated_at).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" }) : ""}</time>
                                         </button>
                                     );
                                 }) : (
-                                    <p className="cryma-messages-state">Your customer service messages will appear here.</p>
+                                    <p className="cryma-messages-state">No seller conversations yet. Contact a seller from a product page to start one.</p>
                                 )}
-                                <button type="button" className="cryma-open-messages" onClick={() => { setMessagesOpen(false); goTo("/buyer/chat"); }}>Open Messages</button>
+                                <button type="button" className="cryma-open-messages" onClick={() => { setMessagesOpen(false); goTo("/buyer/chat"); }}>Open seller messages</button>
+                                <button type="button" className="cryma-open-messages" onClick={() => { setMessagesOpen(false); goTo("/buyer/support"); }}>Contact Customer Service</button>
                             </section>
                         )}
 
@@ -559,7 +634,14 @@ function BuyerNavbar() {
                                     aria-label="Open account menu"
                                 >
                                     <span className="cryma-avatar">
-                                        {initials}
+                                        {profilePhotoUrl && (
+                                            <img
+                                                src={profilePhotoUrl}
+                                                alt=""
+                                                onError={() => setFailedProfilePhotoKey(profileImageKey)}
+                                            />
+                                        )}
+                                        {!profilePhotoUrl && <span>{initials}</span>}
                                     </span>
 
                                     <span className="cryma-account-name">
@@ -585,7 +667,14 @@ function BuyerNavbar() {
 
                                             <div className="cryma-account-profile">
                                                 <span className="cryma-dropdown-avatar">
-                                                    {initials}
+                                                    {profilePhotoUrl && (
+                                                        <img
+                                                            src={profilePhotoUrl}
+                                                            alt=""
+                                                            onError={() => setFailedProfilePhotoKey(profileImageKey)}
+                                                        />
+                                                    )}
+                                                    {!profilePhotoUrl && <span>{initials}</span>}
                                                 </span>
 
                                                 <div>
@@ -613,33 +702,29 @@ function BuyerNavbar() {
                                         </NavLink>
 
                                         <NavLink
+                                            to="/account?section=vouchers"
+                                            onClick={() => setAccountOpen(false)}
+                                        >
+                                            <Ticket size={16} />
+                                            Vouchers
+                                        </NavLink>
+
+                                        <NavLink
                                             to="/orders"
                                             onClick={() =>
                                                 setAccountOpen(false)
                                             }
                                         >
-                                            <ShoppingCart size={16} />
+                                            <Package size={16} />
                                             My Orders
                                         </NavLink>
 
                                         <NavLink
-                                            to="/wishlist"
-                                            onClick={() =>
-                                                setAccountOpen(false)
-                                            }
+                                            to="/buyer/support"
+                                            onClick={() => setAccountOpen(false)}
                                         >
-                                            <Heart size={16} />
-                                            Wishlist
-                                        </NavLink>
-
-                                        <NavLink
-                                            to="/account"
-                                            onClick={() =>
-                                                setAccountOpen(false)
-                                            }
-                                        >
-                                            <Settings size={16} />
-                                            Account Settings
+                                            <Headset size={16} />
+                                            Customer Service / Help Center
                                         </NavLink>
 
                                         <div className="cryma-dropdown-divider" />
@@ -724,15 +809,16 @@ function BuyerNavbar() {
                         {/* MOBILE USER CARD */}
                         <div className="cryma-mobile-user">
                             <div className="cryma-mobile-user-photo">
-                                {(user?.avatar || user?.profile_image) && (
+                                {profilePhotoUrl && (
                                     <img
-                                        src={user.avatar || user.profile_image}
+                                        src={profilePhotoUrl}
                                         alt=""
+                                        onError={() => setFailedProfilePhotoKey(profileImageKey)}
                                     />
                                 )}
 
-                                <span className="cryma-mobile-avatar">
-                                    {user ? initials : "G"}
+                                <span className={`cryma-mobile-avatar${profilePhotoUrl ? " has-photo" : ""}`}>
+                                    {!profilePhotoUrl && (user ? initials : "G")}
                                 </span>
                             </div>
 
@@ -760,6 +846,7 @@ function BuyerNavbar() {
 
                             <input
                                 type="search"
+                                maxLength={100}
                                 value={search}
                                 onChange={(event) =>
                                     setSearch(event.target.value)
@@ -781,14 +868,7 @@ function BuyerNavbar() {
                                 to="/shop"
                                 onClick={closeMenus}
                             >
-                                Shop All
-                            </NavLink>
-
-                            <NavLink
-                                to="/shop"
-                                onClick={closeMenus}
-                            >
-                                Discover
+                                All Categories
                             </NavLink>
 
                             <button
@@ -796,13 +876,13 @@ function BuyerNavbar() {
                                 onClick={() => {
                                     if (user) {
                                         setMobileOpen(false);
-                                        if (requireBuyer("Sign in to view messages", "Sign in to contact CRYMA Customer Service.", "/buyer/chat")) setMessagesOpen(true);
+                                        if (requireBuyer("Sign in to view seller messages", "Sign in to contact marketplace sellers.", "/buyer/chat")) setMessagesOpen(true);
                                     } else {
-                                        requestBuyerSignIn({ title: "Sign in to view messages", message: "Sign in to contact CRYMA Customer Service.", from: "/buyer/chat" });
+                                        requestBuyerSignIn({ title: "Sign in to view seller messages", message: "Sign in to contact marketplace sellers.", from: "/buyer/chat" });
                                     }
                                 }}
                             >
-                                Messages
+                                Seller messages
                             </button>
 
                             <button
@@ -837,7 +917,10 @@ function BuyerNavbar() {
                                         to="/orders"
                                         onClick={closeMenus}
                                     >
-                                        My Orders
+                                        <span className="cryma-mobile-link-label">
+                                            <Package size={16} aria-hidden="true" />
+                                            My Orders
+                                        </span>
                                     </NavLink>
 
                                     <NavLink
