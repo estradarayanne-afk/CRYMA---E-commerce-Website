@@ -16,12 +16,16 @@ class SellerProfile extends Model
         'birthday',
         'business_name',
         'line_of_business',
+        'tin',
     ];
+
+    protected $hidden = ['tin'];
 
     protected function casts(): array
     {
         return [
             'birthday' => 'date',
+            'tin' => 'encrypted',
         ];
     }
 

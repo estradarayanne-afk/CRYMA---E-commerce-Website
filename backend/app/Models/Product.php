@@ -15,8 +15,10 @@ class Product extends Model
     protected $fillable = [
         'seller_id',
         'name',
+        'sku',
         'description',
         'price',
+        'discounted_price',
         'stock',
         'category',
         'status',
@@ -26,8 +28,19 @@ class Product extends Model
     {
         return [
             'price' => 'decimal:2',
+            'discounted_price' => 'decimal:2',
             'stock' => 'integer',
         ];
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(ProductMedia::class)->orderBy('position')->orderBy('id');
+    }
+
+    public function sellingPrice(): string
+    {
+        return $this->discounted_price ?? $this->price;
     }
 
     /**

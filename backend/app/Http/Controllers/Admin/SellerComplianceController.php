@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\UserDocument;
 use Illuminate\Http\Request;
 
 class SellerComplianceController extends Controller
@@ -116,6 +117,17 @@ class SellerComplianceController extends Controller
             ], 404);
         }
 
+        if (!$seller->email_verified_at) {
+            return response()->json(['success' => false, 'message' => 'Email verification is required before approval.'], 422);
+        }
+        $approvedTypes = UserDocument::where('user_id', $seller->id)
+            ->where('status', 'approved')
+            ->whereIn('document_type', ['valid_id', 'business_permit'])
+            ->pluck('document_type')->unique()->all();
+        if (array_diff(['valid_id', 'business_permit'], $approvedTypes)) {
+            return response()->json(['success' => false, 'message' => 'The valid ID and business permit must be approved first.'], 422);
+        }
+
         $seller->update([
             'status' => 'active',
         ]);
@@ -145,7 +157,7 @@ class SellerComplianceController extends Controller
             'rejection_reason' => [
                 'required',
                 'string',
-                'max:1000',
+                'max:500',
             ],
         ]);
 

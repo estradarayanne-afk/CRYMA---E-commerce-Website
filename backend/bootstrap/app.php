@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->redirectGuestsTo(fn () => null);
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureRole::class,
+            'active' => \App\Http\Middleware\EnsureActiveAccount::class,
+        ]);
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Support\ConversationMessageSender;
 use Illuminate\Http\Request;
 
 class ChatController extends Controller
@@ -25,6 +26,10 @@ class ChatController extends Controller
                 $query->latest()->limit(1);
             }
         ])
+        ->withCount(['messages as unread_messages_count' => function ($query) use ($admin) {
+            $query->where('sender_id', '!=', $admin->id)
+                ->where('is_read', false);
+        }])
         ->where('admin_id', $admin->id)
         ->latest()
         ->get();
@@ -41,15 +46,13 @@ class ChatController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function showConversation(
-        Request $request,
-        $id
-    ) {
+    public function showConversation(Request $request, int $id)
+    {
         $conversation = Conversation::with([
             'buyer',
             'admin',
             'messages.sender'
-        ])->findOrFail($id);
+        ])->where('admin_id', $request->user()->id)->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -63,22 +66,21 @@ class ChatController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function sendMessage(
-        Request $request,
-        $id
-    ) {
+    public function sendMessage(Request $request, int $id, ConversationMessageSender $messageSender)
+    {
         $validated = $request->validate([
-            'message' => 'required|string',
+            'message' => ['required', 'string', 'max:2000', 'not_regex:/^\s*$/u'],
+            'client_message_id' => ['sometimes', 'uuid'],
         ]);
 
-        $conversation = Conversation::findOrFail($id);
+        $conversation = Conversation::where('admin_id', $request->user()->id)->findOrFail($id);
 
-        $message = Message::create([
-            'conversation_id' => $conversation->id,
-            'sender_id' => $request->user()->id,
-            'message' => $validated['message'],
-            'is_read' => true,
-        ]);
+        $message = $messageSender->send(
+            $conversation,
+            $request->user(),
+            $validated['message'],
+            $validated['client_message_id'] ?? null
+        );
 
         $message->load('sender');
 
@@ -95,11 +97,9 @@ class ChatController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function markAsRead(
-        Request $request,
-        $id
-    ) {
-        $conversation = Conversation::findOrFail($id);
+    public function markAsRead(Request $request, int $id)
+    {
+        $conversation = Conversation::where('admin_id', $request->user()->id)->findOrFail($id);
 
         Message::where('conversation_id', $conversation->id)
             ->where('sender_id', '!=', $request->user()->id)

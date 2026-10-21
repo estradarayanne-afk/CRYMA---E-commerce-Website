@@ -7,11 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Message extends Model
 {
+    protected $hidden = ['client_message_id'];
+
     protected $fillable = [
         'conversation_id',
         'sender_id',
         'message',
         'is_read',
+        'client_message_id',
     ];
 
     protected $casts = [

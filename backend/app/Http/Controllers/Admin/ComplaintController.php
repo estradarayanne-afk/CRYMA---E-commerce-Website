@@ -116,7 +116,7 @@ class ComplaintController extends Controller
     public function resolve(Request $request, $id)
     {
         $request->validate([
-            'admin_notes' => 'required|string',
+            'admin_notes' => ['required', 'string', 'max:2000', 'not_regex:/^\s*$/u'],
         ]);
 
         $complaint = Complaint::find($id);

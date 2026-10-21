@@ -10,6 +10,8 @@ class UserDocument extends Model
 {
     use HasFactory;
 
+    protected $hidden = ['file_path'];
+
     protected $fillable = [
         'user_id',
         'document_type',

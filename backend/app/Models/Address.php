@@ -12,6 +12,11 @@ class Address extends Model
 
     protected $fillable = [
         'user_id',
+        'label',
+        'recipient_name',
+        'phone',
+        'is_default',
+        'region',
         'province',
         'municipality',
         'barangay',
@@ -21,6 +26,13 @@ class Address extends Model
         'unit_number',
         'postal_code',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_default' => 'boolean',
+        ];
+    }
 
     /**
      * Get the user who owns this address.
