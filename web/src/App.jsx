@@ -34,6 +34,7 @@ import BuyerOrders from "./buyer/pages/Orders/Orders";
 import BuyerProductDetails from "./buyer/pages/ProductDetails/ProductDetails";
 import BuyerReviews from "./buyer/pages/Reviews/Reviews";
 import BuyerAccount from "./buyer/pages/Account/Account";
+import BuyerVouchers from "./buyer/pages/Vouchers/Vouchers";
 import BuyerLayout from "./buyer/layouts/BuyerLayout";
 import BuyerWishlist from "./buyer/pages/Wishlist/Wishlist";
 
@@ -50,6 +51,13 @@ import SellerAccountSettings from "./seller/pages/AccountSettings";
 import CourierLayout from "./courier/layouts/CourierLayout";
 import AdminDeliveries from "./admin/pages/Deliveries/Deliveries";
 import AdminVouchers from "./admin/pages/Vouchers/Vouchers";
+import LogisticsLayout from "./logistics/layouts/LogisticsLayout";
+import LogisticsDashboard from "./logistics/pages/Dashboard";
+import LogisticsUnavailable from "./logistics/pages/LogisticsUnavailable";
+import RiderManagement from "./logistics/pages/RiderManagement";
+import ParcelOperations from "./logistics/pages/ParcelOperations";
+import LogisticsProfile from "./logistics/pages/Profile";
+import LogisticsAccountSettings from "./logistics/pages/AccountSettings";
 
 // ── COURIER ──
 import CourierDashboard from "./courier/pages/Dashboard";
@@ -60,6 +68,8 @@ import CourierPickups from "./courier/pages/Pickups";
 import CourierPickupDetails from "./courier/pages/PickupDetails";
 import CourierEarnings from "./courier/pages/Earnings";
 import CourierHistory from "./courier/pages/History";
+import CourierProfile from "./courier/pages/Profile";
+import CourierAccountSettings from "./courier/pages/AccountSettings";
 
 function App() {
     return (
@@ -154,6 +164,11 @@ function App() {
                         <Route
                             path="/account"
                             element={<BuyerAccount />}
+                        />
+
+                        <Route
+                            path="/buyer/vouchers"
+                            element={<BuyerVouchers />}
                         />
 
                         <Route
@@ -330,6 +345,27 @@ function App() {
                         <Route path="history" element={<CourierHistory />} />
                         <Route path="earnings" element={<CourierEarnings />} />
                         <Route path="chat" element={<CourierChat />} />
+                        <Route path="profile" element={<CourierProfile />} />
+                        <Route path="settings" element={<CourierAccountSettings />} />
+                    </Route>
+                </Route>
+
+                {/* LOGISTICS / SORTING CENTER - LOGISTICS ONLY */}
+                <Route element={<ProtectedRoute allowedRoles={["logistics"]} />}>
+                    <Route path="/logistics" element={<LogisticsLayout />}>
+                        <Route index element={<Navigate to="/logistics/dashboard" replace />} />
+                        <Route path="dashboard" element={<LogisticsDashboard />} />
+                        <Route path="riders" element={<RiderManagement />} />
+                        <Route path="pickups" element={<ParcelOperations section="pickups" />} />
+                        <Route path="incoming-parcels" element={<ParcelOperations section="incoming" />} />
+                        <Route path="sorting" element={<ParcelOperations section="sorting" />} />
+                        <Route path="delivery-assignment" element={<ParcelOperations section="assignment" />} />
+                        <Route path="delivery-monitoring" element={<ParcelOperations section="monitoring" />} />
+                        <Route path="reports" element={<ParcelOperations section="reports" />} />
+                        <Route path="messages" element={<LogisticsUnavailable title="Messages" />} />
+                        <Route path="profile" element={<LogisticsProfile />} />
+                        <Route path="settings" element={<LogisticsAccountSettings />} />
+                        <Route path="account" element={<Navigate to="/logistics/profile" replace />} />
                     </Route>
                 </Route>
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Address;
 use App\Models\BuyerProfile;
 use App\Models\CourierProfile;
+use App\Models\LogisticsProfile;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\UserDocument;
@@ -59,7 +60,7 @@ class RegistrationController extends Controller
 
             'role' => [
                 'required',
-                Rule::in(['buyer', 'seller', 'rider']),
+                Rule::in(['buyer', 'seller', 'rider', 'logistics']),
             ],
 
             'sex' => [
@@ -100,7 +101,7 @@ class RegistrationController extends Controller
              * Seller
              */
             'business_name' => [
-                'required_if:role,seller',
+                'required_if:role,seller,logistics',
                 'nullable',
                 'string',
                 'max:100',
@@ -150,7 +151,7 @@ class RegistrationController extends Controller
             ],
 
             'business_permit' => [
-                'required_if:role,seller',
+                'required_if:role,seller,logistics',
                 'nullable',
                 'file',
                 'mimes:jpg,jpeg,png,pdf',
@@ -260,6 +261,15 @@ class RegistrationController extends Controller
                     ]);
                 }
 
+                if ($validated['role'] === 'logistics') {
+                    LogisticsProfile::create([
+                        'user_id' => $user->id,
+                        'sex' => $validated['sex'],
+                        'birthday' => $validated['birthday'],
+                        'business_name' => $validated['business_name'],
+                    ]);
+                }
+
                 /*
                  * Store required valid ID.
                  */
@@ -273,6 +283,14 @@ class RegistrationController extends Controller
                  * Seller documents.
                  */
                 if ($validated['role'] === 'seller') {
+                    $this->storeDocument(
+                        $user,
+                        $request->file('business_permit'),
+                        'business_permit', $storedPaths
+                    );
+                }
+
+                if ($validated['role'] === 'logistics') {
                     $this->storeDocument(
                         $user,
                         $request->file('business_permit'),

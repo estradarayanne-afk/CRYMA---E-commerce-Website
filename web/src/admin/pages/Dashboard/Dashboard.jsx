@@ -157,6 +157,7 @@ function AdminDashboard() {
     const getRoleLabel = (role) => {
         if (role === "customer") return "Buyer";
         if (role === "rider") return "Courier";
+        if (role === "logistics") return "Logistics / Sorting Center";
 
         if (!role) return "Unknown";
 

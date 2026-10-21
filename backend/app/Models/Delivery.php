@@ -43,5 +43,6 @@ class Delivery extends Model
     public function deliveryArea(): BelongsTo { return $this->belongsTo(DeliveryArea::class); }
     public function buyerConfirmedBy(): BelongsTo { return $this->belongsTo(User::class, 'buyer_confirmed_by'); }
     public function pickupAssignment(): HasOne { return $this->hasOne(PickupAssignment::class); }
+    public function proof(): HasOne { return $this->hasOne(DeliveryProof::class); }
     public function events(): HasMany { return $this->hasMany(DeliveryEvent::class)->orderBy('created_at')->orderBy('id'); }
 }

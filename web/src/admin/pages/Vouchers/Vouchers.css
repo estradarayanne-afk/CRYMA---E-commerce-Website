@@ -105,9 +105,9 @@
 }
 
 .voucher-alert.success {
-    border-color: #c9e2d2;
-    background: #f0f8f3;
-    color: #246443;
+    border-color: #F0DDE2;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 .voucher-list-card {
@@ -190,7 +190,7 @@
     padding: 12px 13px;
     background: #fbf8f8;
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 800;
     letter-spacing: .055em;
     text-transform: uppercase;
@@ -239,7 +239,7 @@
     display: block;
     margin-top: 4px;
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 12px;
 }
 
 .voucher-date-cell {
@@ -252,16 +252,16 @@
     align-items: center;
     padding: 5px 8px;
     border-radius: 99px;
-    background: #eff4f2;
-    color: #3d6458;
-    font-size: 9px;
+    background: #FFF7F8;
+    color: #7E1830;
+    font-size: 11px;
     font-weight: 800;
     white-space: nowrap;
 }
 
-.voucher-status.status-active { background: #edf7f0; color: #247249; }
-.voucher-status.status-disabled { background: #f3f3f3; color: #6d7272; }
-.voucher-status.status-scheduled { background: #eef3fa; color: #426483; }
+.voucher-status.status-active { background: #FFF7F8; color: #7E1830; }
+.voucher-status.status-disabled { background: #f3f3f3; color: #6F6265; }
+.voucher-status.status-scheduled { background: #F9DCE4; color: #7E1830; }
 .voucher-status.status-expired,
 .voucher-status.status-exhausted { background: #fff0f1; color: #9c3444; }
 
@@ -283,7 +283,7 @@
     background: var(--white);
     color: var(--text-secondary);
     font: inherit;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
     cursor: pointer;
 }
@@ -294,7 +294,7 @@
 }
 
 .voucher-row-actions button.danger { color: #9c3444; }
-.voucher-row-actions button.enable { color: #247249; }
+.voucher-row-actions button.enable { color: #7E1830; }
 
 .voucher-state {
     display: flex;
@@ -390,7 +390,7 @@
 
 .voucher-modal-header span {
     color: var(--crimson);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 800;
     letter-spacing: .1em;
 }
@@ -440,7 +440,7 @@
 .voucher-form-field em {
     margin-left: 4px;
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 11px;
     font-style: normal;
     font-weight: 400;
 }
@@ -498,7 +498,7 @@
 
 .voucher-form-field small {
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 400;
     line-height: 1.45;
 }
@@ -538,7 +538,7 @@
 
 .voucher-active-toggle small {
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .voucher-form-alert {
@@ -580,7 +580,7 @@
 .voucher-detail-summary span,
 .voucher-detail-restrictions > span {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .voucher-detail-summary strong {
@@ -594,7 +594,7 @@
     padding: 14px 18px;
     border-bottom: 1px solid var(--color-border);
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
 }
 
@@ -617,7 +617,7 @@
 .voucher-redemptions > p,
 .voucher-redemptions > small {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .voucher-redemptions > small {
@@ -660,8 +660,8 @@
     margin: 0 auto 12px;
     place-items: center;
     border-radius: 50%;
-    background: #f0f8f3;
-    color: #27724d;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 .voucher-confirm-icon.warning {

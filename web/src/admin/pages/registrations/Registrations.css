@@ -8,7 +8,7 @@
     margin: 0 auto;
     padding: 32px;
     box-sizing: border-box;
-    color: #17252a;
+    color: #26151A;
 }
 
 /* =========================================================
@@ -33,14 +33,14 @@
 
 .registrations-header p {
     margin: 8px 0 0;
-    color: #6b7280;
+    color: #6F6265;
     font-size: 14px;
 }
 
 .registration-count {
     min-width: 110px;
     padding: 14px 20px;
-    border: 1px solid #dfe5e8;
+    border: 1px solid #E7E5E2;
     border-radius: 12px;
     background: #ffffff;
     text-align: center; display: flex; flex-direction: column; align-items: center;
@@ -56,7 +56,7 @@
 .registration-count span {
     display: block;
     margin-top: 5px;
-    color: #6b7280;
+    color: #6F6265;
     font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
 }
 
@@ -65,23 +65,23 @@
    ========================================================= */
 
 .registration-success {
-    border: 1px solid #bbf7d0;
-    background: #f0fdf4;
-    color: #166534;
+    border: 1px solid #F0DDE2;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 .registration-error {
-    border: 1px solid #fecaca;
-    background: #fef2f2;
+    border: 1px solid #F0DDE2;
+    background: #FFF3F5;
     color: #991b1b;
 }
 
 .registration-loading {
     padding: 50px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #E7E5E2;
     border-radius: 14px;
     background: #ffffff;
-    color: #6b7280;
+    color: #6F6265;
     text-align: center; min-height: 260px; display: flex; align-items: center; justify-content: center; font-size: 14px;
 }
 
@@ -91,10 +91,10 @@
 
 .registrations-card {
     overflow: hidden;
-    border: 1px solid #e1e6e9;
+    border: 1px solid #E7E5E2;
     border-radius: 16px;
     background: #ffffff;
-    box-shadow: 0 4px 18px rgba(20, 35, 40, 0.04);
+    box-shadow: 0 4px 18px rgba(75, 23, 37, 0.04);
 }
 
 /* =========================================================
@@ -107,7 +107,7 @@
     justify-content: space-between;
     gap: 20px;
     padding: 20px;
-    border-bottom: 1px solid #e8ecef; background: var(--white);
+    border-bottom: 1px solid #E7E5E2; background: var(--white);
 }
 
 .registration-search {
@@ -115,20 +115,20 @@
     align-items: center;
     width: min(460px, 100%);
     height: 42px;
-    border: 1px solid #d8dfe3;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
     background: #ffffff;
     transition: border-color 0.18s ease, box-shadow 0.18s ease; position: relative; flex: 1; max-width: 480px;
 }
 
 .registration-search:focus-within {
-    border-color: #245c61;
-    box-shadow: 0 0 0 3px rgba(36, 92, 97, 0.08);
+    border-color: #B21F3A;
+    box-shadow: 0 0 0 3px rgba(178, 31, 58, 0.08);
 }
 
 .search-icon {
     padding-left: 14px;
-    color: #7b858b;
+    color: #6F6265;
     font-size: 20px;
 }
 
@@ -139,7 +139,7 @@
     border: 0;
     outline: none;
     background: transparent;
-    color: #17252a;
+    color: #26151A;
     font-family: inherit;
     font-size: 13px; border-radius: 9px; transition: .15s;
 }
@@ -151,7 +151,7 @@
 }
 
 .registration-filter label {
-    color: #68747a;
+    color: #6F6265;
     font-size: 13px;
     font-weight: 600;
 }
@@ -160,18 +160,18 @@
     min-width: 140px;
     height: 42px;
     padding: 0 12px;
-    border: 1px solid #d8dfe3;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
     outline: none;
     background: #ffffff;
-    color: #27353a;
+    color: #4B3038;
     font-family: inherit;
     font-size: 13px;
     cursor: pointer;
 }
 
 .registration-filter select:focus {
-    border-color: #245c61;
+    border-color: #B21F3A;
 }
 
 /* =========================================================
@@ -190,13 +190,13 @@
 }
 
 .registrations-table thead {
-    background: #f8fafb;
+    background: #FFF7F8;
 }
 
 .registrations-table th {
     padding: 14px 18px;
-    border-bottom: 1px solid #e5e9eb;
-    color: #68747a;
+    border-bottom: 1px solid #E7E5E2;
+    color: #6F6265;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.5px;
@@ -207,8 +207,8 @@
 
 .registrations-table td {
     padding: 16px 18px;
-    border-bottom: 1px solid #edf0f2;
-    color: #344249;
+    border-bottom: 1px solid #F0DDE2;
+    color: #4B3038;
     font-size: 13px;
     vertical-align: middle;
 }
@@ -218,7 +218,7 @@
 }
 
 .registrations-table tbody tr:hover {
-    background: #fafcfc;
+    background: #FFF7F8;
 }
 
 .registrations-table tbody tr:last-child td {
@@ -244,8 +244,8 @@
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: #e5f0ef;
-    color: #245c61;
+    background: #F9DCE4;
+    color: #B21F3A;
     font-size: 14px;
     font-weight: 700;
 }
@@ -258,13 +258,13 @@
 }
 
 .applicant-info strong {
-    color: #1f2d32;
+    color: #26151A;
     font-size: 13px;
     font-weight: 600; white-space: nowrap;
 }
 
 .applicant-info span {
-    color: #8a9499;
+    color: #6F6265;
     font-size: 11px;
 }
 
@@ -273,18 +273,23 @@
    ========================================================= */
 
 .role-seller {
-    background: #eef2ff;
-    color: #4338ca;
+    background: #F9DCE4;
+    color: #7E1830;
 }
 
 .role-buyer {
-    background: #ecfdf5;
-    color: #047857;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 .role-rider {
     background: #fff7ed;
     color: #c2410c;
+}
+
+.role-logistics {
+    background: #F9DCE4;
+    color: #7E1830;
 }
 
 .status-badge {
@@ -311,22 +316,22 @@
 }
 
 .view-button {
-    border: 1px solid #d8dfe3 !important;
+    border: 1px solid #E7E5E2 !important;
     background: #ffffff;
-    color: #37474d;
+    color: #4B3038;
 }
 
 .view-button:hover {
-    background: #f5f7f8;
+    background: #FFF7F8;
 }
 
 .approve-button {
-    background: #e8f5ef;
-    color: #16704c; border: 1px solid var(--crimson);
+    background: #FFF7F8;
+    color: #7E1830; border: 1px solid var(--crimson);
 }
 
 .approve-button:hover {
-    background: #d8eee4;
+    background: #F9DCE4;
 }
 
 .reject-button {
@@ -344,7 +349,7 @@
 
 .empty-registrations {
     padding: 55px 20px !important;
-    color: #8a9499 !important;
+    color: #6F6265 !important;
     text-align: center; height: 220px; font-size: 14px !important;
 }
 
@@ -358,16 +363,16 @@
     justify-content: space-between;
     gap: 20px;
     padding: 16px 20px;
-    border-top: 1px solid #e8ecef; background: var(--white);
+    border-top: 1px solid #E7E5E2; background: var(--white);
 }
 
 .pagination-info {
-    color: #737e84;
+    color: #6F6265;
     font-size: 12px;
 }
 
 .pagination-info strong {
-    color: #344249; font-weight: 600;
+    color: #4B3038; font-weight: 600;
 }
 
 .pagination-controls {
@@ -386,12 +391,12 @@
 
 .pagination-button:hover:not(:disabled),
 .pagination-page:hover {
-    background: #f5f7f8;
+    background: #FFF7F8;
 }
 
 .pagination-page.active {
-    border-color: #245c61;
-    background: #245c61;
+    border-color: #B21F3A;
+    background: #B21F3A;
     color: #ffffff;
 }
 
@@ -424,7 +429,7 @@
     width: min(900px, 100%);
     max-height: 90vh;
     overflow-y: auto;
-    border: 1px solid #e1e6e9;
+    border: 1px solid #E7E5E2;
     border-radius: 16px;
     background: #ffffff;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16); animation: modalIn .2s ease-out;
@@ -436,13 +441,13 @@
     justify-content: space-between;
     gap: 20px;
     padding: 24px 26px;
-    border-bottom: 1px solid #e8ecef;
+    border-bottom: 1px solid #E7E5E2;
 }
 
 .modal-eyebrow {
     display: block;
     margin-bottom: 6px;
-    color: #245c61;
+    color: #B21F3A;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.9px;
@@ -451,7 +456,7 @@
 
 .registration-modal-header h2 {
     margin: 0;
-    color: #17252a;
+    color: #26151A;
     font-size: 22px; font-weight: 700;
 }
 
@@ -463,15 +468,15 @@
     height: 34px;
     border: 0;
     border-radius: 8px;
-    background: #f4f6f7;
-    color: #68747a;
+    background: #FFF7F8;
+    color: #6F6265;
     font-size: 23px;
     line-height: 1;
     cursor: pointer; transition: .15s;
 }
 
 .modal-close-button:hover {
-    background: #e9edef; color: var(--crimson);
+    background: #E7E5E2; color: var(--crimson);
 }
 
 /* =========================================================
@@ -483,8 +488,8 @@
     align-items: center;
     gap: 14px;
     padding: 22px 26px;
-    background: #f8fafb;
-    border-bottom: 1px solid #e8ecef;
+    background: #FFF7F8;
+    border-bottom: 1px solid #E7E5E2;
 }
 
 .registration-profile-avatar {
@@ -494,15 +499,15 @@
     width: 54px;
     height: 54px;
     border-radius: 50%;
-    background: #dfeeed;
-    color: #245c61;
+    background: #FFF7F8;
+    color: #B21F3A;
     font-size: 18px;
     font-weight: 700; flex-shrink: 0;
 }
 
 .registration-profile h3 {
     margin: 0;
-    color: #1f2d32;
+    color: #26151A;
     font-size: 17px; font-weight: 700;
 }
 
@@ -511,7 +516,7 @@
     align-items: center;
     gap: 7px;
     margin-top: 5px;
-    color: #737e84;
+    color: #6F6265;
     font-size: 12px;
     text-transform: capitalize;
 }
@@ -523,12 +528,12 @@
 .registration-detail-section {
     margin: 0 26px;
     padding: 22px 0;
-    border-bottom: 1px solid #edf0f2;
+    border-bottom: 1px solid #F0DDE2;
 }
 
 .registration-detail-section h4 {
     margin: 0 0 16px;
-    color: #26363c;
+    color: #26151A;
     font-size: 13px;
     font-weight: 700;
 }
@@ -542,15 +547,15 @@
 .registration-detail-item {
     min-width: 0;
     padding: 13px 14px;
-    border: 1px solid #e7ebed;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
-    background: #fafbfb; display: flex; flex-direction: column; gap: 4px;
+    background: #FFF7F8; display: flex; flex-direction: column; gap: 4px;
 }
 
 .registration-detail-item span {
     display: block;
     margin-bottom: 5px;
-    color: #879197;
+    color: #6F6265;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3px;
@@ -560,7 +565,7 @@
 .registration-detail-item strong {
     display: block;
     overflow-wrap: anywhere;
-    color: #344249;
+    color: #4B3038;
     font-size: 13px;
     font-weight: 600; word-break: break-word;
 }
@@ -581,9 +586,9 @@
     align-items: center;
     gap: 10px;
     padding: 13px 14px;
-    border: 1px solid #e5e9eb;
+    border: 1px solid #E7E5E2;
     border-radius: 10px;
-    background: #fafbfb;
+    background: #FFF7F8;
 }
 
 .registration-document-info {
@@ -601,9 +606,9 @@
     width: 38px;
     height: 38px;
     border-radius: 8px;
-    background: #edf4f4;
-    color: #245c61;
-    font-size: 9px;
+    background: #FFF7F8;
+    color: #B21F3A;
+    font-size: 11px;
     font-weight: 700;
 }
 
@@ -616,13 +621,13 @@
 
 .registration-document-info strong {
     overflow-wrap: anywhere;
-    color: #344249;
+    color: #4B3038;
     font-size: 13px;
 }
 
 .registration-document-info span {
     overflow-wrap: anywhere;
-    color: #7a858b;
+    color: #6F6265;
     font-size: 11px;
 }
 
@@ -631,10 +636,10 @@
     align-items: center;
     justify-content: center;
     padding: 8px 12px;
-    border: 1px solid #d9dee3;
+    border: 1px solid #E7E5E2;
     border-radius: 7px;
     background: #ffffff;
-    color: #37474d;
+    color: #4B3038;
     font-family: inherit;
     font-size: 11px;
     font-weight: 600;
@@ -648,16 +653,16 @@
 }
 
 .view-document-button:hover {
-    background: #f3f6f7;
+    background: #FFF7F8;
 }
 
 .registration-no-documents,
 .no-documents {
     margin: 0;
     padding: 18px;
-    border: 1px dashed #d1d7da;
+    border: 1px dashed #E7E5E2;
     border-radius: 10px;
-    color: #737e84;
+    color: #6F6265;
     font-size: 13px;
     text-align: center;
 }
@@ -677,10 +682,10 @@
 .modal-cancel-button {
     min-height: 36px;
     padding: 8px 15px;
-    border: 1px solid #d8dfe3 !important;
+    border: 1px solid #E7E5E2 !important;
     border-radius: 7px;
     background: #ffffff;
-    color: #4b5960;
+    color: #4B3038;
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
@@ -688,7 +693,7 @@
 }
 
 .modal-cancel-button:hover {
-    background: #f5f7f8;
+    background: #FFF7F8;
 }
 
 /* =========================================================
@@ -707,20 +712,20 @@
 
 .document-rejection-content p {
     margin: 0 0 5px;
-    color: #7a858b;
+    color: #6F6265;
     font-size: 13px;
 }
 
 .document-rejection-content > strong {
     margin-bottom: 20px;
-    color: #26363c;
+    color: #26151A;
     font-size: 14px;
     overflow-wrap: anywhere;
 }
 
 .document-rejection-content label {
     margin-bottom: 7px;
-    color: #37474d;
+    color: #4B3038;
     font-size: 12px;
     font-weight: 700;
 }
@@ -729,18 +734,18 @@
     width: 100%;
     box-sizing: border-box;
     padding: 11px 12px;
-    border: 1px solid #d8dfe3;
+    border: 1px solid #E7E5E2;
     border-radius: 8px;
     outline: none;
     resize: vertical;
-    color: #26363c;
+    color: #26151A;
     font-family: inherit;
     font-size: 13px;
 }
 
 .document-rejection-content textarea:focus {
-    border-color: #245c61;
-    box-shadow: 0 0 0 3px rgba(36, 92, 97, 0.08);
+    border-color: #B21F3A;
+    box-shadow: 0 0 0 3px rgba(178, 31, 58, 0.08);
 }
 
 /* =========================================================
@@ -847,21 +852,21 @@
     height: 52px;
     margin: 0 auto 18px;
     border-radius: 50%;
-    background: #edf4f4;
-    color: #245c61;
+    background: #FFF7F8;
+    color: #B21F3A;
     font-size: 24px;
     font-weight: 700;
 }
 
 .confirmation-content h2 {
     margin: 0 0 10px;
-    color: #17252a;
+    color: #26151A;
     font-size: 20px;
 }
 
 .confirmation-content p {
     margin: 0;
-    color: #737e84;
+    color: #6F6265;
     font-size: 13px;
     line-height: 1.6;
 }
@@ -869,14 +874,14 @@
 .confirmation-applicant {
     display: block;
     margin-top: 6px;
-    color: #26363c;
+    color: #26151A;
     font-size: 14px;
 }
 
 .confirmation-warning {
     display: block;
     margin-top: 14px;
-    color: #8a9499;
+    color: #6F6265;
     font-size: 11px;
     line-height: 1.5;
 }
@@ -902,7 +907,7 @@
 .registration-search .search-icon { position: absolute; top: 50%; left: 13px; transform: translateY(-50%); color: var(--text-subtle); font-size: 18px; pointer-events: none; }
 .registration-search input::placeholder { color: var(--text-subtle); }
 .registration-search input:focus { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(178,31,58,.07); }
-.pagination-button, .pagination-page { height: 34px; border: 1px solid #d8dfe3; border-radius: 7px; background: #ffffff; color: #4b5960; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: .15s;
+.pagination-button, .pagination-page { height: 34px; border: 1px solid #E7E5E2; border-radius: 7px; background: #ffffff; color: #4B3038; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: .15s;
     display: inline-flex;
     align-items: center;
     justify-content: center; }

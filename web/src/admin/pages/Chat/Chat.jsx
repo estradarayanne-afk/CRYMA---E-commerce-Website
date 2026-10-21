@@ -1,12 +1,49 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../shared/services/api";
 import { getChatMessageRequestId } from "../../../shared/utils/chatMessageRequest";
 import "./Chat.css";
+
+const getConversationActivity = (conversation) => {
+    const date = conversation.messages?.[0]?.created_at
+        || conversation.updated_at
+        || conversation.created_at;
+    return date ? new Date(date).getTime() || 0 : 0;
+};
+
+const getConversationBuyerKey = (conversation) => {
+    const buyerId = conversation.buyer_id ?? conversation.buyer?.id;
+    return buyerId == null ? `conversation:${conversation.id}` : `buyer:${buyerId}`;
+};
+
+const getUniqueBuyerConversations = (items) => {
+    const groups = new Map();
+
+    items.forEach((conversation) => {
+        const key = getConversationBuyerKey(conversation);
+        const group = groups.get(key) || { latest: null, ids: [], unreadCount: 0 };
+
+        group.ids.push(conversation.id);
+        group.unreadCount += Number(conversation.unread_messages_count || 0);
+        if (!group.latest || getConversationActivity(conversation) > getConversationActivity(group.latest)) {
+            group.latest = conversation;
+        }
+        groups.set(key, group);
+    });
+
+    return Array.from(groups.values())
+        .map(({ latest, ids, unreadCount }) => ({
+            ...latest,
+            groupedConversationIds: ids,
+            unread_messages_count: unreadCount,
+        }))
+        .sort((a, b) => getConversationActivity(b) - getConversationActivity(a));
+};
 
 function Chat() {
     const [conversations, setConversations] = useState([]);
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [message, setMessage] = useState("");
+    const [userSearch, setUserSearch] = useState("");
 
     const [loading, setLoading] = useState(true);
     const [messagesLoading, setMessagesLoading] = useState(false);
@@ -14,6 +51,23 @@ function Chat() {
     const [error, setError] = useState("");
     const pendingMessageRef = useRef(null);
     const openRequestRef = useRef(0);
+    const uniqueConversations = useMemo(
+        () => getUniqueBuyerConversations(conversations),
+        [conversations]
+    );
+    const filteredConversations = useMemo(() => {
+        const query = userSearch.trim().toLocaleLowerCase();
+        if (!query) return uniqueConversations;
+
+        return uniqueConversations.filter((conversation) => {
+            const buyer = conversation.buyer;
+            const name = `${buyer?.first_name || ""} ${buyer?.last_name || ""}`;
+            return `${name} ${buyer?.email || ""}`.toLocaleLowerCase().includes(query);
+        });
+    }, [uniqueConversations, userSearch]);
+    const selectedConversationKey = selectedConversation
+        ? getConversationBuyerKey(selectedConversation)
+        : null;
 
     const loadConversations = useCallback(async () => {
         try {
@@ -37,7 +91,9 @@ function Chat() {
         }
     }, []);
 
-    const openConversation = async (id) => {
+    const openConversation = async (conversation) => {
+        const id = conversation.id;
+        const groupedIds = conversation.groupedConversationIds || [id];
         const requestId = ++openRequestRef.current;
         try {
             setMessagesLoading(true);
@@ -48,14 +104,18 @@ function Chat() {
             );
 
             if (requestId !== openRequestRef.current) return;
-            setSelectedConversation(response.data.data);
+            setSelectedConversation({
+                ...response.data.data,
+                groupedConversationIds: groupedIds,
+            });
 
-            await api.patch(
-                `/admin/chat/conversations/${id}/read`
-            );
+            await Promise.allSettled(groupedIds.map((conversationId) => (
+                api.patch(`/admin/chat/conversations/${conversationId}/read`)
+            )));
             if (requestId !== openRequestRef.current) return;
+            const readIds = new Set(groupedIds.map(String));
             setConversations((previous) => previous.map((item) => (
-                String(item.id) === String(id)
+                readIds.has(String(item.id))
                     ? { ...item, unread_messages_count: 0 }
                     : item
             )));
@@ -169,9 +229,23 @@ function Chat() {
                         <h2>Customer conversations</h2>
 
                         <span>
-                            {conversations.length}
+                            {uniqueConversations.length}
                         </span>
                     </div>
+
+                    <label className="conversation-search">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="m16 16 4 4" />
+                        </svg>
+                        <input
+                            type="search"
+                            value={userSearch}
+                            onChange={(event) => setUserSearch(event.target.value)}
+                            placeholder="Search customers"
+                            aria-label="Search customers by name or email"
+                        />
+                    </label>
 
                     <div className="conversation-list">
 
@@ -179,26 +253,28 @@ function Chat() {
                             <div className="chat-empty">
                                 Loading conversations...
                             </div>
-                        ) : conversations.length === 0 ? (
+                        ) : uniqueConversations.length === 0 ? (
                             <div className="chat-empty">
                                 No conversations yet.
                             </div>
+                        ) : filteredConversations.length === 0 ? (
+                            <div className="chat-empty">
+                                No customers match that search.
+                            </div>
                         ) : (
-                            conversations.map(
+                            filteredConversations.map(
                                 (conversation) => (
                                     <button
                                         type="button"
                                         key={conversation.id}
                                         className={
-                                            selectedConversation?.id ===
-                                            conversation.id
+                                            selectedConversationKey ===
+                                                getConversationBuyerKey(conversation)
                                                 ? "conversation-item active"
                                                 : "conversation-item"
                                         }
                                         onClick={() =>
-                                            openConversation(
-                                                conversation.id
-                                            )
+                                            openConversation(conversation)
                                         }
                                     >
                                         <div className="conversation-avatar">

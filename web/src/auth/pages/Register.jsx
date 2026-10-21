@@ -139,11 +139,13 @@ function Register({
     const { role: routeRole } = useParams();
     const role = routeRole || selectedRole;
 
-    const registrationRole = ["seller", "rider"].includes(role)
+    const registrationRole = ["seller", "rider", "logistics"].includes(role)
         ? role
         : "buyer";
     const accountType = registrationRole === "rider"
         ? "Courier"
+        : registrationRole === "logistics"
+            ? "Logistics"
         : registrationRole.charAt(0).toUpperCase() + registrationRole.slice(1);
     const registrationVisual = LANDING_VISUALS.hero;
 
@@ -231,7 +233,7 @@ function Register({
             number: 3,
             label: "Account",
         },
-        ...(registrationRole === "seller" ? [{ number: 4, label: "Business" }] : []),
+        ...(["seller", "logistics"].includes(registrationRole) ? [{ number: 4, label: "Business" }] : []),
         ...(registrationRole === "rider" ? [{ number: 4, label: "Vehicle" }] : []),
         { number: verificationStep, label: "Verification" },
         { number: reviewStep, label: "Review" },
@@ -459,18 +461,16 @@ function Register({
             formData.append("privacy_notice_acknowledged", "1");
             formData.append("privacy_version", POLICY_VERSIONS.privacy);
 
-            if (registrationRole === "seller") {
+            if (["seller", "logistics"].includes(registrationRole)) {
                 formData.append(
                     "business_name",
                     businessName.trim()
                 );
 
-                if (tin.trim()) formData.append("tin", tin.trim());
-
-                formData.append(
-                    "line_of_business",
-                    lineOfBusiness.trim()
-                );
+                if (registrationRole === "seller") {
+                    if (tin.trim()) formData.append("tin", tin.trim());
+                    formData.append("line_of_business", lineOfBusiness.trim());
+                }
 
                 formData.append(
                     "business_permit",
@@ -1416,13 +1416,15 @@ const handleResendVerification = async () => {
                             </section>
                         )}
 
-                        {roleInfoStep === 4 && step === 4 && registrationRole === "seller" && (
+                        {roleInfoStep === 4 && step === 4 && ["seller", "logistics"].includes(registrationRole) && (
                             <section className="register-section">
-                                <div className="section-heading"><span>STEP 04</span><h3>Business information</h3><p>Tell us about the store you are applying to operate.</p></div>
+                                <div className="section-heading"><span>STEP 04</span><h3>Business information</h3><p>{registrationRole === "logistics" ? "Tell us about the business operating this logistics or sorting center." : "Tell us about the store you are applying to operate."}</p></div>
                                 <div className="review-card seller-registration-card">
                                     <div className="auth-field"><label htmlFor="business-name">Business Name <b>*</b></label><input id="business-name" type="text" maxLength={REGISTRATION_LIMITS.businessName} required aria-invalid={Boolean(currentStepErrors.businessName)} value={businessName} onChange={(event) => setBusinessName(capitalizeNameWords(event.target.value))} placeholder="Enter your business name" />{currentStepErrors.businessName && <small className="registration-field-error">{currentStepErrors.businessName}</small>}</div>
-                                    <div className="auth-field"><label htmlFor="seller-tin">Tax Identification Number (TIN) <span className="auto-generated-label">Optional</span></label><input id="seller-tin" type="text" inputMode="numeric" autoComplete="off" maxLength={REGISTRATION_LIMITS.tin} value={tin} onChange={(event) => setTin(event.target.value.replace(/\D/g, "").slice(0, REGISTRATION_LIMITS.tin))} placeholder="Enter 9 to 13 digit TIN" aria-invalid={Boolean(currentStepErrors.tin)} aria-describedby="seller-tin-help" /><small id="seller-tin-help" className="field-hint">For your seller tax and business records. Enter digits only; you may add it later.</small>{currentStepErrors.tin && <small className="registration-field-error">{currentStepErrors.tin}</small>}</div>
-                                    <div className="auth-field"><label htmlFor="line-of-business">Line of Business / Category <b>*</b></label><select id="line-of-business" required aria-invalid={Boolean(currentStepErrors.lineOfBusiness)} value={lineOfBusiness} onChange={(event) => setLineOfBusiness(event.target.value)}><option value="">Select a category</option>{PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select>{currentStepErrors.lineOfBusiness && <small className="registration-field-error">{currentStepErrors.lineOfBusiness}</small>}</div>
+                                    {registrationRole === "seller" && <>
+                                        <div className="auth-field"><label htmlFor="seller-tin">Tax Identification Number (TIN) <span className="auto-generated-label">Optional</span></label><input id="seller-tin" type="text" inputMode="numeric" autoComplete="off" maxLength={REGISTRATION_LIMITS.tin} value={tin} onChange={(event) => setTin(event.target.value.replace(/\D/g, "").slice(0, REGISTRATION_LIMITS.tin))} placeholder="Enter 9 to 13 digit TIN" aria-invalid={Boolean(currentStepErrors.tin)} aria-describedby="seller-tin-help" /><small id="seller-tin-help" className="field-hint">For your seller tax and business records. Enter digits only; you may add it later.</small>{currentStepErrors.tin && <small className="registration-field-error">{currentStepErrors.tin}</small>}</div>
+                                        <div className="auth-field"><label htmlFor="line-of-business">Line of Business / Category <b>*</b></label><select id="line-of-business" required aria-invalid={Boolean(currentStepErrors.lineOfBusiness)} value={lineOfBusiness} onChange={(event) => setLineOfBusiness(event.target.value)}><option value="">Select a category</option>{PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select>{currentStepErrors.lineOfBusiness && <small className="registration-field-error">{currentStepErrors.lineOfBusiness}</small>}</div>
+                                    </>}
                                 </div>
                             </section>
                         )}
@@ -1442,7 +1444,7 @@ const handleResendVerification = async () => {
                                 <div className="section-heading"><span>STEP {String(verificationStep).padStart(2, "0")}</span><h3>Verification documents</h3><p>Upload clear images or PDF files of the documents required for your {accountType.toLowerCase()} application.</p></div>
                                 <div className="review-card seller-registration-card">
                                     <DocumentUploadField id="valid-id" label="Upload Valid ID" file={validId} onSelect={handleValidIdChange} onRemove={() => setValidId(null)} errorMessage={currentStepErrors.validId} />
-                                    {registrationRole === "seller" && <DocumentUploadField id="business-permit" label="Upload Business Permit" file={businessPermit} onSelect={(event) => handleDocumentChange(event, setBusinessPermit, "Business Permit")} onRemove={() => setBusinessPermit(null)} errorMessage={currentStepErrors.businessPermit} />}
+                                    {["seller", "logistics"].includes(registrationRole) && <DocumentUploadField id="business-permit" label="Upload Business / DTI Permit" file={businessPermit} onSelect={(event) => handleDocumentChange(event, setBusinessPermit, "Business Permit")} onRemove={() => setBusinessPermit(null)} errorMessage={currentStepErrors.businessPermit} />}
                                     {registrationRole === "rider" && <DocumentUploadField id="drivers-license" label="Upload Driver's License" file={driversLicense} onSelect={(event) => handleDocumentChange(event, setDriversLicense, "Driver's License")} onRemove={() => setDriversLicense(null)} errorMessage={currentStepErrors.driversLicense} />}
                                     {registrationRole === "rider" && <DocumentUploadField id="or-cr" label="Upload OR/CR" file={orCr} onSelect={(event) => handleDocumentChange(event, setOrCr, "OR/CR")} onRemove={() => setOrCr(null)} errorMessage={currentStepErrors.orCr} />}
                                 </div>
@@ -1452,7 +1454,7 @@ const handleResendVerification = async () => {
                         {step === reviewStep && (
                             <section className="register-section">
                                 <div className="section-heading"><span>STEP {String(reviewStep).padStart(2, "0")}</span><h3>Review your application</h3><p>Confirm your information and uploaded documents before submitting.</p></div>
-                                <div className="registration-note" role="note"><span aria-hidden="true">i</span><p>After submitting your registration, please wait for {registrationRole === "rider" ? "the Logistics/Sorting Center's" : "the administrator's"} approval, which will be sent to your email.</p></div>
+                                <div className="registration-note" role="note"><span aria-hidden="true">i</span><p>After submitting your registration, please verify your email and wait for {registrationRole === "rider" ? "administrator approval of your courier application" : "administrator approval"} before accessing the workspace.</p></div>
 
                                 {/* PERSONAL */}
                                 <div className="review-card">
@@ -1693,12 +1695,12 @@ const handleResendVerification = async () => {
                                     </div>
                                     <div className="review-grid">
                                         <div><small>Valid ID</small><strong>{validId?.name || "Not uploaded"}</strong></div>
-                                        {registrationRole === "seller" && <div><small>Business Permit</small><strong>{businessPermit?.name || "Not uploaded"}</strong></div>}
+                                        {["seller", "logistics"].includes(registrationRole) && <div><small>Business / DTI Permit</small><strong>{businessPermit?.name || "Not uploaded"}</strong></div>}
                                         {registrationRole === "rider" && <><div><small>Driver's License</small><strong>{driversLicense?.name || "Not uploaded"}</strong></div><div><small>OR/CR</small><strong>{orCr?.name || "Not uploaded"}</strong></div></>}
                                     </div>
                                 </div>
 
-                                {registrationRole === "seller" && <div className="review-card"><div className="review-card-header"><div><span>SELLER</span><h4>Business information</h4></div><button type="button" onClick={() => setStep(roleInfoStep)}>Edit</button></div><div className="review-grid"><div><small>Business Name</small><strong>{businessName || "—"}</strong></div><div><small>Line of Business / Category</small><strong>{lineOfBusiness || "—"}</strong></div></div></div>}
+                                {["seller", "logistics"].includes(registrationRole) && <div className="review-card"><div className="review-card-header"><div><span>{registrationRole === "logistics" ? "LOGISTICS" : "SELLER"}</span><h4>Business information</h4></div><button type="button" onClick={() => setStep(roleInfoStep)}>Edit</button></div><div className="review-grid"><div><small>Business Name</small><strong>{businessName || "—"}</strong></div>{registrationRole === "seller" && <div><small>Line of Business / Category</small><strong>{lineOfBusiness || "—"}</strong></div>}</div></div>}
                                 {registrationRole === "rider" && <div className="review-card"><div className="review-card-header"><div><span>COURIER</span><h4>Vehicle information</h4></div><button type="button" onClick={() => setStep(roleInfoStep)}>Edit</button></div><div className="review-grid"><div><small>Vehicle</small><strong>{vehicleType || "—"}</strong></div><div><small>Plate Number</small><strong>{plateNumber || "—"}</strong></div></div></div>}
 
                                 <div className="policy-acceptance-card" aria-labelledby="policy-acceptance-heading">

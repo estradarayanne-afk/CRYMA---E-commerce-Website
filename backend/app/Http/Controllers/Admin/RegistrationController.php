@@ -22,9 +22,10 @@ class RegistrationController extends Controller
                 'buyerProfile',
                 'sellerProfile',
                 'courierProfile.vehicles',
+                'logisticsProfile',
             ])
             ->where('status', 'pending')
-            ->whereIn('role', ['seller', 'buyer', 'rider']);
+            ->whereIn('role', ['seller', 'buyer', 'rider', 'logistics']);
 
         // Search
         if ($request->filled('search')) {
@@ -61,7 +62,7 @@ public function approve(int $id)
 {
     $user = User::where('id', $id)
         ->where('status', 'pending')
-        ->whereIn('role', ['seller', 'buyer', 'rider'])
+        ->whereIn('role', ['seller', 'buyer', 'rider', 'logistics'])
         ->first();
 
     if (!$user) {
@@ -77,6 +78,7 @@ public function approve(int $id)
     $requiredDocuments = match ($user->role) {
         'seller' => ['valid_id', 'business_permit'],
         'rider' => ['valid_id', 'or_cr', 'drivers_license'],
+        'logistics' => ['valid_id', 'business_permit'],
         default => ['valid_id'],
     };
     $approvedTypes = UserDocument::where('user_id', $user->id)
@@ -106,7 +108,7 @@ public function approve(int $id)
     {
         $user = User::where('id', $id)
             ->where('status', 'pending')
-            ->whereIn('role', ['seller', 'buyer', 'rider'])
+            ->whereIn('role', ['seller', 'buyer', 'rider', 'logistics'])
             ->first();
 
         if (!$user) {
@@ -131,7 +133,7 @@ public function approve(int $id)
      */
     public function users(Request $request)
     {
-        $query = User::query()->whereIn('role', ['seller', 'buyer', 'rider']);
+        $query = User::query()->whereIn('role', ['seller', 'buyer', 'rider', 'logistics']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -176,8 +178,15 @@ public function approve(int $id)
             'last_name'   => ['sometimes', 'string', 'max:100'],
             'email'       => ['sometimes', 'email', 'unique:users,email,' . $id],
             'phone'       => ['nullable', 'string', 'max:20'],
-            'role'        => ['sometimes', 'in:buyer,seller,rider'],
+            'role'        => ['sometimes', 'in:buyer,seller,rider,logistics'],
         ]);
+
+        if (($data['role'] ?? null) === 'logistics' && $user->role !== 'logistics') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Logistics access must be granted through the approved registration workflow.',
+            ], 422);
+        }
 
         $user->update($data);
         $user->refresh();
@@ -214,6 +223,7 @@ public function approve(int $id)
             $requiredDocuments = match ($user->role) {
                 'seller' => ['valid_id', 'business_permit'],
                 'rider' => ['valid_id', 'or_cr', 'drivers_license'],
+                'logistics' => ['valid_id', 'business_permit'],
                 default => ['valid_id'],
             };
             $approvedTypes = UserDocument::where('user_id', $user->id)

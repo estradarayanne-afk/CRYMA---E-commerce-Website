@@ -30,7 +30,7 @@ class LogisticsController extends Controller
             'delivery.events.actor:id,first_name,last_name',
         ])->latest()->get();
         $sortingOrders = Order::with([
-            ...$orderDetails, 'delivery.deliveryArea', 'delivery.pickupAssignment.courierProfile.user:id,first_name,last_name',
+            ...$orderDetails, 'delivery.deliveryArea', 'delivery.proof', 'delivery.pickupAssignment.courierProfile.user:id,first_name,last_name',
             'delivery.events.actor:id,first_name,last_name', 'delivery.courierProfile.user:id,first_name,last_name',
         ])->where(function ($query) {
             $query->whereIn('status', [Delivery::AT_SORTING_CENTER, Delivery::SORTED, Delivery::ASSIGNED, Delivery::FAILED])
@@ -39,7 +39,7 @@ class LogisticsController extends Controller
         })
             ->whereHas('delivery')->latest()->get();
         $areas = DeliveryArea::where('is_active', true)->orderBy('name')->get(['id', 'name']);
-        $deliveries = Delivery::with(['order:id,status', 'deliveryArea:id,name', 'courierProfile.user:id,first_name,last_name', 'pickupAssignment.courierProfile.user:id,first_name,last_name', 'events.actor:id,first_name,last_name'])
+        $deliveries = Delivery::with(['order:id,status', 'deliveryArea:id,name', 'courierProfile.user:id,first_name,last_name', 'pickupAssignment.courierProfile.user:id,first_name,last_name', 'events.actor:id,first_name,last_name', 'proof'])
             ->latest()->get();
         $couriers = $eligibility->profiles()->with(['user:id,first_name,last_name', 'vehicles:id,courier_profile_id,vehicle_type', 'deliveryAreas:id,name,is_active'])
             ->orderBy('id')->get();

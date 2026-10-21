@@ -312,15 +312,15 @@ class DeliveryWorkflowTest extends TestCase
         ])->assertOk();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
             'status' => Delivery::DELIVERED, 'expected_status' => Delivery::OUT_FOR_DELIVERY,
-        ])->assertOk();
+        ])->assertUnprocessable();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
-            'status' => Delivery::FAILED, 'expected_status' => Delivery::OUT_FOR_DELIVERY, 'reason' => 'Conflicting stale operation',
+            'status' => Delivery::FAILED, 'expected_status' => Delivery::ASSIGNED, 'reason' => 'Conflicting stale operation',
         ])->assertStatus(409);
         $this->actingAs($admin, 'sanctum')->postJson("/api/admin/orders/{$order->id}/delivery-assignment", [
             'courier_profile_id' => $firstProfile->id, 'delivery_area_id' => $area->id,
             'expected_courier_profile_id' => $secondProfile->id, 'reason' => 'Too late to reassign',
         ])->assertUnprocessable();
-        $this->assertSame(Delivery::DELIVERED, $order->fresh()->status);
+        $this->assertSame(Delivery::OUT_FOR_DELIVERY, $order->fresh()->status);
     }
 
     private function assignPickup(User $admin, Order $order, CourierProfile $profile): PickupAssignment

@@ -41,6 +41,7 @@ function Registrations() {
         seller: registration.seller_profile,
         buyer: registration.buyer_profile,
         rider: registration.courier_profile,
+        logistics: registration.logistics_profile,
     }[registration.role]);
 
     const getAge = (birthday) => {
@@ -460,6 +461,10 @@ function Registrations() {
 
                                 <option value="rider">
                                     Rider
+                                </option>
+
+                                <option value="logistics">
+                                    Logistics / Sorting Center
                                 </option>
                             </select>
                         </div>
@@ -1071,13 +1076,12 @@ function Registrations() {
 
                                     {/* SELLER */}
 
-                                    {selectedRegistration.role ===
-                                        "seller" &&
+                                    {["seller", "logistics"].includes(selectedRegistration.role) &&
                                         profile && (
                                             <section className="registration-detail-section">
 
                                                 <h4>
-                                                    Seller Information
+                                                    {selectedRegistration.role === "logistics" ? "Logistics / Sorting Center Information" : "Seller Information"}
                                                 </h4>
 
                                                 <div className="registration-detail-grid">
@@ -1097,7 +1101,7 @@ function Registrations() {
 
                                                     </div>
 
-                                                    <div className="registration-detail-item">
+                                                    {selectedRegistration.role === "seller" && <div className="registration-detail-item">
 
                                                         <span>
                                                             Line of Business
@@ -1110,7 +1114,7 @@ function Registrations() {
                                                             }
                                                         </strong>
 
-                                                    </div>
+                                                    </div>}
 
                                                 </div>
 

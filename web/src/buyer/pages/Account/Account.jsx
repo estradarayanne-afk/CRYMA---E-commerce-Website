@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Home, KeyRound, LogOut, Mail, Pencil, Phone, Plus, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import api from "../../../shared/services/api";
 import BuyerAddressForm from "../../components/BuyerAddressForm";
-import VoucherPanel from "./VoucherPanel";
 import { normalizeAccountMobile, validatePassword, validateProfile, validateProfileImage } from "./accountValidation";
 import { normalizeBuyerAddress, validateBuyerAddress } from "./addressValidation";
 import "./Account.css";
@@ -29,7 +28,6 @@ function getStoredUser() {
 
 function Account() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
     const token = localStorage.getItem("token");
     const user = getStoredUser();
 
@@ -75,9 +73,7 @@ function Account() {
     const [addressFeedback, setAddressFeedback] = useState("");
     const addressSubmitLock = useRef(false);
     const addressActionLock = useRef(false);
-    const [activeSection, setActiveSection] = useState(() =>
-        searchParams.get("section") === "vouchers" ? "vouchers" : "overview"
-    );
+    const [activeSection, setActiveSection] = useState("overview");
 
     const clearProfileImagePreview = useCallback(() => {
         if (profileImagePreviewRef.current) {
@@ -632,8 +628,6 @@ function Account() {
                             </section>
                         </div>
                     )}
-
-                    {activeSection === "vouchers" && <VoucherPanel />}
 
                     {activeSection === "security" && (
                         <div className="account-security-layout">

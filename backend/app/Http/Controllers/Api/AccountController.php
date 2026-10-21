@@ -17,6 +17,28 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AccountController extends Controller
 {
+    public function logisticsProfile(Request $request)
+    {
+        $user = $request->user()->load(['logisticsProfile', 'addresses']);
+        $profile = $this->safeProfileData($user);
+        $profile['business_name'] = $user->logisticsProfile?->business_name;
+        $profile['birthday'] = $user->logisticsProfile?->birthday?->toDateString();
+        $profile['sex'] = $user->logisticsProfile?->sex;
+        $profile['addresses'] = $user->addresses->map(fn (Address $address) => [
+            'region' => $address->region,
+            'province' => $address->province,
+            'municipality' => $address->municipality,
+            'barangay' => $address->barangay,
+            'street' => $address->street,
+            'house_number' => $address->house_number,
+            'building_name' => $address->building_name,
+            'unit_number' => $address->unit_number,
+            'postal_code' => $address->postal_code,
+        ])->values();
+
+        return response()->json(['success' => true, 'data' => $profile]);
+    }
+
     public function updateProfile(Request $request)
     {
         if ($request->hasFile('profile_image') && !Schema::hasColumn('users', 'profile_image_path')) {

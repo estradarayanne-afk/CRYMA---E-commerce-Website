@@ -161,6 +161,7 @@ function Users() {
     const getRoleLabel = (role) => {
         if (role === "customer") return "Buyer";
         if (role === "rider") return "Courier";
+        if (role === "logistics") return "Logistics / Sorting Center";
 
         return role
             ? role.charAt(0).toUpperCase() + role.slice(1)
@@ -469,6 +470,10 @@ function Users() {
 
                             <option value="rider">
                                 Courier
+                            </option>
+
+                            <option value="logistics">
+                                Logistics / Sorting Center
                             </option>
 
                             <option value="admin">
@@ -1005,6 +1010,10 @@ function Users() {
 
                                             <option value="rider">
                                                 Courier
+                                            </option>
+
+                                            <option value="logistics">
+                                                Logistics / Sorting Center
                                             </option>
                                         </select>
                                     </div>

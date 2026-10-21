@@ -26,7 +26,7 @@
 
 .complaints-header p {
     margin: 7px 0 0;
-    color: #6b7280;
+    color: #6F6265;
     font-size: 14px;
 }
 
@@ -36,13 +36,13 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 1px;
-    color: #315c59;
+    color: #7E1830;
 }
 
 .complaints-count {
     min-width: 90px;
     padding: 12px 18px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #E7E5E2;
     border-radius: 12px;
     background: #ffffff;
     text-align: center;
@@ -55,7 +55,7 @@
 
 .complaints-count span {
     font-size: 12px;
-    color: #6b7280;
+    color: #6F6265;
 }
 
 /* =========================================================
@@ -71,15 +71,15 @@
 }
 
 .complaints-error {
-    background: #fef2f2;
+    background: #FFF3F5;
     color: #b91c1c;
-    border: 1px solid #fecaca;
+    border: 1px solid #F0DDE2;
 }
 
 .complaints-success {
-    background: #f0fdf4;
-    color: #15803d;
-    border: 1px solid #bbf7d0;
+    background: #FFF7F8;
+    color: #7E1830;
+    border: 1px solid #F0DDE2;
 }
 
 /* =========================================================
@@ -88,7 +88,7 @@
 
 .complaints-card {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #E7E5E2;
     border-radius: 16px;
     overflow: hidden;
 }
@@ -103,7 +103,7 @@
     align-items: center;
     gap: 18px;
     padding: 18px 20px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #E7E5E2;
 }
 
 .complaints-search {
@@ -117,7 +117,7 @@
     left: 13px;
     top: 50%;
     transform: translateY(-50%);
-    color: #9ca3af;
+    color: #6f6265;
     font-size: 20px;
 }
 
@@ -125,14 +125,14 @@
     width: 100%;
     box-sizing: border-box;
     padding: 11px 14px 11px 38px;
-    border: 1px solid #d1d5db;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
     outline: none;
     font-size: 14px;
 }
 
 .complaints-search input:focus {
-    border-color: #315c59;
+    border-color: #7E1830;
 }
 
 .complaints-filter {
@@ -144,12 +144,12 @@
 .complaints-filter label {
     font-size: 13px;
     font-weight: 600;
-    color: #4b5563;
+    color: #6F6265;
 }
 
 .complaints-filter select {
     padding: 10px 34px 10px 12px;
-    border: 1px solid #d1d5db;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
     background: #ffffff;
     outline: none;
@@ -173,8 +173,8 @@
 
 .complaints-table th {
     padding: 13px 20px;
-    background: #f9fafb;
-    color: #6b7280;
+    background: #FFF7F8;
+    color: #6F6265;
     font-size: 11px;
     font-weight: 700;
     text-align: left;
@@ -190,7 +190,7 @@
 }
 
 .complaints-table tbody tr:hover {
-    background: #fafafa;
+    background: #FFF7F8;
 }
 
 /* =========================================================
@@ -210,8 +210,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #e7f0ee;
-    color: #315c59;
+    background: #FFF7F8;
+    color: #7E1830;
     font-size: 13px;
     font-weight: 700;
     flex-shrink: 0;
@@ -225,7 +225,7 @@
 .complainant-info span {
     display: block;
     margin-top: 3px;
-    color: #9ca3af;
+    color: #6f6265;
     font-size: 11px;
 }
 
@@ -239,7 +239,7 @@
     gap: 7px;
     padding: 5px 10px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: capitalize;
 }
@@ -257,18 +257,18 @@
 }
 
 .complaint-status.reviewing {
-    background: #eff6ff;
-    color: #2563eb;
+    background: #FFF7F8;
+    color: #B21F3A;
 }
 
 .complaint-status.resolved {
-    background: #f0fdf4;
-    color: #15803d;
+    background: #FFF7F8;
+    color: #7E1830;
 }
 
 .complaint-status.dismissed {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: #FFF7F8;
+    color: #6F6265;
 }
 
 /* =========================================================
@@ -282,7 +282,7 @@
 }
 
 .complaint-priority.low {
-    color: #6b7280;
+    color: #6F6265;
 }
 
 .complaint-priority.medium {
@@ -290,7 +290,7 @@
 }
 
 .complaint-priority.high {
-    color: #dc2626;
+    color: #B21F3A;
 }
 
 /* =========================================================
@@ -299,18 +299,18 @@
 
 .complaint-view-button {
     padding: 8px 14px;
-    border: 1px solid #d1d5db;
+    border: 1px solid #E7E5E2;
     border-radius: 8px;
     background: #ffffff;
-    color: #374151;
+    color: #4B3038;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
 }
 
 .complaint-view-button:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: #FFF7F8;
+    border-color: #6f6265;
 }
 
 /* =========================================================
@@ -321,7 +321,7 @@
 .complaints-empty {
     padding: 60px 20px;
     text-align: center;
-    color: #6b7280;
+    color: #6F6265;
     font-size: 14px;
 }
 
@@ -358,14 +358,14 @@
     justify-content: space-between;
     align-items: flex-start;
     padding: 22px 24px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #E7E5E2;
 }
 
 .complaint-modal-header span {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 1px;
-    color: #315c59;
+    color: #7E1830;
 }
 
 .complaint-modal-header h2 {
@@ -378,14 +378,14 @@
     height: 34px;
     border: none;
     border-radius: 8px;
-    background: #f3f4f6;
+    background: #FFF7F8;
     font-size: 22px;
-    color: #6b7280;
+    color: #6F6265;
     cursor: pointer;
 }
 
 .complaint-modal-close:hover {
-    background: #e5e7eb;
+    background: #E7E5E2;
 }
 
 /* =========================================================
@@ -397,7 +397,7 @@
     align-items: center;
     gap: 13px;
     padding: 20px 24px;
-    background: #fafafa;
+    background: #FFF7F8;
 }
 
 .complaint-profile-avatar {
@@ -407,8 +407,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #e7f0ee;
-    color: #315c59;
+    background: #FFF7F8;
+    color: #7E1830;
     font-weight: 700;
 }
 
@@ -419,7 +419,7 @@
 
 .complaint-profile p {
     margin: 4px 0 0;
-    color: #6b7280;
+    color: #6F6265;
     font-size: 12px;
 }
 
@@ -436,7 +436,7 @@
     margin: 0 0 15px;
     font-size: 13px;
     font-weight: 700;
-    color: #374151;
+    color: #4B3038;
 }
 
 .complaint-detail-grid {
@@ -452,12 +452,12 @@
 }
 
 .complaint-detail-item span {
-    color: #9ca3af;
+    color: #6f6265;
     font-size: 11px;
 }
 
 .complaint-detail-item strong {
-    color: #374151;
+    color: #4B3038;
     font-size: 13px;
 }
 
@@ -469,8 +469,8 @@
     margin: 0;
     padding: 13px 15px;
     border-radius: 9px;
-    background: #f9fafb;
-    color: #4b5563;
+    background: #FFF7F8;
+    color: #6F6265;
     font-size: 13px;
     line-height: 1.6;
 }
@@ -491,7 +491,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #E7E5E2;
     border-radius: 9px;
 }
 
@@ -500,7 +500,7 @@
 }
 
 .complaint-evidence-item a {
-    color: #315c59;
+    color: #7E1830;
     font-size: 12px;
     font-weight: 600;
     text-decoration: none;
@@ -515,7 +515,7 @@
     justify-content: flex-end;
     gap: 10px;
     padding: 18px 24px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid #E7E5E2;
 }
 
 .complaint-cancel-button,
@@ -530,20 +530,20 @@
 }
 
 .complaint-cancel-button {
-    border: 1px solid #d1d5db;
+    border: 1px solid #E7E5E2;
     background: #ffffff;
-    color: #374151;
+    color: #4B3038;
 }
 
 .complaint-review-button {
     border: none;
-    background: #315c59;
+    background: #7E1830;
     color: #ffffff;
 }
 
 .complaint-resolve-button {
     border: none;
-    background: #166534;
+    background: #7E1830;
     color: #ffffff;
 }
 
@@ -554,7 +554,7 @@
 }
 
 .complaint-cancel-button:hover {
-    background: #f9fafb;
+    background: #FFF7F8;
 }
 
 .complaint-review-button:hover,
@@ -592,8 +592,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f3f4f6;
-    color: #315c59;
+    background: #FFF7F8;
+    color: #7E1830;
     font-size: 22px;
     font-weight: 700;
 }
@@ -605,7 +605,7 @@
 
 .complaint-confirm-modal p {
     margin: 10px 0 0;
-    color: #6b7280;
+    color: #6F6265;
     font-size: 13px;
     line-height: 1.6;
 }
@@ -638,8 +638,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #dcfce7;
-    color: #15803d;
+    background: #FFF7F8;
+    color: #7E1830;
     font-size: 25px;
     font-weight: 700;
 }
@@ -651,7 +651,7 @@
 
 .complaint-success-modal p {
     margin: 10px 0 20px;
-    color: #6b7280;
+    color: #6F6265;
     font-size: 13px;
     line-height: 1.6;
 }
@@ -660,7 +660,7 @@
     padding: 10px 22px;
     border: none;
     border-radius: 8px;
-    background: #315c59;
+    background: #7E1830;
     color: #ffffff;
     font-size: 12px;
     font-weight: 600;
@@ -717,22 +717,22 @@
     justify-content: space-between;
     gap: 20px;
     padding: 16px 20px;
-    border-top: 1px solid #e8ecef;
+    border-top: 1px solid #E7E5E2;
 }
-.complaints-pagination-info { color: #737e84; font-size: 12px; }
-.complaints-pagination-info strong { color: #344249; }
+.complaints-pagination-info { color: #6F6265; font-size: 12px; }
+.complaints-pagination-info strong { color: #4B3038; }
 .complaints-pagination-controls, .complaints-pagination-pages { display: flex; align-items: center; gap: 6px; }
 .complaints-pagination-pages { gap: 4px; }
 .complaints-pagination-button, .complaints-pagination-page {
     display: inline-flex; align-items: center; justify-content: center;
-    height: 34px; border: 1px solid #d8dfe3; border-radius: 7px;
-    background: #fff; color: #4b5960; font-family: inherit;
+    height: 34px; border: 1px solid #E7E5E2; border-radius: 7px;
+    background: #fff; color: #4B3038; font-family: inherit;
     font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .complaints-pagination-button { padding: 0 12px; }
 .complaints-pagination-page { width: 34px; }
-.complaints-pagination-button:hover:not(:disabled), .complaints-pagination-page:hover { background: #f5f7f8; }
-.complaints-pagination-page.active { border-color: #245c61; background: #245c61; color: #fff; }
+.complaints-pagination-button:hover:not(:disabled), .complaints-pagination-page:hover { background: #FFF7F8; }
+.complaints-pagination-page.active { border-color: #B21F3A; background: #B21F3A; color: #fff; }
 .complaints-pagination-button:disabled { opacity: .4; cursor: not-allowed; }
 
 @media (max-width: 768px) {

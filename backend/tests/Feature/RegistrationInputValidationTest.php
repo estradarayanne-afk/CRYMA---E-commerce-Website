@@ -167,8 +167,8 @@ class RegistrationInputValidationTest extends TestCase
             'first_name' => 'Maria', 'last_name' => 'Santos',
             'email' => 'age-check@example.com', 'phone' => '09123456789',
             'password' => 'password123', 'password_confirmation' => 'password123',
-            'terms_accepted' => '1', 'terms_version' => '1.0',
-            'privacy_notice_acknowledged' => '1', 'privacy_version' => '1.0',
+            'terms_accepted' => '1', 'terms_version' => '1.1',
+            'privacy_notice_acknowledged' => '1', 'privacy_version' => '1.1',
             'role' => 'buyer', 'sex' => 'female', 'birthday' => $birthday,
             'region' => 'NCR', 'province' => 'Metro Manila', 'municipality' => 'Manila',
             'barangay' => 'Sample', 'street' => 'Rizal Street', 'house_number' => '12',
@@ -312,10 +312,10 @@ class RegistrationInputValidationTest extends TestCase
         $ciphertext = DB::table('seller_profiles')->where('user_id', $user->id)->value('tin');
         $this->assertNotSame($tin, $ciphertext);
         $this->assertDatabaseHas('policy_acceptances', [
-            'user_id' => $user->id, 'policy_type' => 'terms', 'policy_version' => '1.0',
+            'user_id' => $user->id, 'policy_type' => 'terms', 'policy_version' => '1.1',
         ]);
         $this->assertDatabaseHas('policy_acceptances', [
-            'user_id' => $user->id, 'policy_type' => 'privacy_notice', 'policy_version' => '1.0',
+            'user_id' => $user->id, 'policy_type' => 'privacy_notice', 'policy_version' => '1.1',
         ]);
     }
 
@@ -381,12 +381,12 @@ class RegistrationInputValidationTest extends TestCase
         $this->assertDatabaseHas('policy_acceptances', [
             'user_id' => $user->id,
             'policy_type' => 'terms',
-            'policy_version' => '1.0',
+            'policy_version' => '1.1',
         ]);
         $this->assertDatabaseHas('policy_acceptances', [
             'user_id' => $user->id,
             'policy_type' => 'privacy_notice',
-            'policy_version' => '1.0',
+            'policy_version' => '1.1',
         ]);
 
         Mail::assertSent(RegistrationOtpMail::class, function (RegistrationOtpMail $mail) use ($user): bool {

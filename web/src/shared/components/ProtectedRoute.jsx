@@ -6,6 +6,7 @@ const ROLE_HOME = {
     admin: "/admin/dashboard",
     seller: "/seller/dashboard",
     rider: "/courier/dashboard",
+    logistics: "/logistics/dashboard",
     buyer: "/",
 };
 

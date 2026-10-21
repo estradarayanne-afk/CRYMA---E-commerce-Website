@@ -27,6 +27,7 @@ import {
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
 import { getConversationIdentity } from "../../../shared/utils/getConversationIdentity";
+import { getBuyerInboxConversations } from "../../../shared/utils/buyerInboxConversations";
 import "./BuyerNavbar.css";
 
 function getStoredUser() {
@@ -242,7 +243,7 @@ function BuyerNavbar() {
         userName.charAt(0).toUpperCase();
 
     const logoDestination = user ? "/shop" : "/";
-    const sellerConversations = conversations.filter((conversation) => Boolean(conversation.seller_id));
+    const sellerConversations = getBuyerInboxConversations(conversations);
     const unreadActivityCount = orderActivity.filter((item) => item.createdAt > activityReadAt).length;
     const profilePhotoUrl = profilePhoto.key === profileImageKey && failedProfilePhotoKey !== profileImageKey
         ? profilePhoto.url
@@ -702,7 +703,7 @@ function BuyerNavbar() {
                                         </NavLink>
 
                                         <NavLink
-                                            to="/account?section=vouchers"
+                                            to="/buyer/vouchers"
                                             onClick={() => setAccountOpen(false)}
                                         >
                                             <Ticket size={16} />
