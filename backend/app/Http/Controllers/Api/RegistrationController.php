@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use App\Mail\RegistrationOtpMail;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Carbon\CarbonImmutable;
 use Throwable;
 
 class RegistrationController extends Controller
@@ -26,15 +29,33 @@ class RegistrationController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => mb_strtolower(trim($request->input('email')))]);
+        }
+        if (is_string($request->input('phone'))) {
+            $phone = preg_replace('/[\s()-]/', '', $request->input('phone'));
+            if (preg_match('/^9[0-9]{9}$/', $phone)) $phone = '+63' . $phone;
+            elseif (preg_match('/^09[0-9]{9}$/', $phone)) $phone = '+63' . substr($phone, 1);
+            $request->merge(['phone' => $phone]);
+        }
+        if (is_string($request->input('plate_number'))) {
+            $request->merge(['plate_number' => mb_strtoupper(trim($request->input('plate_number')))]);
+        }
+
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:100'],
-            'middle_name' => ['nullable', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
+            'first_name' => ['required', 'string', 'max:30', "regex:/^[\\p{L}\\p{M}]+(?:[ \\x27\\x2D][\\p{L}\\p{M}]+)*$/u"],
+            'middle_name' => ['nullable', 'string', 'max:2', 'regex:/^\\p{L}\\p{M}*\\.?$/u'],
+            'last_name' => ['required', 'string', 'max:30', "regex:/^[\\p{L}\\p{M}]+(?:[ \\x27\\x2D][\\p{L}\\p{M}]+)*$/u"],
 
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:30'],
+            'email' => ['required', 'email', 'min:3', 'max:254', 'unique:users,email'],
+            'phone' => ['required', 'max:13', 'regex:/^\\+639[0-9]{9}$/'],
 
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'max:128', 'confirmed'],
+
+            'terms_accepted' => ['required', 'accepted'],
+            'terms_version' => ['required', Rule::in([config('policies.terms.version')])],
+            'privacy_notice_acknowledged' => ['required', 'accepted'],
+            'privacy_version' => ['required', Rule::in([config('policies.privacy.version')])],
 
             'role' => [
                 'required',
@@ -46,20 +67,34 @@ class RegistrationController extends Controller
                 Rule::in(['male', 'female', 'prefer_not_to_say']),
             ],
 
-            'birthday' => ['required', 'date', 'before:today'],
+            'birthday' => [
+                'required', 'date_format:Y-m-d',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    try {
+                        $birthday = CarbonImmutable::createFromFormat('!Y-m-d', $value, 'Asia/Manila');
+                        $today = CarbonImmutable::now('Asia/Manila')->startOfDay();
+                        if (!$birthday || $birthday->addYears(18)->startOfDay()->greaterThan($today)) {
+                            $fail('You must be at least 18 years old to register.');
+                        }
+                    } catch (Throwable) {
+                        $fail('Enter a valid birthday.');
+                    }
+                },
+            ],
 
             /*
              * Address
              */
+            'region' => ['required', 'string', 'max:100'],
             'province' => ['required', 'string', 'max:150'],
             'municipality' => ['required', 'string', 'max:150'],
             'barangay' => ['required', 'string', 'max:150'],
 
-            'street' => ['nullable', 'string', 'max:255'],
-            'house_number' => ['nullable', 'string', 'max:100'],
-            'building_name' => ['nullable', 'string', 'max:255'],
-            'unit_number' => ['nullable', 'string', 'max:100'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
+            'street' => ['required', 'string', 'max:100'],
+            'house_number' => ['required', 'string', 'max:20'],
+            'building_name' => ['nullable', 'string', 'max:80'],
+            'unit_number' => ['nullable', 'string', 'max:30'],
+            'postal_code' => ['required', 'regex:/^\\d{4}$/'],
 
             /*
              * Seller
@@ -68,14 +103,17 @@ class RegistrationController extends Controller
                 'required_if:role,seller',
                 'nullable',
                 'string',
-                'max:255',
+                'max:100',
+            ],
+            'tin' => [
+                'exclude_unless:role,seller',
+                'nullable', 'string', 'max:13', 'regex:/^[0-9]{9,13}$/',
             ],
 
             'line_of_business' => [
                 'required_if:role,seller',
                 'nullable',
-                'string',
-                'max:255',
+                Rule::in(['Pet Supplies', 'Electronics & Gadgets', "Women's Apparel", "Men's Apparel", 'Kids & Baby', 'Home & Garden', 'Sports & Outdoors', 'Health & Beauty', 'Books & Media', 'Food & Gourmet', 'Automotive & Motorcycle', 'Furniture & Office Equipment', 'Jewelry & Watches', 'Office & School Supplies']),
             ],
 
             /*
@@ -97,7 +135,7 @@ class RegistrationController extends Controller
                 'required_if:role,rider',
                 'nullable',
                 'string',
-                'max:50',
+                'max:15',
                 'unique:vehicles,plate_number',
             ],
 
@@ -138,12 +176,13 @@ class RegistrationController extends Controller
 
         $otp = (string) random_int(100000, 999999);
 
+        $storedPaths = [];
         try {
-            $user = DB::transaction(function () use ($request, $validated, $otp) {
+            $user = DB::transaction(function () use ($request, $validated, $otp, &$storedPaths) {
                 /*
                  * Create base user account.
                  */
-                $user = User::create([
+                $user = User::forceCreate([
                     'first_name' => $validated['first_name'],
                     'middle_name' => $validated['middle_name'] ?? null,
                     'last_name' => $validated['last_name'],
@@ -152,16 +191,29 @@ class RegistrationController extends Controller
                     'password' => Hash::make($validated['password']),
                     'role' => $validated['role'],
                     'status' => 'pending',
+                ]);
+                $user->forceFill([
                     'email_otp_hash' => Hash::make($otp),
                     'email_otp_expires_at' => now()->addMinutes(10),
                     'email_otp_attempts' => 0,
-                ]);
+                ])->save();
+
+                foreach ([
+                    ['type' => 'terms', 'version' => config('policies.terms.version')],
+                    ['type' => 'privacy_notice', 'version' => config('policies.privacy.version')],
+                ] as $acceptance) {
+                    $user->policyAcceptances()->firstOrCreate(
+                        ['policy_type' => $acceptance['type'], 'policy_version' => $acceptance['version']],
+                        ['accepted_at' => now()],
+                    );
+                }
 
                 /*
                  * Create address.
                  */
                 Address::create([
                     'user_id' => $user->id,
+                    'region' => $validated['region'],
                     'province' => $validated['province'],
                     'municipality' => $validated['municipality'],
                     'barangay' => $validated['barangay'],
@@ -190,6 +242,7 @@ class RegistrationController extends Controller
                         'birthday' => $validated['birthday'],
                         'business_name' => $validated['business_name'],
                         'line_of_business' => $validated['line_of_business'],
+                        'tin' => $validated['tin'] ?? null,
                     ]);
                 }
 
@@ -213,7 +266,7 @@ class RegistrationController extends Controller
                 $this->storeDocument(
                     $user,
                     $request->file('valid_id'),
-                    'valid_id'
+                    'valid_id', $storedPaths
                 );
 
                 /*
@@ -223,7 +276,7 @@ class RegistrationController extends Controller
                     $this->storeDocument(
                         $user,
                         $request->file('business_permit'),
-                        'business_permit'
+                        'business_permit', $storedPaths
                     );
                 }
 
@@ -234,13 +287,13 @@ class RegistrationController extends Controller
                     $this->storeDocument(
                         $user,
                         $request->file('or_cr'),
-                        'or_cr'
+                        'or_cr', $storedPaths
                     );
 
                     $this->storeDocument(
                         $user,
                         $request->file('drivers_license'),
-                        'drivers_license'
+                        'drivers_license', $storedPaths
                     );
                 }
 
@@ -252,12 +305,13 @@ class RegistrationController extends Controller
                     new RegistrationOtpMail($otp)
                 );
             } catch (Throwable $exception) {
-                report($exception);
+                Log::warning('Registration email delivery failed.', ['exception_class' => $exception::class]);
 
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Your account was created, but we could not send the verification email. Please contact support.',
-                ], 500);
+                    'success' => true,
+                    'message' => 'Registration was saved. If the verification email does not arrive, request a new code.',
+                    'data' => ['id' => $user->id, 'status' => $user->status, 'role' => $user->role, 'email' => $user->email, 'email_verified' => false],
+                ], 202);
             }
 
             return response()->json([
@@ -273,7 +327,10 @@ class RegistrationController extends Controller
             ], 201);
 
         } catch (Throwable $exception) {
-            report($exception);
+            foreach ($storedPaths as $path) {
+                Storage::disk('local')->delete($path);
+            }
+            Log::error('Registration request failed.', ['exception_class' => $exception::class]);
 
             return response()->json([
                 'success' => false,
@@ -288,19 +345,24 @@ class RegistrationController extends Controller
     private function storeDocument(
         User $user,
         $file,
-        string $documentType
+        string $documentType,
+        array &$storedPaths
     ): UserDocument {
         $path = $file->store(
             "registration-documents/{$user->id}",
-            'public'
+            'local'
         );
+        if (!$path) {
+            throw new \RuntimeException('Registration document storage failed.');
+        }
+        $storedPaths[] = $path;
 
         return UserDocument::create([
             'user_id' => $user->id,
             'document_type' => $documentType,
             'file_path' => $path,
             'original_file_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getClientMimeType(),
+            'mime_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
             'status' => 'pending',
         ]);

@@ -77,14 +77,26 @@ class DocumentController extends Controller
             ], 404);
         }
 
-        if (!Storage::disk('public')->exists($document->file_path)) {
+        $expectedPrefix = "registration-documents/{$document->user_id}/";
+        if (
+            !str_starts_with((string) $document->file_path, $expectedPrefix) ||
+            !preg_match('/\Aregistration-documents\/[1-9][0-9]*\/[A-Za-z0-9._-]+\z/', (string) $document->file_path)
+        ) {
+            return response()->json(['success' => false, 'message' => 'Document not found.'], 404);
+        }
+
+        $disk = Storage::disk('local')->exists($document->file_path)
+            ? 'local'
+            : 'public'; // Compatibility for documents uploaded before private storage was enabled.
+
+        if (!Storage::disk($disk)->exists($document->file_path)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Document file not found.',
             ], 404);
         }
 
-        return Storage::disk('public')->response(
+        return Storage::disk($disk)->response(
             $document->file_path,
             $document->original_file_name,
             [
@@ -146,7 +158,7 @@ class DocumentController extends Controller
         }
 
         $request->validate([
-            'rejection_reason' => ['required', 'string', 'max:1000'],
+            'rejection_reason' => ['required', 'string', 'max:500', 'not_regex:/^\s*$/u'],
         ]);
 
         $document = UserDocument::find($id);

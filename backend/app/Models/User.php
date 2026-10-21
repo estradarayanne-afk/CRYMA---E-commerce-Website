@@ -27,11 +27,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
-        'role',
-        'status',
-        'email_otp_hash',
-        'email_otp_expires_at',
-        'email_otp_attempts',
+        'profile_image_path',
     ];
 
     /**
@@ -42,6 +38,9 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'email_otp_hash',
+        'email_otp_expires_at',
+        'email_otp_attempts',
     ];
 
     /**
@@ -71,6 +70,11 @@ class User extends Authenticatable
     public function documents(): HasMany
     {
         return $this->hasMany(UserDocument::class);
+    }
+
+    public function policyAcceptances(): HasMany
+    {
+        return $this->hasMany(PolicyAcceptance::class);
     }
 
     /**

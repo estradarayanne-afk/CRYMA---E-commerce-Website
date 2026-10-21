@@ -11,6 +11,8 @@ class Conversation extends Model
     protected $fillable = [
         'buyer_id',
         'admin_id',
+        'seller_id',
+        'product_id',
     ];
 
     public function buyer(): BelongsTo
@@ -21,6 +23,16 @@ class Conversation extends Model
     public function admin(): BelongsTo
     {
         return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
     }
 
     public function messages(): HasMany

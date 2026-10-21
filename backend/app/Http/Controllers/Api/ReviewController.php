@@ -11,6 +11,39 @@ use Illuminate\Http\Request;
 class ReviewController extends Controller
 {
     /**
+     * Get reviews for products owned by the authenticated seller.
+     */
+    public function sellerIndex(Request $request)
+    {
+        $ownedReviews = Review::query()
+            ->whereHas('product', function ($query) use ($request) {
+                $query->where('seller_id', $request->user()->id);
+            });
+
+        $reviewCount = (clone $ownedReviews)->count();
+        $averageRating = $reviewCount > 0
+            ? round((float) (clone $ownedReviews)->avg('rating'), 1)
+            : null;
+
+        $reviews = $ownedReviews
+            ->with([
+                'buyer:id,first_name,last_name',
+                'product:id,seller_id,name',
+            ])
+            ->latest()
+            ->paginate(15);
+
+        return response()->json([
+            'success' => true,
+            'data' => $reviews,
+            'summary' => [
+                'review_count' => $reviewCount,
+                'average_rating' => $averageRating,
+            ],
+        ]);
+    }
+
+    /**
      * Get reviews for a product.
      */
     public function index(int $productId)
@@ -68,6 +101,7 @@ class ReviewController extends Controller
                 'nullable',
                 'string',
                 'max:1000',
+                'not_regex:/^\s*$/u',
             ],
         ]);
 
@@ -89,10 +123,7 @@ class ReviewController extends Controller
                 'buyer_id',
                 $request->user()->id
             )
-            ->where(
-                'status',
-                'completed'
-            )
+            ->whereIn('status', ['completed', 'COMPLETED'])
             ->first();
 
         if (!$order) {

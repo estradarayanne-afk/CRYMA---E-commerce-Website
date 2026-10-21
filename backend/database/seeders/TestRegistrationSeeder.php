@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class TestRegistrationSeeder extends Seeder
 {
@@ -13,8 +14,10 @@ class TestRegistrationSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->guardEnvironment();
+
         $registrations = [
-            [
+            'seller' => [
                 'first_name' => 'Maria',
                 'middle_name' => 'Lopez',
                 'last_name' => 'Santos',
@@ -24,7 +27,7 @@ class TestRegistrationSeeder extends Seeder
                 'role' => 'seller',
                 'status' => 'pending',
             ],
-            [
+            'buyer' => [
                 'first_name' => 'Juan',
                 'middle_name' => null,
                 'last_name' => 'Dela Cruz',
@@ -34,7 +37,7 @@ class TestRegistrationSeeder extends Seeder
                 'role' => 'buyer',
                 'status' => 'pending',
             ],
-            [
+            'rider' => [
                 'first_name' => 'Angela',
                 'middle_name' => 'Reyes',
                 'last_name' => 'Garcia',
@@ -44,29 +47,27 @@ class TestRegistrationSeeder extends Seeder
                 'role' => 'rider',
                 'status' => 'pending',
             ],
-            [
-                'first_name' => 'Sofia',
-                'middle_name' => 'Anne',
-                'last_name' => 'Rivera',
-                'email' => 'sofia.rivera@example.com',
-                'phone' => '09201234567',
-                'password' => Hash::make('password123'),
-                'role' => 'seller',
-                'status' => 'pending',
-            ],
         ];
 
-        foreach ($registrations as $registration) {
-            User::updateOrCreate(
-                [
-                    'email' => $registration['email'],
-                ],
-                $registration
-            );
-        }
+        foreach ($registrations as $role => $registration) {
+            if (User::where('role', $role)->exists()) {
+                $this->command?->info("{$role}: skipped (role account already exists; existing account was not changed).");
+                continue;
+            }
+            if (User::whereRaw('LOWER(email) = ?', [strtolower($registration['email'])])->exists()) {
+                $this->command?->warn("{$role}: NEEDS ATTENTION — requested pending-registration email belongs to another role.");
+                continue;
+            }
 
-        $this->command->info(
-            'Test pending registrations created successfully.'
-        );
+            User::forceCreate($registration);
+            $this->command?->info("{$role}: created as a pending registration test account.");
+        }
+    }
+
+    private function guardEnvironment(): void
+    {
+        if (! app()->environment(['local', 'development', 'testing'])) {
+            throw new RuntimeException('Test accounts may only be seeded in local, development, or testing environments.');
+        }
     }
 }

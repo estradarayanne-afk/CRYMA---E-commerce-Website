@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -17,6 +19,9 @@ class OrderController extends Controller
             'buyer',
             'items.product',
             'items.seller',
+            'delivery.events.actor',
+            'delivery.pickupAssignment.courierProfile.user',
+            'delivery.deliveryArea',
         ]);
 
         // Search by order ID or buyer information
@@ -59,6 +64,10 @@ class OrderController extends Controller
             'items.product',
             'items.seller',
             'commission',
+            'delivery.events.actor',
+            'delivery.courierProfile.user',
+            'delivery.pickupAssignment.courierProfile.user',
+            'delivery.deliveryArea',
         ])->find($id);
 
         if (!$order) {
@@ -79,21 +88,37 @@ class OrderController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
-        $request->validate([
-            'status' => 'required|string',
-        ]);
-
-        $order = Order::find($id);
-
-        if (!$order) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Order not found.',
-            ], 404);
+        if (is_string($request->input('status'))) {
+            $request->merge(['status' => mb_strtoupper(trim($request->input('status')))]);
         }
 
-        $order->status = $request->status;
-        $order->save();
+        $validated = $request->validate([
+            'status' => [
+                'required',
+                'in:PENDING,PLACED,CONFIRMED,PREPARING,READY_FOR_PICKUP,CANCELLED',
+            ],
+        ]);
+
+        $order = DB::transaction(function () use ($id, $validated) {
+            $order = Order::with('items')->whereKey($id)->lockForUpdate()->firstOrFail();
+            if ($order->delivery()->exists()) {
+                abort(409, 'This order has delivery history. Use the logistics workflow to preserve assignment and status history.');
+            }
+            $currentStatus = strtoupper((string) $order->status);
+            if ($currentStatus === 'CANCELLED' && $validated['status'] !== 'CANCELLED') {
+                abort(409, 'A cancelled order cannot be reopened.');
+            }
+            if ($currentStatus !== 'CANCELLED' && $validated['status'] === 'CANCELLED') {
+                foreach ($order->items as $item) {
+                    Product::whereKey($item->product_id)
+                        ->lockForUpdate()
+                        ->increment('stock', $item->quantity);
+                }
+            }
+            $order->status = $validated['status'];
+            $order->save();
+            return $order;
+        });
 
         return response()->json([
             'success' => true,

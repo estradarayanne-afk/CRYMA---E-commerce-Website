@@ -5,6 +5,9 @@
 
     RewriteEngine On
 
+    # Registration documents must only be served through the authenticated admin endpoint.
+    RewriteRule ^storage/registration-documents(?:/|$) - [F,L,NC]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
