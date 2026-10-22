@@ -16,8 +16,14 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
 
-RUN php artisan config:clear
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views \
+    storage/logs storage/app/private storage/app/public bootstrap/cache database \
+    && touch database/database.sqlite \
+    && chown -R www-data:www-data storage bootstrap/cache database
+
+ENV DB_CONNECTION=sqlite
+ENV DB_DATABASE=/var/www/database/database.sqlite
 
 EXPOSE 10000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+CMD ["sh", "-c", "php artisan migrate --force && exec php artisan serve --host=0.0.0.0 --port=10000"]
