@@ -36,6 +36,11 @@ class EmailVerificationController extends Controller
                 Mail::to($user->email)->send(new RegistrationOtpMail($otp));
             } catch (Throwable $exception) {
                 Log::warning('Verification email delivery failed.', ['exception_class' => $exception::class]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'We could not send the verification email right now. Please try again shortly.',
+                ], 503);
             }
         }
 

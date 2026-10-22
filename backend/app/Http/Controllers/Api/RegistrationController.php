@@ -326,10 +326,10 @@ class RegistrationController extends Controller
                 Log::warning('Registration email delivery failed.', ['exception_class' => $exception::class]);
 
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Registration was saved. If the verification email does not arrive, request a new code.',
-                    'data' => ['id' => $user->id, 'status' => $user->status, 'role' => $user->role, 'email' => $user->email, 'email_verified' => false],
-                ], 202);
+                    'success' => false,
+                    'registration_saved' => true,
+                    'message' => 'Your registration was saved, but we could not send the verification email. Please try resending the code.',
+                ], 503);
             }
 
             return response()->json([

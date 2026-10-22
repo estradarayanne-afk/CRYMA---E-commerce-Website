@@ -21,6 +21,11 @@ class PasswordRecoveryController extends Controller
             Password::sendResetLink(['email' => mb_strtolower(trim($validated['email']))]);
         } catch (Throwable $exception) {
             Log::warning('Password reset email delivery failed.', ['exception_class' => $exception::class]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'We could not send password reset instructions right now. Please try again shortly.',
+            ], 503);
         }
 
         return response()->json([
