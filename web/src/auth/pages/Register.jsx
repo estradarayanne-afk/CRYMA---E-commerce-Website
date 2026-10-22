@@ -162,6 +162,7 @@ function Register({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [emailDeliveryFailed, setEmailDeliveryFailed] = useState(false);
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
     const [acceptanceError, setAcceptanceError] = useState("");
@@ -582,6 +583,7 @@ function Register({
             );
 
             setSubmitted(true);
+            setEmailDeliveryFailed(false);
             setEmailVerified(false);
             setOtp(Array(6).fill(""));
         } catch (err) {
@@ -589,6 +591,15 @@ function Register({
                 "Registration error:",
                 err
             );
+
+            if (err.response?.data?.registration_saved) {
+                setSubmitted(true);
+                setEmailDeliveryFailed(true);
+                setEmailVerified(false);
+                setOtp(Array(6).fill(""));
+                setError(err.response.data.message);
+                return;
+            }
 
             const validationErrors =
                 err.response?.data?.errors;
@@ -665,8 +676,10 @@ const handleResendVerification = async () => {
     setLoading(true);
     try {
         const response = await api.post("/resend-verification", { email: email.trim().toLowerCase() });
+        setEmailDeliveryFailed(false);
         setError(response.data?.message || "If this address has a pending registration, a new verification code has been sent.");
     } catch (err) {
+        setEmailDeliveryFailed(true);
         setError(err.response?.data?.message || "Unable to request a new code right now. Please try again shortly.");
     } finally {
         setLoading(false);
@@ -724,10 +737,14 @@ const handleResendVerification = async () => {
                             <span className="register-success-eyebrow">EMAIL VERIFICATION</span>
                             <h2 id="otp-verification-title">Confirm your email address</h2>
                             <p className="otp-verification-copy">
-                                Enter the six-digit code we sent to this address to verify your CRYMA account.
+                                {emailDeliveryFailed
+                                    ? "Your account is saved, but we could not deliver the verification email. Try resending the code below."
+                                    : "Enter the six-digit code we sent to this address to verify your CRYMA account."}
                             </p>
                             <div className="otp-email-callout">
-                                <span className="otp-email-label">Verification email sent to</span>
+                                <span className="otp-email-label">
+                                    {emailDeliveryFailed ? "Verification email delivery needs attention" : "Verification email sent to"}
+                                </span>
                                 <strong>{email}</strong>
                             </div>
 

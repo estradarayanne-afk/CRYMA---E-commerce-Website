@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use App\Mail\RegistrationOtpMail;
 use App\Models\User;
@@ -393,6 +394,60 @@ class RegistrationInputValidationTest extends TestCase
             return $mail->hasTo($user->email)
                 && Hash::check($mail->otp, $user->email_otp_hash);
         });
+    }
+
+    public function test_registration_reports_email_delivery_failure_and_keeps_account_available_for_resend(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+        Storage::fake('local');
+        $payload = array_merge($this->buyerPayload('1990-01-01'), [
+            'email' => 'registration-mail-failure@example.com',
+            'valid_id' => UploadedFile::fake()->createWithContent('id.pdf', "%PDF-1.4\nverified fixture"),
+        ]);
+        $mailer = \Mockery::mock();
+        Mail::shouldReceive('to')->once()->with($payload['email'])->andReturn($mailer);
+        $mailer->shouldReceive('send')->once()->andThrow(new \RuntimeException('SMTP unavailable'));
+
+        $this->post('/api/register', $payload)
+            ->assertStatus(503)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('registration_saved', true);
+
+        $this->assertDatabaseHas('users', [
+            'email' => $payload['email'],
+            'status' => 'pending',
+            'email_verified_at' => null,
+        ]);
+        $this->assertNotNull(User::where('email', $payload['email'])->firstOrFail()->email_otp_hash);
+    }
+
+    public function test_resending_verification_reports_mail_delivery_failure(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+        $user = User::factory()->create([
+            'email' => 'resend-mail-failure@example.com',
+            'status' => 'pending',
+            'email_verified_at' => null,
+        ]);
+        $mailer = \Mockery::mock();
+        Mail::shouldReceive('to')->once()->with($user->email)->andReturn($mailer);
+        $mailer->shouldReceive('send')->once()->andThrow(new \RuntimeException('SMTP unavailable'));
+
+        $this->postJson('/api/resend-verification', ['email' => $user->email])
+            ->assertStatus(503)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_password_recovery_reports_mail_delivery_failure(): void
+    {
+        Password::shouldReceive('sendResetLink')
+            ->once()
+            ->with(['email' => 'reset-mail-failure@example.com'])
+            ->andThrow(new \RuntimeException('SMTP unavailable'));
+
+        $this->postJson('/api/forgot-password', ['email' => 'reset-mail-failure@example.com'])
+            ->assertStatus(503)
+            ->assertJsonPath('success', false);
     }
 
     public function test_role_specific_documents_cannot_be_omitted_from_api_requests(): void
