@@ -26,6 +26,28 @@ function SellerCompliance() {
     const [rejectionReason, setRejectionReason] = useState("");
     const [successModal, setSuccessModal] = useState("");
 
+    const openDocument = async (documentId) => {
+        const documentWindow = window.open("about:blank", "_blank");
+        if (!documentWindow) {
+            setError("Allow pop-ups to view submitted documents.");
+            return;
+        }
+
+        try {
+            const response = await api.get(`/admin/documents/${documentId}`, {
+                responseType: "blob",
+            });
+            const documentUrl = URL.createObjectURL(response.data);
+
+            documentWindow.location.href = documentUrl;
+
+            window.setTimeout(() => URL.revokeObjectURL(documentUrl), 60_000);
+        } catch (err) {
+            documentWindow?.close();
+            setError(err.response?.data?.message || "Unable to open this document.");
+        }
+    };
+
     // =========================================
     // FETCH SELLERS
     // =========================================
@@ -960,13 +982,12 @@ function SellerCompliance() {
                                                         </div>
 
 
-                                                        <a
-                                                            href={`http://127.0.0.1:8000/api/admin/documents/${document.id}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openDocument(document.id)}
                                                         >
                                                             View
-                                                        </a>
+                                                        </button>
 
                                                     </div>
 
