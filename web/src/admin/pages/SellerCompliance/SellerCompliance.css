@@ -558,15 +558,18 @@
     text-transform: capitalize;
 }
 
-.seller-document a {
+.seller-document button {
     flex-shrink: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: #7E1830;
+    cursor: pointer;
     font-size: 12px;
     font-weight: 600;
-    text-decoration: none;
 }
 
-.seller-document a:hover {
+.seller-document button:hover {
     text-decoration: underline;
 }
 
