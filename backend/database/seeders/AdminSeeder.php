@@ -16,7 +16,17 @@ class AdminSeeder extends Seeder
     {
         $this->guardEnvironment();
 
-        if (User::where('role', 'admin')->exists()) {
+        $admin = User::where('role', 'admin')->first();
+        if ($admin) {
+            if (
+                strtolower($admin->email) === 'admin@example.com' &&
+                $admin->email_verified_at === null
+            ) {
+                $admin->forceFill(['email_verified_at' => now()])->save();
+                $this->command?->info('admin: marked the local seed account email as verified.');
+                return;
+            }
+
             $this->command?->info('admin: skipped (role account already exists; existing account was not changed).');
             return;
         }
@@ -34,6 +44,7 @@ class AdminSeeder extends Seeder
             'password' => Hash::make('Admin12345'),
             'role' => 'admin',
             'status' => 'active',
+            'email_verified_at' => now(),
         ]);
         $this->command?->info('admin: created.');
     }

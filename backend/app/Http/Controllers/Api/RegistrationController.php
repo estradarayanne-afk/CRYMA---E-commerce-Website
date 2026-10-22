@@ -323,7 +323,10 @@ class RegistrationController extends Controller
                     new RegistrationOtpMail($otp)
                 );
             } catch (Throwable $exception) {
-                Log::warning('Registration email delivery failed.', ['exception_class' => $exception::class]);
+                Log::warning('Registration email delivery failed.', [
+                    'exception_class' => $exception::class,
+                    'reason' => $exception->getMessage(),
+                ]);
 
                 return response()->json([
                     'success' => false,
@@ -348,7 +351,10 @@ class RegistrationController extends Controller
             foreach ($storedPaths as $path) {
                 Storage::disk('local')->delete($path);
             }
-            Log::error('Registration request failed.', ['exception_class' => $exception::class]);
+            Log::error('Registration request failed.', [
+                'exception_class' => $exception::class,
+                'reason' => $exception->getMessage(),
+            ]);
 
             return response()->json([
                 'success' => false,
