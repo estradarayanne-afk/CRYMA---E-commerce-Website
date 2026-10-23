@@ -15,6 +15,10 @@ function Commission() {
 
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [overviewPeriod, setOverviewPeriod] = useState("month");
+    const [overview, setOverview] = useState({ total_commission: 0, record_count: 0, points: [] });
+    const [overviewLoading, setOverviewLoading] = useState(true);
+    const [overviewError, setOverviewError] = useState("");
 
     const [selectedCommission, setSelectedCommission] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
@@ -73,6 +77,25 @@ function Commission() {
         return () => clearTimeout(timeoutId);
     }, [fetchCommissions]);
 
+    useEffect(() => {
+        let active = true;
+        setOverviewLoading(true);
+        setOverviewError("");
+
+        api.get("/admin/commissions/overview", { params: { period: overviewPeriod } })
+            .then((response) => {
+                if (active) setOverview(response.data?.data || { total_commission: 0, record_count: 0, points: [] });
+            })
+            .catch((err) => {
+                if (active) setOverviewError(err.response?.data?.message || "Unable to load commission overview.");
+            })
+            .finally(() => {
+                if (active) setOverviewLoading(false);
+            });
+
+        return () => { active = false; };
+    }, [overviewPeriod]);
+
     const getSellerName = (commission) => {
         const seller = commission.seller;
 
@@ -106,16 +129,12 @@ function Commission() {
         }
     };
 
-    const formatCurrency = (amount) => {
-        return `₱${Number(amount || 0).toLocaleString(
-            "en-PH",
-            {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            }
-        )}`;
-    };
-
+    const formatCurrency = (amount) => new Intl.NumberFormat("en-PH", {
+        style: "currency",
+        currency: "PHP",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(Number(amount || 0));
     const handleViewCommission = async (commission) => {
         setSelectedCommission(commission);
         setDetailsLoading(true);
@@ -166,8 +185,12 @@ function Commission() {
                     </h1>
 
                     <p>
-                        Monitor seller commissions and earnings.
+                        Monitor seller commissions and seller earnings.
                     </p>
+                    <div className="commission-rate-note">
+                        <strong>10% standard platform rate</strong>
+                        <span>Commission is calculated from the order amount; each record shows the rate applied.</span>
+                    </div>
                 </div>
 
                 <div className="commission-count">
@@ -183,6 +206,15 @@ function Commission() {
                 </div>
 
             </div>
+
+            <CommissionTrend
+                data={overview}
+                loading={overviewLoading}
+                error={overviewError}
+                period={overviewPeriod}
+                onPeriodChange={setOverviewPeriod}
+                formatCurrency={formatCurrency}
+            />
 
 
             {/* ERROR */}
@@ -201,6 +233,26 @@ function Commission() {
                 {/* TOOLBAR */}
 
                 <div className="commission-toolbar">
+
+                    <div className="commission-status-pills" role="group" aria-label="Filter commissions by status">
+                        {[
+                            ["all", "All records"],
+                            ["pending", "Pending"],
+                            ["paid", "Paid"],
+                            ["completed", "Completed"],
+                            ["cancelled", "Cancelled"],
+                        ].map(([status, label]) => (
+                            <button
+                                key={status}
+                                type="button"
+                                className={statusFilter === status ? "active" : ""}
+                                aria-pressed={statusFilter === status}
+                                onClick={() => setStatusFilter(status)}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
 
                     <div className="commission-search">
 
@@ -334,6 +386,7 @@ function Commission() {
                                         (commission) => (
 
                                             <tr
+                                                className="commission-row"
                                                 key={
                                                     commission.id
                                                 }
@@ -385,7 +438,7 @@ function Commission() {
                                                         </strong>
 
                                                         <span>
-                                                            {commission.commission_rate}% 
+                                                            {Number(commission.commission_rate ?? 10)}% platform fee
                                                         </span>
 
                                                     </div>
@@ -690,6 +743,10 @@ function Commission() {
 
                                     </div>
 
+                                    <p className="commission-formula">
+                                        {formatCurrency(selectedCommission.order_amount)} × {Number(selectedCommission.commission_rate ?? 10)}% = {formatCurrency(selectedCommission.commission_amount)} platform commission
+                                    </p>
+
                                 </section>
 
 
@@ -718,6 +775,112 @@ function Commission() {
             )}
 
         </div>
+    );
+}
+
+function CommissionTrend({ data, loading, error, period, onPeriodChange, formatCurrency }) {
+    const [activePoint, setActivePoint] = useState(null);
+    useEffect(() => setActivePoint(null), [period, data]);
+    const points = Array.isArray(data?.points) ? data.points : [];
+    const width = 900;
+    const height = 190;
+    const plot = { left: 74, right: 20, top: 12, bottom: 34 };
+    const plotWidth = width - plot.left - plot.right;
+    const plotHeight = height - plot.top - plot.bottom;
+    const maxValue = Math.max(...points.map((point) => Number(point.amount) || 0), 0);
+    const magnitude = maxValue > 0 ? (10 ** Math.floor(Math.log10(maxValue))) / 4 : 1;
+    const axisMaximum = maxValue > 0 ? Math.ceil(maxValue / magnitude) * magnitude : 1;
+    const formatAxisCurrency = (amount) => {
+        const value = Number(amount) || 0;
+        const compact = value >= 1000000
+            ? `${(value / 1000000).toLocaleString("en-PH", { maximumFractionDigits: 1 })}M`
+            : value >= 1000
+                ? `${(value / 1000).toLocaleString("en-PH", { maximumFractionDigits: 1 })}K`
+                : value.toLocaleString("en-PH", { maximumFractionDigits: 0 });
+        return `PHP ${compact}`;
+    };
+    const coordinates = points.map((point, index) => ({
+        ...point,
+        x: points.length < 2 ? plot.left + plotWidth / 2 : plot.left + (index / (points.length - 1)) * plotWidth,
+        y: plot.top + plotHeight - ((Number(point.amount) || 0) / axisMaximum) * plotHeight,
+    }));
+    const linePath = coordinates.map(({ x, y }, index) => `${index === 0 ? "M" : "L"}${x},${y}`).join(" ");
+    const areaPath = coordinates.length
+        ? `${linePath} L${coordinates[coordinates.length - 1].x},${plot.top + plotHeight} L${coordinates[0].x},${plot.top + plotHeight} Z`
+        : "";
+    const labelIndexes = [...new Set([0, Math.round((points.length - 1) / 4), Math.round((points.length - 1) / 2), Math.round(((points.length - 1) * 3) / 4), points.length - 1])]
+        .filter((index) => index >= 0);
+    const updateActivePoint = (event) => {
+        if (!coordinates.length) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const chartX = ((event.clientX - bounds.left) / bounds.width) * width;
+        const nearest = coordinates.reduce((best, point) => Math.abs(point.x - chartX) < Math.abs(best.x - chartX) ? point : best);
+        setActivePoint(nearest);
+    };
+
+    return (
+        <section className="commission-overview" aria-labelledby="commission-overview-title">
+            <div className="commission-overview-heading">
+                <div>
+                    <span className="commission-overview-eyebrow">COMMISSION OVERVIEW</span>
+                    <h2 id="commission-overview-title">Platform commission generated</h2>
+                    <p>Daily totals for the last 30 days or monthly totals for the last 12 months.</p>
+                </div>
+                <div className="commission-overview-period" role="group" aria-label="Choose commission graph timeframe">
+                    <button type="button" className={period === "month" ? "active" : ""} aria-pressed={period === "month"} onClick={() => onPeriodChange("month")}>30 days</button>
+                    <button type="button" className={period === "year" ? "active" : ""} aria-pressed={period === "year"} onClick={() => onPeriodChange("year")}>12 months</button>
+                </div>
+            </div>
+
+            <div className="commission-overview-total-row">
+                <div>
+                    <span>Total commission in period</span>
+                    <strong>{formatCurrency(data?.total_commission)}</strong>
+                </div>
+                <span className="commission-overview-records">{Number(data?.record_count || 0).toLocaleString()} commission records</span>
+            </div>
+
+            {error ? (
+                <div className="commission-overview-message error">{error}</div>
+            ) : (
+                <div className={`commission-chart-wrap ${loading ? "is-loading" : ""}`}>
+                    <svg className="commission-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Platform commission totals ${period === "month" ? "by day over the last 30 days" : "by month over the last 12 months"}`} onMouseMove={updateActivePoint} onMouseLeave={() => setActivePoint(null)}>
+                        <defs>
+                            <linearGradient id="commission-area-gradient" x1="0" x2="0" y1="0" y2="1">
+                                <stop offset="0%" stopColor="#8A1C30" stopOpacity=".2" />
+                                <stop offset="100%" stopColor="#8A1C30" stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+                        {[0, 1, 2, 3, 4].map((step) => {
+                            const y = plot.top + (step / 4) * plotHeight;
+                            const value = axisMaximum * (1 - step / 4);
+                            return (
+                                <g key={step}>
+                                    <line x1={plot.left} x2={width - plot.right} y1={y} y2={y} className="commission-chart-gridline" />
+                                    <text x={plot.left - 12} y={y + 4} textAnchor="end" className="commission-chart-y-label">{formatAxisCurrency(value)}</text>
+                                </g>
+                            );
+                        })}
+                        {areaPath && <path d={areaPath} fill="url(#commission-area-gradient)" />}
+                        {activePoint && <line x1={activePoint.x} x2={activePoint.x} y1={plot.top} y2={plot.top + plotHeight} className="commission-chart-crosshair" />}
+                        {linePath && <path d={linePath} className="commission-chart-line" />}
+                        {coordinates.map((point) => (
+                            <circle key={point.date} cx={point.x} cy={point.y} r={activePoint?.date === point.date ? "5" : "3.2"} className="commission-chart-point" tabIndex="0" role="img" aria-label={`${point.label}: ${formatCurrency(point.amount)}`} onMouseEnter={() => setActivePoint(point)} onMouseLeave={() => setActivePoint(null)} onFocus={() => setActivePoint(point)} onBlur={() => setActivePoint(null)}>
+                                <title>{point.label}: {formatCurrency(point.amount)}</title>
+                            </circle>
+                        ))}
+                        {labelIndexes.map((index) => {
+                            const point = coordinates[index];
+                            return point ? <text key={`${point.date}-label`} x={point.x} y={height - 12} textAnchor="middle" className="commission-chart-x-label">{point.label}</text> : null;
+                        })}
+                    </svg>
+                    {activePoint && <div className="commission-chart-tooltip" style={{ left: `${(activePoint.x / width) * 100}%`, top: `${(activePoint.y / height) * 100}%` }} role="status"><span>{activePoint.label}</span><strong>{formatCurrency(activePoint.amount)}</strong></div>}
+                    {loading && <span className="commission-chart-loading">Updating graph…</span>}
+                    {!loading && !error && Number(data?.record_count || 0) === 0 && <span className="commission-chart-empty">No commission records in this period yet.</span>}
+                </div>
+            )}
+            <div className="commission-chart-legend"><i /> Commission amount</div>
+        </section>
     );
 }
 

@@ -12,8 +12,67 @@ const getConversationActivity = (conversation) => {
 
 const getConversationBuyerKey = (conversation) => {
     const buyerId = conversation.buyer_id ?? conversation.buyer?.id;
+    const sellerId = conversation.seller_id ?? conversation.seller?.id;
+    if (sellerId != null) return `buyer:${buyerId}:seller:${sellerId}`;
     return buyerId == null ? `conversation:${conversation.id}` : `buyer:${buyerId}`;
 };
+
+const getConversationInbox = (conversation) => (
+    conversation.seller_id != null || conversation.seller?.id != null
+        ? "sellers"
+        : conversation.buyer?.role === "logistics"
+            ? "logistics"
+            : conversation.buyer?.role === "rider"
+                ? "couriers"
+                : "buyers"
+);
+
+const getPersonName = (person, fallback) => (
+    `${person?.first_name || ""} ${person?.last_name || ""}`.trim() || fallback
+);
+
+const formatMessageTime = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+        ? ""
+        : date.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+};
+
+const quickReplyGroups = {
+    buyers: [
+        { label: "Welcome", text: "Hi! Thanks for reaching out to CRYMA. How can I help you today?" },
+        { label: "Order details", text: "Could you share your order number so I can check this for you?" },
+        { label: "Checking this", text: "I’m checking this with the relevant team and will update you shortly." },
+        { label: "Follow up", text: "Thanks for your patience. Is there anything else I can help you with?" },
+    ],
+    sellers: [
+        { label: "Welcome", text: "Hi! Thanks for contacting CRYMA Seller Support. How can we help?" },
+        { label: "Listing details", text: "Please share the product name or listing link you need help with." },
+        { label: "Reviewing", text: "We’re reviewing the details and will get back to you shortly." },
+        { label: "Next steps", text: "Your request has been received. We’ll follow up with the next steps." },
+    ],
+    logistics: [
+        { label: "Welcome", text: "Hi! Thanks for contacting CRYMA Support. How can I help?" },
+        { label: "Order details", text: "Please share the order number so I can check the delivery details." },
+        { label: "Delivery check", text: "We’re checking the delivery details and will get back to you shortly." },
+        { label: "Parcel status", text: "Please confirm the current parcel status and delivery area." },
+    ],
+    couriers: [
+        { label: "Welcome", text: "Hi! Thanks for the update. How can I help?" },
+        { label: "Order details", text: "Please share the order number so I can check this for you." },
+        { label: "Delivery check", text: "We’re checking the delivery details and will get back to you shortly." },
+        { label: "Follow up", text: "Thanks for your patience. We’ll update you as soon as we have confirmation." },
+    ],
+};
+
+const inboxOptions = [
+    { key: "all", label: "All chats" },
+    { key: "buyers", label: "Buyers" },
+    { key: "sellers", label: "Sellers" },
+    { key: "logistics", label: "Logistics" },
+    { key: "couriers", label: "Couriers" },
+];
 
 const getUniqueBuyerConversations = (items) => {
     const groups = new Map();
@@ -44,6 +103,7 @@ function Chat() {
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [message, setMessage] = useState("");
     const [userSearch, setUserSearch] = useState("");
+    const [activeInbox, setActiveInbox] = useState("all");
 
     const [loading, setLoading] = useState(true);
     const [messagesLoading, setMessagesLoading] = useState(false);
@@ -57,17 +117,33 @@ function Chat() {
     );
     const filteredConversations = useMemo(() => {
         const query = userSearch.trim().toLocaleLowerCase();
-        if (!query) return uniqueConversations;
-
         return uniqueConversations.filter((conversation) => {
+            if (activeInbox !== "all" && getConversationInbox(conversation) !== activeInbox) return false;
+            if (!query) return true;
             const buyer = conversation.buyer;
-            const name = `${buyer?.first_name || ""} ${buyer?.last_name || ""}`;
-            return `${name} ${buyer?.email || ""}`.toLocaleLowerCase().includes(query);
+            const seller = conversation.seller;
+            const searchable = [
+                getPersonName(buyer, "Buyer"), buyer?.email,
+                getPersonName(seller, "Seller"), seller?.email,
+                conversation.product?.name,
+            ].filter(Boolean).join(" ");
+            return searchable.toLocaleLowerCase().includes(query);
         });
-    }, [uniqueConversations, userSearch]);
+    }, [uniqueConversations, userSearch, activeInbox]);
+    const inboxCounts = useMemo(() => uniqueConversations.reduce((counts, conversation) => {
+        counts.all += 1;
+        counts[getConversationInbox(conversation)] += 1;
+        return counts;
+    }, { all: 0, buyers: 0, sellers: 0, logistics: 0, couriers: 0 }), [uniqueConversations]);
     const selectedConversationKey = selectedConversation
         ? getConversationBuyerKey(selectedConversation)
         : null;
+    const selectedChatPerson = selectedConversation
+        ? activeInbox === "sellers" ? selectedConversation.seller : selectedConversation.buyer
+        : null;
+    const suggestedReplies = selectedConversation
+        ? quickReplyGroups[getConversationInbox(selectedConversation)] || quickReplyGroups.buyers
+        : [];
 
     const loadConversations = useCallback(async () => {
         try {
@@ -226,12 +302,34 @@ function Chat() {
                 <aside className="chat-conversations">
 
                     <div className="chat-conversations-header">
-                        <h2>Customer conversations</h2>
+                        <h2>{activeInbox === "all" ? "All conversations" : `${inboxOptions.find((item) => item.key === activeInbox)?.label} chats`}</h2>
 
                         <span>
-                            {uniqueConversations.length}
+                            {inboxCounts[activeInbox]}
                         </span>
                     </div>
+
+                    <nav className="chat-inbox-nav" aria-label="Filter conversations by user role">
+                        {inboxOptions.map((item) => (
+                            <button
+                                type="button"
+                                key={item.key}
+                                className={activeInbox === item.key ? "active" : ""}
+                                aria-pressed={activeInbox === item.key}
+                                onClick={() => {
+                                    setActiveInbox(item.key);
+                                    if (selectedConversation && item.key !== "all" && getConversationInbox(selectedConversation) !== item.key) {
+                                        openRequestRef.current += 1;
+                                        setSelectedConversation(null);
+                                        setMessagesLoading(false);
+                                    }
+                                }}
+                            >
+                                <span>{item.label}</span>
+                                <small>{inboxCounts[item.key]}</small>
+                            </button>
+                        ))}
+                    </nav>
 
                     <label className="conversation-search">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -242,8 +340,8 @@ function Chat() {
                             type="search"
                             value={userSearch}
                             onChange={(event) => setUserSearch(event.target.value)}
-                            placeholder="Search customers"
-                            aria-label="Search customers by name or email"
+                            placeholder={`Search ${activeInbox === "all" ? "conversations" : activeInbox}...`}
+                            aria-label="Search conversations by participant, email, or product"
                         />
                     </label>
 
@@ -253,17 +351,32 @@ function Chat() {
                             <div className="chat-empty">
                                 Loading conversations...
                             </div>
-                        ) : uniqueConversations.length === 0 ? (
-                            <div className="chat-empty">
-                                No conversations yet.
-                            </div>
+                        ) : filteredConversations.length === 0 && userSearch.trim() === "" ? (
+                            activeInbox === "all" ? (
+                                <div className="chat-empty">
+                                    No conversations yet.
+                                </div>
+                            ) : (
+                                <div className="chat-empty">
+                                    No {inboxOptions.find((item) => item.key === activeInbox)?.label.toLowerCase()} conversations yet.
+                                </div>
+                            )
                         ) : filteredConversations.length === 0 ? (
                             <div className="chat-empty">
-                                No customers match that search.
+                                No conversations match that search.
                             </div>
                         ) : (
-                            filteredConversations.map(
-                                (conversation) => (
+                            filteredConversations.map((conversation) => {
+                                const isSellerChat = getConversationInbox(conversation) === "sellers";
+                                const primaryPerson = activeInbox === "sellers" ? conversation.seller : conversation.buyer;
+                                const name = getPersonName(primaryPerson, activeInbox === "sellers" ? "Seller" : "Buyer");
+                                const context = isSellerChat
+                                    ? activeInbox === "sellers"
+                                        ? `Buyer: ${getPersonName(conversation.buyer, "Buyer")}${conversation.product?.name ? ` - ${conversation.product.name}` : ""}`
+                                        : `Seller conversation - ${getPersonName(conversation.seller, "Seller")}`
+                                    : primaryPerson?.email || "Buyer support";
+
+                                return (
                                     <button
                                         type="button"
                                         key={conversation.id}
@@ -278,17 +391,14 @@ function Chat() {
                                         }
                                     >
                                         <div className="conversation-avatar">
-                                            {conversation.buyer?.first_name
+                                            {primaryPerson?.first_name
                                                 ?.charAt(0)
-                                                ?.toUpperCase() || "B"}
+                                                ?.toUpperCase() || (isSellerChat ? "S" : "B")}
                                         </div>
 
                                         <div className="conversation-info">
-                                            <strong>
-                                                {conversation.buyer
-                                                    ? `${conversation.buyer.first_name || ""} ${conversation.buyer.last_name || ""}`.trim()
-                                                    : "Buyer"}
-                                            </strong>
+                                            <strong>{name}</strong>
+                                            <small className={`chat-conversation-context ${isSellerChat ? "seller" : "buyer"}`}>{context}</small>
 
                                             <span>
                                                 {conversation.messages?.[0]
@@ -300,8 +410,8 @@ function Chat() {
                                             )}
                                         </div>
                                     </button>
-                                )
-                            )
+                                );
+                            })
                         )}
 
                     </div>
@@ -333,7 +443,7 @@ function Chat() {
                             <header className="chat-window-header">
 
                                 <div className="chat-user-avatar">
-                                    {selectedConversation.buyer
+                                    {selectedChatPerson
                                         ?.first_name
                                         ?.charAt(0)
                                         ?.toUpperCase() || "B"}
@@ -341,13 +451,15 @@ function Chat() {
 
                                 <div>
                                     <h2>
-                                        {selectedConversation.buyer
-                                            ? `${selectedConversation.buyer.first_name || ""} ${selectedConversation.buyer.last_name || ""}`.trim()
-                                            : "Buyer"}
+                                        {getPersonName(selectedChatPerson, activeInbox === "sellers" ? "Seller" : "Buyer")}
                                     </h2>
 
                                     <span>
-                                        Customer
+                                        {activeInbox === "sellers"
+                                            ? `Seller conversation with ${getPersonName(selectedConversation.buyer, "Buyer")}`
+                                            : selectedConversation.seller
+                                                ? `Buyer conversation with ${getPersonName(selectedConversation.seller, "Seller")}`
+                                                : "Buyer support"}
                                     </span>
                                 </div>
 
@@ -384,7 +496,10 @@ function Chat() {
                                                     }
                                                 >
                                                     <div className="message-bubble">
-                                                        {item.message}
+                                                        <p>{item.message}</p>
+                                                        {formatMessageTime(item.created_at) && (
+                                                            <time>{isAdmin ? "You · " : ""}{formatMessageTime(item.created_at)}</time>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -400,31 +515,44 @@ function Chat() {
                                 className="chat-input-area"
                                 onSubmit={handleSendMessage}
                             >
-                                <input
-                                    type="text"
-                                    maxLength={2000}
-                                    value={message}
-                                    onChange={(e) =>
-                                        setMessage(
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="Type a message..."
-                                    disabled={sending || messagesLoading}
-                                />
+                                <div className="chat-reply-suggestions" aria-label="Suggested replies">
+                                    <div className="chat-reply-heading">
+                                        <strong>Quick replies</strong>
+                                        <span>Choose one to add it to your message</span>
+                                    </div>
+                                    <div className="chat-reply-chips">
+                                        {suggestedReplies.map((reply) => (
+                                            <button
+                                                type="button"
+                                                key={reply.label}
+                                                title={reply.text}
+                                                disabled={sending || messagesLoading}
+                                                onClick={() => setMessage(reply.text)}
+                                            >
+                                                {reply.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={
-                                        sending ||
-                                        messagesLoading ||
-                                        !message.trim()
-                                    }
-                                >
-                                    {sending
-                                        ? "..."
-                                        : "Send"}
-                                </button>
+                                <div className="chat-composer">
+                                    <input
+                                        type="text"
+                                        maxLength={2000}
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                        placeholder="Write a thoughtful reply..."
+                                        aria-label="Write a chat message"
+                                        disabled={sending || messagesLoading}
+                                    />
+
+                                    <button
+                                        type="submit"
+                                        disabled={sending || messagesLoading || !message.trim()}
+                                    >
+                                        {sending ? "Sending..." : "Send message"}
+                                    </button>
+                                </div>
                             </form>
                         </>
                     )}

@@ -247,7 +247,7 @@ function AccountSettings() {
 
             {/* PROFILE */}
 
-            <section className="account-card">
+            <section className="account-card account-profile-card">
 
                 <div className="account-card-header">
                     <div>
@@ -336,7 +336,7 @@ function AccountSettings() {
 
             {/* SECURITY */}
 
-            <section className="account-card">
+            <section className="account-card account-security-card">
 
                 <div className="account-card-header">
                     <div>
@@ -429,7 +429,7 @@ function AccountSettings() {
 
             {/* ACCOUNT INFORMATION */}
 
-            <section className="account-card">
+            <section className="account-card account-info-card">
 
                 <div className="account-card-header">
                     <div>

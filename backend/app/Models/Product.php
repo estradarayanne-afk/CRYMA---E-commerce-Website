@@ -22,6 +22,10 @@ class Product extends Model
         'stock',
         'category',
         'status',
+        'review_status',
+        'review_reason',
+        'reviewed_by',
+        'reviewed_at',
     ];
 
     protected function casts(): array
@@ -30,6 +34,7 @@ class Product extends Model
             'price' => 'decimal:2',
             'discounted_price' => 'decimal:2',
             'stock' => 'integer',
+            'reviewed_at' => 'datetime',
         ];
     }
 
@@ -54,5 +59,10 @@ class Product extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 }

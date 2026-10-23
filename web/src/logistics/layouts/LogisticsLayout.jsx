@@ -25,7 +25,7 @@ const LINKS = [
     { to: "/logistics/incoming-parcels", label: "Incoming Parcels", icon: PackageCheck },
     { to: "/logistics/sorting", label: "Sorting", icon: Boxes },
     { to: "/logistics/delivery-assignment", label: "Delivery Assignment", icon: MapPinned },
-    { to: "/logistics/delivery-monitoring", label: "Delivery Monitoring", icon: Truck },
+    { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", icon: Truck },
     { to: "/logistics/reports", label: "Reports", icon: BarChart3 },
 ];
 

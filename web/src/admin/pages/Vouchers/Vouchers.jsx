@@ -294,15 +294,22 @@ function Vouchers() {
                     <h1>Voucher management</h1>
                     <p>Create and manage buyer discounts. Checkout continues to validate every redemption server-side.</p>
                 </div>
-                <button type="button" className="voucher-primary-button" onClick={openCreate}>
-                    <Plus size={17} /> Create voucher
-                </button>
             </header>
 
             {error && <div className="voucher-alert error" role="alert">{error}</div>}
             {success && <div className="voucher-alert success" role="status"><Check size={16} />{success}</div>}
 
             <section className="voucher-list-card" aria-label="Voucher list">
+                <div className="voucher-list-heading">
+                    <div>
+                        <span>VOUCHER LIBRARY</span>
+                        <h2>All vouchers</h2>
+                        <p>Track discount rules, redemption limits, and availability.</p>
+                    </div>
+                    <button type="button" className="voucher-primary-button" onClick={openCreate}>
+                        <Plus size={17} /> Create voucher
+                    </button>
+                </div>
                 <div className="voucher-toolbar">
                     <label className="voucher-search">
                         <Search size={17} aria-hidden="true" />
@@ -392,6 +399,11 @@ function Vouchers() {
                                             <td>
                                                 <strong>{voucher.redemptions_count || 0}</strong>
                                                 <small>{voucher.usage_limit === null ? "of unlimited" : `of ${voucher.usage_limit}`}</small>
+                                                {voucher.usage_limit !== null && Number(voucher.usage_limit) > 0 && (
+                                                    <div className="voucher-usage-meter" role="progressbar" aria-label={`Redemption usage for ${voucher.code}`} aria-valuemin="0" aria-valuemax={Number(voucher.usage_limit)} aria-valuenow={Math.min(Number(voucher.redemptions_count) || 0, Number(voucher.usage_limit))}>
+                                                        <span style={{ width: `${Math.min(100, ((Number(voucher.redemptions_count) || 0) / Number(voucher.usage_limit)) * 100)}%` }} />
+                                                    </div>
+                                                )}
                                             </td>
                                             <td><span className={`voucher-status status-${status.toLowerCase()}`}>{status}</span></td>
                                             <td>

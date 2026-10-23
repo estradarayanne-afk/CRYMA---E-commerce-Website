@@ -349,6 +349,8 @@ class BuyerOrderController extends Controller
                 foreach ($validated['items'] as $requestedItem) {
                     $product = Product::with('seller')
                         ->where('status', 'active')
+                        ->where('review_status', 'approved')
+                        ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
                         ->lockForUpdate()
                         ->find($requestedItem['product_id']);
 

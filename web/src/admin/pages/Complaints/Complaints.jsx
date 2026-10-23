@@ -127,6 +127,42 @@ function Complaints() {
         return new Date(date).toLocaleDateString();
     };
 
+    const getRoleLabel = (role) => ({
+        buyer: "Buyer",
+        seller: "Seller",
+        courier: "Courier",
+        rider: "Courier",
+        logistics: "Logistics",
+    }[role?.toLowerCase()] || "Participant");
+
+    const getCaseParticipants = (complaint) => {
+        const order = complaint.order;
+        const candidates = [
+            { user: complaint.complainant, label: "Complainant" },
+            { user: complaint.respondent, label: "Respondent" },
+            { user: order?.buyer, label: "Order buyer" },
+            ...(order?.items || []).map(({ seller }) => ({ user: seller, label: "Order seller" })),
+            { user: order?.delivery?.courier_profile?.user, label: "Assigned courier" },
+        ].filter(({ user }) => user);
+
+        const unique = new Map();
+        candidates.forEach(({ user, label }) => {
+            const key = user.id ?? `${user.email || ""}-${getFullName(user)}`;
+            const current = unique.get(key);
+            if (current) current.context.push(label);
+            else unique.set(key, { user, context: [label] });
+        });
+
+        return [...unique.values()];
+    };
+
+    const getEvidenceUrl = (path) => {
+        if (!path) return "";
+        if (/^https?:\/\//i.test(path)) return path;
+        const origin = new URL(api.defaults.baseURL || window.location.origin, window.location.origin).origin;
+        return new URL(path.startsWith("/") ? path : `/${path}`, origin).toString();
+    };
+
     // =========================================
     // VIEW COMPLAINT
     // =========================================
@@ -396,6 +432,26 @@ function Complaints() {
 
                 <div className="complaints-toolbar">
 
+                    <div className="complaints-status-pills" role="group" aria-label="Filter complaints by status">
+                        {[
+                            ["all", "All cases"],
+                            ["pending", "Pending"],
+                            ["under_review", "Under review"],
+                            ["resolved", "Resolved"],
+                            ["dismissed", "Dismissed"],
+                        ].map(([status, label]) => (
+                            <button
+                                key={status}
+                                type="button"
+                                className={statusFilter === status ? "active" : ""}
+                                aria-pressed={statusFilter === status}
+                                onClick={() => setStatusFilter(status)}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className="complaints-search">
 
                         <span>
@@ -531,6 +587,7 @@ function Complaints() {
                                         (complaint) => (
 
                                             <tr
+                                                className="complaint-row"
                                                 key={
                                                     complaint.id
                                                 }
@@ -694,7 +751,7 @@ function Complaints() {
                                 </span>
 
                                 <h2>
-                                    Complaint Details
+                                    {selectedComplaint.subject || "Complaint Details"}
                                 </h2>
 
                             </div>
@@ -769,6 +826,17 @@ function Complaints() {
 
                                     <div>
 
+                                        <span>Order</span>
+                                        <strong>
+                                            {selectedComplaint.order_id
+                                                ? `#${selectedComplaint.order_id}${selectedComplaint.order?.status ? ` · ${formatStatus(selectedComplaint.order.status)}` : ""}`
+                                                : "Not linked to an order"}
+                                        </strong>
+
+                                    </div>
+
+                                    <div>
+
                                         <span>
                                             Submitted
                                         </span>
@@ -792,7 +860,27 @@ function Complaints() {
                                         Parties Involved
                                     </h4>
 
+                                    <p className="complaint-coordination-note">Contact the relevant parties to gather context and coordinate a fair resolution.</p>
                                     <div className="complaint-people-grid">
+                                        {getCaseParticipants(selectedComplaint).map(({ user, context }) => (
+                                            <article className="complaint-person-card" key={user.id || user.email}>
+                                                <div className="complaint-person-heading">
+                                                    <span className="complaint-person-avatar">{getFullName(user).charAt(0).toUpperCase()}</span>
+                                                    <div>
+                                                        <strong>{getFullName(user)}</strong>
+                                                        <span className={`complaint-role-chip ${getRoleLabel(user.role).toLowerCase()}`}>{getRoleLabel(user.role)}</span>
+                                                    </div>
+                                                </div>
+                                                <small>{context.join(" · ")}</small>
+                                                <div className="complaint-person-contacts">
+                                                    {user.email && <a href={`mailto:${user.email}`}>Email</a>}
+                                                    {user.phone && <a href={`tel:${user.phone}`}>Call {user.phone}</a>}
+                                                    {!user.email && !user.phone && <span>No contact details available</span>}
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                    <div className="complaint-legacy-people complaint-people-grid">
 
                                         <div>
 
@@ -893,16 +981,20 @@ function Complaints() {
 
                                     {selectedComplaint.evidence_path ? (
 
-                                        <a
-                                            className="complaint-evidence-button"
-                                            href={
-                                                selectedComplaint.evidence_path
-                                            }
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            View Supporting Evidence
-                                        </a>
+                                        <div className="complaint-evidence-card">
+                                            <div>
+                                                <strong>Submitted evidence</strong>
+                                                <span>Review the attachment provided with this complaint.</span>
+                                            </div>
+                                            <a
+                                                className="complaint-evidence-button"
+                                                href={getEvidenceUrl(selectedComplaint.evidence_path)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                Preview evidence
+                                            </a>
+                                        </div>
 
                                     ) : (
 

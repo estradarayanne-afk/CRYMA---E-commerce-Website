@@ -113,4 +113,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Product::class, 'seller_id');
     }
+
+    public function sellerComplianceActions(): HasMany
+    {
+        return $this->hasMany(SellerComplianceAction::class, 'seller_id');
+    }
 }

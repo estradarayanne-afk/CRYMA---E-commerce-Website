@@ -214,6 +214,7 @@ public function approve(int $id)
 
         $data = $request->validate([
             'status' => ['required', 'in:active,suspended,rejected,pending'],
+            'suspension_reason' => ['required_if:status,suspended', 'nullable', 'string', 'max:1000'],
         ]);
 
         if ($data['status'] === 'active') {
@@ -237,7 +238,12 @@ public function approve(int $id)
         // Status is intentionally excluded from User's mass-assignable fields.
         // Persist it explicitly after the admin authorization and eligibility checks.
         DB::transaction(function () use ($user, $data): void {
-            $user->forceFill(['status' => $data['status']])->save();
+            $user->forceFill([
+                'status' => $data['status'],
+                'suspension_reason' => $data['status'] === 'suspended'
+                    ? trim($data['suspension_reason'])
+                    : null,
+            ])->save();
             if ($data['status'] !== 'active') {
                 $user->tokens()->delete();
             }
