@@ -298,6 +298,16 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         'reject'
     ])->middleware('role:admin');
 
+    Route::post('/admin/seller-compliance/{id}/violation-action', [
+        SellerComplianceController::class,
+        'takeViolationAction'
+    ])->middleware('role:admin');
+
+    Route::patch('/admin/seller-compliance/{id}/products/{productId}/review', [
+        SellerComplianceController::class,
+        'reviewProduct'
+    ])->middleware('role:admin');
+
     // Admin complaint management
     Route::get('/admin/complaints', [
         ComplaintController::class,
@@ -320,6 +330,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     ])->middleware('role:admin');
 
     // Admin commission management
+    Route::get('/admin/commissions/overview', [
+        CommissionController::class,
+        'overview'
+    ])->middleware('role:admin');
+
     Route::get('/admin/commissions', [
         CommissionController::class,
         'index'

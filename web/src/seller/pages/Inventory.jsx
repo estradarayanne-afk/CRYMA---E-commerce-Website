@@ -195,14 +195,14 @@ function Inventory() {
             mediaUploads.filter((media) => media.type === "image").forEach(({ file }) => payload.append("images[]", file));
             mediaUploads.filter((media) => media.type === "video").forEach(({ file }) => payload.append("videos[]", file));
             if (modal === "add") {
-                await api.post("/seller/products", payload);
-                showToast("Product added.");
+                const response = await api.post("/seller/products", payload);
+                showToast(response.data.message || "Product submitted for admin review.");
             } else {
                 payload.append("_method", "PATCH");
                 payload.append("replace_media", "1");
                 existingMedia.forEach((media) => payload.append("keep_media_ids[]", String(media.id)));
-                await api.post(`/seller/products/${modal.id}`, payload);
-                showToast("Product updated.");
+                const response = await api.post(`/seller/products/${modal.id}`, payload);
+                showToast(response.data.message || "Product updated.");
             }
             clearMediaDraft();
             setModal(null);
@@ -334,9 +334,14 @@ function Inventory() {
                                         </span>
                                     </td>
                                     <td>
-                                        <span className={`sl-badge ${p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
-                                            {p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active"}
-                                        </span>
+                                        <div className="sl-inventory-status">
+                                            <span className={`sl-badge ${p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
+                                                {p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active"}
+                                            </span>
+                                            {p.review_status === "pending" && <span className="sl-badge sl-badge--review">Pending admin review</span>}
+                                            {p.review_status === "rejected" && <span className="sl-badge sl-badge--rejected" title={p.review_reason || "Review the product and update its listing to resubmit."}>Rejected · edit to resubmit</span>}
+                                            {p.review_status === "rejected" && p.review_reason && <small className="sl-review-reason">Reason: {p.review_reason}</small>}
+                                        </div>
                                     </td>
                                     <td>
                                         <div className="sl-row-actions">

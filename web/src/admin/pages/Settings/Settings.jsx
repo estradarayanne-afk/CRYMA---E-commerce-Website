@@ -4,7 +4,7 @@ import api from "../../../shared/services/api";
 import "./Settings.css";
 
 function Settings() {
-    const [activeTab, setActiveTab] = useState("announcements");
+    const [activeTab, setActiveTab] = useState("policies");
 
     const [announcements, setAnnouncements] = useState([]);
     const [policies, setPolicies] = useState([]);

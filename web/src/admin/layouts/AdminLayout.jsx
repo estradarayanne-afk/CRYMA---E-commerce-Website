@@ -8,13 +8,12 @@ const NAV = [
     { to: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
     { to: "/admin/registrations", label: "Registrations", icon: "registrations" },
     { to: "/admin/users", label: "User Accounts", icon: "users" },
-    { to: "/admin/deliveries", label: "Courier Deliveries", icon: "deliveries" },
     { to: "/admin/seller-compliance", label: "Seller Compliance", icon: "compliance" },
     { to: "/admin/complaints", label: "Complaints", icon: "complaints" },
     { to: "/admin/commission", label: "Commission", icon: "commission" },
     { to: "/admin/vouchers", label: "Vouchers", icon: "vouchers" },
     { to: "/admin/reports", label: "Reports", icon: "reports" },
-    { to: "/admin/settings", label: "Settings", icon: "settings" },
+    { to: "/admin/settings", label: "Platform Settings", icon: "settings" },
     { to: "/admin/chat", label: "Customer Service", icon: "chat" },
 ];
 
@@ -33,6 +32,7 @@ const AdminIcon = ({ name, className }) => {
         chat: <><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z" /></>,
         chevron: <path d="m7 10 5 5 5-5" />,
         signout: <><path d="M10 17l5-5-5-5M15 12H3" /><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" /></>,
+        clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     };
 
     return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]}</svg>;
@@ -48,6 +48,7 @@ const [mobileNavOpen, setMobileNavOpen] = useState(false);
 const [profileOpen, setProfileOpen] = useState(false);
 const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 const [loggingOut, setLoggingOut] = useState(false);
+const [headerDate, setHeaderDate] = useState(() => new Date());
 
 useEffect(() => {
     if (!mobileNavOpen) return undefined;
@@ -57,6 +58,11 @@ useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
 }, [mobileNavOpen]);
+
+useEffect(() => {
+    const timer = window.setInterval(() => setHeaderDate(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+}, []);
 
 const user = (() => {
     try {
@@ -251,7 +257,11 @@ return (
                 <div className="al-header-right">
                     <div className="al-header-status">
                         <span className="al-status-dot" />
-                        System online
+                        Live system
+                    </div>
+                    <div className="al-header-date">
+                        <span className="al-header-date-icon"><AdminIcon name="clock" /></span>
+                        <div><span>Today</span><strong>{headerDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</strong></div>
                     </div>
                 </div>
             </header>

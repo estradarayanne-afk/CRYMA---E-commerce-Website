@@ -31,12 +31,12 @@ class ReportController extends Controller
 
             case 'week':
                 $from = $today->copy()->startOfWeek();
-                $to = $today->copy()->endOfWeek();
+                $to = $today->copy()->endOfDay();
                 break;
 
             case 'year':
                 $from = $today->copy()->startOfYear();
-                $to = $today->copy()->endOfYear();
+                $to = $today->copy()->endOfDay();
                 break;
 
             case 'custom':
@@ -52,7 +52,7 @@ class ReportController extends Controller
             case 'month':
             default:
                 $from = $today->copy()->startOfMonth();
-                $to = $today->copy()->endOfMonth();
+                $to = $today->copy()->endOfDay();
                 $period = 'month';
                 break;
         }

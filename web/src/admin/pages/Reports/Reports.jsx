@@ -54,6 +54,15 @@ const Icon = ({ name }) => {
             </>
         ),
 
+        print: (
+            <>
+                <path d="M6 9V3h12v6" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <path d="M6 14h12v7H6z" />
+                <path d="M18 12h.01" />
+            </>
+        ),
+
         alert: (
             <>
                 <path d="M10.3 2.9L1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0z" />
@@ -77,6 +86,60 @@ const Icon = ({ name }) => {
         </svg>
     );
 };
+
+function MiniTrendChart({ rows, valueKey, formatCurrency, formatDate, loading, emptyLabel, label }) {
+    const values = (rows || []).map((row) => Number(row[valueKey]) || 0);
+    const width = 560;
+    const height = 148;
+    const plot = { left: 12, right: 12, top: 12, bottom: 28 };
+    const plotWidth = width - plot.left - plot.right;
+    const plotHeight = height - plot.top - plot.bottom;
+    const maximum = Math.max(...values, 0) || 1;
+    const coordinates = values.map((value, index) => ({
+        x: values.length < 2 ? width / 2 : plot.left + index / (values.length - 1) * plotWidth,
+        y: plot.top + plotHeight - value / maximum * plotHeight,
+        value,
+        row: rows[index],
+    }));
+    const path = coordinates.map(({ x, y }, index) => `${index ? "L" : "M"}${x},${y}`).join(" ");
+    const lastPoint = coordinates[coordinates.length - 1];
+    const area = coordinates.length ? `${path} L${lastPoint.x},${plot.top + plotHeight} L${coordinates[0].x},${plot.top + plotHeight} Z` : "";
+    const labelIndexes = [...new Set([0, Math.floor((values.length - 1) / 2), values.length - 1])].filter((index) => index >= 0);
+
+    if (loading || !rows?.length) {
+        return <div className="reports-chart-message">{loading ? `Loading ${label.toLowerCase()}...` : emptyLabel}</div>;
+    }
+
+    return (
+        <div className="reports-mini-chart">
+            <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${label} trend`}>
+                <defs>
+                    <linearGradient id={`reports-${valueKey}-area`} x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#8A1C30" stopOpacity=".18" />
+                        <stop offset="100%" stopColor="#8A1C30" stopOpacity="0" />
+                    </linearGradient>
+                </defs>
+                {[0, 1, 2, 3].map((line) => {
+                    const y = plot.top + line / 3 * plotHeight;
+                    return <line key={line} x1={plot.left} x2={width - plot.right} y1={y} y2={y} className="reports-mini-gridline" />;
+                })}
+                {area && <path d={area} fill={`url(#reports-${valueKey}-area)`} />}
+                {path && <path d={path} className="reports-mini-line" />}
+                {coordinates.map(({ x, y, value, row }) => (
+                    <circle key={row.date} cx={x} cy={y} r="3" className="reports-mini-point">
+                        <title>{formatDate(row.date)} · {formatCurrency(value)}{row.orders !== undefined ? ` · ${row.orders} orders` : ""}{row.earnings !== undefined ? ` · Seller earnings ${formatCurrency(row.earnings)}` : ""}</title>
+                    </circle>
+                ))}
+                {labelIndexes.map((index) => {
+                    const row = rows[index];
+                    const point = coordinates[index];
+                    return row && point ? <text key={row.date} x={point.x} y={height - 7} textAnchor={index === 0 ? "start" : index === values.length - 1 ? "end" : "middle"} className="reports-mini-axis-label">{new Date(row.date).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</text> : null;
+                })}
+            </svg>
+            <div className="reports-mini-chart-caption"><span><i />{label}</span><strong>{formatCurrency(rows.reduce((sum, row) => sum + (Number(row[valueKey]) || 0), 0))} total</strong></div>
+        </div>
+    );
+}
 
 function Reports() {
     const [reports, setReports] = useState(null);
@@ -184,34 +247,21 @@ function Reports() {
 
             <section className="reports-page-header">
                 <div>
-                    <div className="reports-eyebrow">
-                        CRYMA REPORTING
-                    </div>
-
                     <h1>Reports</h1>
 
                     <p>
                         Generate and review sales and commission
                         reports for the CRYMA platform.
                     </p>
-                </div>
-
-                <div className="reports-header-date">
-                    <Icon name="clock" />
-
-                    <div>
-                        <span>Today</span>
-
-                        <strong>
-                            {new Date().toLocaleDateString(
-                                "en-PH",
-                                {
-                                    month: "long",
-                                    day: "numeric",
-                                    year: "numeric",
-                                }
-                            )}
-                        </strong>
+                    <div className="reports-print-meta">
+                        <span>Period</span>
+                        <strong>{getPeriodLabel()}</strong>
+                        {reports?.date_range && (
+                            <span>
+                                {formatDate(reports.date_range.from)} – {formatDate(reports.date_range.to)}
+                            </span>
+                        )}
+                        <span>Prepared {new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</span>
                     </div>
                 </div>
             </section>
@@ -333,16 +383,25 @@ function Reports() {
                         </>
                     )}
 
-                    <button
-                        type="button"
-                        className="reports-generate-button"
-                        onClick={handleGenerateReport}
-                        disabled={loading}
-                    >
-                        {loading
-                            ? "Generating..."
-                            : "Generate Report"}
-                    </button>
+                    <div className="reports-action-buttons">
+                        <button
+                            type="button"
+                            className="reports-generate-button"
+                            onClick={handleGenerateReport}
+                            disabled={loading}
+                        >
+                            {loading ? "Generating..." : "Generate Report"}
+                        </button>
+                        <button
+                            type="button"
+                            className="reports-print-button"
+                            onClick={() => window.print()}
+                            disabled={loading || !reports}
+                        >
+                            <Icon name="print" />
+                            Print
+                        </button>
+                    </div>
 
                 </div>
 
@@ -365,7 +424,9 @@ function Reports() {
                 SALES SUMMARY
             ================================================= */}
 
-            <section className="reports-panel">
+            <div className="reports-summary-analytics-grid">
+    <div className="reports-summary-analytics-column">
+<section className="reports-panel">
 
                 <div className="reports-panel-header">
                     <div>
@@ -477,102 +538,13 @@ function Reports() {
                 </div>
 
             </section>
-
-            {/* =================================================
-                SALES TREND
-            ================================================= */}
-
-            <section className="reports-panel">
-
-                <div className="reports-panel-header">
-                    <div>
-                        <span className="reports-panel-eyebrow">
-                            PERFORMANCE ANALYTICS
-                        </span>
-
-                        <h2>
-                            Sales Trend
-                        </h2>
-
-                        <p>
-                            Daily sales and order activity for the
-                            selected reporting period.
-                        </p>
-                    </div>
-                </div>
-
-                <div className="reports-trend-container">
-
-                    {loading ? (
-                        <div className="reports-chart-message">
-                            Loading sales trend...
-                        </div>
-                    ) : reports?.sales_trend?.length ? (
-                        <div className="reports-trend-list">
-
-                            {reports.sales_trend.map((item) => (
-                                <div
-                                    className="reports-trend-row"
-                                    key={item.date}
-                                >
-                                    <div className="reports-trend-date">
-                                        {formatDate(item.date)}
-                                    </div>
-
-                                    <div className="reports-trend-bar-area">
-                                        <div
-                                            className="reports-trend-bar"
-                                            style={{
-                                                width: `${Math.min(
-                                                    Number(item.total) > 0
-                                                        ? Math.max(
-                                                            5,
-                                                            (
-                                                                Number(item.total) /
-                                                                Math.max(
-                                                                    ...reports.sales_trend.map(
-                                                                        (trend) =>
-                                                                            Number(
-                                                                                trend.total
-                                                                            )
-                                                                    )
-                                                                )
-                                                            ) *
-                                                            100
-                                                        )
-                                                        : 0,
-                                                    100
-                                                )}%`,
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div className="reports-trend-value">
-                                        {formatCurrency(item.total)}
-                                    </div>
-
-                                    <div className="reports-trend-orders">
-                                        {formatNumber(item.orders)} orders
-                                    </div>
-                                </div>
-                            ))}
-
-                        </div>
-                    ) : (
-                        <div className="reports-chart-message">
-                            No sales activity found for this period.
-                        </div>
-                    )}
-
-                </div>
-
-            </section>
-
-            {/* =================================================
-                COMMISSION REPORT
-            ================================================= */}
-
-            <section className="reports-panel">
+<article className="reports-panel reports-analytics-card">
+                    <div className="reports-panel-header"><div><span className="reports-panel-eyebrow">PERFORMANCE ANALYTICS</span><h2>Sales Performance</h2><p>Sales movement across {getPeriodLabel().toLowerCase()}.</p></div></div>
+                    <div className="reports-trend-container"><MiniTrendChart rows={reports?.sales_trend} valueKey="total" formatCurrency={formatCurrency} formatDate={formatDate} loading={loading} emptyLabel="No sales activity for this period." label="Sales" /></div>
+                </article>
+    </div>
+    <div className="reports-summary-analytics-column">
+<section className="reports-panel">
 
                 <div className="reports-panel-header">
                     <div>
@@ -668,99 +640,12 @@ function Reports() {
                 </div>
 
             </section>
-
-            {/* =================================================
-                COMMISSION TREND
-            ================================================= */}
-
-            <section className="reports-panel">
-
-                <div className="reports-panel-header">
-                    <div>
-                        <span className="reports-panel-eyebrow">
-                            COMMISSION ANALYTICS
-                        </span>
-
-                        <h2>
-                            Commission Trend
-                        </h2>
-
-                        <p>
-                            Commission earned and seller earnings
-                            during the selected period.
-                        </p>
-                    </div>
-                </div>
-
-                <div className="reports-trend-container">
-
-                    {loading ? (
-                        <div className="reports-chart-message">
-                            Loading commission trend...
-                        </div>
-                    ) : reports?.commission_trend?.length ? (
-                        <div className="reports-trend-list">
-
-                            {reports.commission_trend.map((item) => (
-                                <div
-                                    className="reports-trend-row commission-trend-row"
-                                    key={item.date}
-                                >
-                                    <div className="reports-trend-date">
-                                        {formatDate(item.date)}
-                                    </div>
-
-                                    <div className="reports-trend-bar-area">
-                                        <div
-                                            className="reports-trend-bar"
-                                            style={{
-                                                width: `${Math.min(
-                                                    Number(item.commission) > 0
-                                                        ? Math.max(
-                                                            5,
-                                                            (
-                                                                Number(
-                                                                    item.commission
-                                                                ) /
-                                                                Math.max(
-                                                                    ...reports.commission_trend.map(
-                                                                        (trend) =>
-                                                                            Number(
-                                                                                trend.commission
-                                                                            )
-                                                                    )
-                                                                )
-                                                            ) *
-                                                            100
-                                                        )
-                                                        : 0,
-                                                    100
-                                                )}%`,
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div className="reports-trend-value">
-                                        {formatCurrency(item.commission)}
-                                    </div>
-
-                                    <div className="reports-trend-orders">
-                                        Earnings:{" "}
-                                        {formatCurrency(item.earnings)}
-                                    </div>
-                                </div>
-                            ))}
-
-                        </div>
-                    ) : (
-                        <div className="reports-chart-message">
-                            No commission activity found for this period.
-                        </div>
-                    )}
-
-                </div>
-
-            </section>
+<article className="reports-panel reports-analytics-card">
+                    <div className="reports-panel-header"><div><span className="reports-panel-eyebrow">COMMISSION ANALYTICS</span><h2>Commission Performance</h2><p>Platform commission earned during {getPeriodLabel().toLowerCase()}.</p></div></div>
+                    <div className="reports-trend-container"><MiniTrendChart rows={reports?.commission_trend} valueKey="commission" formatCurrency={formatCurrency} formatDate={formatDate} loading={loading} emptyLabel="No commission activity for this period." label="Commission" /></div>
+                </article>
+    </div>
+</div>
 
         </div>
     );

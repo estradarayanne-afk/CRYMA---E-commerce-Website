@@ -78,9 +78,13 @@ function Registrations() {
         setError("");
 
         try {
-            const { data } = await api.get(
-                `/admin/registrations?page=${page}`
-            );
+            const { data } = await api.get("/admin/registrations", {
+                params: {
+                    page,
+                    search: searchTerm.trim() || undefined,
+                    role: roleFilter === "all" ? undefined : roleFilter,
+                },
+            });
 
             const p = data.data;
 
@@ -101,12 +105,12 @@ function Registrations() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [roleFilter, searchTerm]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            fetchRegistrations();
-        }, 0);
+            fetchRegistrations(1);
+        }, 300);
 
         return () => clearTimeout(timeoutId);
     }, [fetchRegistrations]);
@@ -418,56 +422,46 @@ function Registrations() {
 
                     <div className="registrations-toolbar">
 
-                        <div className="registration-search">
-                            <span className="search-icon">
-                                ⌕
-                            </span>
+                        <div className="registration-filter" role="group" aria-label="Filter registrations by role">
+                            {[
+                                ["all", "All Roles"],
+                                ["buyer", "Buyers"],
+                                ["seller", "Sellers"],
+                                ["rider", "Riders"],
+                                ["logistics", "Logistics"],
+                            ].map(([role, label]) => (
+                                <button
+                                    key={role}
+                                    type="button"
+                                    className={roleFilter === role ? "active" : ""}
+                                    aria-pressed={roleFilter === role}
+                                    onClick={() => setRoleFilter(role)}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
 
+                        <label className="registration-search">
+                            <span className="search-icon" aria-hidden="true">⌕</span>
                             <input
-                                placeholder="Search applicant, email or phone..."
+                                type="search"
+                                aria-label="Search registrations"
+                                placeholder="Search by name, email, or phone"
                                 value={searchTerm}
-                                onChange={(e) =>
-                                    setSearchTerm(
-                                        e.target.value
-                                    )
-                                }
+                                onChange={(e) => setSearchTerm(e.target.value)}
                             />
-                        </div>
-
-                        <div className="registration-filter">
-                            <label>
-                                Role
-                            </label>
-
-                            <select
-                                value={roleFilter}
-                                onChange={(e) =>
-                                    setRoleFilter(
-                                        e.target.value
-                                    )
-                                }
-                            >
-                                <option value="all">
-                                    All Roles
-                                </option>
-
-                                <option value="seller">
-                                    Seller
-                                </option>
-
-                                <option value="buyer">
-                                    Buyer
-                                </option>
-
-                                <option value="rider">
-                                    Rider
-                                </option>
-
-                                <option value="logistics">
-                                    Logistics / Sorting Center
-                                </option>
-                            </select>
-                        </div>
+                            {searchTerm && (
+                                <button
+                                    className="search-clear"
+                                    type="button"
+                                    aria-label="Clear search"
+                                    onClick={() => setSearchTerm("")}
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </label>
                     </div>
 
                     {/* TABLE */}
@@ -530,6 +524,7 @@ function Registrations() {
 
                                             return (
                                                 <tr
+                                                    className="registration-row"
                                                     key={
                                                         registration.id
                                                     }
@@ -540,7 +535,10 @@ function Registrations() {
                                                     <td>
                                                         <div className="applicant-info">
 
-                                                            <div className="applicant-avatar">
+                                                            <div
+                                                                className="applicant-avatar"
+                                                                style={{ "--avatar-hue": (Number(registration.id) * 67) % 360 }}
+                                                            >
                                                                 {registration.first_name
                                                                     ?.charAt(
                                                                         0
@@ -574,7 +572,7 @@ function Registrations() {
 
                                                     {/* EMAIL */}
 
-                                                    <td>
+                                                    <td className="registration-email">
                                                         {
                                                             registration.email
                                                         }
@@ -582,7 +580,7 @@ function Registrations() {
 
                                                     {/* PHONE */}
 
-                                                    <td>
+                                                    <td className="registration-phone">
                                                         {
                                                             registration.phone ||
                                                             "—"
@@ -632,7 +630,7 @@ function Registrations() {
                                                                     )
                                                                 }
                                                             >
-                                                                View
+                                                                View Details
                                                             </button>
 
                                                             <button
@@ -798,6 +796,7 @@ function Registrations() {
                         }
                     >
 
+                        <div className="registration-modal-sticky">
                         {/* HEADER */}
 
                         <div className="registration-modal-header">
@@ -851,7 +850,7 @@ function Registrations() {
 
                                 <div className="registration-profile-meta">
 
-                                    <span>
+                                    <span className={`role-badge role-${selectedRegistration.role}`}>
                                         {
                                             selectedRegistration.role
                                         }
@@ -861,7 +860,7 @@ function Registrations() {
                                         •
                                     </span>
 
-                                    <span>
+                                    <span className={`status-badge status-${selectedRegistration.status}`}>
                                         {
                                             selectedRegistration.status
                                         }
@@ -870,6 +869,8 @@ function Registrations() {
                                 </div>
 
                             </div>
+
+                        </div>
 
                         </div>
 
@@ -1250,8 +1251,8 @@ function Registrations() {
 
                                                 <div className="registration-document-info">
 
-                                                    <div className="registration-document-icon">
-                                                        DOC
+                                                    <div className="registration-document-icon" aria-hidden="true">
+                                                        {(document.mime_type || "").includes("pdf") ? "PDF" : "IMG"}
                                                     </div>
 
                                                     <div>
@@ -1278,9 +1279,18 @@ function Registrations() {
                                                             }
                                                         </span>
 
+                                                        <span className="document-meta">
+                                                            {document.file_size ? `${(document.file_size / 1024).toFixed(0)} KB · ` : ""}
+                                                            {formatDate(document.created_at)}
+                                                        </span>
+
                                                     </div>
 
                                                 </div>
+
+                                                <span className={`document-status status-${document.status}`}>
+                                                    {document.status === "approved" ? "Approved" : document.status === "rejected" ? "Rejected" : "Pending review"}
+                                                </span>
 
                                                 <button
                                                     className="view-document-button"

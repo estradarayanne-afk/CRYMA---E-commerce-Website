@@ -29,7 +29,9 @@ class ProductController extends Controller
         ]);
 
         $query = Product::with(['seller:id,first_name,last_name', 'media'])
-            ->where('status', 'active');
+            ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'));
 
         if ($request->filled('category') && $request->category !== 'All') {
             $query->where('category', $request->category);
@@ -52,6 +54,8 @@ class ProductController extends Controller
     {
         $product = Product::with(['seller:id,first_name,last_name', 'media'])
             ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
             ->find($id);
 
         if (!$product) {
@@ -138,6 +142,10 @@ class ProductController extends Controller
                     'stock' => $validated['stock'],
                     'category' => $validated['category'],
                     'status' => $validated['status'] ?? 'active',
+                    'review_status' => 'pending',
+                    'review_reason' => null,
+                    'reviewed_by' => null,
+                    'reviewed_at' => null,
                 ]);
                 $this->storeMedia($product, $validated, $storedPaths);
 
@@ -150,7 +158,7 @@ class ProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Product created successfully.',
+            'message' => 'Product submitted for admin review. It will appear in your storefront after approval.',
             'data' => $product,
         ], 201);
     }
@@ -274,6 +282,19 @@ class ProductController extends Controller
                 }
 
                 $this->storeMedia($product, $validated, $storedPaths);
+
+                $listingChanged = collect(['name', 'description', 'category'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
+                    || $request->boolean('replace_media')
+                    || !empty($validated['images'])
+                    || !empty($validated['videos']);
+                if ($listingChanged) {
+                    $product->forceFill([
+                        'review_status' => 'pending',
+                        'review_reason' => null,
+                        'reviewed_by' => null,
+                        'reviewed_at' => null,
+                    ])->save();
+                }
             });
         } catch (\Throwable $exception) {
             Storage::disk('public')->delete($storedPaths);
@@ -285,7 +306,9 @@ class ProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Product updated successfully.',
+            'message' => $product->fresh()->review_status === 'pending'
+                ? 'Product changes submitted for admin review. It will be visible to buyers after approval.'
+                : 'Product updated successfully.',
             'data' => $product->fresh()->load('media'),
         ]);
     }

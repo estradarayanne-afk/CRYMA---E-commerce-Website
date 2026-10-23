@@ -57,6 +57,10 @@ class ComplaintController extends Controller
         $complaint = Complaint::with([
             'complainant',
             'respondent',
+            'order:id,buyer_id,status,total_amount,created_at',
+            'order.buyer:id,first_name,middle_name,last_name,email,phone,role',
+            'order.items.seller:id,first_name,middle_name,last_name,email,phone,role',
+            'order.delivery.courierProfile.user:id,first_name,middle_name,last_name,email,phone,role',
         ])->find($id);
 
         if (!$complaint) {

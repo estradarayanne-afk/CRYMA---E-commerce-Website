@@ -29,6 +29,8 @@ class BuyerVoucherController extends Controller
             ->get();
         $eligibleProductNames = Product::query()
             ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
             ->whereIn('id', $vouchers->flatMap(fn (Voucher $voucher) => $voucher->product_ids ?? [])->unique())
             ->pluck('name', 'id');
         $vouchers = $vouchers->map(function (Voucher $voucher) use ($eligibleProductNames) {
@@ -90,6 +92,8 @@ class BuyerVoucherController extends Controller
         foreach ($requestedItems as $requested) {
             $product = Product::query()
                 ->where('status', 'active')
+                ->where('review_status', 'approved')
+                ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
                 ->find($requested['product_id']);
             if (!$product || $product->stock < $requested['quantity']) {
                 throw ValidationException::withMessages(['items' => ['A selected product is no longer available in the requested quantity.']]);
