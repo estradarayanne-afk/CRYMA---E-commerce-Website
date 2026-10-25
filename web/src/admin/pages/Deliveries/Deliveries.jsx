@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../../shared/services/api";
 import PrivateDeliveryProof from "../../../shared/components/PrivateDeliveryProof";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Deliveries.css";
 
 const courierName = (profile) => [profile?.user?.first_name, profile?.user?.last_name].filter(Boolean).join(" ") || `Courier #${profile?.id}`;
-const label = (status) => String(status || "Unknown").replaceAll("_", " ").toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+const label = formatStatusLabel;
 
 export default function Deliveries() {
     const [queue, setQueue] = useState({ pickup_orders: [], pickup_assignments: [], sorting_orders: [], deliveries: [], areas: [], eligible_pickup_couriers: [], eligible_delivery_couriers: [] });

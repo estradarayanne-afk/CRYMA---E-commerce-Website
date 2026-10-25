@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
@@ -29,7 +30,9 @@ class ProductController extends Controller
         ]);
 
         $query = Product::with(['seller:id,first_name,last_name', 'media'])
-            ->where('status', 'active');
+            ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'));
 
         if ($request->filled('category') && $request->category !== 'All') {
             $query->where('category', $request->category);
@@ -52,6 +55,8 @@ class ProductController extends Controller
     {
         $product = Product::with(['seller:id,first_name,last_name', 'media'])
             ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
             ->find($id);
 
         if (!$product) {
@@ -103,6 +108,7 @@ class ProductController extends Controller
             ], 403);
         }
 
+        $this->normalizeVariantsInput($request);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'sku' => [
@@ -117,11 +123,24 @@ class ProductController extends Controller
             'stock' => ['required', 'integer', 'min:0', 'max:4294967295'],
             'category' => ['required', Rule::in(self::CATEGORIES)],
             'status' => ['sometimes', 'required', 'in:active,inactive,out_of_stock'],
+            'variants' => ['sometimes', 'array', 'max:100'],
+            'variants.*.id' => ['nullable', 'uuid', 'distinct'],
+            'variants.*.color' => ['nullable', 'string', 'max:50'],
+            'variants.*.size' => ['nullable', 'string', 'max:50'],
+            'variants.*.price' => ['required_with:variants', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.stock' => ['required_with:variants', 'integer', 'min:0', 'max:4294967295'],
             'images' => ['sometimes', 'array', 'max:8'],
             'images.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1536'],
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        $validated['variants'] = $this->normalizeVariantRows($validated['variants'] ?? []);
+        if ($validated['variants']) {
+            $validated['price'] = $this->lowestVariantPrice($validated['variants']);
+            $validated['discounted_price'] = null;
+            $validated['stock'] = array_sum(array_column($validated['variants'], 'stock'));
+        }
         $this->validateMediaTotal($validated);
 
         $this->validateDiscountedPrice($validated['discounted_price'] ?? null, $validated['price']);
@@ -135,9 +154,14 @@ class ProductController extends Controller
                     'description' => $validated['description'] ?? null,
                     'price' => $validated['price'],
                     'discounted_price' => $validated['discounted_price'] ?? null,
+                    'variants' => $validated['variants'] ?: null,
                     'stock' => $validated['stock'],
                     'category' => $validated['category'],
                     'status' => $validated['status'] ?? 'active',
+                    'review_status' => 'pending',
+                    'review_reason' => null,
+                    'reviewed_by' => null,
+                    'reviewed_at' => null,
                 ]);
                 $this->storeMedia($product, $validated, $storedPaths);
 
@@ -150,7 +174,7 @@ class ProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Product created successfully.',
+            'message' => 'Product submitted for admin review. It will appear in your storefront after approval.',
             'data' => $product,
         ], 201);
     }
@@ -209,6 +233,7 @@ class ProductController extends Controller
             ], 404);
         }
 
+        $this->normalizeVariantsInput($request);
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:150'],
             'sku' => [
@@ -230,6 +255,13 @@ class ProductController extends Controller
                 'required',
                 'in:active,inactive,out_of_stock',
             ],
+            'variants' => ['sometimes', 'array', 'max:100'],
+            'variants.*.id' => ['nullable', 'uuid', 'distinct'],
+            'variants.*.color' => ['nullable', 'string', 'max:50'],
+            'variants.*.size' => ['nullable', 'string', 'max:50'],
+            'variants.*.price' => ['required_with:variants', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.stock' => ['required_with:variants', 'integer', 'min:0', 'max:4294967295'],
             'replace_media' => ['sometimes', 'boolean'],
             'keep_media_ids' => ['sometimes', 'array', 'max:10'],
             'keep_media_ids.*' => ['integer', 'distinct'],
@@ -238,13 +270,25 @@ class ProductController extends Controller
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        if (array_key_exists('variants', $validated)) {
+            $validated['variants'] = $this->normalizeVariantRows($validated['variants']);
+            if ($validated['variants']) {
+                $validated['price'] = $this->lowestVariantPrice($validated['variants']);
+                $validated['discounted_price'] = null;
+                $validated['stock'] = array_sum(array_column($validated['variants'], 'stock'));
+            } else {
+                $validated['variants'] = null;
+            }
+        }
         $this->validateMediaTotal($validated);
 
         $discountedPrice = array_key_exists('discounted_price', $validated)
             ? $validated['discounted_price']
             : $product->discounted_price;
         $price = $validated['price'] ?? $product->price;
-        $this->validateDiscountedPrice($discountedPrice, $price);
+        if (empty($validated['variants'])) {
+            $this->validateDiscountedPrice($discountedPrice, $price);
+        }
         $mediaPathsToDelete = [];
         $storedPaths = [];
         try {
@@ -274,6 +318,19 @@ class ProductController extends Controller
                 }
 
                 $this->storeMedia($product, $validated, $storedPaths);
+
+                $listingChanged = collect(['name', 'description', 'category', 'variants'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
+                    || $request->boolean('replace_media')
+                    || !empty($validated['images'])
+                    || !empty($validated['videos']);
+                if ($listingChanged) {
+                    $product->forceFill([
+                        'review_status' => 'pending',
+                        'review_reason' => null,
+                        'reviewed_by' => null,
+                        'reviewed_at' => null,
+                    ])->save();
+                }
             });
         } catch (\Throwable $exception) {
             Storage::disk('public')->delete($storedPaths);
@@ -285,7 +342,9 @@ class ProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Product updated successfully.',
+            'message' => $product->fresh()->review_status === 'pending'
+                ? 'Product changes submitted for admin review. It will be visible to buyers after approval.'
+                : 'Product updated successfully.',
             'data' => $product->fresh()->load('media'),
         ]);
     }
@@ -335,12 +394,78 @@ class ProductController extends Controller
             'url' => $media->url,
         ])->all();
         $data['image'] = $images->first()?->url;
-        if ($product->discounted_price !== null) {
+        if (!empty($product->variants)) {
+            $variants = collect($product->variants);
+            $lowest = $variants->sortBy(fn (array $variant) => $this->moneyToCents($variant['discounted_price'] ?? $variant['price']))->first();
+            $data['price'] = $lowest['discounted_price'] ?? $lowest['price'];
+            $data['original_price'] = null;
+            $data['price_from_variants'] = true;
+        } elseif ($product->discounted_price !== null) {
             $data['original_price'] = $product->price;
             $data['price'] = $product->discounted_price;
         }
 
         return $data;
+    }
+
+    private function normalizeVariantsInput(Request $request): void
+    {
+        if (is_string($request->input('variants'))) {
+            $request->merge(['variants' => json_decode($request->input('variants'), true)]);
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $variants
+     * @return array<int, array{id: string, color: ?string, size: ?string, price: string, discounted_price: ?string, stock: int}>
+     */
+    private function normalizeVariantRows(array $variants): array
+    {
+        $seenOptions = [];
+        $normalized = [];
+        foreach ($variants as $index => $variant) {
+            $color = trim((string) ($variant['color'] ?? ''));
+            $size = trim((string) ($variant['size'] ?? ''));
+            if ($color === '' && $size === '') {
+                throw ValidationException::withMessages([
+                    "variants.{$index}.color" => ['Enter a color or size for each variant.'],
+                ]);
+            }
+
+            $optionKey = mb_strtolower($color).'|'.mb_strtolower($size);
+            if (isset($seenOptions[$optionKey])) {
+                throw ValidationException::withMessages([
+                    "variants.{$index}.color" => ['Each color and size combination must be unique.'],
+                ]);
+            }
+            $seenOptions[$optionKey] = true;
+
+            $price = (string) $variant['price'];
+            $discountedPrice = filled($variant['discounted_price'] ?? null)
+                ? (string) $variant['discounted_price']
+                : null;
+            $this->validateDiscountedPrice($discountedPrice, $price);
+            $normalized[] = [
+                'id' => $variant['id'] ?? (string) Str::uuid(),
+                'color' => $color !== '' ? $color : null,
+                'size' => $size !== '' ? $size : null,
+                'price' => $price,
+                'discounted_price' => $discountedPrice,
+                'stock' => (int) $variant['stock'],
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $variants
+     */
+    private function lowestVariantPrice(array $variants): string
+    {
+        return collect($variants)
+            ->sortBy(fn (array $variant) => $this->moneyToCents($variant['price']))
+            ->first()['price'];
     }
 
     private function validateDiscountedPrice(?string $discountedPrice, string $price): void

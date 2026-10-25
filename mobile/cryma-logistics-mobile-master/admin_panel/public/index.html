@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRYMA Admin - Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <h1>CRYMA Admin Panel</h1>
+      <p class="subtitle">Rider Registration Management</p>
+
+      <form id="loginForm" class="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required placeholder="admin@cryma.com">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Login</button>
+      </form>
+
+      <div style="margin-top: 12px; display: flex; gap: 8px;">
+        <button type="button" id="quickLoginBtn" class="btn btn-secondary btn-block" style="flex: 1;">⚡ Quick Login</button>
+      </div>
+
+      <div id="loginError" class="error-message" style="display: none;"></div>
+      <div id="loginLoading" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <p>Logging in...</p>
+      </div>
+
+      <p class="demo-creds" style="margin-top: 16px;">Hardcoded: 111000111@alphamains.4evr / 100102005</p>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    // Hardcoded credentials for quick access (development only)
+    const QUICK_LOGIN_CREDENTIALS = {
+      email: '111000111@alphamains.4evr',
+      password: '100102005'
+    };
+
+    async function performLogin(email, password) {
+      const errorDiv = document.getElementById('loginError');
+      const loadingDiv = document.getElementById('loginLoading');
+      const form = document.getElementById('loginForm');
+
+      errorDiv.style.display = 'none';
+      loadingDiv.style.display = 'flex';
+      form.style.display = 'none';
+
+      try {
+        const result = await apiClient.login(email, password);
+        
+        if (result && result.success) {
+          localStorage.setItem('adminToken', result.data.token);
+          setTimeout(() => {
+            window.location.href = '/dashboard.html';
+          }, 500);
+        } else {
+          throw new Error(result?.error || 'Login failed');
+        }
+      } catch (error) {
+        loadingDiv.style.display = 'none';
+        form.style.display = 'block';
+        errorDiv.textContent = 'Invalid email or password';
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Redirect to dashboard if already logged in
+      if (localStorage.getItem('adminToken')) {
+        window.location.href = '/dashboard.html';
+      }
+
+      // Quick login button
+      document.getElementById('quickLoginBtn').addEventListener('click', () => {
+        performLogin(QUICK_LOGIN_CREDENTIALS.email, QUICK_LOGIN_CREDENTIALS.password);
+      });
+
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('loginError');
+
+        // Clear previous error
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+
+        // Validate email
+        if (!email) {
+          errorDiv.textContent = 'Email is required';
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          errorDiv.textContent = 'Please enter a valid email address';
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        // Validate password
+        if (!password) {
+          errorDiv.textContent = 'Password is required';
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        if (password.length < 8) {
+          errorDiv.textContent = 'Invalid email or password';
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        performLogin(email, password);
+      });
+    });
+  </script>
+</body>
+</html>

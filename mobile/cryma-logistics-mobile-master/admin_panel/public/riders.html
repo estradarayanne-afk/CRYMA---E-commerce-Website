@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pending Riders - CRYMA Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav id="navbar" class="navbar"></nav>
+
+  <div class="container">
+    <h1>Pending Rider Registrations</h1>
+
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search by name, email, or phone..." class="search-input">
+    </div>
+
+    <div id="loading" class="loading-spinner" style="display: none;">
+      <div class="spinner"></div>
+      <p>Loading riders...</p>
+    </div>
+
+    <div id="error" class="error-message" style="display: none;"></div>
+
+    <div class="riders-table-wrapper">
+      <table id="ridersTable" class="riders-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Registered</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ridersBody">
+          <tr class="empty-row">
+            <td colspan="6">No riders found</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    let allRiders = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setupNavbar();
+      loadRiders();
+
+      document.getElementById('searchInput').addEventListener('input', filterRiders);
+    });
+
+    async function loadRiders() {
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const tbody = document.getElementById('ridersBody');
+
+      loading.style.display = 'flex';
+      error.style.display = 'none';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Loading...</td></tr>';
+
+      try {
+        const result = await apiClient.getPendingRiders();
+
+        if (result && result.success) {
+          allRiders = result.data.riders || [];
+          displayRiders(allRiders);
+        } else {
+          throw new Error(result?.error || 'Failed to load riders');
+        }
+      } catch (err) {
+        error.textContent = 'Failed to load riders: ' + err.message;
+        error.style.display = 'block';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Error loading data</td></tr>';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function displayRiders(riders) {
+      const tbody = document.getElementById('ridersBody');
+
+      if (riders.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No pending riders</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = riders
+        .map(
+          (rider) => `
+        <tr>
+          <td>${escapeHtml(rider.fullName || 'N/A')}</td>
+          <td>${escapeHtml(rider.email)}</td>
+          <td>${escapeHtml(rider.phone || 'N/A')}</td>
+          <td><span class="status-badge status-${rider.accountStatus}">${rider.accountStatus}</span></td>
+          <td>${new Date(rider.createdAt).toLocaleDateString()}</td>
+          <td>
+            <button class="btn btn-small btn-info" onclick="viewRider(${rider.id})">View Details</button>
+            <button class="btn btn-small btn-success" onclick="approveRiderBtn(${rider.id})">Approve</button>
+            <button class="btn btn-small btn-danger" onclick="rejectRiderBtn(${rider.id})">Reject</button>
+          </td>
+        </tr>
+      `
+        )
+        .join('');
+    }
+
+    function filterRiders() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = allRiders.filter(
+        (rider) =>
+          (rider.fullName && rider.fullName.toLowerCase().includes(query)) ||
+          rider.email.toLowerCase().includes(query) ||
+          (rider.phone && rider.phone.toLowerCase().includes(query))
+      );
+      displayRiders(filtered);
+    }
+
+    function viewRider(riderId) {
+      window.location.href = `/rider-detail.html?id=${riderId}`;
+    }
+
+    async function approveRiderBtn(riderId) {
+      showConfirm(
+        'Approve Rider',
+        'Are you sure you want to approve this rider registration?',
+        async () => {
+          try {
+            const result = await apiClient.approveRider(riderId);
+            if (result.success) {
+              showToast('Rider approved successfully', 'success');
+              loadRiders();
+            } else {
+              showToast('Failed to approve rider: ' + (result.error || 'Unknown error'), 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        }
+      );
+    }
+
+    async function rejectRiderBtn(riderId) {
+      showReasonModal(
+        'Reject Rider',
+        'Enter the reason for rejection:',
+        async (reason) => {
+          try {
+            const result = await apiClient.rejectRider(riderId, reason);
+            if (result.success) {
+              showToast('Rider rejected successfully', 'success');
+              loadRiders();
+            } else {
+              showToast('Failed to reject rider: ' + (result.error || 'Unknown error'), 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        }
+      );
+    }
+  </script>
+</body>
+</html>

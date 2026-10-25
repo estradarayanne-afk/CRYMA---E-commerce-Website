@@ -4,7 +4,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>CRYMA — Online Shopping</title>
-        <link rel="icon" type="image/png" href="/CRYMA%20Favicon.png" />
+        <link rel="icon" type="image/png" href="/cryma-favicon.png" />
         <script type="module" src="http://localhost:5173/@@vite/client"></script>
         <script type="module">
             import RefreshRuntime from "http://localhost:5173/@@react-refresh";

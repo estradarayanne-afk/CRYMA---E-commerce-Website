@@ -953,3 +953,544 @@
     justify-content: center; }
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Premium registration table and clearer action hierarchy. */
+.registration-count {
+    min-width: 0;
+    flex-direction: row;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid rgba(200, 138, 41, .22);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #FFF7E6, #FCE8EC);
+    box-shadow: 0 6px 18px rgba(126, 24, 48, .09), 0 0 0 3px rgba(239, 199, 123, .08);
+}
+.registration-count strong { color: #8B4A0B; font-size: 18px; }
+.registration-count span { margin: 0; color: #8B4A0B; font-size: 10px; }
+.registrations-table thead { background: #FDF5F5; }
+.registrations-table th { background: #FDF5F5; }
+.registrations-table tbody tr:hover { background: #FFF7F8; }
+.role-badge.role-seller { background: #FEF3C7; color: #92400E; }
+.role-badge.role-buyer { background: #FCE7F3; color: #9D174D; }
+.role-badge.role-rider { background: #EDE9FE; color: #5B21B6; }
+.role-badge.role-logistics { background: #CCFBF1; color: #115E59; }
+.registration-actions .view-button {
+    border: 1px solid rgba(138, 28, 48, .2) !important;
+    background: #fff;
+    color: #4B3038;
+}
+.registration-actions .view-button:hover:not(:disabled) {
+    border-color: #8A1C30 !important;
+    background: #FFF7F8;
+    color: #8A1C30;
+}
+.registration-actions .approve-button {
+    border: 1px solid #C9E7D0 !important;
+    background: #E6F4EA;
+    color: #137333;
+}
+.registration-actions .approve-button:hover:not(:disabled) {
+    border-color: #137333 !important;
+    background: #D5EEDB;
+    color: #0E5D29;
+}
+.registration-actions .reject-button {
+    border: 1px solid #F2C7C4 !important;
+    background: #FCE8E6;
+    color: #C5221F;
+}
+.registration-actions .reject-button:hover:not(:disabled) {
+    border-color: #C5221F !important;
+    background: #F8D7D4;
+    color: #A31512;
+}
+.registration-search:focus-within {
+    border-color: #8A1C30;
+    box-shadow: 0 0 0 3px rgba(138, 28, 48, .12);
+}
+.registration-search .search-icon { color: #8A1C30; }
+.registration-search .search-icon svg { display: block; width: 16px; height: 16px; }
+
+/* Filter pills and tactile table finish. */
+.registrations-card {
+    background: rgba(255, 255, 255, .9);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-color: rgba(255, 255, 255, .82);
+    box-shadow: 0 10px 30px -5px rgba(74, 21, 33, .07), 0 4px 8px -2px rgba(74, 21, 33, .03);
+}
+.registrations-toolbar {
+    flex-wrap: wrap;
+    background: rgba(255, 255, 255, .72);
+    border-bottom-color: rgba(138, 28, 48, .08);
+}
+.registration-search {
+    position: relative;
+    flex: 0 1 360px;
+    width: min(360px, 100%);
+    min-width: 240px;
+    height: 44px;
+    box-sizing: border-box;
+    border: 1px solid rgba(75, 23, 37, .16);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #fff 0%, #FFFAFB 100%);
+    box-shadow: 0 3px 10px rgba(75, 23, 37, .045), inset 0 1px 2px rgba(75, 23, 37, .035);
+    transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.registration-search:focus-within {
+    border-color: #8A1C30;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(138, 28, 48, .12), 0 5px 14px rgba(75, 23, 37, .07);
+}
+.registration-search input {
+    min-width: 0;
+    padding: 0 38px 0 40px;
+    font-size: 13px;
+}
+.registration-search input::-webkit-search-cancel-button { display: none; }
+.registration-search .search-icon { left: 13px; padding: 0; font-size: 0; }
+.registration-search .search-icon::before { width: 10px; height: 10px; border-width: 1.8px; }
+.registration-search .search-icon::after { top: 11px; left: 10px; width: 7px; height: 1.8px; }
+.search-clear {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #F8EEF0;
+    color: #7E1830;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+.search-clear:hover { background: #F1DCE1; }
+.registration-search .search-icon::before { content: ""; position: absolute; top: 1px; left: 0; width: 9px; height: 9px; border: 1.6px solid currentColor; border-radius: 50%; }
+.registration-search .search-icon::after { content: ""; position: absolute; top: 10px; left: 9px; width: 6px; height: 1.6px; border-radius: 2px; background: currentColor; transform: rotate(45deg); transform-origin: left center; }
+.registration-filter {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 7px;
+}
+.registration-filter button {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(138, 28, 48, .16);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .85);
+    color: #6F6265;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.registration-filter button:hover:not(.active) {
+    border-color: rgba(138, 28, 48, .42);
+    background: #FFF7F8;
+    color: #5B0E1B;
+    transform: translateY(-1px);
+}
+.registration-filter button.active {
+    border-color: #2E0B13;
+    background: #2E0B13;
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(46, 11, 19, .16);
+}
+.registration-filter button:focus-visible {
+    outline: 3px solid rgba(138, 28, 48, .18);
+    outline-offset: 2px;
+}
+.registrations-table {
+    background: rgba(255, 255, 255, .86);
+}
+.registrations-table thead,
+.registrations-table th { background: #FDF5F5; }
+.registrations-table th {
+    color: #5B0E1B;
+    font-size: 12px;
+    letter-spacing: .05em;
+    border-bottom-color: rgba(138, 28, 48, .08);
+}
+.registrations-table td {
+    border-bottom-color: rgba(138, 28, 48, .055);
+    transition: background-color .2s ease;
+}
+.registrations-table tbody tr { transition: background-color .15s ease, transform .15s ease; }
+.registrations-table tbody tr:hover {
+    background: rgba(180, 50, 75, .025);
+    transform: translateY(-1px);
+}
+.registration-actions { gap: 8px; }
+.registration-actions .reject-button { margin-left: 10px; }
+
+/* Floating applicant rows and more tactile review actions. */
+.registrations-table-wrapper {
+    padding: 2px 18px 12px;
+    background: linear-gradient(180deg, #FFFAFB 0%, #FFF7F8 100%);
+}
+.registrations-table {
+    border-collapse: separate;
+    border-spacing: 0 9px;
+    min-width: 1120px;
+}
+.registrations-table thead th {
+    padding-top: 15px;
+    padding-bottom: 8px;
+    border: 0;
+    background: transparent;
+    color: #806D72;
+    font-size: 10px;
+    letter-spacing: .09em;
+}
+.registrations-table tbody tr.registration-row td {
+    padding-top: 17px;
+    padding-bottom: 17px;
+    border-top: 1px solid rgba(91, 14, 27, .075);
+    border-bottom: 1px solid rgba(91, 14, 27, .075);
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 4px 12px rgba(74, 21, 33, .035);
+    transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.registrations-table tbody tr.registration-row td:first-child {
+    border-left: 1px solid rgba(91, 14, 27, .075);
+    border-radius: 13px 0 0 13px;
+}
+.registrations-table tbody tr.registration-row td:last-child {
+    border-right: 1px solid rgba(91, 14, 27, .075);
+    border-radius: 0 13px 13px 0;
+}
+.registrations-table tbody tr.registration-row:hover td {
+    border-color: rgba(178, 31, 58, .18);
+    background: #FFFCFC;
+    box-shadow: 0 8px 20px rgba(91, 14, 27, .075);
+}
+.applicant-info { gap: 13px; }
+.applicant-info > div:last-child { display: flex; flex-direction: column; gap: 4px; }
+.applicant-info strong { color: #321820; font-size: 13px; letter-spacing: -.01em; }
+.applicant-info span { color: #95858A; font-size: 11px; }
+.applicant-avatar {
+    border: 2px solid #fff;
+    background: linear-gradient(145deg, hsl(var(--avatar-hue, 340) 64% 72%), hsl(calc(var(--avatar-hue, 340) + 35) 56% 48%));
+    color: #fff;
+    box-shadow: 0 4px 10px hsla(var(--avatar-hue, 340), 48%, 38%, .24);
+}
+.registration-email { color: #63535A !important; font-size: 12px !important; }
+.registration-phone { color: #766970 !important; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px !important; }
+.registration-actions { gap: 7px; white-space: nowrap; }
+.registration-actions .view-button,
+.registration-actions .approve-button,
+.registration-actions .reject-button {
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 650;
+    box-shadow: 0 2px 4px rgba(55, 24, 31, .04);
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+}
+.registration-actions .view-button::before { content: "\25C9"; margin-right: 6px; font-size: 13px; }
+.registration-actions .approve-button {
+    border: 1px solid #16804A !important;
+    background: linear-gradient(135deg, #198754, #147344);
+    color: #fff;
+}
+.registration-actions .approve-button::before { content: "\2713"; margin-right: 5px; }
+.registration-actions .approve-button:hover:not(:disabled) {
+    border-color: #0F6339 !important;
+    background: linear-gradient(135deg, #147344, #105D36);
+    color: #fff;
+    box-shadow: 0 5px 12px rgba(20, 115, 68, .22);
+    transform: translateY(-1px);
+}
+.registration-actions .reject-button {
+    margin-left: 12px;
+    border: 1px solid rgba(197, 34, 31, .22) !important;
+    background: transparent;
+    color: #A64A4A;
+}
+.registration-actions .reject-button::before { content: "\00D7"; margin-right: 5px; font-size: 15px; }
+.registration-actions .reject-button:hover:not(:disabled) {
+    border-color: #C5221F !important;
+    background: #C5221F;
+    color: #fff;
+    box-shadow: 0 5px 12px rgba(197, 34, 31, .2);
+    transform: translateY(-1px);
+}
+.registration-actions .view-button:hover:not(:disabled) { box-shadow: 0 5px 12px rgba(75, 23, 37, .09); transform: translateY(-1px); }
+
+@media (max-width: 768px) {
+    .registrations-table-wrapper { padding-right: 10px; padding-left: 10px; }
+    .registration-actions .reject-button { margin-left: 5px; }
+}
+
+@media (max-width: 768px) {
+    .registration-filter { justify-content: flex-start; }
+    .registration-search { flex: 1 1 100%; width: 100%; min-width: 0; }
+}
+
+/* Applicant detail modal: persistent context, quieter fields, clear document review. */
+.registration-modal {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(138, 28, 48, .3) transparent;
+}
+.registration-modal::-webkit-scrollbar { width: 7px; }
+.registration-modal::-webkit-scrollbar-track { background: transparent; }
+.registration-modal::-webkit-scrollbar-thumb { border-radius: 10px; background: rgba(138, 28, 48, .28); }
+.registration-modal-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(255, 255, 255, .94);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 18px rgba(75, 23, 37, .07);
+}
+.registration-modal-sticky .registration-modal-header {
+    padding-top: 18px;
+    padding-bottom: 14px;
+    border-bottom: 0;
+}
+.registration-modal-sticky .registration-profile {
+    padding-top: 10px;
+    padding-bottom: 18px;
+    background: transparent;
+}
+.registration-profile-avatar {
+    border: 3px solid #fff;
+    background: linear-gradient(145deg, #E9A4B4, #8A1C30);
+    color: #fff;
+    box-shadow: 0 5px 14px rgba(138, 28, 48, .2);
+}
+.registration-profile-meta { gap: 8px; }
+.registration-profile-meta .role-badge,
+.registration-profile-meta .status-badge { text-transform: capitalize; }
+.registration-profile-meta .role-rider { background: #EDE9FE; color: #5B21B6; }
+.registration-profile-meta .role-buyer { background: #FCE7F3; color: #9D174D; }
+.registration-profile-meta .role-seller { background: #FEF3C7; color: #92400E; }
+.registration-profile-meta .role-logistics { background: #CCFBF1; color: #115E59; }
+.registration-profile-meta .status-pending { background: #FFF4D6; color: #8A5B00; }
+.registration-profile-meta .status-active { background: #E6F4EA; color: #137333; }
+.registration-profile-meta .status-rejected { background: #FCE8E6; color: #B42318; }
+.registration-detail-section { padding: 20px 0; border-bottom-color: rgba(75, 23, 37, .08); }
+.registration-detail-section h4 { color: #4B1725; font-size: 13px; letter-spacing: .01em; }
+.registration-detail-item {
+    padding: 13px 14px;
+    border: 1px solid rgba(75, 23, 37, .045);
+    border-radius: 10px;
+    background: #F9FAFB;
+}
+.registration-detail-item span { color: #718096; font-size: 10px; letter-spacing: .07em; }
+.registration-detail-item strong { color: #1A202C; font-weight: 600; }
+.registration-document-item {
+    grid-template-columns: minmax(190px, 1fr) auto auto auto auto;
+    padding: 14px;
+    border-color: rgba(75, 23, 37, .08);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(75, 23, 37, .04);
+}
+.registration-document-icon {
+    width: 42px;
+    height: 46px;
+    border: 1px solid #F0DDE2;
+    border-radius: 9px;
+    background: linear-gradient(180deg, #FFF7F8, #F9E9ED);
+    color: #8A1C30;
+    font-size: 10px;
+    letter-spacing: .04em;
+}
+.registration-document-info strong { color: #321820; }
+.registration-document-info .document-meta { color: #8A8588; font-size: 10px; }
+.registration-document-item .view-document-button {
+    min-height: 34px;
+    border-color: rgba(138, 28, 48, .18);
+    border-radius: 8px;
+    color: #5B2633;
+    font-weight: 600;
+}
+.registration-document-item .approve-button,
+.registration-document-item .reject-button {
+    min-height: 34px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 650;
+}
+.registration-document-item .approve-button { border: 1px solid #C9E7D0; background: #E6F4EA; color: #137333; }
+.registration-document-item .reject-button { border: 1px solid #F2C7C4; background: #fff; color: #B42318; }
+.document-status {
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #FFF4D6;
+    color: #8A5B00;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.document-status.status-approved { background: #E6F4EA; color: #137333; }
+.document-status.status-rejected { background: #FCE8E6; color: #B42318; }
+.registration-modal .registration-modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    justify-content: flex-end;
+    padding: 14px 26px;
+    border-top: 1px solid rgba(75, 23, 37, .1);
+    background: rgba(255, 255, 255, .96);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 -8px 18px rgba(75, 23, 37, .05);
+}
+.registration-modal .registration-modal-actions .modal-cancel-button { margin-right: auto; }
+.registration-modal .registration-modal-actions .approve-button {
+    border: 1px solid #10B981 !important;
+    background: #10B981;
+    color: #fff;
+}
+.registration-modal .registration-modal-actions .approve-button:hover { background: #059669; }
+.registration-modal .registration-modal-actions .reject-button {
+    border: 1px solid #EF4444 !important;
+    background: transparent;
+    color: #DC2626;
+}
+.registration-modal .registration-modal-actions .reject-button:hover { background: #FEF2F2; }
+@media (max-width: 768px) {
+    .registration-document-item { grid-template-columns: 1fr 1fr; }
+    .registration-document-info { grid-column: 1 / -1; }
+    .registration-modal .registration-modal-actions { flex-direction: row; align-items: center; padding: 12px 18px; }
+    .registration-modal .registration-modal-actions .modal-cancel-button { width: auto; }
+    .registration-modal .registration-modal-actions .reject-button,
+    .registration-modal .registration-modal-actions .approve-button { width: auto; }
+}
+
+/* Richer crimson glass treatment for the applicant details experience. */
+.registration-modal-sticky {
+    isolation: isolate;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(255, 180, 190, .22);
+    background: linear-gradient(135deg, #4A0E17 0%, #2E050C 100%);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .16);
+}
+.registration-modal-sticky::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 auto;
+    height: 56%;
+    background: linear-gradient(180deg, rgba(255,255,255,.12), transparent);
+    content: "";
+    pointer-events: none;
+}
+.registration-modal-sticky .registration-modal-header { padding: 18px 26px 8px; }
+.registration-modal-sticky .modal-eyebrow { color: #F6B7C3; }
+.registration-modal-sticky .registration-modal-header h2 { color: #fff; }
+.registration-modal-sticky .modal-close-button {
+    border: 1px solid rgba(255,255,255,.2);
+    background: rgba(255,255,255,.1);
+    color: #fff;
+}
+.registration-modal-sticky .modal-close-button:hover { background: rgba(255,255,255,.2); color: #fff; }
+.registration-modal-sticky .registration-profile { padding: 8px 26px 20px; }
+.registration-modal-sticky .registration-profile h3 { color: #fff; font-size: 18px; }
+.registration-modal-sticky .registration-profile-avatar {
+    border: 3px solid rgba(255, 232, 237, .92);
+    background: linear-gradient(145deg, #FFB5C2 0%, #D9405C 52%, #7A1429 100%);
+    box-shadow: 0 0 0 4px rgba(244, 132, 154, .2), 0 8px 18px rgba(0,0,0,.32), inset 0 2px 4px rgba(255,255,255,.6);
+}
+.registration-modal-sticky .registration-profile-meta .role-badge,
+.registration-modal-sticky .registration-profile-meta .status-badge {
+    border: 1px solid rgba(255,255,255,.22);
+    box-shadow: 0 3px 8px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.registration-modal > .registration-detail-section {
+    margin: 18px 24px 0;
+    padding: 19px;
+    border: 1px solid rgba(91, 14, 27, .08);
+    border-radius: 15px;
+    background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(255,250,251,.96));
+    box-shadow: 0 8px 22px rgba(74, 21, 33, .055), inset 0 1px 0 rgba(255,255,255,.95);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.registration-modal > .registration-detail-section:hover {
+    transform: translateY(-2px);
+    border-color: rgba(178, 31, 58, .15);
+    box-shadow: 0 12px 26px rgba(74, 21, 33, .085), inset 0 1px 0 #fff;
+}
+.registration-modal > .registration-detail-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 14px;
+    color: #4A0E17;
+    font-size: 14px;
+}
+.registration-modal > .registration-detail-section h4::before {
+    display: inline-block;
+    width: 4px;
+    height: 16px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #D95C73, #7E1830);
+    box-shadow: 0 2px 6px rgba(126, 24, 48, .2);
+    content: "";
+}
+.registration-modal .registration-detail-item {
+    border: 1px solid rgba(88, 58, 65, .06);
+    background: linear-gradient(145deg, #fff, rgba(249,250,251,.88));
+    box-shadow: 0 3px 9px rgba(35, 10, 16, .035), inset 0 1px 0 #fff;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.registration-modal .registration-detail-item:hover {
+    transform: translateY(-2px);
+    border-color: rgba(178, 31, 58, .14);
+    box-shadow: 0 7px 14px rgba(75, 23, 37, .075), inset 0 1px 0 #fff;
+}
+.registration-modal .registration-detail-item strong { color: #1F0A10; font-size: 13px; }
+.registration-document-item {
+    border-radius: 13px;
+    box-shadow: 0 6px 15px rgba(75, 23, 37, .065), inset 0 1px 0 #fff;
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.registration-document-item:hover {
+    transform: translateY(-3px);
+    border-color: rgba(178, 31, 58, .2);
+    box-shadow: 0 12px 22px rgba(75, 23, 37, .11), inset 0 1px 0 #fff;
+}
+.document-status { box-shadow: 0 3px 8px rgba(138, 91, 0, .12), inset 0 1px 0 rgba(255,255,255,.75); }
+.document-status.status-approved { box-shadow: 0 3px 8px rgba(19, 115, 51, .12), inset 0 1px 0 rgba(255,255,255,.75); }
+.document-status.status-rejected { box-shadow: 0 3px 8px rgba(180, 35, 24, .12), inset 0 1px 0 rgba(255,255,255,.75); }
+.registration-document-item .view-document-button { box-shadow: 0 3px 9px rgba(75, 23, 37, .07), inset 0 1px 0 #fff; }
+.registration-document-item .view-document-button:hover { border-color: rgba(138, 28, 48, .36); box-shadow: 0 6px 14px rgba(75, 23, 37, .12); transform: translateY(-1px); }
+.registration-modal .registration-modal-actions {
+    border-top-color: rgba(91, 14, 27, .1);
+    background: rgba(255, 255, 255, .88);
+    box-shadow: 0 -10px 25px rgba(46, 5, 12, .1), inset 0 1px 0 rgba(255,255,255,.9);
+}
+.registration-modal .registration-modal-actions .approve-button {
+    border-color: #059669 !important;
+    background: linear-gradient(135deg, #10B981, #059669);
+    box-shadow: 0 7px 16px rgba(16, 185, 129, .24), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.registration-modal .registration-modal-actions .approve-button:hover {
+    background: linear-gradient(135deg, #0EAA75, #047857);
+    box-shadow: 0 9px 20px rgba(16, 185, 129, .34), inset 0 1px 0 rgba(255,255,255,.35);
+    transform: translateY(-2px);
+}
+.registration-modal .registration-modal-actions .reject-button { box-shadow: inset 0 1px 0 rgba(255,255,255,.8); }
+.registration-modal:not(.confirmation-modal):not(.document-rejection-modal) .registration-modal-actions .reject-button { margin-right: 8px; }
+.registration-modal .registration-modal-actions .reject-button:hover {
+    border-color: #DC2626 !important;
+    background: #FEF2F2;
+    box-shadow: 0 6px 14px rgba(220, 38, 38, .14);
+    transform: translateY(-1px);
+}
+@media (max-width: 600px) {
+    .registration-modal > .registration-detail-section { margin-right: 14px; margin-left: 14px; padding: 15px; }
+    .registration-modal-sticky .registration-modal-header { padding-right: 18px; padding-left: 18px; }
+    .registration-modal-sticky .registration-profile { padding-right: 18px; padding-left: 18px; }
+}

@@ -112,6 +112,7 @@ class BuyerChatController extends Controller
 
         $product = Product::query()
             ->where('status', 'active')
+            ->where('review_status', 'approved')
             ->with('seller:id,first_name,last_name,role,status')
             ->findOrFail($validated['product_id']);
         abort_unless(

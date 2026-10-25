@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../shared/services/api";
+import { formatStatusLabel } from "../../shared/utils/statusLabel";
 import "./Logistics.css";
 
 const ORDER_STATUS = {
-    PENDING: "New order",
-    PLACED: "New order",
+    PENDING: "New Order",
+    PLACED: "New Order",
     CONFIRMED: "Confirmed",
     PREPARING: "Preparing",
-    READY_FOR_PICKUP: "Ready for pickup",
+    READY_FOR_PICKUP: "Ready For Pickup",
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
 };
@@ -104,7 +105,7 @@ function Logistics() {
                                         <td>{buyerName}</td>
                                         <td>{itemSummary || `${itemCount} item${itemCount === 1 ? "" : "s"}`}</td>
                                         <td>{formatDate(order.created_at)}</td>
-                                        <td><span className="sl-badge sl-badge--muted">{ORDER_STATUS[status] || status.replaceAll("_", " ")}</span></td>
+                                        <td><span className="sl-badge sl-badge--muted">{ORDER_STATUS[status] || formatStatusLabel(status)}</span></td>
                                     </tr>
                                 );
                             })}

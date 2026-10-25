@@ -22,7 +22,7 @@ const PAGE_CONFIG = {
     incoming: { eyebrow: "INBOUND PARCELS", title: "Incoming parcels", description: "Verify parcel handover and record sorting-center receipt." },
     sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Record destination area and assign an eligible courier to each received parcel." },
     assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Assign or reassign deliveries using configured area coverage and courier eligibility." },
-    monitoring: { eyebrow: "DELIVERY OPERATIONS", title: "Delivery monitoring", description: "Monitor current statuses, delivery history, failed attempts, and returns." },
+    monitoring: { eyebrow: "DELIVERY OPERATIONS", title: "Courier Deliveries", description: "Monitor courier assignments, delivery status, history, failed attempts, and returns." },
     reports: { eyebrow: "OPERATIONS SUMMARY", title: "Logistics reports", description: "Current counts derived from CRYMA order and delivery records." },
 };
 
