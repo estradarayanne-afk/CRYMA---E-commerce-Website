@@ -151,6 +151,8 @@ function SellerCompliance() {
 
     const getStatusLabel = (status) => {
         return formatStatusLabel(status);
+        const normalized = (status || "unknown").toLowerCase();
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1);
     };
 
     const getComplianceClass = (status) => status === "compliant" ? "compliant" : status === "suspended" ? "suspended" : status === "review_queue" ? "flagged" : "pending";

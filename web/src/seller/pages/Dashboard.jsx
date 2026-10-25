@@ -129,6 +129,7 @@ function Dashboard() {
                                 <div className="sl-list-right">
                                     <span className={`sl-badge ${product.review_status === "pending" ? "sl-badge--review" : product.review_status === "rejected" ? "sl-badge--rejected" : product.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
                                         {formatStatusLabel(product.review_status === "pending" ? "Pending review" : product.review_status === "rejected" ? "Rejected" : product.status)}
+                                        {product.review_status === "pending" ? "Pending review" : product.review_status === "rejected" ? "Rejected" : product.status}
                                     </span>
                                 </div>
                             </div>
