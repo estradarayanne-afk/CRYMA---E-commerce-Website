@@ -757,6 +757,7 @@ function Users() {
                                     </span>
                                     <span className={`user-status ${getStatusClass(selectedUser.status)}`}>
                                         {formatStatusLabel(selectedUser.status)}
+                                        {selectedUser.status || "Unknown"}
                                     </span>
                                 </div>
                             </div>
