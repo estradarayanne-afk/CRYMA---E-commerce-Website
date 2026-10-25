@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../shared/services/api";
+import { formatStatusLabel } from "../../shared/utils/statusLabel";
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -45,7 +46,7 @@ function Dashboard() {
         try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
     })();
 
-    const activeProducts = products.filter((product) => product.status === "active");
+    const activeProducts = products.filter((product) => product.status === "active" && product.review_status === "approved");
     const lowStockProducts = products.filter((product) => product.stock > 0 && product.stock <= 3);
     const outOfStockProducts = products.filter((product) => product.stock === 0);
     const inventoryStats = [
@@ -126,7 +127,9 @@ function Dashboard() {
                                     <span>{product.category} · {product.stock} units</span>
                                 </div>
                                 <div className="sl-list-right">
-                                    <span className={`sl-badge ${product.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>{product.status}</span>
+                                    <span className={`sl-badge ${product.review_status === "pending" ? "sl-badge--review" : product.review_status === "rejected" ? "sl-badge--rejected" : product.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
+                                        {formatStatusLabel(product.review_status === "pending" ? "Pending review" : product.review_status === "rejected" ? "Rejected" : product.status)}
+                                    </span>
                                 </div>
                             </div>
                         ))}

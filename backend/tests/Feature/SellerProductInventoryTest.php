@@ -75,6 +75,73 @@ class SellerProductInventoryTest extends TestCase
         $this->assertDatabaseCount('products', 0);
     }
 
+    public function test_seller_can_create_color_size_variants_with_individual_prices_and_stock(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $redMediumId = 'c4dece55-a7a5-4c44-a5e5-55504c469067';
+        $blueLargeId = '9b82222b-5d8c-412a-851f-02318cb7bde8';
+
+        $this->actingAs($seller, 'sanctum')
+            ->postJson('/api/seller/products', [
+                'name' => 'Variant shirt',
+                'category' => "Men's Apparel",
+                'price' => '100.00',
+                'stock' => 5,
+                'variants' => [
+                    [
+                        'id' => $redMediumId,
+                        'color' => 'Red',
+                        'size' => 'M',
+                        'price' => '100.00',
+                        'discounted_price' => '90.00',
+                        'stock' => 2,
+                    ],
+                    [
+                        'id' => $blueLargeId,
+                        'color' => 'Blue',
+                        'size' => 'L',
+                        'price' => '120.00',
+                        'discounted_price' => null,
+                        'stock' => 3,
+                    ],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.stock', 5)
+            ->assertJsonCount(2, 'data.variants');
+
+        $product = Product::firstOrFail();
+        $product->update(['status' => 'active', 'review_status' => 'approved']);
+        $this->getJson("/api/products/{$product->id}")
+            ->assertOk()
+            ->assertJsonPath('data.price', '90.00')
+            ->assertJsonPath('data.price_from_variants', true)
+            ->assertJsonPath('data.variants.0.id', $redMediumId)
+            ->assertJsonPath('data.variants.0.discounted_price', '90.00');
+    }
+
+    public function test_seller_cannot_create_duplicate_variant_combinations(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $variants = [
+            ['color' => 'Navy', 'size' => 'M', 'price' => '20.00', 'stock' => 2],
+            ['color' => ' navy ', 'size' => 'm', 'price' => '21.00', 'stock' => 1],
+        ];
+
+        $this->actingAs($seller, 'sanctum')
+            ->postJson('/api/seller/products', [
+                'name' => 'Duplicate variants',
+                'category' => 'Pet Supplies',
+                'price' => '20.00',
+                'stock' => 3,
+                'variants' => $variants,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['variants.1.color']);
+
+        $this->assertDatabaseCount('products', 0);
+    }
+
     public function test_seller_can_replace_selected_media_without_removing_retained_media(): void
     {
         Storage::fake('public');

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ImagePlus, Trash2, Upload, Video } from "lucide-react";
 import api from "../../shared/services/api";
+import { formatStatusLabel } from "../../shared/utils/statusLabel";
 import { PRODUCT_CATEGORIES } from "../../shared/constants/categories";
 import Dialog from "../../shared/components/Dialog";
 import Toast from "../../shared/components/Toast";
@@ -13,6 +14,7 @@ const EMPTY_FORM = {
     price: "",
     discounted_price: "",
     stock: "",
+    variants: [],
     status: "active",
 };
 
@@ -117,6 +119,7 @@ function Inventory() {
             price: String(p.price),
             discounted_price: p.discounted_price ? String(p.discounted_price) : "",
             stock: String(p.stock),
+            variants: Array.isArray(p.variants) ? p.variants : [],
             status: p.status || "active",
         });
         setModal(p);
@@ -178,7 +181,8 @@ function Inventory() {
     };
 
     const handleSave = async () => {
-        if (!form.name.trim() || !form.price || !form.stock) return;
+        const hasVariants = form.variants.length > 0;
+        if (!form.name.trim() || (!hasVariants && (!form.price || !form.stock))) return;
         setSaving(true);
         setActionError("");
         setFormErrors({});
@@ -188,21 +192,27 @@ function Inventory() {
             payload.append("sku", form.sku.trim());
             payload.append("category", form.category);
             payload.append("description", form.description);
-            payload.append("price", form.price);
-            payload.append("discounted_price", form.discounted_price);
-            payload.append("stock", form.stock);
+            const variantPrices = form.variants
+                .map((variant) => Number(variant.price))
+                .filter(Number.isFinite);
+            payload.append("price", hasVariants ? String(Math.min(...variantPrices)) : form.price);
+            payload.append("discounted_price", hasVariants ? "" : form.discounted_price);
+            payload.append("stock", hasVariants
+                ? String(form.variants.reduce((total, variant) => total + (Number(variant.stock) || 0), 0))
+                : form.stock);
             payload.append("status", form.status);
+            payload.append("variants", JSON.stringify(form.variants));
             mediaUploads.filter((media) => media.type === "image").forEach(({ file }) => payload.append("images[]", file));
             mediaUploads.filter((media) => media.type === "video").forEach(({ file }) => payload.append("videos[]", file));
             if (modal === "add") {
-                await api.post("/seller/products", payload);
-                showToast("Product added.");
+                const response = await api.post("/seller/products", payload);
+                showToast(response.data.message || "Product submitted for admin review.");
             } else {
                 payload.append("_method", "PATCH");
                 payload.append("replace_media", "1");
                 existingMedia.forEach((media) => payload.append("keep_media_ids[]", String(media.id)));
-                await api.post(`/seller/products/${modal.id}`, payload);
-                showToast("Product updated.");
+                const response = await api.post(`/seller/products/${modal.id}`, payload);
+                showToast(response.data.message || "Product updated.");
             }
             clearMediaDraft();
             setModal(null);
@@ -212,7 +222,7 @@ function Inventory() {
             if (validationErrors && typeof validationErrors === "object") {
                 const fieldErrors = Object.fromEntries(
                     Object.entries(validationErrors).map(([field, messages]) => [
-                        field === "images" || field.startsWith("images.") ? "image" : field.startsWith("videos.") ? "video" : field,
+                        field === "images" || field.startsWith("images.") ? "image" : field.startsWith("videos.") ? "video" : field.startsWith("variants.") ? "variants" : field,
                         Array.isArray(messages) ? messages[0] : messages,
                     ]),
                 );
@@ -274,6 +284,42 @@ function Inventory() {
         });
     };
 
+    const addVariant = () => {
+        setForm((current) => ({
+            ...current,
+            variants: [...current.variants, {
+                id: crypto.randomUUID(),
+                color: "",
+                size: "",
+                price: "",
+                discounted_price: "",
+                stock: "",
+            }],
+        }));
+    };
+
+    const updateVariant = (index, field, value) => {
+        setForm((current) => ({
+            ...current,
+            variants: current.variants.map((variant, rowIndex) =>
+                rowIndex === index ? { ...variant, [field]: value } : variant
+            ),
+        }));
+        setFormErrors((current) => {
+            if (!current.variants) return current;
+            const next = { ...current };
+            delete next.variants;
+            return next;
+        });
+    };
+
+    const removeVariant = (index) => {
+        setForm((current) => ({
+            ...current,
+            variants: current.variants.filter((_, rowIndex) => rowIndex !== index),
+        }));
+    };
+
     return (
         <div className="sl-page sl-inventory-page">
             {toast && (
@@ -327,16 +373,21 @@ function Inventory() {
                                         </div>
                                     </td>
                                     <td>{p.category}</td>
-                                    <td className="sl-inventory-price">{p.discounted_price ? <><strong>₱{Number(p.discounted_price).toLocaleString()}</strong><del>₱{Number(p.price).toLocaleString()}</del></> : `₱${Number(p.price).toLocaleString()}`}</td>
+                                    <td className="sl-inventory-price">{p.variants?.length ? <><strong>From ₱{Math.min(...p.variants.map((variant) => Number(variant.discounted_price || variant.price))).toLocaleString()}</strong><span>{p.variants.length} variants</span></> : p.discounted_price ? <><strong>₱{Number(p.discounted_price).toLocaleString()}</strong><del>₱{Number(p.price).toLocaleString()}</del></> : `₱${Number(p.price).toLocaleString()}`}</td>
                                     <td>
                                         <span className={`sl-stock ${p.stock === 0 ? "sl-stock--out" : p.stock <= 3 ? "sl-stock--low" : ""}`}>
                                             {p.stock === 0 ? "Out of stock" : `${p.stock} units`}
                                         </span>
                                     </td>
                                     <td>
-                                        <span className={`sl-badge ${p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
-                                            {p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active"}
-                                        </span>
+                                        <div className="sl-inventory-status">
+                                            <span className={`sl-badge ${p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
+                                                {formatStatusLabel(p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active")}
+                                            </span>
+                                            {p.review_status === "pending" && <span className="sl-badge sl-badge--review">Pending admin review</span>}
+                                            {p.review_status === "rejected" && <span className="sl-badge sl-badge--rejected" title={p.review_reason || "Review the product and update its listing to resubmit."}>Rejected · edit to resubmit</span>}
+                                            {p.review_status === "rejected" && p.review_reason && <small className="sl-review-reason">Reason: {p.review_reason}</small>}
+                                        </div>
                                     </td>
                                     <td>
                                         <div className="sl-row-actions">
@@ -407,24 +458,63 @@ function Inventory() {
                             </div>
                             </section>
                             <section className="sl-form-section">
-                                <div className="sl-form-section-heading"><h4>Price and stock</h4><p>Sale price is optional and must be lower than the regular price.</p></div>
-                            <div className="sl-form-row">
-                                <div className="sl-field">
-                                    <label htmlFor="inventory-product-price">Regular price (₱) <b>*</b></label>
-                                    <input id="inventory-product-price" name="price" type="number" min="0" max="9999999999.99" step="0.01" value={form.price} onChange={set} placeholder="0.00" disabled={saving} required aria-invalid={Boolean(formErrors.price)} aria-describedby={formErrors.price ? "inventory-product-price-error" : undefined} />
-                                    {formErrors.price && <small id="inventory-product-price-error" className="sl-field-error">{formErrors.price}</small>}
-                                </div>
-                                <div className="sl-field">
-                                    <label htmlFor="inventory-product-sale-price">Discounted price (₱) <span className="sl-opt">(optional)</span></label>
-                                    <input id="inventory-product-sale-price" name="discounted_price" type="number" min="0.01" max="9999999999.99" step="0.01" value={form.discounted_price} onChange={set} placeholder="Leave blank for no sale" disabled={saving} aria-invalid={Boolean(formErrors.discounted_price)} aria-describedby={formErrors.discounted_price ? "inventory-product-sale-price-error" : undefined} />
-                                    {formErrors.discounted_price && <small id="inventory-product-sale-price-error" className="sl-field-error">{formErrors.discounted_price}</small>}
-                                </div>
-                                <div className="sl-field">
-                                    <label htmlFor="inventory-product-stock">Available stock <b>*</b></label>
-                                    <input id="inventory-product-stock" name="stock" type="number" min="0" max="4294967295" step="1" value={form.stock} onChange={set} placeholder="0" disabled={saving} required aria-invalid={Boolean(formErrors.stock)} aria-describedby={formErrors.stock ? "inventory-product-stock-error" : undefined} />
-                                    {formErrors.stock && <small id="inventory-product-stock-error" className="sl-field-error">{formErrors.stock}</small>}
-                                </div>
-                            </div>
+                                <div className="sl-form-section-heading"><h4>Price and stock</h4><p>Set a product-wide price, or define prices and stock for each color and size combination.</p></div>
+                                {form.variants.length > 0 ? (
+                                    <div className="sl-variant-editor">
+                                        <div className="sl-variant-editor-heading">
+                                            <strong>Color and size variants</strong>
+                                            <button type="button" className="sl-btn-sm" onClick={addVariant} disabled={saving}>+ Add variant</button>
+                                        </div>
+                                        <p className="sl-variant-help">Each combination can have its own price, sale price, and stock. Enter at least a color or a size.</p>
+                                        {form.variants.map((variant, index) => (
+                                            <div className="sl-variant-row" key={variant.id || index}>
+                                                <div className="sl-field">
+                                                    <label htmlFor={`variant-color-${index}`}>Color</label>
+                                                    <input id={`variant-color-${index}`} value={variant.color || ""} maxLength={50} placeholder="e.g. Navy blue" onChange={(event) => updateVariant(index, "color", event.target.value)} disabled={saving} />
+                                                </div>
+                                                <div className="sl-field">
+                                                    <label htmlFor={`variant-size-${index}`}>Size</label>
+                                                    <input id={`variant-size-${index}`} value={variant.size || ""} maxLength={50} placeholder="e.g. M" onChange={(event) => updateVariant(index, "size", event.target.value)} disabled={saving} />
+                                                </div>
+                                                <div className="sl-field">
+                                                    <label htmlFor={`variant-price-${index}`}>Price (₱)</label>
+                                                    <input id={`variant-price-${index}`} type="number" min="0" max="9999999999.99" step="0.01" value={variant.price} placeholder="0.00" onChange={(event) => updateVariant(index, "price", event.target.value)} disabled={saving} required />
+                                                </div>
+                                                <div className="sl-field">
+                                                    <label htmlFor={`variant-sale-${index}`}>Sale price (₱)</label>
+                                                    <input id={`variant-sale-${index}`} type="number" min="0.01" max="9999999999.99" step="0.01" value={variant.discounted_price || ""} placeholder="Optional" onChange={(event) => updateVariant(index, "discounted_price", event.target.value)} disabled={saving} />
+                                                </div>
+                                                <div className="sl-field">
+                                                    <label htmlFor={`variant-stock-${index}`}>Stock</label>
+                                                    <input id={`variant-stock-${index}`} type="number" min="0" max="4294967295" step="1" value={variant.stock} placeholder="0" onChange={(event) => updateVariant(index, "stock", event.target.value)} disabled={saving} required />
+                                                </div>
+                                                <button type="button" className="sl-btn-sm sl-variant-remove" onClick={() => removeVariant(index)} disabled={saving} aria-label={`Remove variant ${index + 1}`}><Trash2 size={15} /></button>
+                                            </div>
+                                        ))}
+                                        {formErrors.variants && <small className="sl-field-error" role="alert">{formErrors.variants}</small>}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="sl-form-row">
+                                            <div className="sl-field">
+                                                <label htmlFor="inventory-product-price">Regular price (₱) <b>*</b></label>
+                                                <input id="inventory-product-price" name="price" type="number" min="0" max="9999999999.99" step="0.01" value={form.price} onChange={set} placeholder="0.00" disabled={saving} required aria-invalid={Boolean(formErrors.price)} aria-describedby={formErrors.price ? "inventory-product-price-error" : undefined} />
+                                                {formErrors.price && <small id="inventory-product-price-error" className="sl-field-error">{formErrors.price}</small>}
+                                            </div>
+                                            <div className="sl-field">
+                                                <label htmlFor="inventory-product-sale-price">Discounted price (₱) <span className="sl-opt">(optional)</span></label>
+                                                <input id="inventory-product-sale-price" name="discounted_price" type="number" min="0.01" max="9999999999.99" step="0.01" value={form.discounted_price} onChange={set} placeholder="Leave blank for no sale" disabled={saving} aria-invalid={Boolean(formErrors.discounted_price)} aria-describedby={formErrors.discounted_price ? "inventory-product-sale-price-error" : undefined} />
+                                                {formErrors.discounted_price && <small id="inventory-product-sale-price-error" className="sl-field-error">{formErrors.discounted_price}</small>}
+                                            </div>
+                                            <div className="sl-field">
+                                                <label htmlFor="inventory-product-stock">Available stock <b>*</b></label>
+                                                <input id="inventory-product-stock" name="stock" type="number" min="0" max="4294967295" step="1" value={form.stock} onChange={set} placeholder="0" disabled={saving} required aria-invalid={Boolean(formErrors.stock)} aria-describedby={formErrors.stock ? "inventory-product-stock-error" : undefined} />
+                                                {formErrors.stock && <small id="inventory-product-stock-error" className="sl-field-error">{formErrors.stock}</small>}
+                                            </div>
+                                        </div>
+                                        <button type="button" className="sl-btn-ghost sl-add-variant-button" onClick={addVariant} disabled={saving}>Add color and size variants</button>
+                                    </>
+                                )}
                             </section>
                             <section className="sl-form-section">
                                 <div className="sl-form-section-heading"><h4>Photos and videos</h4><p>Upload up to 8 JPG, PNG, or WebP photos and 2 MP4 or WebM videos. Each file can be up to 1.5 MB; new uploads can total up to 6 MB per save.</p></div>

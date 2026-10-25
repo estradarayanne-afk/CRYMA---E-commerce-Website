@@ -1,19 +1,33 @@
 import { Outlet, NavLink, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import {
+    BarChart3,
+    ChevronDown,
+    ChevronUp,
+    LayoutDashboard,
+    LogOut,
+    MessageCircle,
+    Package,
+    Settings,
+    ShoppingBag,
+    Star,
+    Truck,
+} from "lucide-react";
 import api from "../../shared/services/api";
 import "../../admin/layouts/AdminLayout.css";
+import "../../admin/layouts/AdminWorkspace.css";
 import "../../shared/styles/feedback.css";
 import "../styles/SellerWorkspace.css";
 
 const NAV = [
-    { to: "/seller/dashboard",         label: "Dashboard",       icon: "▦" },
-    { to: "/seller/inventory",         label: "Inventory",       icon: "◫" },
-    { to: "/seller/orders",            label: "Orders",          icon: "◌" },
-    { to: "/seller/logistics",         label: "Logistics",       icon: "⇢" },
-    { to: "/seller/feedback",          label: "Feedback",        icon: "★" },
-    { to: "/seller/reports",           label: "Reports",         icon: "▤" },
-    { to: "/seller/chat",              label: "Chat",            icon: "◍" },
-    { to: "/seller/account-settings", label: "Account Settings", icon: "⚙" },
+    { to: "/seller/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/seller/inventory", label: "Inventory", icon: Package },
+    { to: "/seller/orders", label: "Orders", icon: ShoppingBag },
+    { to: "/seller/logistics", label: "Logistics", icon: Truck },
+    { to: "/seller/feedback", label: "Feedback", icon: Star },
+    { to: "/seller/reports", label: "Reports", icon: BarChart3 },
+    { to: "/seller/chat", label: "Chat", icon: MessageCircle },
+    { to: "/seller/account-settings", label: "Account Settings", icon: Settings },
 ];
 
 function SellerLayout() {
@@ -83,7 +97,7 @@ function SellerLayout() {
                 <div className="al-section-label"><span>Workspace</span></div>
 
                 <nav className="al-nav" id="seller-workspace-navigation" aria-label="Seller workspace">
-                    {NAV.map(({ to, label, icon }) => (
+                    {NAV.map(({ to, label, icon: Icon }) => (
                         <NavLink
                             key={to}
                             to={to}
@@ -91,7 +105,9 @@ function SellerLayout() {
                             title={sidebarCollapsed ? label : undefined}
                             className={({ isActive }) => isActive ? "active" : ""}
                         >
-                            <span className="al-nav-icon" aria-hidden="true">{icon}</span>
+                            <span className="al-nav-icon" aria-hidden="true">
+                                <Icon size={18} strokeWidth={1.8} />
+                            </span>
                             <span className="al-nav-label">{label}</span>
                             <span className="al-nav-active-dot" />
                         </NavLink>
@@ -115,7 +131,7 @@ function SellerLayout() {
                                     className="al-profile-action"
                                     onClick={() => { setProfileOpen(false); navigate("/seller/account-settings"); }}
                                 >
-                                    <span>⚙</span>
+                                    <Settings size={16} strokeWidth={1.8} />
                                     Account settings
                                 </button>
                                 <button
@@ -123,7 +139,7 @@ function SellerLayout() {
                                     className="al-profile-action al-profile-action--danger"
                                     onClick={() => { setProfileOpen(false); setLogoutModalOpen(true); }}
                                 >
-                                    <span>↪</span>
+                                    <LogOut size={16} strokeWidth={1.8} />
                                     Sign out
                                 </button>
                             </div>
@@ -140,7 +156,11 @@ function SellerLayout() {
                                 <strong>{fullName}</strong>
                                 <span>Seller Account</span>
                             </div>
-                            <span className="al-profile-chevron">{profileOpen ? "⌃" : "⌄"}</span>
+                            <span className="al-profile-chevron">
+                                {profileOpen
+                                    ? <ChevronUp size={16} strokeWidth={1.8} />
+                                    : <ChevronDown size={16} strokeWidth={1.8} />}
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -189,7 +209,7 @@ function SellerLayout() {
                     onMouseDown={(e) => { if (e.target === e.currentTarget && !loggingOut) setLogoutModalOpen(false); }}
                 >
                     <div className="al-logout-modal" role="dialog" aria-modal="true" aria-labelledby="seller-logout-title">
-                        <div className="al-logout-icon"><span>↪</span></div>
+                        <div className="al-logout-icon"><LogOut size={22} strokeWidth={1.8} /></div>
                         <div className="al-logout-content">
                             <h2 id="seller-logout-title">Sign out?</h2>
                             <p>Are you sure you want to sign out of your seller account?</p>

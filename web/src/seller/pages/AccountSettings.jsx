@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../shared/services/api";
+import { formatStatusLabel } from "../../shared/utils/statusLabel";
 
 function SellerAccountSettings() {
     const [user, setUser] = useState(null);
@@ -63,7 +64,7 @@ function SellerAccountSettings() {
     const initials = `${profileForm.first_name?.[0] ?? ""}${profileForm.last_name?.[0] ?? ""}`.toUpperCase();
 
     return (
-        <div className="sl-page" style={{ maxWidth: 720 }}>
+        <div className="sl-page sl-account-settings">
             <div className="sl-page-head">
                 <div>
                     <div className="sl-eyebrow">PROFILE</div>
@@ -78,11 +79,11 @@ function SellerAccountSettings() {
             {error && <div className="auth-notice auth-notice--error" style={{ marginBottom: 20 }}>{error}</div>}
 
             {/* PROFILE */}
-            <div className="sl-card" style={{ marginBottom: 20 }}>
+            <div className="sl-card sl-account-card sl-account-profile-card">
                 <div className="sl-panel-head">
                     <div><h3>Personal Information</h3><p>Update your seller profile details</p></div>
                 </div>
-                <form onSubmit={saveProfile} style={{ padding: "20px 20px 24px" }}>
+                <form className="sl-account-form" onSubmit={saveProfile}>
                     <div className="sl-form-row">
                         <div className="sl-field">
                             <label htmlFor="seller-first-name">First Name</label>
@@ -112,12 +113,12 @@ function SellerAccountSettings() {
             </div>
 
             {/* PASSWORD */}
-            <div className="sl-card" style={{ marginBottom: 20 }}>
+            <div className="sl-card sl-account-card sl-account-password-card">
                 <div className="sl-panel-head">
                     <div><h3>Change Password</h3><p>Keep your account secure</p></div>
                 </div>
-                <form onSubmit={savePassword} style={{ padding: "20px 20px 24px" }}>
-                    <div className="sl-field" style={{ marginBottom: 16 }}>
+                <form className="sl-account-form" onSubmit={savePassword}>
+                    <div className="sl-field sl-account-current-password">
                         <label>Current Password</label>
                         <input name="current_password" type="password" value={passwordForm.current_password} onChange={setPw} maxLength={128} required />
                     </div>
@@ -139,19 +140,19 @@ function SellerAccountSettings() {
             </div>
 
             {/* ACCOUNT INFO */}
-            <div className="sl-card">
+            <div className="sl-card sl-account-card sl-account-info-card">
                 <div className="sl-panel-head">
                     <div><h3>Account Information</h3></div>
                 </div>
-                <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
+                <div className="sl-account-info-grid">
                     {[
                         { label: "Role", value: "Seller" },
-                        { label: "Status", value: user?.status ?? "—" },
+                        { label: "Status", value: formatStatusLabel(user?.status, "—") },
                         { label: "Email", value: user?.email ?? "—" },
                     ].map(({ label, value }) => (
-                        <div key={label}>
-                            <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "#718180", marginBottom: 4 }}>{label}</p>
-                            <p style={{ fontSize: 13, fontWeight: 600, color: "#2a3f3e" }}>{value}</p>
+                        <div className="sl-account-info-item" key={label}>
+                            <p className="sl-account-info-label">{label}</p>
+                            <p className="sl-account-info-value">{value}</p>
                         </div>
                     ))}
                 </div>

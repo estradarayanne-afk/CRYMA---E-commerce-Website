@@ -20,8 +20,10 @@ class ChatController extends Controller
     {
         $admin = $request->user();
 
-        $conversations = Conversation::with([
-            'buyer',
+        $conversations = $this->visibleConversations($admin->id)->with([
+            'buyer:id,first_name,last_name,email,role',
+            'seller:id,first_name,last_name,email,role',
+            'product:id,name',
             'messages' => function ($query) {
                 $query->latest()->limit(1);
             }
@@ -30,7 +32,6 @@ class ChatController extends Controller
             $query->where('sender_id', '!=', $admin->id)
                 ->where('is_read', false);
         }])
-        ->where('admin_id', $admin->id)
         ->latest()
         ->get();
 
@@ -48,11 +49,15 @@ class ChatController extends Controller
 
     public function showConversation(Request $request, int $id)
     {
-        $conversation = Conversation::with([
-            'buyer',
-            'admin',
-            'messages.sender'
-        ])->where('admin_id', $request->user()->id)->findOrFail($id);
+        $conversation = $this->visibleConversations($request->user()->id)
+            ->with([
+                'buyer:id,first_name,last_name,email,role',
+                'seller:id,first_name,last_name,email,role',
+                'admin:id,first_name,last_name,role',
+                'product:id,name',
+                'messages.sender:id,first_name,last_name,role',
+            ])
+            ->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -73,7 +78,7 @@ class ChatController extends Controller
             'client_message_id' => ['sometimes', 'uuid'],
         ]);
 
-        $conversation = Conversation::where('admin_id', $request->user()->id)->findOrFail($id);
+        $conversation = $this->visibleConversations($request->user()->id)->findOrFail($id);
 
         $message = $messageSender->send(
             $conversation,
@@ -99,7 +104,7 @@ class ChatController extends Controller
 
     public function markAsRead(Request $request, int $id)
     {
-        $conversation = Conversation::where('admin_id', $request->user()->id)->findOrFail($id);
+        $conversation = $this->visibleConversations($request->user()->id)->findOrFail($id);
 
         Message::where('conversation_id', $conversation->id)
             ->where('sender_id', '!=', $request->user()->id)
@@ -112,5 +117,17 @@ class ChatController extends Controller
             'success' => true,
             'message' => 'Messages marked as read.',
         ]);
+    }
+
+    /**
+     * Admins can manage conversations assigned to their support inbox and
+     * buyer-to-seller threads, which power the role-based inbox navigation.
+     */
+    private function visibleConversations(int $adminId)
+    {
+        return Conversation::query()->where(function ($query) use ($adminId) {
+            $query->where('admin_id', $adminId)
+                ->orWhereNotNull('seller_id');
+        });
     }
 }

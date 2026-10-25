@@ -49,7 +49,6 @@ import SellerReports from "./seller/pages/Reports";
 import SellerChat from "./seller/pages/Chat";
 import SellerAccountSettings from "./seller/pages/AccountSettings";
 import CourierLayout from "./courier/layouts/CourierLayout";
-import AdminDeliveries from "./admin/pages/Deliveries/Deliveries";
 import AdminVouchers from "./admin/pages/Vouchers/Vouchers";
 import LogisticsLayout from "./logistics/layouts/LogisticsLayout";
 import LogisticsDashboard from "./logistics/pages/Dashboard";
@@ -223,7 +222,6 @@ function App() {
                             element={<AdminUsers />}
                         />
 
-                        <Route path="deliveries" element={<AdminDeliveries />} />
                         <Route path="vouchers" element={<AdminVouchers />} />
 
                         <Route

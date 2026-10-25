@@ -44,6 +44,11 @@ class OrderController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($request->filled('date')) {
+            $validated = $request->validate(['date' => ['date_format:Y-m-d']]);
+            $query->whereDate('created_at', $validated['date']);
+        }
+
         $orders = $query
             ->latest()
             ->get();

@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Users.css";
 
 function Users() {
+    const location = useLocation();
     const [users, setUsers] = useState([]);
     const [pagination, setPagination] = useState({
         current_page: 1,
@@ -13,7 +16,7 @@ function Users() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
-    const [roleFilter, setRoleFilter] = useState("all");
+    const [roleFilter, setRoleFilter] = useState(() => new URLSearchParams(window.location.search).get("role") || "all");
 
     const [selectedUser, setSelectedUser] = useState(null);
 
@@ -21,12 +24,19 @@ function Users() {
     const [saving, setSaving] = useState(false);
 
     const [actionLoading, setActionLoading] = useState(false);
+    const [suspensionReason, setSuspensionReason] = useState("");
+    const [suspensionReasonDetails, setSuspensionReasonDetails] = useState("");
 
     // Confirmation modal
     const [confirmationModal, setConfirmationModal] = useState(null);
 
     // Success modal
     const [successModal, setSuccessModal] = useState("");
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        setRoleFilter(params.get("role") || "all");
+    }, [location.search]);
 
     const [editForm, setEditForm] = useState({
         first_name: "",
@@ -35,6 +45,8 @@ function Users() {
         email: "",
         phone: "",
         role: "buyer",
+        password: "",
+        password_confirmation: "",
     });
 
     /* =========================================
@@ -46,7 +58,7 @@ function Users() {
         setError("");
 
         try {
-            const response = await api.get(`/admin/users?page=${page}`);
+            const response = await api.get("/admin/users", { params: { page, search: searchTerm || undefined, role: roleFilter === "all" ? undefined : roleFilter } });
             const data = response.data.data;
 
             setUsers(data?.data || []);
@@ -75,7 +87,11 @@ function Users() {
             setError("");
 
             try {
-                const response = await api.get("/admin/users?page=1");
+                const response = await api.get("/admin/users", { params: {
+                    page: 1,
+                    search: searchTerm.trim() || undefined,
+                    role: roleFilter === "all" ? undefined : roleFilter,
+                } });
 
                 if (cancelled) return;
 
@@ -103,12 +119,13 @@ function Users() {
             }
         }
 
-        fetchInitialUsers();
+        const debounce = setTimeout(fetchInitialUsers, 300);
 
         return () => {
             cancelled = true;
+            clearTimeout(debounce);
         };
-    }, []);
+    }, [location.search, roleFilter, searchTerm]);
 
     /* =========================================
        FILTER USERS
@@ -201,6 +218,8 @@ function Users() {
             email: user.email || "",
             phone: user.phone || "",
             role: user.role || "buyer",
+            password: "",
+            password_confirmation: "",
         });
 
         setEditMode(true);
@@ -244,9 +263,15 @@ function Users() {
         setError("");
 
         try {
+            const payload = { ...editForm };
+            if (!payload.password && !payload.password_confirmation) {
+                delete payload.password;
+                delete payload.password_confirmation;
+            }
+
             const response = await api.patch(
                 `/admin/users/${selectedUser.id}`,
-                editForm
+                payload
             );
 
             const updatedUser = response.data.data;
@@ -292,6 +317,10 @@ function Users() {
 
     const handleStatusChange = (user, newStatus) => {
         const isSuspending = newStatus === "suspended";
+        if (isSuspending) {
+            setSuspensionReason("");
+            setSuspensionReasonDetails("");
+        }
 
         setConfirmationModal({
             type: "status",
@@ -322,6 +351,11 @@ function Users() {
                 `/admin/users/${selectedUser.id}/status`,
                 {
                     status: newStatus,
+                    ...(newStatus === "suspended" ? {
+                        suspension_reason: [suspensionReason, suspensionReasonDetails.trim()]
+                            .filter(Boolean)
+                            .join(" — "),
+                    } : {}),
                 }
             );
 
@@ -431,56 +465,44 @@ function Users() {
 
                 <div className="users-toolbar">
 
-                    <div className="users-search">
-                        <span>⌕</span>
-
-                        <input
-                            type="text"
-                            placeholder="Search name, email or phone..."
-                            value={searchTerm}
-                            onChange={(event) =>
-                                setSearchTerm(event.target.value)
-                            }
-                        />
-                    </div>
-
                     <div className="users-filter">
-                        <label htmlFor="user-role-filter">
-                            Role
-                        </label>
-
-                        <select
-                            id="user-role-filter"
-                            value={roleFilter}
-                            onChange={(event) =>
-                                setRoleFilter(event.target.value)
-                            }
-                        >
-                            <option value="all">
-                                All Roles
-                            </option>
-
-                            <option value="buyer">
-                                Buyer
-                            </option>
-
-                            <option value="seller">
-                                Seller
-                            </option>
-
-                            <option value="rider">
-                                Courier
-                            </option>
-
-                            <option value="logistics">
-                                Logistics / Sorting Center
-                            </option>
-
-                            <option value="admin">
-                                Admin
-                            </option>
-                        </select>
+                        {[
+                            ["all", "All Roles"],
+                            ["buyer", "Buyers"],
+                            ["seller", "Sellers"],
+                            ["rider", "Couriers"],
+                            ["logistics", "Logistics"],
+                        ].map(([role, label]) => (
+                            <button
+                                key={role}
+                                type="button"
+                                className={roleFilter === role ? "active" : ""}
+                                aria-pressed={roleFilter === role}
+                                onClick={() => setRoleFilter(role)}
+                            >
+                                {label}
+                            </button>
+                        ))}
                     </div>
+
+                    <label className="users-search">
+                        <span className="users-search-icon" aria-hidden="true" />
+                        <input
+                            type="search"
+                            aria-label="Search user accounts"
+                            placeholder="Search by name, email, or phone"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                className="users-search-clear"
+                                aria-label="Clear search"
+                                onClick={() => setSearchTerm("")}
+                            >×</button>
+                        )}
+                    </label>
 
                 </div>
 
@@ -523,14 +545,14 @@ function Users() {
                                     </tr>
                                 ) : (
                                     filteredUsers.map((user) => (
-                                        <tr key={user.id}>
+                                        <tr className="user-row" key={user.id}>
 
                                             {/* USER */}
 
                                             <td>
                                                 <div className="user-info">
 
-                                                    <div className="user-avatar">
+                                                    <div className="user-avatar" style={{ "--avatar-hue": (Number(user.id) * 67) % 360 }}>
                                                         {getInitials(user)}
                                                     </div>
 
@@ -549,13 +571,13 @@ function Users() {
 
                                             {/* EMAIL */}
 
-                                            <td>
+                                            <td className="user-email-cell">
                                                 {user.email || "—"}
                                             </td>
 
                                             {/* PHONE */}
 
-                                            <td>
+                                            <td className="user-phone-cell">
                                                 {user.phone || "—"}
                                             </td>
 
@@ -577,8 +599,7 @@ function Users() {
                                                 <span className={`user-status ${getStatusClass(
                                                     user.status
                                                 )}`}>
-                                                    {user.status ||
-                                                        "Unknown"}
+                                                    {formatStatusLabel(user.status)}
                                                 </span>
                                             </td>
 
@@ -604,7 +625,7 @@ function Users() {
                                                         setError("");
                                                     }}
                                                 >
-                                                    View
+                                                    View Details
                                                 </button>
                                             </td>
 
@@ -690,6 +711,7 @@ function Users() {
                         }
                     >
 
+                        <div className="user-modal-sticky">
                         {/* MODAL HEADER */}
 
                         <div className="user-modal-header">
@@ -720,7 +742,7 @@ function Users() {
 
                         <div className="user-profile">
 
-                            <div className="user-profile-avatar">
+                            <div className="user-profile-avatar" style={{ "--avatar-hue": (Number(selectedUser.id) * 67) % 360 }}>
                                 {getInitials(selectedUser)}
                             </div>
 
@@ -729,12 +751,17 @@ function Users() {
                                     {getFullName(selectedUser)}
                                 </h3>
 
-                                <p>
-                                    {getRoleLabel(
-                                        selectedUser.role
-                                    )}
-                                </p>
+                                <div className="user-profile-badges">
+                                    <span className={`user-role role-${selectedUser.role}`}>
+                                        {getRoleLabel(selectedUser.role)}
+                                    </span>
+                                    <span className={`user-status ${getStatusClass(selectedUser.status)}`}>
+                                        {formatStatusLabel(selectedUser.status)}
+                                    </span>
+                                </div>
                             </div>
+
+                        </div>
 
                         </div>
 
@@ -770,8 +797,7 @@ function Users() {
                                     <span>Status</span>
 
                                     <strong>
-                                        {selectedUser.status ||
-                                            "Unknown"}
+                                        {formatStatusLabel(selectedUser.status)}
                                     </strong>
                                 </div>
 
@@ -805,10 +831,16 @@ function Users() {
                                     Current status:
                                     <strong>
                                         {" "}
-                                        {selectedUser.status ||
-                                            "Unknown"}
+                                        {formatStatusLabel(selectedUser.status)}
                                     </strong>
                                 </p>
+
+                                {selectedUser.status === "suspended" && selectedUser.suspension_reason && (
+                                    <div className="user-suspension-reason">
+                                        <span>Suspension reason</span>
+                                        <p>{selectedUser.suspension_reason}</p>
+                                    </div>
+                                )}
 
                                 {selectedUser.status === "active" ? (
                                     <button
@@ -1018,6 +1050,42 @@ function Users() {
                                         </select>
                                     </div>
 
+                                    <div>
+                                        <label htmlFor="edit-user-password">
+                                            New Password (optional)
+                                        </label>
+
+                                        <input
+                                            id="edit-user-password"
+                                            type="password"
+                                            name="password"
+                                            value={editForm.password}
+                                            onChange={handleEditChange}
+                                            autoComplete="new-password"
+                                            minLength={8}
+                                            maxLength={128}
+                                            disabled={saving}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="edit-user-password-confirmation">
+                                            Confirm New Password
+                                        </label>
+
+                                        <input
+                                            id="edit-user-password-confirmation"
+                                            type="password"
+                                            name="password_confirmation"
+                                            value={editForm.password_confirmation}
+                                            onChange={handleEditChange}
+                                            autoComplete="new-password"
+                                            minLength={8}
+                                            maxLength={128}
+                                            disabled={saving}
+                                        />
+                                    </div>
+
                                 </div>
 
                                 <div className="user-modal-actions">
@@ -1105,9 +1173,10 @@ function Users() {
                 >
 
                     <div
-                        className="user-confirmation-modal"
+                        className={`user-confirmation-modal ${confirmationModal.type === "status" && confirmationModal.status === "suspended" ? "suspension-confirmation-modal" : ""}`}
                         role="dialog"
                         aria-modal="true"
+                        aria-labelledby="user-confirmation-title"
                     >
 
                         {/* ICON */}
@@ -1135,7 +1204,7 @@ function Users() {
                         {/* TITLE */}
 
                         <h3>
-                            {confirmationModal.title}
+                            <span id="user-confirmation-title">{confirmationModal.title}</span>
                         </h3>
 
                         {/* MESSAGE */}
@@ -1154,6 +1223,48 @@ function Users() {
                                     ? "The user will no longer be able to access their account until it is activated again."
                                     : "The user will regain access to their CRYMA account."}
                             </span>
+                        )}
+
+                        {confirmationModal.type === "status" && confirmationModal.status === "suspended" && (
+                            <div className="suspension-reason-field">
+                                <label htmlFor="suspension-reason">Reason for suspension <span>Required</span></label>
+                                <div className="suspension-reason-options" role="radiogroup" aria-label="Reason for suspension">
+                                    {[
+                                        "Terms of service violation",
+                                        "Fraudulent or suspicious activity",
+                                        "False or misleading account information",
+                                        "Abusive or inappropriate behavior",
+                                        "Security concern",
+                                        "User-requested suspension",
+                                        "Other",
+                                    ].map((reason) => (
+                                        <label
+                                            className={`suspension-reason-option ${suspensionReason === reason ? "selected" : ""}`}
+                                            key={reason}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="suspension-reason"
+                                                value={reason}
+                                                checked={suspensionReason === reason}
+                                                onChange={() => setSuspensionReason(reason)}
+                                            />
+                                            <span className="suspension-reason-check" aria-hidden="true" />
+                                            <span className="suspension-reason-label">{reason}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <textarea
+                                    id="suspension-reason-details"
+                                    value={suspensionReasonDetails}
+                                    onChange={(event) => setSuspensionReasonDetails(event.target.value)}
+                                    placeholder={suspensionReason === "Other" ? "Explain the reason for suspension..." : "Additional details (optional)"}
+                                    maxLength={900}
+                                    rows={4}
+                                    required={suspensionReason === "Other"}
+                                />
+                                <small>{suspensionReasonDetails.trim().length}/900 characters</small>
+                            </div>
                         )}
 
                         {confirmationModal.type ===
@@ -1195,7 +1306,7 @@ function Users() {
                                     onClick={
                                         confirmStatusChange
                                     }
-                                    disabled={actionLoading}
+                                    disabled={actionLoading || (confirmationModal.status === "suspended" && (!suspensionReason || (suspensionReason === "Other" && !suspensionReasonDetails.trim())))}
                                 >
                                     {actionLoading
                                         ? confirmationModal.status ===

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./SellerCompliance.css";
 
 function SellerCompliance() {
@@ -24,6 +25,8 @@ function SellerCompliance() {
     // Modal states
     const [actionModal, setActionModal] = useState(null);
     const [rejectionReason, setRejectionReason] = useState("");
+    const [violationReason, setViolationReason] = useState("");
+    const [selectedComplianceProduct, setSelectedComplianceProduct] = useState(null);
     const [successModal, setSuccessModal] = useState("");
 
     const openDocument = async (documentId) => {
@@ -103,7 +106,7 @@ function SellerCompliance() {
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchSellers();
-        }, 0);
+        }, 300);
 
         return () => clearTimeout(timeoutId);
     }, [fetchSellers]);
@@ -145,6 +148,12 @@ function SellerCompliance() {
 
         return "pending";
     };
+
+    const getStatusLabel = (status) => {
+        return formatStatusLabel(status);
+    };
+
+    const getComplianceClass = (status) => status === "compliant" ? "compliant" : status === "suspended" ? "suspended" : status === "review_queue" ? "flagged" : "pending";
 
     // =========================================
     // VIEW SELLER DETAILS
@@ -210,6 +219,22 @@ function SellerCompliance() {
         setActionModal("reject");
     };
 
+    const openViolationModal = (action, product) => {
+        if (!selectedSeller || actionLoading) return;
+        setError("");
+        setViolationReason("");
+        setSelectedComplianceProduct(product);
+        setActionModal(action);
+    };
+
+    const openProductDecisionModal = (decision, product) => {
+        if (!selectedSeller || actionLoading) return;
+        setError("");
+        setViolationReason("");
+        setSelectedComplianceProduct(product);
+        setActionModal(decision === "approve" ? "product_approve" : "product_reject");
+    };
+
     // =========================================
     // CLOSE ACTION MODAL
     // =========================================
@@ -219,7 +244,72 @@ function SellerCompliance() {
 
         setActionModal(null);
         setRejectionReason("");
+        setViolationReason("");
+        setSelectedComplianceProduct(null);
         setError("");
+    };
+
+    const confirmViolationAction = async () => {
+        if (!selectedSeller || !["warning", "suspension"].includes(actionModal) || actionLoading) return;
+        if (!violationReason.trim()) {
+            setError("Please provide a reason for this compliance action.");
+            return;
+        }
+
+        setActionLoading(true);
+        setError("");
+        try {
+            const response = await api.post(`/admin/seller-compliance/${selectedSeller.id}/violation-action`, {
+                action: actionModal,
+                product_id: selectedComplianceProduct?.id,
+                reason: violationReason.trim(),
+            });
+            const { seller, action } = response.data.data;
+            setSellers((current) => current.map((item) => item.id === seller.id ? { ...item, ...seller } : item));
+            setSelectedSeller((current) => ({
+                ...current,
+                ...seller,
+                seller_compliance_actions: [action, ...(current.seller_compliance_actions || [])],
+            }));
+            setActionModal(null);
+            setViolationReason("");
+            setSelectedComplianceProduct(null);
+            setSuccessModal(response.data.message || "Compliance action recorded.");
+        } catch (err) {
+            setError(err.response?.data?.message || "Unable to record the compliance action.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const confirmProductDecision = async () => {
+        if (!selectedSeller || !selectedComplianceProduct || actionLoading) return;
+        const decision = actionModal === "product_approve" ? "approve" : "reject";
+        if (decision === "reject" && !violationReason.trim()) {
+            setError("Add a reason before rejecting this product.");
+            return;
+        }
+        setActionLoading(true);
+        setError("");
+        try {
+            const response = await api.patch(`/admin/seller-compliance/${selectedSeller.id}/products/${selectedComplianceProduct.id}/review`, {
+                decision,
+                reason: violationReason.trim() || undefined,
+            });
+            setSelectedSeller((current) => ({
+                ...current,
+                products: (current.products || []).filter((product) => product.id !== selectedComplianceProduct.id),
+            }));
+            setActionModal(null);
+            setViolationReason("");
+            setSelectedComplianceProduct(null);
+            fetchSellers(pagination.current_page);
+            setSuccessModal(response.data.message || "Product review decision saved.");
+        } catch (err) {
+            setError(err.response?.data?.message || "Unable to save the product review decision.");
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     // =========================================
@@ -429,65 +519,44 @@ function SellerCompliance() {
 
                 <div className="seller-compliance-toolbar">
 
-                    <div className="seller-compliance-search">
-
-                        <span>
-                            ⌕
-                        </span>
-
-                        <input
-                            type="text"
-                            placeholder="Search seller name, email or phone..."
-                            value={searchTerm}
-                            onChange={(event) =>
-                                setSearchTerm(
-                                    event.target.value
-                                )
-                            }
-                        />
-
-                    </div>
-
-
                     <div className="seller-compliance-filter">
-
-                        <label htmlFor="seller-status-filter">
-                            Status
-                        </label>
-
-                        <select
-                            id="seller-status-filter"
-                            value={statusFilter}
-                            onChange={(event) =>
-                                setStatusFilter(
-                                    event.target.value
-                                )
-                            }
-                        >
-
-                            <option value="all">
-                                All Status
-                            </option>
-
-                            <option value="pending">
-                                Pending
-                            </option>
-
-                            <option value="active">
-                                Active
-                            </option>
-
-                            <option value="rejected">
-                                Rejected
-                            </option>
-
-                            <option value="suspended">
-                                Suspended
-                            </option>
-
-                        </select>
-
+                        {[
+                            ["all", "All Status"],
+                            ["pending", "Pending"],
+                            ["active", "Active"],
+                            ["rejected", "Rejected"],
+                            ["suspended", "Suspended"],
+                        ].map(([status, label]) => (
+                            <button
+                                key={status}
+                                type="button"
+                                className={statusFilter === status ? "active" : ""}
+                                aria-pressed={statusFilter === status}
+                                onClick={() => setStatusFilter(status)}
+                            >
+                                {label}
+                            </button>
+                        ))}
                     </div>
+
+                    <label className="seller-compliance-search">
+                        <span className="seller-search-icon" aria-hidden="true" />
+                        <input
+                            type="search"
+                            aria-label="Search sellers"
+                            placeholder="Search seller name, email, or phone"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                className="seller-search-clear"
+                                aria-label="Clear search"
+                                onClick={() => setSearchTerm("")}
+                            >x</button>
+                        )}
+                    </label>
 
                 </div>
 
@@ -560,7 +629,7 @@ function SellerCompliance() {
 
                                     sellers.map((seller) => (
 
-                                        <tr key={seller.id}>
+                                        <tr className="seller-row" key={seller.id}>
 
                                             {/* SELLER */}
 
@@ -568,7 +637,7 @@ function SellerCompliance() {
 
                                                 <div className="seller-info">
 
-                                                    <div className="seller-avatar">
+                                                    <div className="seller-avatar" style={{ "--avatar-hue": (Number(seller.id) * 67) % 360 }}>
 
                                                         {getInitials(
                                                             seller
@@ -597,19 +666,20 @@ function SellerCompliance() {
 
                                             {/* BUSINESS */}
 
-                                            <td>
+                                            <td className="seller-business-cell">
 
-                                                {seller
+                                                <strong>{seller
                                                     .seller_profile
                                                     ?.business_name ||
-                                                    "—"}
+                                                    "—"}</strong>
+                                                <span className="seller-business-category">{seller.seller_profile?.line_of_business || "Category not set"}</span>
 
                                             </td>
 
 
                                             {/* EMAIL */}
 
-                                            <td>
+                                            <td className="seller-email-cell">
 
                                                 {seller.email ||
                                                     "—"}
@@ -621,16 +691,13 @@ function SellerCompliance() {
 
                                             <td>
 
-                                                <span
-                                                    className={`seller-status ${getStatusClass(
-                                                        seller.status
-                                                    )}`}
-                                                >
-
+                                                <span className={`seller-compliance-badge ${getComplianceClass(seller.compliance_status)}`}>
                                                     <span />
-
-                                                    {seller.status ||
-                                                        "Unknown"}
+                                                    {seller.compliance_status === "review_queue"
+                                                        ? `${seller.pending_products_count} New Product${seller.pending_products_count === 1 ? "" : "s"}`
+                                                        : seller.compliance_status === "compliant"
+                                                            ? "Compliant"
+                                                            : getStatusLabel(seller.compliance_status)}
 
                                                 </span>
 
@@ -663,7 +730,7 @@ function SellerCompliance() {
                                                         )
                                                     }
                                                 >
-                                                    View
+                                                    View Details
                                                 </button>
 
                                             </td>
@@ -762,7 +829,7 @@ function SellerCompliance() {
 
                                 <div className="seller-profile">
 
-                                    <div className="seller-profile-avatar">
+                                    <div className="seller-profile-avatar" style={{ "--avatar-hue": (Number(selectedSeller.id) * 67) % 360 }}>
 
                                         {getInitials(
                                             selectedSeller
@@ -778,9 +845,17 @@ function SellerCompliance() {
                                             )}
                                         </h3>
 
-                                        <p>
-                                            Seller
-                                        </p>
+                                        <div className="seller-profile-badges">
+                                            <span className={`seller-status ${getStatusClass(selectedSeller.status)}`}>
+                                                <span />
+                                                {getStatusLabel(selectedSeller.status)}
+                                            </span>
+                                        </div>
+
+                                        <div className="seller-storefront-meta">
+                                            <strong>{selectedSeller.seller_profile?.business_name || "Seller storefront"}</strong>
+                                            <span>{selectedSeller.seller_profile?.line_of_business || "Business category not provided"}</span>
+                                        </div>
 
                                     </div>
 
@@ -801,9 +876,7 @@ function SellerCompliance() {
 
                                         <div>
 
-                                            <span>
-                                                Account ID
-                                            </span>
+                                            <span><i aria-hidden="true">◈</i> Account ID</span>
 
                                             <strong>
                                                 #{selectedSeller.id}
@@ -814,13 +887,10 @@ function SellerCompliance() {
 
                                         <div>
 
-                                            <span>
-                                                Status
-                                            </span>
+                                            <span><i aria-hidden="true">●</i> Status</span>
 
                                             <strong>
-                                                {selectedSeller.status ||
-                                                    "Unknown"}
+                                                {formatStatusLabel(selectedSeller.status)}
                                             </strong>
 
                                         </div>
@@ -828,9 +898,7 @@ function SellerCompliance() {
 
                                         <div>
 
-                                            <span>
-                                                Email
-                                            </span>
+                                            <span><i aria-hidden="true">✉</i> Email</span>
 
                                             <strong>
                                                 {selectedSeller.email ||
@@ -842,9 +910,7 @@ function SellerCompliance() {
 
                                         <div>
 
-                                            <span>
-                                                Phone
-                                            </span>
+                                            <span><i aria-hidden="true">☎</i> Phone</span>
 
                                             <strong>
                                                 {selectedSeller.phone ||
@@ -908,7 +974,7 @@ function SellerCompliance() {
                                                 Sex
                                             </span>
 
-                                            <strong>
+                                            <strong className="seller-detail-value-uppercase">
                                                 {selectedSeller
                                                     .seller_profile
                                                     ?.sex ||
@@ -943,6 +1009,85 @@ function SellerCompliance() {
                                 </section>
 
 
+                                <section className="seller-detail-section">
+                                    <h4>New Product Submissions</h4>
+                                    <p className="seller-compliance-category-note">
+                                        Registered category: <strong>{selectedSeller.seller_profile?.line_of_business || "Not provided"}</strong>
+                                        <span>Only new or materially edited listings appear here. Approve legitimate products to publish them, or reject listings that appear fraudulent or inappropriate.</span>
+                                    </p>
+                                    {selectedSeller.products?.length ? (
+                                        <div className="seller-compliance-products">
+                                            {selectedSeller.products.map((product) => {
+                                                const previewImage = product.media?.find((media) => media.type === "image")?.url;
+                                                return <article className={`seller-compliance-product ${product.compliance?.is_flagged ? "is-flagged" : ""}`} key={product.id}>
+                                                    {product.compliance?.is_flagged && (
+                                                        <div className="seller-product-alert-header">
+                                                            <span aria-hidden="true">⚠</span>
+                                                            {product.compliance.findings.length} REVIEW FLAG{product.compliance.findings.length === 1 ? "" : "S"} · {product.compliance.findings.map((finding) => finding.type === "category_mismatch" ? "CATEGORY MISMATCH" : "RESTRICTED CONTENT").join(" / ")}
+                                                        </div>
+                                                    )}
+                                                    <div className="seller-compliance-product-heading">
+                                                        {previewImage ? <img className="seller-product-preview" src={previewImage} alt={product.name} /> : <div className="seller-product-preview seller-product-preview--empty" aria-hidden="true">◇</div>}
+                                                        <div>
+                                                            <strong>{product.name}</strong>
+                                                            <span>{product.category} · {product.status?.replaceAll("_", " ") || "unknown status"}</span>
+                                                            <small>₱{Number(product.discounted_price || product.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} · {product.stock} in stock</small>
+                                                        </div>
+                                                        <span className="seller-product-compliance-badge flagged">Pending admin review</span>
+                                                    </div>
+                                                    {product.description && <p className="seller-product-description">{product.description}</p>}
+                                                    {product.compliance?.findings?.some((finding) => finding.type === "category_mismatch") && (
+                                                        <div className="seller-product-category-comparison">
+                                                            <span>Registered category<strong>{selectedSeller.seller_profile?.line_of_business || "Not provided"}</strong></span>
+                                                            <b aria-hidden="true">→</b>
+                                                            <span>Listed category<strong>{product.category}</strong></span>
+                                                        </div>
+                                                    )}
+                                                    {product.compliance?.is_flagged && (
+                                                        <ul className="seller-product-findings">
+                                                            {product.compliance.findings.map((finding, index) => (
+                                                                <li key={`${product.id}-${finding.type}-${index}`}>
+                                                                    <strong>{finding.label}</strong><span>{finding.message}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                    {product.compliance?.is_flagged && (
+                                                        <>
+                                                            <div className="seller-product-flag-summary">
+                                                                {product.compliance.findings.length} automated review signal{product.compliance.findings.length === 1 ? "" : "s"} detected. Please inspect the listing before deciding.
+                                                            </div>
+                                                            <div className="seller-product-actions">
+                                                                <button type="button" className="seller-warning-button" onClick={() => openViolationModal("warning", product)} disabled={actionLoading}>Issue warning for this product</button>
+                                                                {selectedSeller.status !== "suspended" && <button type="button" className="seller-suspend-button" onClick={() => openViolationModal("suspension", product)} disabled={actionLoading}>Suspend seller</button>}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <div className="seller-product-review-actions">
+                                                        <button type="button" className="seller-product-approve-button" onClick={() => openProductDecisionModal("approve", product)} disabled={actionLoading}>Approve product</button>
+                                                        <button type="button" className="seller-product-reject-button" onClick={() => openProductDecisionModal("reject", product)} disabled={actionLoading}>Reject product</button>
+                                                    </div>
+                                                </article>
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="seller-no-documents">No new product submissions are waiting for review.</p>
+                                    )}
+                                    {!!selectedSeller.seller_compliance_actions?.length && (
+                                        <div className="seller-compliance-history">
+                                            <h5>Compliance history</h5>
+                                            {selectedSeller.seller_compliance_actions.map((item) => (
+                                                <div key={item.id}>
+                                                    <strong>{item.action === "warning" ? "Warning issued" : "Seller suspended"}</strong>
+                                                    {item.findings?.map((finding) => <em key={`${item.id}-${finding.product_id}`}>{finding.product_name} · {finding.category}</em>)}
+                                                    <span>{item.reason}</span>
+                                                    <small>{new Date(item.created_at).toLocaleString()} · {item.admin ? `${item.admin.first_name || ""} ${item.admin.last_name || ""}`.trim() : "Administrator"}</small>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </section>
+
                                 {/* =========================================
                                     SUBMITTED DOCUMENTS
                                 ========================================= */}
@@ -975,8 +1120,7 @@ function SellerCompliance() {
                                                             </strong>
 
                                                             <span>
-                                                                {document.status ||
-                                                                    "Unknown"}
+                                                                {formatStatusLabel(document.status)}
                                                             </span>
 
                                                         </div>
@@ -1092,7 +1236,7 @@ function SellerCompliance() {
 
                         <div
                             className={`seller-action-modal-icon ${
-                                actionModal === "approve"
+                                ["approve", "product_approve"].includes(actionModal)
                                     ? "seller-action-modal-icon--approve"
                                     : "seller-action-modal-icon--reject"
                             }`}
@@ -1106,22 +1250,14 @@ function SellerCompliance() {
 
                         {/* TITLE */}
 
-                        <h3>
-
-                            {actionModal ===
-                            "approve"
-                                ? "Approve Seller?"
-                                : "Reject Seller?"}
-
-                        </h3>
+                        <h3>{actionModal === "approve" ? "Approve Seller?" : actionModal === "reject" ? "Reject Seller?" : actionModal === "product_approve" ? "Approve and publish product?" : actionModal === "product_reject" ? "Reject product submission?" : actionModal === "warning" ? "Issue Compliance Warning?" : "Suspend Seller?"}</h3>
 
 
                         {/* MESSAGE */}
 
                         <p>
 
-                            {actionModal ===
-                            "approve" ? (
+                            {actionModal === "approve" ? (
 
                                 <>
                                     Are you sure you want to
@@ -1135,7 +1271,7 @@ function SellerCompliance() {
                                     ?
                                 </>
 
-                            ) : (
+                            ) : actionModal === "reject" ? (
 
                                 <>
                                     Please provide a reason
@@ -1149,6 +1285,19 @@ function SellerCompliance() {
                                     .
                                 </>
 
+                            ) : ["product_approve", "product_reject"].includes(actionModal) ? (
+                                <>
+                                    {actionModal === "product_approve"
+                                        ? <>Approve <strong>{selectedComplianceProduct?.name}</strong> and publish it to the storefront?</>
+                                        : <>Provide a reason to reject <strong>{selectedComplianceProduct?.name}</strong>. The product will remain unavailable to buyers.</>}
+                                </>
+                            ) : (
+                                <>
+                                    {actionModal === "warning" ? "A compliance warning will be recorded for " : "This will suspend "}
+                                    <strong>{getFullName(selectedSeller)}</strong>
+                                    {selectedComplianceProduct && <> for the listing <strong>{selectedComplianceProduct.name}</strong></>}
+                                    {actionModal === "warning" ? "." : " and block the seller account until it is restored by an administrator."}
+                                </>
                             )}
 
                         </p>
@@ -1204,6 +1353,22 @@ function SellerCompliance() {
 
                         )}
 
+                        {(actionModal === "warning" || actionModal === "suspension" || actionModal === "product_reject") && (
+                            <div className="seller-rejection-field">
+                                <label htmlFor="compliance-action-reason">{actionModal === "warning" ? "Warning reason" : actionModal === "suspension" ? "Suspension reason" : "Rejection reason"}</label>
+                                <textarea
+                                    id="compliance-action-reason"
+                                    rows="4"
+                                    maxLength={1000}
+                                    required
+                                    placeholder={actionModal === "product_reject" ? "Explain why this product is rejected (for example, suspected scam or inappropriate listing)..." : "Describe the policy violation and the corrective action required..."}
+                                    value={violationReason}
+                                    onChange={(event) => setViolationReason(event.target.value)}
+                                    disabled={actionLoading}
+                                />
+                            </div>
+                        )}
+
 
                         {/* ACTION BUTTONS */}
 
@@ -1223,8 +1388,7 @@ function SellerCompliance() {
                             </button>
 
 
-                            {actionModal ===
-                            "approve" ? (
+                            {actionModal === "approve" ? (
 
                                 <button
                                     type="button"
@@ -1243,7 +1407,7 @@ function SellerCompliance() {
 
                                 </button>
 
-                            ) : (
+                            ) : actionModal === "reject" ? (
 
                                 <button
                                     type="button"
@@ -1263,6 +1427,24 @@ function SellerCompliance() {
 
                                 </button>
 
+                            ) : actionModal === "product_approve" || actionModal === "product_reject" ? (
+                                <button
+                                    type="button"
+                                    className={`seller-action-confirm ${actionModal === "product_approve" ? "seller-action-confirm--approve" : "seller-action-confirm--reject"}`}
+                                    onClick={confirmProductDecision}
+                                    disabled={actionLoading || (actionModal === "product_reject" && !violationReason.trim())}
+                                >
+                                    {actionLoading ? "Saving..." : actionModal === "product_approve" ? "Approve and publish" : "Reject product"}
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className={`seller-action-confirm ${actionModal === "warning" ? "seller-action-confirm--warning" : "seller-action-confirm--reject"}`}
+                                    onClick={confirmViolationAction}
+                                    disabled={actionLoading || !violationReason.trim()}
+                                >
+                                    {actionLoading ? "Saving..." : actionModal === "warning" ? "Issue warning" : "Suspend seller"}
+                                </button>
                             )}
 
                         </div>

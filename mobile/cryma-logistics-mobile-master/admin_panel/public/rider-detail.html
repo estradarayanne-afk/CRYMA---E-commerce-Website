@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rider Details - CRYMA Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav id="navbar" class="navbar"></nav>
+
+  <div class="container rider-detail-container">
+    <div class="detail-header">
+      <a href="/riders.html" class="btn btn-secondary btn-small">&larr; Back</a>
+      <h1>Rider Registration Details</h1>
+    </div>
+
+    <div id="loading" class="loading-spinner" style="display: none;">
+      <div class="spinner"></div>
+      <p>Loading rider details...</p>
+    </div>
+
+    <div id="error" class="error-message" style="display: none;"></div>
+
+    <div id="riderDetails" style="display: none;">
+      <!-- Personal Information -->
+      <div class="detail-section">
+        <h2>Personal Information</h2>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Full Name</label>
+            <p id="fullName">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Email</label>
+            <p id="email">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Phone</label>
+            <p id="phone">-</p>
+          </div>
+          <div class="detail-item">
+            <label>TIN</label>
+            <p id="tin">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vehicle Information -->
+      <div class="detail-section">
+        <h2>Vehicle Information</h2>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Vehicle Type</label>
+            <p id="vehicleType">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Make</label>
+            <p id="vehicleMake">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Model</label>
+            <p id="vehicleModel">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Color</label>
+            <p id="vehicleColor">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Plate Number</label>
+            <p id="plateNumber">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- License Information -->
+      <div class="detail-section">
+        <h2>License Information</h2>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>License Number</label>
+            <p id="licenseNumber">-</p>
+          </div>
+          <div class="detail-item">
+            <label>License Expiry</label>
+            <p id="licenseExpiry">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Classification</label>
+            <p id="licenseClassification">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Restrictions</label>
+            <p id="licenseRestrictions">-</p>
+          </div>
+        </div>
+
+        <!-- License Photo -->
+        <div class="license-photo-section">
+          <label>License Photo</label>
+          <div id="licensePhotoContainer">
+            <p>No photo available</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Address Information -->
+      <div class="detail-section">
+        <h2>Address Information</h2>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Region</label>
+            <p id="region">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Province</label>
+            <p id="province">-</p>
+          </div>
+          <div class="detail-item">
+            <label>City/Municipality</label>
+            <p id="municipality">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Barangay</label>
+            <p id="barangay">-</p>
+          </div>
+          <div class="detail-item">
+            <label>House Number</label>
+            <p id="houseNumber">-</p>
+          </div>
+          <div class="detail-item">
+            <label>Street</label>
+            <p id="street">-</p>
+          </div>
+          <div class="detail-item full-width">
+            <label>Additional Address</label>
+            <p id="additionalAddress">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Account Status -->
+      <div class="detail-section">
+        <h2>Account Status</h2>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Status</label>
+            <p><span class="status-badge" id="statusBadge">-</span></p>
+          </div>
+          <div class="detail-item">
+            <label>Registered</label>
+            <p id="createdAt">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="detail-section detail-actions">
+        <button id="approveBtn" class="btn btn-success">Approve Rider</button>
+        <button id="rejectBtn" class="btn btn-danger">Reject Rider</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      setupNavbar();
+      loadRiderDetails();
+
+      document.getElementById('approveBtn').addEventListener('click', approveRider);
+      document.getElementById('rejectBtn').addEventListener('click', rejectRider);
+    });
+
+    async function loadRiderDetails() {
+      const params = new URLSearchParams(window.location.search);
+      const riderId = params.get('id');
+
+      if (!riderId) {
+        document.getElementById('error').textContent = 'No rider ID provided';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const details = document.getElementById('riderDetails');
+
+      loading.style.display = 'flex';
+      error.style.display = 'none';
+
+      try {
+        const result = await apiClient.getRiderDetails(riderId);
+
+        if (result && result.success) {
+          const rider = result.data.rider;
+          displayRiderDetails(rider);
+          details.style.display = 'block';
+        } else {
+          throw new Error(result?.error || 'Failed to load rider details');
+        }
+      } catch (err) {
+        error.textContent = 'Failed to load rider details: ' + err.message;
+        error.style.display = 'block';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function displayRiderDetails(rider) {
+      // Personal Information
+      document.getElementById('fullName').textContent = rider.fullName || 'N/A';
+      document.getElementById('email').textContent = rider.email;
+      document.getElementById('phone').textContent = rider.phone || 'N/A';
+      document.getElementById('tin').textContent = rider.tin || 'N/A';
+
+      // Vehicle Information
+      document.getElementById('vehicleType').textContent = rider.vehicleType || 'N/A';
+      document.getElementById('vehicleMake').textContent = rider.vehicleMake || 'N/A';
+      document.getElementById('vehicleModel').textContent = rider.vehicleModel || 'N/A';
+      document.getElementById('vehicleColor').textContent = rider.vehicleColor || 'N/A';
+      document.getElementById('plateNumber').textContent = rider.plateNumber || 'N/A';
+
+      // License Information
+      document.getElementById('licenseNumber').textContent = rider.licenseNumber || 'N/A';
+      document.getElementById('licenseExpiry').textContent = rider.licenseExpiry || 'N/A';
+      document.getElementById('licenseClassification').textContent = rider.licenseClassification || 'N/A';
+      document.getElementById('licenseRestrictions').textContent = rider.licenseRestrictions || 'N/A';
+
+      // License Photo
+      if (rider.licensePhotoPath) {
+        const photoContainer = document.getElementById('licensePhotoContainer');
+        photoContainer.innerHTML = `
+          <img src="/api/uploads/${encodeURIComponent(rider.licensePhotoPath)}" alt="License Photo" class="license-photo">
+        `;
+      }
+
+      // Address Information
+      document.getElementById('region').textContent = rider.regionName || 'N/A';
+      document.getElementById('province').textContent = rider.provinceName || 'N/A';
+      document.getElementById('municipality').textContent = rider.municipalityName || 'N/A';
+      document.getElementById('barangay').textContent = rider.barangayName || 'N/A';
+      document.getElementById('houseNumber').textContent = rider.houseNumber || 'N/A';
+      document.getElementById('street').textContent = rider.street || 'N/A';
+      document.getElementById('additionalAddress').textContent = rider.additionalAddress || 'N/A';
+
+      // Account Status
+      const statusBadge = document.getElementById('statusBadge');
+      statusBadge.textContent = rider.accountStatus || 'N/A';
+      statusBadge.className = `status-badge status-${rider.accountStatus || 'unknown'}`;
+
+      document.getElementById('createdAt').textContent = new Date(rider.createdAt).toLocaleString();
+
+      // Update action buttons visibility
+      const approveBtn = document.getElementById('approveBtn');
+      const rejectBtn = document.getElementById('rejectBtn');
+
+      if (rider.accountStatus === 'pending') {
+        approveBtn.style.display = 'inline-block';
+        rejectBtn.style.display = 'inline-block';
+      } else {
+        approveBtn.style.display = 'none';
+        rejectBtn.style.display = 'none';
+      }
+
+      // Store rider ID for actions
+      window.currentRiderId = rider.id;
+    }
+
+    async function approveRider() {
+      showConfirm(
+        'Approve Rider',
+        'Are you sure you want to approve this rider registration?',
+        async () => {
+          try {
+            const result = await apiClient.approveRider(window.currentRiderId);
+            if (result.success) {
+              showToast('Rider approved successfully', 'success');
+              setTimeout(() => {
+                window.location.href = '/riders.html';
+              }, 1500);
+            } else {
+              showToast('Failed to approve rider: ' + (result.error || 'Unknown error'), 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        }
+      );
+    }
+
+    async function rejectRider() {
+      showReasonModal(
+        'Reject Rider',
+        'Enter the reason for rejection:',
+        async (reason) => {
+          try {
+            const result = await apiClient.rejectRider(window.currentRiderId, reason);
+            if (result.success) {
+              showToast('Rider rejected successfully', 'success');
+              setTimeout(() => {
+                window.location.href = '/riders.html';
+              }, 1500);
+            } else {
+              showToast('Failed to reject rider: ' + (result.error || 'Unknown error'), 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        }
+      );
+    }
+  </script>
+</body>
+</html>

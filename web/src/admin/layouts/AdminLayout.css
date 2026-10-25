@@ -206,7 +206,11 @@
     gap: 4px;
 
     overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
+
+.al-nav::-webkit-scrollbar { display: none; }
 
 .al-nav a {
     min-height: 46px;
@@ -1104,3 +1108,621 @@
     outline: 3px solid rgba(178, 31, 58, 0.28);
     outline-offset: 2px;
 }
+
+/* Premium maroon navigation theme. */
+.al-root .al-sidebar {
+    background: #2E0B13;
+    color: #F8EFEF;
+    border-right-color: rgba(255, 255, 255, 0.06);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+}
+.al-root .al-sidebar-top { border-bottom-color: rgba(255, 255, 255, 0.08); }
+.al-root .al-brand-mark {
+    color: #fff;
+    background: linear-gradient(145deg, #A82C48, #642033);
+    border-color: rgba(255, 180, 195, 0.28);
+    box-shadow: 0 0 20px rgba(226, 87, 119, 0.24);
+}
+.al-root .al-brand-name { color: #FFF8F9; }
+.al-root .al-brand-sub, .al-root .al-section-label { color: #B9929B; }
+.al-root .al-sidebar-toggle { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.1); }
+.al-root .al-sidebar-toggle:hover { background: rgba(255, 255, 255, 0.12); }
+.al-root .al-sidebar-toggle span { background: #F4CDD5; }
+.al-root .al-nav a {
+    color: #D0B4B9;
+    transition: color 220ms ease, background 220ms ease, transform 220ms cubic-bezier(.4, 0, .2, 1), border-color 220ms ease;
+}
+.al-root .al-nav a:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+    transform: translateX(3px);
+}
+.al-root .al-nav a.active {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(180, 50, 75, 0.35), rgba(120, 25, 45, 0.55));
+    border-color: rgba(255, 120, 140, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 3px 0 0 #F3A2B4;
+}
+.al-root .al-nav a.active .al-nav-icon, .al-root .al-nav a:hover .al-nav-icon { color: #fff; }
+.al-root .al-nav-active-dot { background: #FFC2CE; box-shadow: 0 0 10px rgba(255, 160, 180, .8); }
+.al-root .al-sidebar-bottom { border-top-color: rgba(255, 255, 255, 0.08); }
+.al-root .al-profile-trigger { background: rgba(0, 0, 0, .25); border-color: rgba(255, 255, 255, .1); }
+.al-root .al-profile-trigger:hover, .al-root .al-profile-trigger.open { background: rgba(0, 0, 0, .4); }
+.al-root .al-avatar { color: #fff; background: linear-gradient(145deg, #A82C48, #642033); border-color: rgba(255, 180, 195, .24); }
+.al-root .al-user-info strong { color: #FFF8F9; }
+.al-root .al-user-info span, .al-root .al-profile-chevron { color: #C4A5AD; }
+.al-root .al-profile-menu { color: var(--text-primary); }
+.al-root .al-profile-menu .al-avatar--menu { color: #fff; }
+
+@media (max-width: 700px) {
+    .al-root .al-sidebar { background: #2E0B13; }
+}
+
+/* Frosted topbar with useful, compact admin controls. */
+.al-root .al-header {
+    gap: 18px;
+    background: rgba(255, 255, 255, .82);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border-bottom-color: rgba(138, 28, 48, .1);
+}
+.al-root .al-header-right { gap: 10px; }
+.al-root .al-header-status {
+    padding: 7px 12px;
+    border: 1px solid rgba(40, 160, 90, .2);
+    background: rgba(40, 160, 90, .08);
+    color: #1A7A43;
+}
+.al-root .al-status-dot {
+    background: #28A05A;
+    box-shadow: 0 0 0 4px rgba(40, 160, 90, .1);
+    animation: al-status-pulse 2s ease-in-out infinite;
+}
+@keyframes al-status-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(40, 160, 90, .1); }
+    50% { box-shadow: 0 0 0 6px rgba(40, 160, 90, .04); }
+}
+.al-header-date {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 10px;
+    border: 1px solid rgba(138, 28, 48, .08);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .78);
+    box-shadow: 0 3px 10px rgba(74, 21, 33, .045);
+}
+.al-header-date-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: rgba(178, 31, 58, .09); color: #8A1C30; }
+.al-header-date-icon svg { width: 15px; height: 15px; }
+.al-header-date > div { display: flex; flex-direction: column; gap: 1px; white-space: nowrap; }
+.al-header-date > div span { color: #8A6871; font-size: 9px; }
+.al-header-date > div strong { color: #3B0E18; font-size: 10px; font-weight: 650; }
+
+@media (prefers-reduced-motion: reduce) {
+    .al-root .al-status-dot { animation: none; }
+}
+
+@media (max-width: 900px) {
+    .al-root .al-header { gap: 10px; padding-inline: 18px; }
+    .al-root .al-header-date { padding-inline: 7px; }
+}
+
+@media (max-width: 700px) {
+    .al-root .al-header { gap: 8px; padding-inline: 12px; }
+    .al-root .al-header-right { gap: 6px; }
+    .al-root .al-header-status { padding: 6px; font-size: 0; }
+    .al-root .al-status-dot { width: 7px; height: 7px; }
+    .al-root .al-header-date { min-height: 36px; gap: 5px; padding: 3px 6px; }
+    .al-header-date-icon { width: 26px; height: 26px; }
+    .al-header-date > div span { display: none; }
+    .al-header-date > div strong { font-size: 8px; }
+}
+
+@media (max-width: 430px) {
+    .al-header-date > div { display: none; }
+    .al-root .al-header-date { padding: 4px; }
+}
+
+/* Shared surface language for the remaining admin workspaces. */
+.al-root .al-content :is(.account-settings-page,.chat-page,.reports-page,.settings-page,.ad-page,.voucher-admin-page) { color:#26151A; }
+.al-root .al-content :is(.account-eyebrow,.chat-eyebrow,.reports-eyebrow,.settings-eyebrow,.voucher-admin-eyebrow,.ad-heading>div>span) { color:#8A1C30; letter-spacing:.12em; }
+.al-root .al-content :is(.reports-header-date,.settings-panel,.account-card,.chat-panel,.reports-panel,.reports-filter-panel,.voucher-list-card,.ad-section) {
+    border:1px solid rgba(138,28,48,.09);
+    border-radius:16px;
+    background:rgba(255,255,255,.92);
+    box-shadow:0 10px 30px -5px rgba(74,21,33,.065),0 4px 8px -2px rgba(74,21,33,.025);
+    -webkit-backdrop-filter:blur(12px);
+    backdrop-filter:blur(12px);
+}
+.al-root .al-content :is(.account-card,.reports-panel,.reports-filter-panel,.settings-panel,.voucher-list-card,.ad-section) { overflow:hidden; }
+.al-root .al-content :is(.reports-panel-header,.reports-filter-heading,.settings-tabs,.voucher-toolbar,.chat-conversations-header,.chat-window-header) { border-color:rgba(138,28,48,.09); }
+.al-root .al-content :is(.reports-panel-header h2,.reports-filter-heading h2,.settings-section-header h2,.account-card-header h2,.chat-conversations-header h2,.chat-window-header h2) { color:#351720; font-size:14px; font-weight:700; }
+.al-root .al-content :is(.reports-panel-header p,.reports-filter-heading p,.account-card-header p,.settings-section-header p) { color:#806C71; font-size:12px; }
+.al-root .al-content :is(.reports-panel-eyebrow,.settings-section-header span,.account-section-label) { color:#8A1C30; letter-spacing:.1em; }
+
+/* Form controls share the rounded, soft inset search and filter treatment. */
+.al-root .al-content :is(.account-field input,.reports-filter-field select,.reports-filter-field input,.settings-form input,.settings-form textarea,.settings-form select,.ad-page input,.ad-page select,.voucher-search,.voucher-filter select,.voucher-form-field input,.voucher-form-field textarea,.voucher-form-field select) {
+    border:1px solid rgba(75,23,37,.15);
+    border-radius:10px;
+    background:linear-gradient(180deg,#fff,#FFFAFB);
+    color:#321820;
+    transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+.al-root .al-content :is(.account-field input,.reports-filter-field select,.reports-filter-field input,.settings-form input,.settings-form textarea,.settings-form select,.ad-page input,.ad-page select,.voucher-search,.voucher-filter select,.voucher-form-field input,.voucher-form-field textarea,.voucher-form-field select):focus {
+    border-color:#8A1C30;
+    background:#fff;
+    box-shadow:0 0 0 3px rgba(138,28,48,.11),0 4px 12px rgba(75,23,37,.045);
+    outline:0;
+}
+.al-root .al-content :is(.reports-generate-button,.settings-submit,.account-submit,.ad-heading button,.ad-action-row button:not(.ad-secondary-button),.ad-actions button:not(.ad-secondary-button),.voucher-primary-button) {
+    min-height:38px;
+    border:1px solid #74172D;
+    border-radius:9px;
+    background:linear-gradient(135deg,#8A1C30,#4A0E17);
+    color:#fff;
+    box-shadow:0 5px 13px rgba(74,14,23,.15),inset 0 1px 0 rgba(255,255,255,.16);
+    transition:transform .17s ease,box-shadow .17s ease,background .17s ease;
+}
+.al-root .al-content :is(.reports-generate-button,.settings-submit,.account-submit,.ad-heading button,.ad-action-row button:not(.ad-secondary-button),.ad-actions button:not(.ad-secondary-button),.voucher-primary-button):hover:not(:disabled) {
+    background:linear-gradient(135deg,#74172D,#350A14);
+    box-shadow:0 8px 18px rgba(74,14,23,.22),inset 0 1px 0 rgba(255,255,255,.18);
+    transform:translateY(-1px);
+}
+.al-root .al-content :is(.ad-secondary-button,.voucher-secondary-button,.voucher-row-actions button,.account-confirm-cancel,.settings-confirm-cancel) { border-color:rgba(138,28,48,.17); border-radius:9px; background:#fff; color:#6C1930; }
+
+/* Reports and settings use compact maroon segmented controls. */
+.al-root .al-content .settings-tabs { display:flex; flex-wrap:wrap; gap:7px; padding:12px 16px; border-bottom:1px solid rgba(138,28,48,.08); background:#FFFAFB; }
+.al-root .al-content .settings-tabs button { margin:0; padding:8px 12px; border:1px solid rgba(138,28,48,.13); border-radius:999px; background:#fff; color:#6F6265; font-size:11px; transition:.16s ease; }
+.al-root .al-content .settings-tabs button::after { display:none; }
+.al-root .al-content .settings-tabs button.active { border-color:#2E0B13; background:#2E0B13; color:#fff; box-shadow:0 4px 10px rgba(46,11,19,.15); }
+.al-root .al-content .settings-content { padding:22px; }
+.al-root .al-content :is(.settings-form,.account-form) { max-width:820px; padding:20px; border:1px solid rgba(138,28,48,.1); border-radius:14px; background:linear-gradient(145deg,#fff,#FFFAFB); box-shadow:0 6px 18px rgba(75,23,37,.04); }
+.al-root .al-content .account-info-item { border-color:rgba(138,28,48,.09); border-radius:12px; background:linear-gradient(145deg,#fff,#FFFAFB); box-shadow:0 4px 12px rgba(75,23,37,.04); }
+.al-root .al-content .account-avatar { border:2px solid #fff; background:linear-gradient(145deg,#D98298,#7E1830); color:#fff; box-shadow:0 0 0 4px rgba(244,132,154,.13),0 6px 14px rgba(126,24,48,.17); }
+.al-root .al-content :is(.reports-filter-panel,.reports-panel) { transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease; }
+.al-root .al-content .reports-stat-card { border-color:rgba(138,28,48,.1); border-radius:14px; box-shadow:0 6px 18px rgba(75,23,37,.045),inset 0 1px 0 #fff; }
+.al-root .al-content .reports-stat-card:hover { border-color:rgba(178,31,58,.2); box-shadow:0 10px 23px rgba(75,23,37,.08); }
+
+/* Logistics area and assignment cards. */
+.al-root .al-content .ad-page { gap:18px; }
+.al-root .al-content .ad-section { padding:19px; }
+.al-root .al-content .ad-section-title { margin-bottom:14px; }
+.al-root .al-content .ad-section-title h2 { color:#351720; font-size:16px; }
+.al-root .al-content .ad-area-card,.al-root .al-content .ad-logistics-row { border:1px solid rgba(91,14,27,.09); border-radius:13px; background:linear-gradient(145deg,#fff,#FFFAFB); box-shadow:0 5px 15px rgba(74,21,33,.045); transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
+.al-root .al-content .ad-area-card:hover,.al-root .al-content .ad-logistics-row:hover { border-color:rgba(178,31,58,.18); box-shadow:0 9px 20px rgba(74,21,33,.075); transform:translateY(-1px); }
+.al-root .al-content .ad-area-heading h3,.al-root .al-content .ad-logistics-row>div:first-child strong { color:#321820; }
+.al-root .al-content .ad-area-couriers>div { border-bottom-color:rgba(138,28,48,.08); }
+.al-root .al-content .ad-area-couriers button { border-color:rgba(138,28,48,.16); border-radius:8px; }
+.al-root .al-content .ad-note { border:1px solid rgba(217,145,20,.2); border-radius:11px; background:linear-gradient(135deg,#FFFBF1,#FFF4D8); box-shadow:0 4px 12px rgba(161,98,7,.055); }
+
+/* Voucher list uses the same floating rows and dark-glass review headers. */
+.al-root .al-content .voucher-list-card { border-radius:16px; }
+.al-root .al-content .voucher-toolbar { flex-wrap:wrap; padding:18px 20px; background:rgba(255,255,255,.72); }
+.al-root .al-content .voucher-search { min-height:44px; border-radius:12px; box-shadow:0 3px 10px rgba(75,23,37,.04),inset 0 1px 2px rgba(75,23,37,.03); }
+.al-root .al-content .voucher-filter select { min-height:40px; border-radius:10px; }
+.al-root .al-content .voucher-table-scroll { padding:2px 16px 12px; background:linear-gradient(180deg,#FFFAFB,#FFF7F8); }
+.al-root .al-content .voucher-table { border-collapse:separate; border-spacing:0 8px; min-width:900px; }
+.al-root .al-content .voucher-table th { border:0; background:transparent; color:#806D72; font-size:10px; letter-spacing:.08em; }
+.al-root .al-content .voucher-table td { border-top:1px solid rgba(91,14,27,.075); border-bottom:1px solid rgba(91,14,27,.075); background:rgba(255,255,255,.96); box-shadow:0 4px 12px rgba(74,21,33,.035); transition:background .16s ease,border-color .16s ease,box-shadow .16s ease; }
+.al-root .al-content .voucher-table td:first-child { border-left:1px solid rgba(91,14,27,.075); border-radius:12px 0 0 12px; }
+.al-root .al-content .voucher-table td:last-child { border-right:1px solid rgba(91,14,27,.075); border-radius:0 12px 12px 0; }
+.al-root .al-content .voucher-table tbody tr { transition:transform .16s ease; }
+.al-root .al-content .voucher-table tbody tr:hover { background:transparent; transform:translateY(-1px); }
+.al-root .al-content .voucher-table tbody tr:hover td { border-color:rgba(178,31,58,.17); background:#FFFCFC; box-shadow:0 7px 16px rgba(91,14,27,.06); }
+.al-root .al-content .voucher-modal-header { position:sticky; top:0; z-index:5; align-items:center; border-bottom-color:rgba(255,180,190,.22); background:linear-gradient(135deg,#4A0E17,#2E050C); box-shadow:0 10px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.14); }
+.al-root .al-content .voucher-modal-header span { color:#F6B7C3; }
+.al-root .al-content .voucher-modal-header h2 { color:#fff; }
+.al-root .al-content .voucher-modal-header button { border-color:rgba(255,255,255,.2); background:rgba(255,255,255,.1); color:#fff; }
+.al-root .al-content .voucher-modal-footer { position:sticky; bottom:0; z-index:5; border-top-color:rgba(75,23,37,.1); background:rgba(255,255,255,.92); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); box-shadow:0 -8px 20px rgba(46,5,12,.08); }
+
+/* Chat stays practical while sharing the elevated panel and soft rose interaction states. */
+.al-root .al-content .chat-page-header h1 { font-size:30px; }
+.al-root .al-content .chat-panel { border-color:rgba(138,28,48,.1); border-radius:16px; box-shadow:0 10px 30px -5px rgba(74,21,33,.07),0 4px 8px -2px rgba(74,21,33,.03); }
+.al-root .al-content :is(.chat-conversations,.chat-window-header,.chat-conversations-header) { border-color:rgba(138,28,48,.09); }
+.al-root .al-content .conversation-search { border:1px solid rgba(75,23,37,.13); border-radius:10px; background:linear-gradient(180deg,#fff,#FFFAFB); }
+.al-root .al-content .conversation-item { border-bottom-color:rgba(138,28,48,.055); transition:background .16s ease,transform .16s ease; }
+.al-root .al-content .conversation-item:hover { background:#FFF7F8; }
+.al-root .al-content .conversation-item.active { background:#FCEFF2; box-shadow:inset 3px 0 #8A1C30; }
+.al-root .al-content :is(.conversation-avatar,.chat-user-avatar) { background:linear-gradient(145deg,#D98298,#7E1830); box-shadow:0 4px 10px rgba(126,24,48,.18); }
+.al-root .al-content .chat-window { background:linear-gradient(180deg,#FFFAFB,#FFF7F8); }
+.al-root .al-content .chat-input-area { border-color:rgba(138,28,48,.09); background:rgba(255,255,255,.9); }
+
+.al-root .al-content :is(.account-modal-overlay,.settings-modal-overlay) { background:rgba(24,9,14,.58); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); }
+.al-root .al-content :is(.account-confirmation-modal,.settings-confirmation-modal) { border-color:rgba(255,255,255,.82); border-radius:18px; box-shadow:0 26px 70px rgba(26,7,14,.3); }
+
+@media (max-width:700px) {
+    .al-root .al-content :is(.settings-content,.ad-section) { padding:15px; }
+    .al-root .al-content .voucher-table-scroll { padding-right:10px; padding-left:10px; }
+    .al-root .al-content :is(.account-form,.settings-form) { padding:15px; }
+}
+
+/* Ambient lighting and workspace accents make the admin feel designed, not flat. */
+.al-root .al-main {
+    background-color: #FBF7F8;
+    background-image:
+        radial-gradient(ellipse at 88% 4%, rgba(213, 119, 144, .12), transparent 31rem),
+        radial-gradient(ellipse at 11% 58%, rgba(126, 24, 48, .045), transparent 27rem),
+        linear-gradient(145deg, #FCF9F9 0%, #F8F2F4 100%);
+}
+.al-root--collapsed .al-main { background-color:#FBF7F8; }
+.al-root .al-content { position:relative; }
+
+.al-root .al-content .registrations-page { --workspace-accent:#B21F3A; --workspace-glow:rgba(206,83,112,.12); }
+.al-root .al-content .users-page { --workspace-accent:#9D4B68; --workspace-glow:rgba(210,127,160,.12); }
+.al-root .al-content .seller-compliance-page { --workspace-accent:#C17A24; --workspace-glow:rgba(224,166,81,.13); }
+.al-root .al-content .complaints-page { --workspace-accent:#B4233D; --workspace-glow:rgba(224,92,111,.12); }
+.al-root .al-content .commission-page { --workspace-accent:#A77A32; --workspace-glow:rgba(222,177,94,.13); }
+.al-root .al-content .dashboard-page { --workspace-accent:#8A1C30; --workspace-glow:rgba(198,75,106,.13); }
+.al-root .al-content .reports-page { --workspace-accent:#6B536E; --workspace-glow:rgba(155,125,168,.12); }
+.al-root .al-content .settings-page,
+.al-root .al-content .account-settings-page { --workspace-accent:#7E1830; --workspace-glow:rgba(177,96,120,.11); }
+.al-root .al-content .chat-page { --workspace-accent:#537B79; --workspace-glow:rgba(100,165,157,.12); }
+.al-root .al-content .ad-page { --workspace-accent:#53758A; --workspace-glow:rgba(103,158,185,.12); }
+.al-root .al-content .voucher-admin-page { --workspace-accent:#A45B47; --workspace-glow:rgba(206,127,99,.12); }
+
+.al-root .al-content > :is(.registrations-page,.users-page,.seller-compliance-page,.complaints-page,.commission-page,.dashboard-page,.reports-page,.settings-page,.account-settings-page,.chat-page,.ad-page,.voucher-admin-page) {
+    background-image:radial-gradient(ellipse at 94% 0%,var(--workspace-glow,rgba(206,83,112,.1)),transparent 25rem);
+}
+.al-root .al-content :is(.registrations-header,.users-header,.seller-compliance-header,.complaints-header,.commission-header,.dashboard-page-header,.reports-page-header,.settings-page-header,.account-page-header,.chat-page-header,.ad-heading,.voucher-admin-header) h1::after {
+    content:"";
+    display:block;
+    width:48px;
+    height:3px;
+    margin-top:11px;
+    border-radius:99px;
+    background:linear-gradient(90deg,var(--workspace-accent,#8A1C30),rgba(255,255,255,.35));
+    box-shadow:0 2px 8px color-mix(in srgb, var(--workspace-accent,#8A1C30) 24%, transparent);
+}
+.al-root .al-content :is(.registrations-card,.users-card,.seller-compliance-card,.complaints-card,.commission-card,.dashboard-panel,.reports-panel,.reports-filter-panel,.settings-panel,.account-card,.chat-panel,.voucher-list-card,.ad-section) {
+    background-image:linear-gradient(var(--workspace-accent,#8A1C30),var(--workspace-accent,#8A1C30));
+    background-repeat:no-repeat;
+    background-position:top left;
+    background-size:100% 3px;
+    box-shadow:0 14px 34px -10px rgba(49,12,23,.12),0 5px 12px -5px rgba(49,12,23,.055),inset 0 1px 0 rgba(255,255,255,.9);
+}
+.al-root .al-content :is(.registrations-card,.users-card,.seller-compliance-card,.complaints-card,.commission-card,.dashboard-panel,.reports-panel,.reports-filter-panel,.settings-panel,.account-card,.chat-panel,.voucher-list-card,.ad-section) {
+    transition:box-shadow .22s ease,border-color .22s ease,transform .22s ease;
+}
+.al-root .al-content :is(.registrations-card,.users-card,.seller-compliance-card,.complaints-card,.commission-card,.dashboard-panel,.reports-panel,.reports-filter-panel,.settings-panel,.account-card,.voucher-list-card,.ad-section):hover {
+    border-color:color-mix(in srgb,var(--workspace-accent,#8A1C30) 20%, white);
+    box-shadow:0 18px 40px -11px rgba(49,12,23,.15),0 7px 16px -6px rgba(49,12,23,.07),inset 0 1px 0 rgba(255,255,255,.95);
+}
+.al-root .al-content :is(.dashboard-stat-card,.reports-stat-card,.ad-area-card,.ad-logistics-row,.seller-compliance-product,.complaint-person-card,.commission-stat-card) {
+    box-shadow:0 8px 20px -7px rgba(49,12,23,.13),0 2px 6px rgba(49,12,23,.04),inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .al-root .al-content :is(.registrations-card,.users-card,.seller-compliance-card,.complaints-card,.commission-card,.dashboard-panel,.reports-panel,.reports-filter-panel,.settings-panel,.account-card,.chat-panel,.voucher-list-card,.ad-section) { transition:none; }
+}
+
+/* Shared control sizing, focus, and native select styling across admin pages. */
+.al-root .al-content button {
+    -webkit-tap-highlight-color:transparent;
+    transition-property:color,background-color,border-color,box-shadow,transform,opacity;
+    transition-duration:.18s;
+    transition-timing-function:ease;
+}
+.al-root .al-content button:active:not(:disabled) { transform:translateY(0) scale(.985); }
+.al-root .al-content button:disabled { cursor:not-allowed; opacity:.56; }
+.al-root .al-content select {
+    min-height:40px;
+    padding:0 40px 0 13px;
+    border:1px solid rgba(75,23,37,.15);
+    border-radius:11px;
+    appearance:none;
+    -webkit-appearance:none;
+    background-color:#fff;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A1C30' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 13px center;
+    color:#321820;
+    box-shadow:0 3px 9px rgba(75,23,37,.045),inset 0 1px 0 #fff;
+    cursor:pointer;
+}
+.al-root .al-content select:hover:not(:disabled) { border-color:rgba(138,28,48,.35); background-color:#FFFCFC; }
+.al-root .al-content select:focus-visible {
+    border-color:#8A1C30;
+    background-color:#fff;
+    box-shadow:0 0 0 3px rgba(138,28,48,.12),0 5px 14px rgba(75,23,37,.06);
+    outline:none;
+}
+.al-root .al-content select option { background:#fff; color:#321820; }
+
+/* Profile menu feels like a deliberate popover, matching the page controls. */
+.al-root .al-profile-menu {
+    padding:8px;
+    border:1px solid rgba(255,255,255,.8);
+    border-radius:15px;
+    background:linear-gradient(155deg,rgba(255,255,255,.99),rgba(255,248,250,.97));
+    box-shadow:0 22px 54px rgba(37,7,16,.24),0 5px 14px rgba(37,7,16,.1),inset 0 1px 0 #fff;
+    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(18px);
+    animation:al-popover-in .16s ease-out both;
+}
+.al-root .al-profile-menu-head { padding:10px; border-radius:10px; background:linear-gradient(135deg,#FFF8FA,#F9EDF0); }
+.al-root .al-profile-divider { margin:8px 2px; background:rgba(138,28,48,.1); }
+.al-root .al-profile-action { border:1px solid transparent; border-radius:9px; transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease; }
+.al-root .al-profile-action:hover { border-color:rgba(138,28,48,.08); background:#FFF1F4; color:#6A1128; transform:translateX(2px); }
+.al-root .al-profile-action--danger:hover { border-color:rgba(180,35,24,.1); background:#FFF0EF; color:#B42318; }
+@keyframes al-popover-in { from { opacity:0; transform:translateY(5px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
+
+/* Customer Service: give every customer conversation its own clear surface. */
+.al-root .al-content .chat-page .conversation-list {
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    padding:10px 12px 14px;
+    background:linear-gradient(180deg,#FBF6F7,#F8F1F3);
+}
+.al-root .al-content .chat-page .conversation-item {
+    position:relative;
+    flex:0 0 auto;
+    min-height:70px;
+    padding:11px 12px;
+    border:1px solid rgba(91,14,27,.09);
+    border-radius:12px;
+    background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(255,250,251,.96));
+    box-shadow:0 4px 12px rgba(49,12,23,.045),inset 0 1px 0 #fff;
+    transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.al-root .al-content .chat-page .conversation-item:hover {
+    transform:translateY(-1px);
+    border-color:rgba(138,28,48,.2);
+    background:linear-gradient(145deg,#fff,#FFF7F8);
+    box-shadow:0 8px 18px rgba(49,12,23,.08),inset 0 1px 0 #fff;
+}
+.al-root .al-content .chat-page .conversation-item.active {
+    border-color:rgba(138,28,48,.24);
+    background:linear-gradient(135deg,#FFF4F6,#FCE9EE);
+    box-shadow:inset 3px 0 #8A1C30,0 7px 16px rgba(126,24,48,.09),inset 0 1px 0 #fff;
+}
+.al-root .al-content .chat-page .conversation-item.active .conversation-info strong { color:#4A0E17; }
+.al-root .al-content .chat-page .chat-inbox-nav {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+    padding:10px 12px 2px;
+}
+.al-root .al-content .chat-page .chat-inbox-nav button {
+    display:flex;
+    min-width:0;
+    min-height:34px;
+    align-items:center;
+    justify-content:space-between;
+    gap:5px;
+    padding:0 8px;
+    border:1px solid rgba(91,14,27,.1);
+    border-radius:9px;
+    background:rgba(255,255,255,.86);
+    color:#625258;
+    font-size:10px;
+    font-weight:650;
+    white-space:nowrap;
+    cursor:pointer;
+    transition:background .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+.al-root .al-content .chat-page .chat-inbox-nav button:hover:not(.active) { border-color:rgba(138,28,48,.24); background:#fff; color:#5B0E1B; transform:translateY(-1px); }
+.al-root .al-content .chat-page .chat-inbox-nav button.active { border-color:#2E0B13; background:linear-gradient(135deg,#3C101A,#26080F); color:#fff; box-shadow:0 4px 10px rgba(46,11,19,.16),inset 0 1px 0 rgba(255,255,255,.12); }
+.al-root .al-content .chat-page .chat-inbox-nav button small { display:grid; min-width:18px; height:18px; place-items:center; padding:0 4px; border-radius:99px; background:#F8ECEF; color:#7E1830; font-size:9px; font-weight:750; font-variant-numeric:tabular-nums; }
+.al-root .al-content .chat-page .chat-inbox-nav button.active small { background:rgba(255,255,255,.16); color:#fff; }
+.al-root .al-content .chat-page .conversation-info .chat-conversation-context { overflow:hidden; color:#8A6871; font-size:9px; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
+.al-root .al-content .chat-page .conversation-info .chat-conversation-context.seller { color:#8B5A14; }
+.al-root .al-content .chat-page .conversation-info .chat-conversation-context.buyer { color:#8A6871; }
+.al-root .al-content .chat-page .conversation-item:nth-child(4n + 2) .conversation-avatar { background:linear-gradient(145deg,#8E6C9A,#5D3A6C); }
+.al-root .al-content .chat-page .conversation-item:nth-child(4n + 3) .conversation-avatar { background:linear-gradient(145deg,#C07C4B,#8B4A28); }
+.al-root .al-content .chat-page .conversation-item:nth-child(4n) .conversation-avatar { background:linear-gradient(145deg,#548B83,#32645D); }
+
+@media (prefers-reduced-motion:reduce) {
+    .al-root .al-content button,.al-root .al-profile-action,.al-root .al-content .chat-page .conversation-item,.al-root .al-content .chat-page .chat-inbox-nav button { transition:none; }
+    .al-root .al-profile-menu { animation:none; }
+    .al-root .al-content button:active:not(:disabled) { transform:none; }
+    .al-root .al-content .chat-page .conversation-item:hover { transform:none; }
+}
+
+@media (max-width:700px) {
+    .al-root .al-content select { max-width:100%; }
+}
+
+/* Match the compact amber count pill used on Registrations and User Accounts. */
+.al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.users-count) {
+    display:flex;
+    flex:0 0 auto;
+    flex-direction:row;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-width:0;
+    min-height:0;
+    padding:10px 16px;
+    border:1px solid rgba(200,138,41,.22);
+    border-radius:999px;
+    background:linear-gradient(135deg,#FFF7E6,#FCE8EC);
+    box-shadow:0 6px 18px rgba(126,24,48,.09),0 0 0 3px rgba(239,199,123,.08);
+    text-align:center;
+}
+.al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.users-count) strong {
+    display:block;
+    margin:0;
+    color:#8B4A0B;
+    font-size:18px;
+    font-weight:750;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+}
+.al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.users-count) span {
+    display:block;
+    margin:0;
+    color:#8B4A0B;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.07em;
+    line-height:1.2;
+    text-transform:uppercase;
+}
+@media (max-width:520px) {
+    .al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.users-count) { padding:9px 13px; }
+}
+
+/* Compact admin density: reduce empty padding while preserving clear controls. */
+.al-root .al-content { padding:22px 24px 30px; }
+.al-root .al-content > :is(.account-settings-page,.chat-page,.commission-page,.complaints-page,.dashboard-page,.ad-page,.registrations-page,.reports-page,.seller-compliance-page,.settings-page,.users-page,.voucher-admin-page) { max-width:1360px; }
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) { margin-bottom:19px; }
+.al-root .al-content :is(.account-page-header h1,.chat-page-header h1,.commission-header h1,.complaints-header h1,.dashboard-page-header h1,.registrations-header h1,.reports-page-header h1,.seller-compliance-header h1,.settings-page-header h1,.users-header h1,.voucher-admin-header h1,.ad-heading h1) { font-size:clamp(24px,2.6vw,28px); }
+.al-root .al-content :is(.registrations-toolbar,.users-toolbar,.seller-compliance-toolbar,.complaints-toolbar,.commission-toolbar,.voucher-toolbar) { gap:10px; padding:13px 16px; }
+.al-root .al-content :is(.registrations-table,.users-table,.seller-compliance-table,.complaints-table,.commission-table,.voucher-table,.dashboard-table) { border-spacing:0 6px; }
+.al-root .al-content :is(.registrations-table,.users-table,.seller-compliance-table,.complaints-table,.commission-table,.voucher-table,.dashboard-table) th { padding:10px 14px; }
+.al-root .al-content :is(.registrations-table,.users-table,.seller-compliance-table,.complaints-table,.commission-table,.voucher-table,.dashboard-table) td { padding:12px 14px; }
+.al-root .al-content :is(.account-card,.settings-panel,.reports-panel,.reports-filter-panel,.ad-section) { border-radius:14px; }
+.al-root .al-content .settings-content { padding:18px; }
+.al-root .al-content :is(.account-form,.settings-form) { padding:16px; }
+.al-root .al-content .ad-page { gap:14px; }
+.al-root .al-content .ad-section { padding:15px; }
+.al-root .al-content :is(.reports-panel-header,.reports-filter-heading) { padding:14px 16px; }
+.al-root .al-content .chat-page .chat-conversations-header { padding:13px 14px; }
+.al-root .al-content .chat-page .chat-inbox-nav { gap:5px; padding:8px 10px 1px; }
+.al-root .al-content .chat-page .chat-inbox-nav button { min-height:31px; padding-inline:7px; }
+.al-root .al-content .chat-page .conversation-list { gap:6px; padding:8px 10px 11px; }
+.al-root .al-content .chat-page .conversation-item { min-height:64px; padding:9px 10px; }
+
+@media (max-width:900px) {
+    .al-root .al-content { padding:19px 18px 26px; }
+}
+@media (max-width:700px) {
+    .al-root .al-content { padding:15px 13px 22px; }
+    .al-root .al-content :is(.registrations-table,.users-table,.seller-compliance-table,.complaints-table,.commission-table,.voucher-table,.dashboard-table) th { padding:9px 11px; }
+    .al-root .al-content :is(.registrations-table,.users-table,.seller-compliance-table,.complaints-table,.commission-table,.voucher-table,.dashboard-table) td { padding:10px 11px; }
+}
+
+/* Shared CRYMA masthead across admin workspaces. */
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 112px;
+    margin: 0 0 19px;
+    padding: 21px 25px;
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: 18px;
+    background:
+        radial-gradient(ellipse at 88% -20%,rgba(255,222,228,.28),transparent 36%),
+        linear-gradient(112deg,#40111f 0%,#721c35 48%,#a83c59 100%);
+    box-shadow: 0 16px 34px -17px rgba(55,8,23,.55),0 5px 12px rgba(68,17,34,.11),inset 0 1px rgba(255,255,255,.23),inset 0 -2px rgba(43,5,16,.2);
+}
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading)::after {
+    content: "CRYMA";
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    right: 22px;
+    transform: translateY(-50%) rotate(-8deg);
+    color: rgba(255,255,255,.085);
+    font: 700 clamp(48px,8vw,92px)/1 Georgia,"Times New Roman",serif;
+    letter-spacing: .12em;
+    text-shadow: 0 2px 12px rgba(255,255,255,.04);
+    white-space: nowrap;
+    pointer-events: none;
+}
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) > div:first-child { position: relative; z-index: 1; }
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1 {
+    margin-top: 3px;
+    color: #fff9fa;
+    font-family: Georgia,"Times New Roman",serif;
+    font-size: clamp(27px,2.8vw,35px);
+    font-weight: 600;
+    letter-spacing: -.55px;
+    line-height: 1.12;
+    text-shadow: 0 2px 12px rgba(35,4,14,.2);
+}
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1::before {
+    content: "CRYMA PLATFORM";
+    display: block;
+    margin: 0 0 8px;
+    color: #f6cbd4;
+    font: 700 9px/1.2 Arial,sans-serif;
+    letter-spacing: 1.8px;
+    text-shadow: none;
+}
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) > div:first-child > span:first-child { display: none; }
+.al-root .al-content .dashboard-page-header > div:first-child > .dashboard-eyebrow { display: none; }
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1::after { display: none; }
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) p {
+    max-width: 680px;
+    margin-top: 6px;
+    color: rgba(255,247,249,.84);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) :is(span,.settings-eyebrow) {
+    color: #f6cbd4;
+}
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) button {
+    border-color: rgba(255,255,255,.36);
+    box-shadow: 0 5px 12px rgba(38,5,17,.16),inset 0 1px rgba(255,255,255,.24);
+}
+.al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.seller-compliance-count,.users-count) {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-width: max-content;
+    min-height: 42px;
+    padding: 8px 15px;
+    border: 1px solid rgba(191,146,62,.58);
+    border-radius: 999px;
+    background: linear-gradient(145deg,#fff4d5 0%,#efd18f 100%);
+    box-shadow: 0 6px 14px rgba(38,12,20,.18),inset 0 1px rgba(255,255,255,.85),inset 0 -2px rgba(126,80,21,.08);
+    text-align: left;
+}
+.al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.seller-compliance-count,.users-count) strong {
+    display: inline-block;
+    margin: 0;
+    color: #4a2b0c;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px rgba(255,255,255,.65);
+}
+.al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.seller-compliance-count,.users-count) span {
+    display: inline-block;
+    margin: 0;
+    color: #593512;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.al-root .al-content :is(.commission-count,.complaints-count,.registration-count,.seller-compliance-count,.users-count) > span {
+    color: #38200a !important;
+    opacity: 1;
+}
+.al-root .al-content .seller-compliance-header .seller-compliance-count { min-width: max-content; }
+.al-root .al-content .dashboard-page-header { margin-bottom: 0; }
+.al-root .al-content .settings-page-header { min-height: 112px; }
+
+@media (max-width:700px) {
+    .al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) { align-items: flex-start; flex-direction: column; min-height: auto; padding: 18px; }
+}
+.al-root .al-content .account-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    min-height: 116px;
+    border-top: 3px solid #d7b36d;
+    background:
+        radial-gradient(ellipse at 86% 0,rgba(219,179,102,.28),transparent 34%),
+        linear-gradient(112deg,#2c101d 0%,#50172c 48%,#78324a 100%);
+}
+.al-root .al-content .account-page-header p { max-width: 680px; margin-top: 0; }
+.al-root .al-content .account-page-header::after { color: rgba(242,216,165,.15); }
+.al-root .al-content .account-page-header > .account-eyebrow { display: none; }

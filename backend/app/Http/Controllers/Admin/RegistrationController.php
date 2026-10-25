@@ -179,7 +179,20 @@ public function approve(int $id)
             'email'       => ['sometimes', 'email', 'unique:users,email,' . $id],
             'phone'       => ['nullable', 'string', 'max:20'],
             'role'        => ['sometimes', 'in:buyer,seller,rider,logistics'],
+            'password'    => ['sometimes', 'required', 'string', 'min:8', 'max:128', 'confirmed'],
+            'password_confirmation' => [
+                'sometimes',
+                'required_with:password',
+                'string',
+                function ($attribute, $value, $fail) use ($request) {
+                    if (! $request->filled('password')) {
+                        $fail('A new password is required when confirming a password.');
+                    }
+                },
+            ],
         ]);
+
+        unset($data['password_confirmation']);
 
         if (($data['role'] ?? null) === 'logistics' && $user->role !== 'logistics') {
             return response()->json([
@@ -214,6 +227,7 @@ public function approve(int $id)
 
         $data = $request->validate([
             'status' => ['required', 'in:active,suspended,rejected,pending'],
+            'suspension_reason' => ['required_if:status,suspended', 'nullable', 'string', 'max:1000'],
         ]);
 
         if ($data['status'] === 'active') {
@@ -237,7 +251,12 @@ public function approve(int $id)
         // Status is intentionally excluded from User's mass-assignable fields.
         // Persist it explicitly after the admin authorization and eligibility checks.
         DB::transaction(function () use ($user, $data): void {
-            $user->forceFill(['status' => $data['status']])->save();
+            $user->forceFill([
+                'status' => $data['status'],
+                'suspension_reason' => $data['status'] === 'suspended'
+                    ? trim($data['suspension_reason'])
+                    : null,
+            ])->save();
             if ($data['status'] !== 'active') {
                 $user->tokens()->delete();
             }

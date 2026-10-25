@@ -29,6 +29,8 @@ class BuyerVoucherController extends Controller
             ->get();
         $eligibleProductNames = Product::query()
             ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
             ->whereIn('id', $vouchers->flatMap(fn (Voucher $voucher) => $voucher->product_ids ?? [])->unique())
             ->pluck('name', 'id');
         $vouchers = $vouchers->map(function (Voucher $voucher) use ($eligibleProductNames) {
@@ -50,9 +52,15 @@ class BuyerVoucherController extends Controller
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:64'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
-            'items.*.product_id' => ['required', 'integer', 'distinct'],
+            'items.*.product_id' => ['required', 'integer'],
+            'items.*.variant_id' => ['sometimes', 'nullable', 'uuid'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
+        $combinationKeys = collect($validated['items'])
+            ->map(fn (array $item) => $item['product_id'].'|'.($item['variant_id'] ?? 'base'));
+        if ($combinationKeys->unique()->count() !== $combinationKeys->count()) {
+            throw ValidationException::withMessages(['items' => ['Each product variant can only appear once in a voucher check.']]);
+        }
 
         return DB::transaction(function () use ($request, $validated, $discounts) {
             $items = $this->loadItems($validated['items'], $discounts);
@@ -90,12 +98,29 @@ class BuyerVoucherController extends Controller
         foreach ($requestedItems as $requested) {
             $product = Product::query()
                 ->where('status', 'active')
+                ->where('review_status', 'approved')
+                ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
                 ->find($requested['product_id']);
             if (!$product || $product->stock < $requested['quantity']) {
                 throw ValidationException::withMessages(['items' => ['A selected product is no longer available in the requested quantity.']]);
             }
+            $variant = null;
+            if (!empty($product->variants)) {
+                $variant = collect($product->variants)->first(
+                    fn (array $candidate) => ($candidate['id'] ?? null) === ($requested['variant_id'] ?? null)
+                );
+                if (!$variant || (int) $variant['stock'] < $requested['quantity']) {
+                    throw ValidationException::withMessages(['items' => ['A selected product variant is no longer available in the requested quantity.']]);
+                }
+            } elseif (!empty($requested['variant_id'])) {
+                throw ValidationException::withMessages(['items' => ['The selected product does not have that variant.']]);
+            }
             $sellerIds[] = $product->seller_id;
-            $priceCents = $discounts->toCents($product->sellingPrice());
+            $priceCents = $discounts->toCents(
+                $variant
+                    ? (string) ($variant['discounted_price'] ?? $variant['price'])
+                    : $product->sellingPrice()
+            );
             $quantity = (int) $requested['quantity'];
             $maxOrderCents = 999_999_999_999;
             if (
