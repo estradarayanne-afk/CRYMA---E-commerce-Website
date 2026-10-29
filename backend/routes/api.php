@@ -13,10 +13,12 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Seller\ProductController;
+use App\Http\Controllers\Seller\StorefrontController;
 use App\Http\Controllers\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Seller\ChatController as SellerChatController;
 use App\Http\Controllers\Seller\ReportController as SellerReportController;
 use App\Http\Controllers\Admin\SellerComplianceController;
+use App\Http\Controllers\Admin\StoreNameRequestController;
 use App\Http\Controllers\Admin\ComplaintController;
 use App\Http\Controllers\Admin\CommissionController;
 use App\Http\Controllers\Admin\OrderController;
@@ -42,6 +44,9 @@ Route::post('/verify-email', [EmailVerificationController::class, 'verify'])->mi
 Route::post('/resend-verification', [EmailVerificationController::class, 'resend'])->middleware('throttle:3,1');
 Route::post('/forgot-password', [PasswordRecoveryController::class, 'sendLink'])->middleware('throttle:3,1');
 Route::post('/reset-password', [PasswordRecoveryController::class, 'reset'])->middleware('throttle:5,1');
+
+// Public seller storefront.
+Route::get('/stores/{slug}', [StorefrontController::class, 'publicShow']);
 
 // Public product routes
 Route::get('/products', [ProductController::class, 'publicIndex']);
@@ -213,6 +218,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::patch('/admin/users/{id}/status', [AdminRegistrationController::class,'updateStatus'])->middleware('role:admin');
 
     Route::middleware('role:seller')->group(function () {
+    Route::get('/seller/storefront', [StorefrontController::class, 'show']);
+    Route::patch('/seller/storefront', [StorefrontController::class, 'update']);
+    Route::post('/seller/storefront/name-change-request', [StorefrontController::class, 'requestNameChange']);
     Route::get('/seller/chat/conversations', [SellerChatController::class, 'conversations']);
     Route::get('/seller/chat/conversations/{id}', [SellerChatController::class, 'showConversation']);
     Route::post('/seller/chat/conversations/{id}/messages', [SellerChatController::class, 'sendMessage']);
@@ -276,6 +284,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     Route::get('/seller/reviews', [ReviewController::class, 'sellerIndex']);
     });
+
+    Route::get('/admin/store-name-requests', [StoreNameRequestController::class, 'index'])->middleware('role:admin');
+    Route::patch('/admin/store-name-requests/{id}', [StoreNameRequestController::class, 'review'])->middleware('role:admin');
 
     // Admin seller compliance
     Route::get('/admin/seller-compliance', [

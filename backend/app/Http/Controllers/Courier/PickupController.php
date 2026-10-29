@@ -26,7 +26,7 @@ class PickupController extends Controller
     private function query()
     {
         return PickupAssignment::with([
-            'order.items.product:id,name,image',
+            'order.items.product:id,name,image,weight_kg',
             'order.items.seller:id,first_name,last_name',
             'order.items.seller.addresses',
             'delivery.events',
@@ -51,7 +51,8 @@ class PickupController extends Controller
                     return [
                         'id' => $item->id,
                         'quantity' => $item->quantity,
-                        'product' => $item->product ? ['id' => $item->product->id, 'name' => $item->product->name, 'image' => $item->product->image] : null,
+                        'unit_weight_kg' => $item->unit_weight_kg ?? $item->product?->weight_kg,
+                        'product' => $item->product ? ['id' => $item->product->id, 'name' => $item->product->name, 'image' => $item->product->image, 'weight_kg' => $item->product->weight_kg] : null,
                         'seller' => $seller ? [
                             'first_name' => $seller->first_name,
                             'last_name' => $seller->last_name,

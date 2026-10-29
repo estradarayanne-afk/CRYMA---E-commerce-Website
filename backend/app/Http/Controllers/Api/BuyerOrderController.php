@@ -473,6 +473,7 @@ class BuyerOrderController extends Controller
                         'quantity' => $quantity,
                         'unit_price' => $sellingPrice,
                         'subtotal' => $lineSubtotal,
+                        'unit_weight_kg' => $product->weight_kg,
                         'variant_label' => $variantLabel,
                     ]);
                 }

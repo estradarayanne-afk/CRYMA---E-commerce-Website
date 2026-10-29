@@ -9,7 +9,7 @@ import {
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
 import { getProductDetailPath, toggleWishlistProduct } from "../../../shared/utils/buyerProductActions";
-import { getProductCategory, getProductSellerName } from "../../../shared/utils/productDiscovery";
+import { getProductCategory, getProductShopName } from "../../../shared/utils/productDiscovery";
 import "./ProductCard.css";
 
 function ProductCard({
@@ -52,7 +52,7 @@ function ProductCard({
     const reviewCount = Number(product?.review_count ?? product?.reviews_count ?? 0);
     const originalPrice = Number(product?.original_price ?? product?.compare_at_price ?? 0);
 
-    const sellerName = getProductSellerName(product?.seller);
+    const shopName = getProductShopName(product?.seller);
     const productCategory = getProductCategory(product);
 
     const handleSave = () => {
@@ -194,9 +194,9 @@ function ProductCard({
 
                 <div className="buyer-product-meta">
 
-                    {sellerName && (
+                    {shopName && (
                         <span className="buyer-product-seller">
-                            {sellerName}
+                            {shopName}
                         </span>
                     )}
 

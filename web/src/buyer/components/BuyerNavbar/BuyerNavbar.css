@@ -2135,6 +2135,12 @@
     }
 }
 
+@media (max-width: 700px) {
+    .cryma-navbar-search {
+        display: none;
+    }
+}
+
 /* Keep the account identity grouped on the maroon cover. */
 .cryma-account-hero {
     background: linear-gradient(115deg, var(--deep-crimson), var(--wine));

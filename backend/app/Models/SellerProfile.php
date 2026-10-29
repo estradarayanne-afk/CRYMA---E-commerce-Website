@@ -15,6 +15,19 @@ class SellerProfile extends Model
         'sex',
         'birthday',
         'business_name',
+        'requested_business_name',
+        'business_name_request_status',
+        'business_name_requested_at',
+        'business_name_reviewed_at',
+        'business_name_reviewed_by',
+        'business_name_request_reason',
+        'store_slug',
+        'store_tagline',
+        'store_description',
+        'store_accent_color',
+        'store_logo_url',
+        'store_banner_url',
+        'storefront_settings',
         'line_of_business',
         'tin',
     ];
@@ -25,6 +38,7 @@ class SellerProfile extends Model
     {
         return [
             'birthday' => 'date',
+            'storefront_settings' => 'array',
             'tin' => 'encrypted',
         ];
     }

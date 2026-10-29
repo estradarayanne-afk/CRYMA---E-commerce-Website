@@ -26,6 +26,7 @@ import {
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
 import { addProductToCart, getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
+import { getProductShopName } from "../../../shared/utils/productDiscovery";
 
 import "./ProductDetails.css";
 
@@ -174,27 +175,7 @@ function ProductDetails() {
         };
     }, [id]);
 
-    const sellerName = useMemo(() => {
-        if (!product?.seller) {
-            return "Marketplace seller";
-        }
-
-        if (typeof product.seller === "string") {
-            return product.seller;
-        }
-
-        return (
-            [
-                product.seller.first_name,
-                product.seller.middle_name,
-                product.seller.last_name,
-            ]
-                .filter(Boolean)
-                .join(" ") ||
-            product.seller.name ||
-            "Marketplace seller"
-        );
-    }, [product]);
+    const shopName = getProductShopName(product?.seller);
 
     const variants = Array.isArray(product?.variants) ? product.variants : [];
     const selectedVariant = variants.find((variant) => String(variant.id) === selectedVariantId) || variants[0] || null;
@@ -366,6 +347,7 @@ function ProductDetails() {
         const availableVariant = currentVariant || matchingVariants.find((variant) => Number(variant.stock) > 0) || matchingVariants[0];
         setSelectedVariantId(String(availableVariant?.id || ""));
         setQuantity(1);
+        setActiveMediaIndex(0);
     };
 
     if (loading) {
@@ -413,7 +395,7 @@ function ProductDetails() {
         );
     }
 
-    const mediaItems = Array.isArray(product.media) && product.media.length
+    const productMedia = Array.isArray(product.media) && product.media.length
         ? product.media.filter((media) => media?.url && ["image", "video"].includes(media.type))
         : [
             ...(Array.isArray(product.images)
@@ -423,6 +405,15 @@ function ProductDetails() {
         ]
             .filter((url, index, urls) => typeof url === "string" && url.trim() && urls.indexOf(url) === index)
             .map((url) => ({ type: "image", url }));
+    const variantMedia = selectedVariant?.media_url
+        ? { type: selectedVariant.media_type || "image", url: selectedVariant.media_url }
+        : null;
+    const colorPhoto = selectedVariant?.color_image_url;
+    const mediaItems = variantMedia
+        ? [variantMedia, ...productMedia.filter((media) => media.url !== variantMedia.url)]
+        : colorPhoto
+            ? [{ type: "image", url: colorPhoto }, ...productMedia.filter((media) => media.url !== colorPhoto)]
+            : productMedia;
     const activeMedia = mediaItems[activeMediaIndex] || mediaItems[0] || null;
     const image = activeMedia?.type === "image" ? activeMedia.url : product.image || null;
 
@@ -567,7 +558,11 @@ function ProductDetails() {
                                                 {options.map((option) => {
                                                     const value = String(option);
                                                     const available = variants.some((variant) =>
-                                                        String(variant[field] || "") === value && Number(variant.stock) > 0
+                                                        String(variant[field] || "") === value
+                                                        && Number(variant.stock) > 0
+                                                        && (field !== "size"
+                                                            || !selectedVariant?.color
+                                                            || String(variant.color || "") === String(selectedVariant.color))
                                                     );
                                                     const active = String(selectedVariant?.[field] || "") === value;
                                                     return (
@@ -722,18 +717,18 @@ function ProductDetails() {
 
                         <div className="product-seller-card">
                             <div className="seller-avatar">
-                                {sellerName
+                                {shopName
                                     .slice(0, 2)
                                     .toUpperCase()}
                             </div>
 
                             <div>
                                 <span>
-                                    Sold by
+                                    Shop
                                 </span>
 
                                 <strong>
-                                    {sellerName}
+                                    {shopName}
                                 </strong>
                             </div>
                             <button type="button" className="product-contact-seller" onClick={contactSeller}>
@@ -805,11 +800,11 @@ function ProductDetails() {
 
                                 <div>
                                     <span>
-                                        Seller
+                                        Shop
                                     </span>
 
                                     <strong>
-                                        {sellerName}
+                                        {shopName}
                                     </strong>
                                 </div>
                             </div>
