@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -9,41 +13,79 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final TextEditingController _firstNameController =
-      TextEditingController(text: 'Juan');
-  final TextEditingController _lastNameController =
-      TextEditingController(text: 'Dela Cruz');
-  final TextEditingController _middleInitialController =
-      TextEditingController(text: 'R.');
-  final TextEditingController _emailController =
-      TextEditingController(text: 'juan.delacruz@email.com');
-  final TextEditingController _contactController =
-      TextEditingController(text: '+63 917 123 4567');
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _middleNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  bool _loading = true;
+  bool _saving = false;
 
-  final String _selectedSex = 'Male';
-  final String _selectedBirthday = 'March 15, 1995';
-
-  void _showAlert(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Success'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
   }
 
-  void _handleSave() {
-    _showAlert('Profile updated successfully!');
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _middleNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('cryma_api_user');
+    if (raw != null) {
+      try {
+        final user = jsonDecode(raw) as Map<String, dynamic>;
+        _firstNameController.text = user['first_name']?.toString() ?? '';
+        _lastNameController.text = user['last_name']?.toString() ?? '';
+        _middleNameController.text = user['middle_name']?.toString() ?? '';
+        _emailController.text = user['email']?.toString() ?? '';
+        _phoneController.text = user['phone']?.toString() ?? '';
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _handleSave() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final response = await ApiService.instance.patch(
+        '/api/account/profile',
+        authenticated: true,
+        body: {
+          'first_name': _firstNameController.text.trim(),
+          'last_name': _lastNameController.text.trim(),
+          'middle_name': _middleNameController.text.trim(),
+          'phone': _phoneController.text.trim(),
+        },
+      );
+      // Update stored user
+      final updatedUser = response['user'];
+      if (updatedUser is Map<String, dynamic>) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cryma_api_user', jsonEncode(updatedUser));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!')),
+        );
+        Navigator.pop(context);
+      }
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update profile.')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -53,9 +95,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ============================================================
-            // HEADER
-            // ============================================================
             Container(
               color: AppColors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -66,174 +105,50 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Expanded(
-                    child: Text(
-                      'Edit Profile',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
+                    child: Text('Edit Profile', textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary, fontFamily: 'Poppins')),
                   ),
                   const SizedBox(width: 36),
                 ],
               ),
             ),
-
-            // ============================================================
-            // BODY
-            // ============================================================
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Column(
-                  children: [
-                    // ============================================================
-                    // PROFILE PHOTO
-                    // ============================================================
-                    Column(
-                      children: [
-                        Stack(
-                          children: [
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.lightGray,
-                                image: DecorationImage(
-                                  image: NetworkImage(
-                                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: -2,
-                              right: -2,
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.white, width: 2.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.15),
-                                      blurRadius: 3,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.edit,
-                                  size: 14,
-                                  color: AppColors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        GestureDetector(
-                          onTap: () {
-                            // Change photo
-                          },
-                          child: const Text(
-                            'Change Photo',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.primary,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ],
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('FIRST NAME'),
+                          _buildTextField(controller: _firstNameController),
+                          _buildLabel('LAST NAME'),
+                          _buildTextField(controller: _lastNameController),
+                          _buildLabel('MIDDLE NAME'),
+                          _buildTextField(controller: _middleNameController),
+                          _buildLabel('EMAIL ADDRESS'),
+                          _buildTextField(controller: _emailController, enabled: false),
+                          _buildLabel('CONTACT NUMBER'),
+                          _buildTextField(controller: _phoneController, keyboardType: TextInputType.phone),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
-
-                    // ============================================================
-                    // FORM
-                    // ============================================================
-                    _buildLabel('FIRST NAME'),
-                    _buildTextField(controller: _firstNameController),
-                    const SizedBox(height: 6),
-
-                    _buildLabel('LAST NAME'),
-                    _buildTextField(controller: _lastNameController),
-                    const SizedBox(height: 6),
-
-                    _buildLabel('MIDDLE INITIAL'),
-                    _buildTextField(controller: _middleInitialController),
-                    const SizedBox(height: 6),
-
-                    _buildLabel('SEX'),
-                    _buildDropdown(
-                      value: _selectedSex,
-                      onTap: () {
-                        // Show sex options
-                      },
-                    ),
-                    const SizedBox(height: 6),
-
-                    _buildLabel('BIRTHDAY'),
-                    _buildDropdown(
-                      value: _selectedBirthday,
-                      onTap: () {
-                        // Show date picker
-                      },
-                    ),
-                    const SizedBox(height: 6),
-
-                    _buildLabel('EMAIL ADDRESS'),
-                    _buildTextFieldWithIcon(
-                      controller: _emailController,
-                      icon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 6),
-
-                    _buildLabel('CONTACT NUMBER'),
-                    _buildTextFieldWithIcon(
-                      controller: _contactController,
-                      icon: Icons.call_outlined,
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ),
-              ),
             ),
-
-            // ============================================================
-            // SAVE BUTTON
-            // ============================================================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _handleSave,
+                  onPressed: _saving ? null : _handleSave,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: const Text(
-                    'Save Changes',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.white,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
+                  child: _saving
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                      : const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.white, fontFamily: 'Poppins')),
                 ),
               ),
             ),
@@ -243,122 +158,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  // ============================================================
-  // LABEL
-  // ============================================================
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 3),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
-          fontFamily: 'Poppins',
-        ),
-      ),
+      child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary, fontFamily: 'Poppins')),
     );
   }
 
-  // ============================================================
-  // TEXT FIELD
-  // ============================================================
   Widget _buildTextField({
     required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
+    bool enabled = true,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: enabled ? AppColors.white : AppColors.lightGray,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.lightGray),
       ),
       child: TextField(
         controller: controller,
+        enabled: enabled,
         keyboardType: keyboardType,
-        style: const TextStyle(
-          fontSize: 12,
-          color: AppColors.darkGray,
-          fontFamily: 'Poppins',
-        ),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // TEXT FIELD WITH ICON
-  // ============================================================
-  Widget _buildTextFieldWithIcon({
-    required TextEditingController controller,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.lightGray),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 12),
-          Icon(icon, size: 18, color: AppColors.gray),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.darkGray,
-                fontFamily: 'Poppins',
-              ),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 9),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // DROPDOWN
-  // ============================================================
-  Widget _buildDropdown({
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.lightGray),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.darkGray,
-                fontFamily: 'Poppins',
-              ),
-            ),
-            const Icon(Icons.arrow_drop_down, size: 18, color: AppColors.gray),
-          ],
-        ),
+        style: const TextStyle(fontSize: 12, color: AppColors.darkGray, fontFamily: 'Poppins'),
+        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 9)),
       ),
     );
   }

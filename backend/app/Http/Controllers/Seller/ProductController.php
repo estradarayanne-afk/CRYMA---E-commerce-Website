@@ -30,7 +30,7 @@ class ProductController extends Controller
             'category' => ['nullable', 'string', 'max:255', Rule::in(array_merge(['All'], self::CATEGORIES))],
         ]);
 
-        $query = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name', 'media'])
+        $query = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,storefront_settings', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'));
@@ -54,7 +54,7 @@ class ProductController extends Controller
      */
     public function publicShow(int $id)
     {
-        $product = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name', 'media'])
+        $product = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,storefront_settings', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
@@ -420,8 +420,6 @@ class ProductController extends Controller
                 }
 
                 $this->storeMedia($product, $validated, $storedPaths);
-
-                $listingChanged = collect(['name', 'description', 'category', 'variants'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
                 $listingChanged = collect(['name', 'description', 'category'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
                     || $request->boolean('replace_media')
                     || !empty($validated['images'])
@@ -493,6 +491,8 @@ class ProductController extends Controller
     private function publicProductData(Product $product): array
     {
         $data = $product->toArray();
+        $data['seller'] = [...($data['seller'] ?? []), 'is_on_vacation' => (bool) data_get($product->seller?->sellerProfile?->storefront_settings, 'on_vacation', false)];
+        unset($data['seller']['seller_profile']['storefront_settings']);
         $data['variants'] = $this->variantsWithImageUrls($product->variants ?? []);
         $images = $product->media->where('type', 'image')->values();
         $videos = $product->media->where('type', 'video')->values();

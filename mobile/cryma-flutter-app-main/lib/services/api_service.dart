@@ -11,7 +11,7 @@ class ApiService {
   static const _userKey = 'cryma_api_user';
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000',
+    defaultValue: 'https://api.cryma.store',
   );
   static const _timeout = Duration(seconds: 20);
 
@@ -61,6 +61,18 @@ class ApiService {
     if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
     final response = await http
         .post(_uri(path), headers: headers, body: jsonEncode(body))
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    required Map<String, dynamic> body,
+    bool authenticated = false,
+  }) async {
+    final headers = await _headers(authenticated: authenticated);
+    final response = await http
+        .patch(_uri(path), headers: headers, body: jsonEncode(body))
         .timeout(_timeout);
     return _decode(response);
   }
@@ -205,6 +217,33 @@ class ApiService {
       body: const {},
       authenticated: true,
     );
+  }
+
+  Future<Map<String, dynamic>> register({
+    required Map<String, dynamic> fields,
+    required String validIdPath,
+  }) async {
+    final uri = _uri('/api/register');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Accept'] = 'application/json';
+    fields.forEach((key, value) {
+      if (value != null) request.fields[key] = value.toString();
+    });
+    request.files.add(await http.MultipartFile.fromPath('valid_id', validIdPath));
+    final streamed = await request.send().timeout(_timeout);
+    final response = await http.Response.fromStream(streamed);
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    return post('/api/verify-email', body: {'email': email, 'otp': otp});
+  }
+
+  Future<Map<String, dynamic>> resendVerification(String email) async {
+    return post('/api/resend-verification', body: {'email': email});
   }
 
   String resolveImageUrl(String path) {

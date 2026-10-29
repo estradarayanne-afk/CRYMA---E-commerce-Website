@@ -145,7 +145,7 @@ class AppRouter {
       case '/home':
         return MaterialPageRoute(builder: (_) => const HomeScreen());
       case '/categories':
-        return MaterialPageRoute(builder: (_) => CategoriesScreen());
+        return MaterialPageRoute(builder: (_) => const CategoriesScreen());
       case '/search':
         return MaterialPageRoute(builder: (_) => const SearchScreen());
       case '/search_results':
@@ -214,7 +214,7 @@ class AppRouter {
       // CHAT SCREENS
       // ============================================================
       case '/chat_list':
-        return MaterialPageRoute(builder: (_) => ChatListScreen());
+        return MaterialPageRoute(builder: (_) => const ChatListScreen());
       case '/chat_conversation':
         final chatId = settings.arguments as String?;
         return MaterialPageRoute(
@@ -225,11 +225,11 @@ class AppRouter {
       // ACCOUNT SCREENS
       // ============================================================
       case '/account':
-        return MaterialPageRoute(builder: (_) => AccountScreen());
+        return MaterialPageRoute(builder: (_) => const AccountScreen());
       case '/edit_profile':
         return MaterialPageRoute(builder: (_) => const EditProfileScreen());
       case '/address_book':
-        return MaterialPageRoute(builder: (_) => AddressBookScreen());
+        return MaterialPageRoute(builder: (_) => const AddressBookScreen());
       case '/add_address':
         return MaterialPageRoute(builder: (_) => const AddAddressScreen());
       case '/notification':

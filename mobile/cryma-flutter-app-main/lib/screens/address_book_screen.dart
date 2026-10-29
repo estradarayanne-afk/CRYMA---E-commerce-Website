@@ -28,7 +28,7 @@ class Address {
 // ADDRESS BOOK SCREEN
 // ============================================================
 class AddressBookScreen extends StatelessWidget {
-  AddressBookScreen({super.key});
+  const AddressBookScreen({super.key});
 
   final List<Address> _addresses = const [
     Address(
@@ -130,9 +130,9 @@ class AddressBookScreen extends StatelessWidget {
                       style: BorderStyle.solid,
                     ),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Icon(Icons.add_circle_outline,
                           size: 20, color: AppColors.primary),
                       SizedBox(width: 8),

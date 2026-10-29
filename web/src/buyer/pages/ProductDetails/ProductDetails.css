@@ -1018,3 +1018,6 @@
     .product-seller-card { flex-wrap: wrap; }
     .product-contact-seller { flex: 1 0 100%; margin-left: 0; }
 }
+
+.product-vacation-notice { margin:12px 0 0; padding:10px 12px; border:1px solid #f0d5dc; border-radius:9px; background:#fff7f8; color:#7e1830; font-size:12px; line-height:1.5; }
+.product-add-button:disabled,.product-buy-button:disabled { cursor:not-allowed; opacity:.58; }

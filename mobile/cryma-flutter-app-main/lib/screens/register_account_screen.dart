@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/validators.dart';
 
@@ -32,6 +33,7 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
   bool _showPassword = false;
   bool _showConfirmPassword = false;
   bool _agreeTerms = false;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -56,43 +58,90 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
     );
   }
 
-  void _handleSubmit() {
-    // 1. Validate password field
+  Future<void> _handleSubmit() async {
     final isPasswordValid = _formKey.currentState?.validate() ?? false;
-
-    // 2. Validate confirm password field
     _confirmPasswordKey.currentState?.validate();
     final isConfirmValid =
         _confirmPasswordController.text == _passwordController.text;
-
-    // ⛔ Kung may invalid, hindi mag-submit
-    if (!isPasswordValid || !isConfirmValid) {
-      return;
-    }
-
-    // 3. Check terms
+    if (!isPasswordValid || !isConfirmValid) return;
     if (!_agreeTerms) {
       _showAlert('Please agree to the Terms & Conditions.');
       return;
     }
 
-    // 4. Get email from contactData
-    final email = widget.contactData?['email'] as String? ?? '';
+    final personal = widget.personalData ?? {};
+    final contact = widget.contactData ?? {};
+    final address = widget.addressData ?? {};
+    final idFile = widget.idFile;
 
-    print('📧 Email mula sa contactData: $email');
-    print('📦 contactData: ${widget.contactData}');
-
+    final email = contact['email'] as String? ?? '';
     if (email.isEmpty) {
       _showAlert('Email is missing. Please go back and re-enter your email.');
       return;
     }
+    if (idFile == null || idFile.isEmpty) {
+      _showAlert('Valid ID is missing. Please go back and upload your ID.');
+      return;
+    }
 
-    // 5. Navigate to OTP
-    Navigator.pushReplacementNamed(
-      context,
-      '/otp_verification',
-      arguments: email,
-    );
+    // Map sex value to backend enum
+    final rawSex = (personal['sex'] as String? ?? '').toLowerCase();
+    final sex = rawSex == 'male'
+        ? 'male'
+        : rawSex == 'female'
+            ? 'female'
+            : 'prefer_not_to_say';
+
+    // Format birthday from MM/dd/yyyy to yyyy-MM-dd
+    String birthday = personal['birthday'] as String? ?? '';
+    if (birthday.contains('/')) {
+      final parts = birthday.split('/');
+      if (parts.length == 3) birthday = '${parts[2]}-${parts[0]}-${parts[1]}';
+    }
+
+    // Format phone: 09171234567 → +639171234567
+    String phone = contact['contactNumber'] as String? ?? '';
+    if (phone.startsWith('09') && phone.length == 11) {
+      phone = '+63${phone.substring(1)}';
+    }
+
+    final fields = <String, dynamic>{
+      'first_name': personal['firstName'] ?? '',
+      'last_name': personal['lastName'] ?? '',
+      'middle_name': personal['middleInitial'] ?? '',
+      'sex': sex,
+      'birthday': birthday,
+      'email': email,
+      'phone': phone,
+      'password': _passwordController.text,
+      'password_confirmation': _confirmPasswordController.text,
+      'role': 'buyer',
+      'region': address['province'] ?? '',
+      'province': address['province'] ?? '',
+      'municipality': address['municipality'] ?? '',
+      'barangay': address['barangay'] ?? '',
+      'street': address['street'] ?? '',
+      'house_number': address['houseNumber'] ?? '',
+      'postal_code': '0000',
+      'terms_accepted': '1',
+      'terms_version': '1.0',
+      'privacy_notice_acknowledged': '1',
+      'privacy_version': '1.0',
+    };
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ApiService.instance.register(fields: fields, validIdPath: idFile);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/otp_verification',
+          arguments: email);
+    } on ApiException catch (e) {
+      if (mounted) _showAlert(e.message);
+    } catch (e) {
+      if (mounted) _showAlert('Registration failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Color _getPasswordStrengthColor(String password) {
@@ -345,15 +394,24 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text(
-                      'Submit Registration',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.white,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Submit Registration',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.white,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),

@@ -302,7 +302,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   : GridView.builder(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
                         crossAxisSpacing: spacing,
                         mainAxisSpacing: spacing,
@@ -320,7 +320,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ),
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(
             top: BorderSide(color: AppColors.lightGray, width: 1),
