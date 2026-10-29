@@ -16,6 +16,7 @@ class OrderItem extends Model
         'subtotal',
         'unit_weight_kg',
         'variant_label',
+        'variant_id',
     ];
 
     protected function casts(): array

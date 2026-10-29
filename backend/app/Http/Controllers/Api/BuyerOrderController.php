@@ -475,6 +475,7 @@ class BuyerOrderController extends Controller
                         'subtotal' => $lineSubtotal,
                         'unit_weight_kg' => $product->weight_kg,
                         'variant_label' => $variantLabel,
+                        'variant_id' => $variantId,
                     ]);
                 }
                 foreach ($variantStocks as $productId => $variants) {
