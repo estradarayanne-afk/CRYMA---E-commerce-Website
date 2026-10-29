@@ -1289,6 +1289,7 @@
 .seller-profile h3 { color:#fff; }
 .seller-profile-badges { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-top:6px; }
 .seller-role-pill { padding:5px 9px; border:1px solid rgba(255,255,255,.22); border-radius:999px; background:rgba(255,255,255,.13); color:#fff; font-size:10px; font-weight:700; }
+.seller-profile-badges .seller-status { border:1px solid rgba(255,255,255,.25); text-transform:capitalize; box-shadow:0 3px 8px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.45); }
 .seller-profile-badges .seller-status { border:1px solid rgba(255,255,255,.25); box-shadow:0 3px 8px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.45); }
 .seller-storefront-meta { display:grid; gap:3px; margin-top:10px; padding:9px 12px; border:1px solid rgba(255,255,255,.16); border-radius:10px; background:rgba(255,255,255,.08); }
 .seller-storefront-meta strong { color:#fff; font-size:12px; }
@@ -1313,6 +1314,7 @@
 .seller-detail-grid > div span { color:#8C6B73; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
 .seller-detail-grid > div span i { display:inline-grid; place-items:center; width:17px; height:17px; margin-right:4px; border-radius:6px; background:#F9E7EB; color:#8A1C30; font-size:10px; font-style:normal; }
 .seller-detail-grid > div strong { color:#1F0A10; font-size:13px; font-weight:600; }
+.seller-detail-grid > div strong.seller-detail-value-uppercase { text-transform:capitalize; }
 .seller-document {
     padding:14px 16px;
     border:1px solid rgba(91,14,27,.08);
@@ -1346,6 +1348,7 @@
 .seller-product-category-comparison > span { display:grid; gap:4px; color:#806D63; font-size:9px; text-transform:uppercase; letter-spacing:.045em; }
 .seller-product-category-comparison strong { color:#653E10; font-size:11px; letter-spacing:0; text-transform:none; }
 .seller-product-category-comparison > b { color:#B77811; font-size:16px; }
+.seller-product-compliance-badge { flex:0 0 auto; padding:5px 9px; border:1px solid transparent; border-radius:999px; font-size:10px; font-weight:700; text-transform:capitalize; }
 .seller-product-compliance-badge { flex:0 0 auto; padding:5px 9px; border:1px solid transparent; border-radius:999px; font-size:10px; font-weight:700; }
 .seller-product-compliance-badge.clear { border-color:#B7E4C7; background:#EAF7EE; color:#176B3A; }
 .seller-product-compliance-badge.flagged { border-color:#F2D39D; background:#FFF2D9; color:#8B4A0B; }
@@ -1364,6 +1367,7 @@
 .seller-compliance-actions button:disabled { cursor:not-allowed; opacity:.55; }
 .seller-product-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; padding-top:11px; border-top:1px solid rgba(91,14,27,.08); }
 .seller-product-review-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; padding-top:11px; border-top:1px solid rgba(91,14,27,.08); }
+.seller-product-approve-button,.seller-product-reject-button { min-height:34px; padding:0 12px; border:1px solid; border-radius:8px; font-family:inherit; font-size:11px; font-weight:700; text-transform:capitalize; cursor:pointer; transition:transform .16s ease,box-shadow .16s ease; }
 .seller-product-approve-button,.seller-product-reject-button { min-height:34px; padding:0 12px; border:1px solid; border-radius:8px; font-family:inherit; font-size:11px; font-weight:700; cursor:pointer; transition:transform .16s ease,box-shadow .16s ease; }
 .seller-product-approve-button { border-color:#08794F; background:linear-gradient(135deg,#10B981,#059669); color:#fff; box-shadow:0 5px 12px rgba(16,185,129,.22),inset 0 1px 0 rgba(255,255,255,.3); }
 .seller-product-approve-button:hover { box-shadow:0 8px 18px rgba(16,185,129,.3); transform:translateY(-2px); }

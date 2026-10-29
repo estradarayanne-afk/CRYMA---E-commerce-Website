@@ -17,6 +17,7 @@ import {
 
 import api from "../../../shared/services/api";
 import Dialog from "../../../shared/components/Dialog";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 
 import "./OrderDetails.css";
 
@@ -796,6 +797,7 @@ function OrderDetails() {
                                                         quantity
                                                     }
                                                 </span>
+                                                {item.variant_label && <span>{item.variant_label}</span>}
                                             </div>
 
                                             <div className="order-item-pricing">
@@ -849,7 +851,7 @@ function OrderDetails() {
                                         "Delivery address not available."}
                                 </p>
                                 {order.delivery_progress?.delivery_area?.name && <small>Delivery area: {order.delivery_progress.delivery_area.name}</small>}
-                                {order.delivery_progress?.pickup?.status && <small>Seller pickup: {String(order.delivery_progress.pickup.status).replaceAll("_", " ")}</small>}
+                                {order.delivery_progress?.pickup?.status && <small>Seller pickup: {formatStatusLabel(order.delivery_progress.pickup.status)}</small>}
                             </div>
                         </div>
                     </section>

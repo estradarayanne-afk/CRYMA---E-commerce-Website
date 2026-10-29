@@ -18,7 +18,7 @@ class LogisticsController extends Controller
 {
     public function queue(CourierEligibility $eligibility)
     {
-        $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name', 'items.seller:id,first_name,last_name'];
+        $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name'];
         $pickupOrders = Order::with($orderDetails)->where('status', 'READY_FOR_PICKUP')
             ->whereDoesntHave('pickupAssignment')
             ->where(fn ($query) => $query->whereDoesntHave('delivery')
@@ -39,7 +39,7 @@ class LogisticsController extends Controller
         })
             ->whereHas('delivery')->latest()->get();
         $areas = DeliveryArea::where('is_active', true)->orderBy('name')->get(['id', 'name']);
-        $deliveries = Delivery::with(['order:id,status', 'deliveryArea:id,name', 'courierProfile.user:id,first_name,last_name', 'pickupAssignment.courierProfile.user:id,first_name,last_name', 'events.actor:id,first_name,last_name', 'proof'])
+        $deliveries = Delivery::with(['order:id,status', 'order.items.product:id,weight_kg', 'deliveryArea:id,name', 'courierProfile.user:id,first_name,last_name', 'pickupAssignment.courierProfile.user:id,first_name,last_name', 'events.actor:id,first_name,last_name', 'proof'])
             ->latest()->get();
         $couriers = $eligibility->profiles()->with(['user:id,first_name,last_name', 'vehicles:id,courier_profile_id,vehicle_type', 'deliveryAreas:id,name,is_active'])
             ->orderBy('id')->get();

@@ -246,15 +246,22 @@ class BuyerOrderController extends Controller
             'items.*.product_id' => [
                 'required',
                 'integer',
-                'distinct',
             ],
 
+            'items.*.variant_id' => ['sometimes', 'nullable', 'uuid'],
             'items.*.quantity' => [
                 'required',
                 'integer',
                 'min:1',
             ],
         ]);
+        $combinationKeys = collect($validated['items'])
+            ->map(fn (array $item) => $item['product_id'].'|'.($item['variant_id'] ?? 'base'));
+        if ($combinationKeys->unique()->count() !== $combinationKeys->count()) {
+            throw ValidationException::withMessages([
+                'items' => ['Each product variant can only be checked out once.'],
+            ]);
+        }
         $validated['voucher_code'] = filled($validated['voucher_code'] ?? null)
             ? mb_strtoupper(trim($validated['voucher_code']))
             : null;
@@ -284,9 +291,10 @@ class BuyerOrderController extends Controller
         $canonicalItems = collect($validated['items'])
             ->map(fn (array $item): array => [
                 'product_id' => (int) $item['product_id'],
+                'variant_id' => $item['variant_id'] ?? null,
                 'quantity' => (int) $item['quantity'],
             ])
-            ->sortBy('product_id')
+            ->sortBy(fn (array $item) => $item['product_id'].'|'.($item['variant_id'] ?? ''))
             ->values()
             ->all();
         $requestDetails = [
@@ -328,6 +336,7 @@ class BuyerOrderController extends Controller
                 ]);
 
                 $items = [];
+                $variantStocks = [];
                 $subtotalCents = 0;
 
                 $sellerIds = collect($validated['items'])
@@ -368,7 +377,29 @@ class BuyerOrderController extends Controller
                         );
                     }
 
-                    $sellingPrice = $product->sellingPrice();
+                    $variant = null;
+                    if (!empty($product->variants)) {
+                        if (!isset($variantStocks[$product->id])) {
+                            $variantStocks[$product->id] = $product->variants;
+                        }
+                        $variantIndex = collect($variantStocks[$product->id])->search(
+                            fn (array $candidate) => ($candidate['id'] ?? null) === ($requestedItem['variant_id'] ?? null)
+                        );
+                        if ($variantIndex === false) {
+                            abort(422, "A selected variant of {$product->name} is no longer available.");
+                        }
+                        $variant = $variantStocks[$product->id][$variantIndex];
+                        if ((int) $variant['stock'] < $requestedItem['quantity']) {
+                            abort(422, "Not enough stock for the selected variant of {$product->name}.");
+                        }
+                        $variantStocks[$product->id][$variantIndex]['stock'] -= (int) $requestedItem['quantity'];
+                    } elseif (!empty($requestedItem['variant_id'])) {
+                        abort(422, "A selected variant of {$product->name} is no longer available.");
+                    }
+
+                    $sellingPrice = $variant
+                        ? (string) ($variant['discounted_price'] ?? $variant['price'])
+                        : $product->sellingPrice();
                     $priceCents = $this->amountToCents($sellingPrice);
                     $quantity = (int) $requestedItem['quantity'];
                     $maxOrderCents = 999_999_999_999; // DECIMAL(12, 2)
@@ -388,6 +419,12 @@ class BuyerOrderController extends Controller
                         $product,
                         $quantity,
                         $this->formatCents($lineSubtotalCents),
+                        $sellingPrice,
+                        $variant ? collect([
+                            filled($variant['color'] ?? null) ? 'Color: '.$variant['color'] : null,
+                            filled($variant['size'] ?? null) ? 'Size: '.$variant['size'] : null,
+                        ])->filter()->implode(' · ') : null,
+                        $variant['id'] ?? null,
                     ];
                 }
 
@@ -416,7 +453,7 @@ class BuyerOrderController extends Controller
 
                 foreach (
                     $items
-                    as [$product, $quantity, $lineSubtotal]
+                    as [$product, $quantity, $lineSubtotal, $sellingPrice, $variantLabel, $variantId]
                 ) {
                     $updatedStockRows = Product::whereKey($product->id)
                         ->where('status', 'active')
@@ -436,6 +473,13 @@ class BuyerOrderController extends Controller
                         'quantity' => $quantity,
                         'unit_price' => $sellingPrice,
                         'subtotal' => $lineSubtotal,
+                        'unit_weight_kg' => $product->weight_kg,
+                        'variant_label' => $variantLabel,
+                    ]);
+                }
+                foreach ($variantStocks as $productId => $variants) {
+                    Product::whereKey($productId)->update([
+                        'variants' => json_encode($variants, JSON_THROW_ON_ERROR),
                     ]);
                 }
 

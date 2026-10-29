@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Heart, ShoppingCart, Star } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
     getBuyerWishlist,
     isBuyerSession,
@@ -9,7 +9,7 @@ import {
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
 import { getProductDetailPath, toggleWishlistProduct } from "../../../shared/utils/buyerProductActions";
-import { getProductCategory, getProductSellerName } from "../../../shared/utils/productDiscovery";
+import { getProductCategory, getProductShopName } from "../../../shared/utils/productDiscovery";
 import "./ProductCard.css";
 
 function ProductCard({
@@ -18,6 +18,7 @@ function ProductCard({
     onSave,
     onAddToCart,
 }) {
+    const navigate = useNavigate();
     const [wishlist, setWishlist] = useState(getBuyerWishlist);
     const imageCandidates = [product?.image, product?.image_url, product?.thumbnail, product?.displayImage];
     const imageArray = Array.isArray(product?.images)
@@ -51,7 +52,7 @@ function ProductCard({
     const reviewCount = Number(product?.review_count ?? product?.reviews_count ?? 0);
     const originalPrice = Number(product?.original_price ?? product?.compare_at_price ?? 0);
 
-    const sellerName = getProductSellerName(product?.seller);
+    const shopName = getProductShopName(product?.seller);
     const productCategory = getProductCategory(product);
 
     const handleSave = () => {
@@ -81,6 +82,11 @@ function ProductCard({
     };
 
     const handleAddToCart = () => {
+        if (Array.isArray(product?.variants) && product.variants.length > 0) {
+            navigate(getProductDetailPath(product.id));
+            return;
+        }
+
         if (!isBuyerSession()) {
             requestBuyerSignIn({
                 title: "Sign in to add to cart",
@@ -167,6 +173,7 @@ function ProductCard({
                 </Link>
 
                 <strong className="buyer-product-price">
+                    {product?.price_from_variants ? "From " : ""}
                     {String.fromCharCode(8369)}{price.toLocaleString()}
                 </strong>
 
@@ -187,9 +194,9 @@ function ProductCard({
 
                 <div className="buyer-product-meta">
 
-                    {sellerName && (
+                    {shopName && (
                         <span className="buyer-product-seller">
-                            {sellerName}
+                            {shopName}
                         </span>
                     )}
 
@@ -210,7 +217,7 @@ function ProductCard({
                     <ShoppingCart size={15} />
 
                     {stock > 0
-                        ? "Add to Cart"
+                        ? product?.variants?.length ? "Choose Options" : "Add to Cart"
                         : "Out of Stock"}
                 </button>
 

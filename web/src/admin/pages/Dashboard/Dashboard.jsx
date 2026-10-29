@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Dashboard.css";
 
 const Icon = ({ name }) => {
@@ -189,6 +190,8 @@ function AdminDashboard() {
     };
 
     const getStatusLabel = (status) => {
+        if (status?.toLowerCase() === "pending") return "Pending Approval";
+        return formatStatusLabel(status);
         if (!status) return "Unknown";
 
         if (status.toLowerCase() === "pending") return "Pending Approval";
@@ -456,6 +459,7 @@ function AdminDashboard() {
             {drilldown.date && <div className="drilldown-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDrilldown({ date: "", orders: [], loading: false, error: "" }); }}>
                 <section className="drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="drilldown-title">
                     <header><div><span className="panel-eyebrow">DAILY ORDERS</span><h2 id="drilldown-title">Orders on {new Date(`${drilldown.date}T12:00:00`).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</h2></div><button type="button" aria-label="Close orders" onClick={() => setDrilldown({ date: "", orders: [], loading: false, error: "" })}>×</button></header>
+                    {drilldown.loading ? <p className="drilldown-message">Loading orders…</p> : drilldown.error ? <p className="drilldown-message">{drilldown.error}</p> : drilldown.orders.length ? <div className="drilldown-orders">{drilldown.orders.map((order) => <article key={order.id}><div><strong>Order #{order.id}</strong><span>{order.buyer ? `${order.buyer.first_name || ""} ${order.buyer.last_name || ""}`.trim() : "Buyer"}</span></div><div><strong>{formatCurrency(order.total_amount)}</strong><span>{formatStatusLabel(order.status)}</span></div></article>)}</div> : <p className="drilldown-message">No orders were recorded on this date.</p>}
                     {drilldown.loading ? <p className="drilldown-message">Loading orders…</p> : drilldown.error ? <p className="drilldown-message">{drilldown.error}</p> : drilldown.orders.length ? <div className="drilldown-orders">{drilldown.orders.map((order) => <article key={order.id}><div><strong>Order #{order.id}</strong><span>{order.buyer ? `${order.buyer.first_name || ""} ${order.buyer.last_name || ""}`.trim() : "Buyer"}</span></div><div><strong>{formatCurrency(order.total_amount)}</strong><span>{order.status}</span></div></article>)}</div> : <p className="drilldown-message">No orders were recorded on this date.</p>}
                 </section>
             </div>}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./SellerCompliance.css";
 
 function SellerCompliance() {
@@ -149,6 +150,7 @@ function SellerCompliance() {
     };
 
     const getStatusLabel = (status) => {
+        return formatStatusLabel(status);
         const normalized = (status || "unknown").toLowerCase();
         return normalized.charAt(0).toUpperCase() + normalized.slice(1);
     };
@@ -890,8 +892,7 @@ function SellerCompliance() {
                                             <span><i aria-hidden="true">●</i> Status</span>
 
                                             <strong>
-                                                {selectedSeller.status ||
-                                                    "Unknown"}
+                                                {formatStatusLabel(selectedSeller.status)}
                                             </strong>
 
                                         </div>
@@ -975,7 +976,7 @@ function SellerCompliance() {
                                                 Sex
                                             </span>
 
-                                            <strong>
+                                            <strong className="seller-detail-value-uppercase">
                                                 {selectedSeller
                                                     .seller_profile
                                                     ?.sex ||
@@ -1121,8 +1122,7 @@ function SellerCompliance() {
                                                             </strong>
 
                                                             <span>
-                                                                {document.status ||
-                                                                    "Unknown"}
+                                                                {formatStatusLabel(document.status)}
                                                             </span>
 
                                                         </div>

@@ -250,6 +250,14 @@
 .product-detail-sale-price { display: inline-flex; align-items: center; gap: 8px; }
 .product-detail-sale-price del { color: var(--text-muted); font-size: 14px; }
 .product-detail-sale-price b { padding: 4px 7px; border-radius: 5px; background: var(--color-danger-soft); color: var(--deep-crimson); font-size: 11px; }
+.product-variant-options { display: grid; gap: 15px; margin: 17px 0; }
+.product-variant-group { min-width: 0; margin: 0; padding: 0; border: 0; }
+.product-variant-group legend { margin-bottom: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }
+.product-variant-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.product-variant-buttons button { min-width: 56px; min-height: 38px; padding: 7px 13px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--white); color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.product-variant-buttons button:hover:not(:disabled) { border-color: var(--crimson); color: var(--deep-crimson); }
+.product-variant-buttons button.active { border-color: var(--crimson); background: var(--color-danger-soft); color: var(--deep-crimson); box-shadow: 0 0 0 1px var(--crimson); }
+.product-variant-buttons button:disabled { cursor: not-allowed; opacity: .45; text-decoration: line-through; }
 
 /* ---------------------------------------------------------
    QUANTITY

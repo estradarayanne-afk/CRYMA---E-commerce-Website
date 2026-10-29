@@ -1,6 +1,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Registrations.css";
 
 function Registrations() {
@@ -604,7 +605,7 @@ function Registrations() {
                                                     <td>
                                                         <span className="status-badge">
                                                             {
-                                                                registration.status
+                                                                formatStatusLabel(registration.status)
                                                             }
                                                         </span>
                                                     </td>
@@ -862,7 +863,7 @@ function Registrations() {
 
                                     <span className={`status-badge status-${selectedRegistration.status}`}>
                                         {
-                                            selectedRegistration.status
+                                            formatStatusLabel(selectedRegistration.status)
                                         }
                                     </span>
 

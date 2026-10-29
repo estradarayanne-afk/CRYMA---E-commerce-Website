@@ -2,12 +2,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../shared/services/api";
+import { formatStatusLabel } from "../../shared/utils/statusLabel";
 
 function Dashboard() {
     const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [inventoryLoading, setInventoryLoading] = useState(true);
     const [inventoryError, setInventoryError] = useState("");
+    const [selectedInventoryStatus, setSelectedInventoryStatus] = useState("all");
 
     const fetchProducts = useCallback(async () => {
         const { data } = await api.get("/seller/products", { params: { per_page: 100 } });
@@ -48,6 +50,13 @@ function Dashboard() {
     const activeProducts = products.filter((product) => product.status === "active" && product.review_status === "approved");
     const lowStockProducts = products.filter((product) => product.stock > 0 && product.stock <= 3);
     const outOfStockProducts = products.filter((product) => product.stock === 0);
+    const inventoryBreakdown = [
+        { key: "active", label: "Active", products: activeProducts, color: "#7E1830" },
+        { key: "low", label: "Low stock", products: lowStockProducts, color: "#B21F3A" },
+        { key: "out", label: "Out of stock", products: outOfStockProducts, color: "#D98A9D" },
+    ];
+    const selectedBreakdown = inventoryBreakdown.find((item) => item.key === selectedInventoryStatus);
+    const currentProducts = selectedBreakdown ? selectedBreakdown.products : products;
     const inventoryStats = [
         { label: "Products Listed", value: products.length, change: `${activeProducts.length} active`, color: "#093f43" },
         { label: "Active Products", value: activeProducts.length, change: "Visible to buyers", color: "#176b68" },
@@ -56,8 +65,8 @@ function Dashboard() {
     ];
 
     return (
-        <div className="sl-page">
-            <section className="sl-page-head">
+        <div className="sl-page seller-dashboard">
+            <section className="sl-page-head seller-dashboard-head">
                 <div>
                     <div className="sl-eyebrow">CRYMA PLATFORM</div>
                     <h1 className="sl-h1">Seller Dashboard</h1>
@@ -70,56 +79,67 @@ function Dashboard() {
                 <div className="sl-dashboard-error" role="alert">
                     <span>{inventoryError}</span>
                     <button type="button" onClick={() => void loadProducts()} disabled={inventoryLoading}>
-                        {inventoryLoading ? "Retrying…" : "Retry"}
+                        {inventoryLoading ? "Retryingâ€¦" : "Retry"}
                     </button>
                 </div>
             )}
 
             {/* STATS */}
-            <div className="sl-stats">
+            <div className="sl-stats seller-dashboard-stats">
                 {inventoryStats.map((s) => (
-                    <div className="sl-stat-card" key={s.label}>
+                    <div className="sl-stat-card seller-dashboard-stat" key={s.label}>
                         <span className="sl-stat-label">{s.label}</span>
-                        <strong className="sl-stat-value" style={{ color: s.color }}>{inventoryLoading || inventoryError ? "—" : s.value}</strong>
+                        <strong className="sl-stat-value" style={{ color: s.color }}>{inventoryLoading || inventoryError ? "â€”" : s.value}</strong>
                         <span className="sl-stat-change">{inventoryLoading ? "Loading inventory" : inventoryError ? "Unavailable" : s.change}</span>
                     </div>
                 ))}
             </div>
 
-            <div className="sl-grid-2">
+            <div className="sl-grid-2 seller-dashboard-grid">
                 {/* INVENTORY OVERVIEW */}
-                <div className="sl-panel">
+                <div className="sl-panel seller-dashboard-panel">
                     <div className="sl-panel-head">
                         <div>
                             <h3>Inventory Overview</h3>
                             <p>Current product status</p>
                         </div>
                     </div>
-                    <div className="sl-chart">
-                        {[
-                            { label: "Active", value: activeProducts.length },
-                            { label: "Low stock", value: lowStockProducts.length },
-                            { label: "Out", value: outOfStockProducts.length },
-                        ].map((d) => (
-                            <div className="sl-bar-col" key={d.label}>
-                                <span className="sl-bar-val">{d.value}</span>
-                                <div className="sl-bar-track">
-                                    <div className="sl-bar-fill" style={{ height: `${products.length ? (d.value / products.length) * 100 : 0}%` }} />
-                                </div>
-                                <span className="sl-bar-label">{d.label}</span>
-                            </div>
-                        ))}
+                    <div className="seller-inventory-stats" aria-label="Inventory status statistics">
+                        {inventoryBreakdown.map((item) => {
+                            const selected = selectedInventoryStatus === item.key;
+                            const percentage = products.length ? Math.round((item.products.length / products.length) * 100) : 0;
+                            return (
+                                <button
+                                    className={`seller-inventory-stat${selected ? " is-selected" : ""}`}
+                                    key={item.key}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    aria-label={`${item.label}: ${item.products.length} products, ${percentage} percent. ${selected ? "Selected. Click to show all products." : "Click to filter products by this status."}`}
+                                    disabled={inventoryLoading || inventoryError || products.length === 0}
+                                    onClick={() => setSelectedInventoryStatus(selected ? "all" : item.key)}
+                                >
+                                    <span className="seller-inventory-stat-top">
+                                        <span className="seller-inventory-stat-label"><i style={{ "--bar-color": item.color }} />{item.label}</span>
+                                        <strong>{item.products.length}</strong>
+                                    </span>
+                                    <span className="seller-inventory-stat-track" aria-hidden="true">
+                                        <span style={{ width: `${percentage}%`, "--bar-color": item.color }} />
+                                    </span>
+                                    <span className="seller-inventory-stat-foot">{percentage}% of listed inventory</span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
                 {/* CURRENT PRODUCTS */}
-                <div className="sl-panel">
+                <div className="sl-panel seller-dashboard-panel">
                     <div className="sl-panel-head">
-                        <div><h3>Current Products</h3><p>Latest inventory records</p></div>
+                        <div><h3>{selectedBreakdown ? `${selectedBreakdown.label} Products` : "Current Products"}</h3><p>{selectedBreakdown ? `Showing ${currentProducts.length} matching products` : "Latest inventory records"}</p></div>
                         <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>View all</button>
                     </div>
                     <div className="sl-list">
-                        {inventoryLoading ? <p className="sl-empty" role="status">Loading products…</p> : products.slice(0, 4).map((product) => (
+                        {inventoryLoading ? <p className="sl-empty" role="status">Loading products…</p> : currentProducts.slice(0, 4).map((product) => (
                             <div className="sl-list-row" key={product.id}>
                                 <div className="sl-list-main">
                                     <strong>{product.name}</strong>
@@ -127,24 +147,25 @@ function Dashboard() {
                                 </div>
                                 <div className="sl-list-right">
                                     <span className={`sl-badge ${product.review_status === "pending" ? "sl-badge--review" : product.review_status === "rejected" ? "sl-badge--rejected" : product.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
+                                        {formatStatusLabel(product.review_status === "pending" ? "Pending review" : product.review_status === "rejected" ? "Rejected" : product.status)}
                                         {product.review_status === "pending" ? "Pending review" : product.review_status === "rejected" ? "Rejected" : product.status}
                                     </span>
                                 </div>
                             </div>
                         ))}
-                        {!inventoryLoading && !inventoryError && products.length === 0 && <p className="sl-empty">No products listed yet.</p>}
+                        {!inventoryLoading && !inventoryError && currentProducts.length === 0 && <p className="sl-empty">{selectedBreakdown ? `No ${selectedBreakdown.label.toLowerCase()} products right now.` : "No products listed yet."}</p>}
                     </div>
                 </div>
             </div>
 
             {/* LOW STOCK ALERT */}
-            <div className="sl-panel sl-panel--alert">
+            <div className="sl-panel sl-panel--alert seller-dashboard-panel">
                 <div className="sl-panel-head">
                     <div><h3>Low Stock Alert</h3><p>Items needing restock</p></div>
                     <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>Manage inventory</button>
                 </div>
                 <div className="sl-list">
-                    {inventoryLoading ? <p className="sl-empty" role="status">Loading stock levels…</p> : lowStockProducts.map((product) => (
+                    {inventoryLoading ? <p className="sl-empty" role="status">Loading stock levelsâ€¦</p> : lowStockProducts.map((product) => (
                         <div className="sl-list-row" key={product.id}>
                             <span>{product.name}</span>
                             <span className="sl-badge sl-badge--red">{product.stock} left</span>

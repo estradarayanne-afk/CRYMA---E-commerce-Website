@@ -1,0 +1,315 @@
+================================================================================
+PHASE 2 QUICK REFERENCE — Rider Registration & Authentication
+================================================================================
+
+FILES CREATED: 12
+TESTS ADDED: 40+
+ENDPOINTS: 11
+
+================================================================================
+ENDPOINTS SUMMARY
+================================================================================
+
+AUTHENTICATION (4):
+  POST /api/auth/login               Login with email/password
+  POST /api/auth/register            Register rider with license photo
+  GET /api/auth/profile              Get user profile (requires auth)
+  GET /api/auth/account-status       Check registration status (requires auth)
+
+GEOGRAPHY (4):
+  GET /api/address/regions           Get all regions
+  GET /api/address/provinces/{code}  Get provinces for region
+  GET /api/address/municipalities/{code} Get municipalities for province
+  GET /api/address/barangays/{code}  Get barangays for municipality
+
+ADMIN (3+):
+  GET /api/admin/riders/pending      List pending registrations
+  POST /api/admin/riders/{id}/approve Approve registration
+  POST /api/admin/riders/{id}/reject  Reject registration
+  GET /api/admin/stats               Get dashboard stats
+
+================================================================================
+VALIDATION RULES
+================================================================================
+
+TEXT FIELD LIMITS:      Max 50 characters (all text fields)
+NAMES:                  Unicode letters/spaces/hyphens/apostrophes only
+EMAIL:                  Valid format, unique, max 100 chars, normalized lowercase
+PHONE:                  Philippine format (09XXXXXXXXX or +639XXXXXXXXX)
+                        Normalized to +639XXXXXXXXX
+PASSWORD:               Min 8 chars, max 128 chars
+                        Must include: uppercase, lowercase, number
+                        Hashed with bcrypt (12 rounds)
+TIN:                    Exactly 9 digits
+LICENSE PHOTO:          JPG/PNG only, max 5 MB
+VEHICLE TYPE:           Enum (Motorcycle, Bicycle, Tricycle, Car/Van, Truck)
+
+================================================================================
+ACCOUNT STATES
+================================================================================
+
+PENDING:                New rider, awaiting admin approval
+                        Can check status via API
+                        Limited access
+ACTIVE:                 Approved by admin
+                        Full access to features
+REJECTED:               Admin rejected registration
+                        Cannot log in
+
+================================================================================
+FILES CREATED (12)
+================================================================================
+
+SERVICES (2):
+  ✅ src/services/auth.service.ts           Authentication logic
+  ✅ src/services/address.service.ts        PSGC API integration
+
+CONTROLLERS (3):
+  ✅ src/controllers/auth.controller.ts     Auth endpoints
+  ✅ src/controllers/address.controller.ts  Geography endpoints
+  ✅ src/controllers/admin.controller.ts    Admin endpoints
+
+ROUTES (3):
+  ✅ src/routes/auth.routes.ts              Auth route definitions
+  ✅ src/routes/address.routes.ts           Address route definitions
+  ✅ src/routes/admin.routes.ts             Admin route definitions
+
+TESTS (3):
+  ✅ src/__tests__/auth.test.ts             Auth validation tests (28 tests)
+  ✅ src/__tests__/50-char-limit.test.ts    Character limit tests (12 tests)
+  ✅ src/__tests__/integration.auth.test.ts Integration tests (10+ tests)
+
+DOCUMENTATION (1):
+  ✅ PHASE_2_API.md                         Complete API documentation
+
+UPDATED FILES (2):
+  ✅ src/app.ts                             Added routes
+  ✅ package.json                           Added axios dependency
+
+================================================================================
+TEST COMMANDS
+================================================================================
+
+npm test                     Run all 40+ tests
+npm run test:watch         Run tests in watch mode
+npm run lint               Run ESLint
+npm run format             Format code
+
+Expected output:
+  PASS src/__tests__/auth.test.ts
+  PASS src/__tests__/50-char-limit.test.ts
+  PASS src/__tests__/integration.auth.test.ts
+  Tests: 40+ passed
+
+================================================================================
+RUNNING THE SERVER
+================================================================================
+
+npm install               Install dependencies
+npm run migrate           Create database schema
+npm run seed              Seed admin account
+npm run dev               Start development server
+
+Server: http://localhost:3000
+
+================================================================================
+EXAMPLE: LOGIN
+================================================================================
+
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "rider@example.com",
+  "password": "SecurePass123"
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "user": { ... },
+    "token": "eyJhbGc...",
+    "expiresIn": "24h"
+  }
+}
+
+================================================================================
+EXAMPLE: REGISTER
+================================================================================
+
+POST /api/auth/register
+Content-Type: multipart/form-data
+
+Form fields:
+  licensePhoto: [binary file - required]
+  
+JSON body:
+{
+  "firstName": "Juan",
+  "lastName": "Dela Cruz",
+  "email": "juan@example.com",
+  "password": "SecurePass123",
+  "confirmPassword": "SecurePass123",
+  "phone": "09123456789",
+  "tin": "123456789",
+  "vehicleType": "Motorcycle",
+  "licenseNumber": "N01-23-456789",
+  "regionCode": "NCR",
+  "regionName": "National Capital Region",
+  "provinceCode": "MET",
+  "provinceName": "Metro Manila",
+  "municipalityCode": "MAN",
+  "municipalityName": "Manila",
+  "barangayCode": "BAY",
+  "barangayName": "Baywalk",
+  "termsVersion": "1.0",
+  "termsAcceptedAt": "2024-01-01T00:00:00Z",
+  "privacyVersion": "1.0",
+  "privacyAcceptedAt": "2024-01-01T00:00:00Z"
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "user": { ...pending status... },
+    "token": "eyJhbGc...",
+    "expiresIn": "24h",
+    "riderId": "RID-0001"
+  }
+}
+
+================================================================================
+EXAMPLE: GET REGIONS
+================================================================================
+
+GET /api/address/regions
+
+Response:
+{
+  "success": true,
+  "data": {
+    "regions": [
+      { "code": "NCR", "name": "National Capital Region" },
+      { "code": "COR", "name": "Cordillera Administrative Region" },
+      ...
+    ]
+  }
+}
+
+================================================================================
+EXAMPLE: ADMIN APPROVAL
+================================================================================
+
+GET /api/admin/riders/pending
+Authorization: Bearer <admin-token>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "riders": [...pending riders...],
+    "count": 5
+  }
+}
+
+POST /api/admin/riders/1/approve
+Authorization: Bearer <admin-token>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "rider": { ...active status... }
+  }
+}
+
+POST /api/admin/riders/2/reject
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "reason": "License photo is unclear"
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "message": "Rider registration rejected",
+    "riderId": 2
+  }
+}
+
+================================================================================
+ERROR CODES
+================================================================================
+
+401 INVALID_CREDENTIALS        Email or password incorrect
+401 UNAUTHORIZED               Missing/invalid token
+403 ACCOUNT_PENDING            Account pending admin approval
+403 ACCOUNT_REJECTED           Account has been rejected
+403 FORBIDDEN                  Insufficient permissions
+400 VALIDATION_ERROR           Invalid input data
+400 FILE_TOO_LARGE            License photo exceeds 5 MB
+400 INVALID_FILE_TYPE         License photo must be JPG or PNG
+409 DUPLICATE_EMAIL           Email already registered
+409 CONFLICT                  Resource conflict (e.g., already approved)
+404 NOT_FOUND                 Resource not found
+
+================================================================================
+SECURITY FEATURES
+================================================================================
+
+✅ Passwords:           Bcrypt hashing (12 rounds), never plaintext
+✅ Authentication:      JWT tokens, 24-hour expiry
+✅ Authorization:       Role-based access control (rider/admin)
+✅ Input Validation:    All inputs validated with Zod
+✅ File Upload:         MIME type + size validation, private storage
+✅ SQL Injection:       Parameterized queries
+✅ CORS:                Configured and enforced
+✅ Headers:             Helmet.js security headers
+
+================================================================================
+INTEGRATION WITH PHASE 1
+================================================================================
+
+DATABASE:        No schema changes - reuses Phase 1 tables
+REPOSITORIES:    Reuses Phase 1 repositories (no duplicates)
+CONFIGURATION:   Reuses Phase 1 .env settings
+TABLES USED:     users, registration_approvals, audit_logs
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+Phase 3 will add:
+  - Order management (list, create, update status)
+  - Delivery tracking (QR codes, scanner)
+  - Profile management (update, change password)
+  - License photo updates (request, approval)
+
+================================================================================
+HELPFUL DOCS
+================================================================================
+
+PHASE_2_API.md             Complete API documentation
+PHASE_2_COMPLETION.md      Detailed completion report
+logistics_api/README.md    General API information
+
+================================================================================
+QUICK STATS
+================================================================================
+
+Files Created:    12
+Tests Added:      40+
+Endpoints:        11
+Lines of Code:    ~1,500+
+Validation Rules: 8+
+Account States:   3
+Services:         2
+Controllers:      3
+Routes:           3
+
+================================================================================

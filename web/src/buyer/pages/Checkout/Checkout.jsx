@@ -19,6 +19,7 @@ import {
     isBuyerSession,
     saveBuyerCart,
 } from "../../../shared/utils/buyerAccess";
+import { getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
 import { normalizeBuyerAddress, validateBuyerAddress } from "../Account/addressValidation";
 import { calculateVoucherTotal, formatVoucherDiscount } from "../../../shared/utils/voucherPresentation";
 import "./Checkout.css";
@@ -130,11 +131,12 @@ function Checkout() {
         );
 
         return cart.filter((item) =>
-            selectedSet.has(String(item.id))
+            selectedSet.has(getBuyerCartItemKey(item)) ||
+            (!item.variant_id && selectedSet.has(String(item.id)))
         );
     }, [cart, selectedIds]);
     const voucherCartKey = useMemo(
-        () => selectedCartItems.map((item) => `${item.id}:${item.quantity}:${item.price}:${item.category || ""}`).join("|"),
+        () => selectedCartItems.map((item) => `${getBuyerCartItemKey(item)}:${item.quantity}:${item.price}:${item.category || ""}`).join("|"),
         [selectedCartItems]
     );
 
@@ -187,7 +189,7 @@ function Checkout() {
         setVoucherError("");
         api.post("/buyer/vouchers/validate", {
             code: appliedVoucherCode,
-            items: selectedCartItems.map((item) => ({ product_id: item.id, quantity: Number(item.quantity) })),
+            items: selectedCartItems.map((item) => ({ product_id: item.id, ...(item.variant_id ? { variant_id: item.variant_id } : {}), quantity: Number(item.quantity) })),
         })
             .then(({ data }) => {
                 if (cancelled || sequence !== voucherValidationSequence.current) return;
@@ -223,7 +225,7 @@ function Checkout() {
         try {
             const { data } = await api.post("/buyer/vouchers/validate", {
                 code,
-                items: selectedCartItems.map((item) => ({ product_id: item.id, quantity: Number(item.quantity) })),
+                items: selectedCartItems.map((item) => ({ product_id: item.id, ...(item.variant_id ? { variant_id: item.variant_id } : {}), quantity: Number(item.quantity) })),
             });
             if (sequence !== voucherValidationSequence.current) return;
             const preview = data?.data;
@@ -579,6 +581,7 @@ function Checkout() {
                     items: selectedCartItems.map(
                         (item) => ({
                             product_id: item.id,
+                            ...(item.variant_id ? { variant_id: item.variant_id } : {}),
                             quantity: Number(
                                 item.quantity
                             ),
@@ -605,16 +608,14 @@ function Checkout() {
 
             const checkedOutIds = new Set(
                 selectedCartItems.map(
-                    (item) => String(item.id)
+                    (item) => getBuyerCartItemKey(item)
                 )
             );
 
             const remainingCart =
                 cart.filter(
                     (item) =>
-                        !checkedOutIds.has(
-                            String(item.id)
-                        )
+                        !checkedOutIds.has(getBuyerCartItemKey(item))
                 );
 
             if (saveBuyerCart(remainingCart)) {
@@ -959,6 +960,8 @@ function Checkout() {
                                                     }
                                                 </span>
                                             )}
+
+                                            {item.variant_name && <span className="checkout-item-category">{item.variant_name}</span>}
 
                                             <span>
                                                 Qty{" "}

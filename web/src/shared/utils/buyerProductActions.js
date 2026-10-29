@@ -22,12 +22,16 @@ export function toggleWishlistProduct(ids, productId) {
     };
 }
 
+export function getBuyerCartItemKey(item) {
+    return `${String(item?.id ?? "")}::${String(item?.variant_id ?? "base")}`;
+}
+
 export function addProductToCart(cart, product, requestedQuantity = 1) {
     if (!product?.id || !Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
         return { success: false, reason: "invalid_item", cart };
     }
 
-    const existingIndex = cart.findIndex((item) => String(item.id) === String(product.id));
+    const existingIndex = cart.findIndex((item) => getBuyerCartItemKey(item) === getBuyerCartItemKey(product));
     const existing = existingIndex >= 0 ? cart[existingIndex] : null;
     const currentQuantity = Number(existing?.quantity || 0);
     const nextQuantity = currentQuantity + requestedQuantity;
@@ -42,10 +46,11 @@ export function addProductToCart(cart, product, requestedQuantity = 1) {
 
     const nextCart = cart.map((item) => ({ ...item }));
     if (existingIndex >= 0) {
-        const updated = { ...nextCart[existingIndex], ...product, quantity: nextQuantity };
+        const existingItem = nextCart[existingIndex];
+        const updated = { ...existingItem, ...product, quantity: nextQuantity };
         ["variant", "variantId", "variant_name"].forEach((key) => {
-            if (nextCart[existingIndex][key] !== undefined) {
-                updated[key] = nextCart[existingIndex][key];
+            if (product.variant_id === undefined && product.variantId === undefined && existingItem[key] !== undefined) {
+                updated[key] = existingItem[key];
             }
         });
         nextCart[existingIndex] = updated;
