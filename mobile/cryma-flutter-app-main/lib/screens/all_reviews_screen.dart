@@ -92,7 +92,7 @@ class AllReviewsScreen extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  Text(
+                  const Text(
                     '4.7',
                     style: TextStyle(
                       fontSize: 40,

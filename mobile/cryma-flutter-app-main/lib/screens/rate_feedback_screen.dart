@@ -333,11 +333,11 @@ class _RateFeedbackScreenState extends State<RateFeedbackScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(
+                          const Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Anker Soundcore Q35',
                                   style: TextStyle(
                                     fontSize: 13,
@@ -346,8 +346,8 @@ class _RateFeedbackScreenState extends State<RateFeedbackScreen> {
                                     fontFamily: 'Poppins',
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                const Text(
+                                SizedBox(height: 2),
+                                Text(
                                   'Black · x1',
                                   style: TextStyle(
                                     fontSize: 11,
@@ -355,8 +355,8 @@ class _RateFeedbackScreenState extends State<RateFeedbackScreen> {
                                     fontFamily: 'Poppins',
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                const Text(
+                                SizedBox(height: 2),
+                                Text(
                                   '₱2,499',
                                   style: TextStyle(
                                     fontSize: 14,

@@ -165,9 +165,20 @@ class _SearchScreenState extends State<SearchScreen> {
                                 color: AppColors.darkGray,
                                 fontFamily: 'Poppins',
                               ),
-                              decoration: const InputDecoration(
-                                hintText: 'Search products, brands...',
-                                hintStyle: TextStyle(
+                              decoration: InputDecoration(
+                                suffixIcon: _isSearching
+                                    ? IconButton(
+                                        tooltip: 'Clear search',
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() => _isSearching = false);
+                                          _searchFocusNode.requestFocus();
+                                        },
+                                        icon: const Icon(Icons.close, size: 18),
+                                      )
+                                    : null,
+                                hintText: 'Search products, brands...', 
+                                hintStyle: const TextStyle(
                                   fontSize: 14,
                                   color: AppColors.gray,
                                   fontFamily: 'Poppins',

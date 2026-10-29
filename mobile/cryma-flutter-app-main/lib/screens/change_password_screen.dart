@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -16,17 +17,46 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _showNew = false;
   bool _showConfirm = false;
 
-  void _handleSave() {
+  bool _saving = false;
+
+  Future<void> _handleSave() async {
+    if (_currentController.text.isEmpty || _newController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
     if (_newController.text != _confirmController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Passwords do not match')),
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Password changed successfully!')),
-    );
-    Navigator.pop(context);
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ApiService.instance.patch(
+        '/api/account/password',
+        authenticated: true,
+        body: {
+          'current_password': _currentController.text,
+          'password': _newController.text,
+          'password_confirmation': _confirmController.text,
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password changed successfully!')),
+        );
+        Navigator.pop(context);
+      }
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to change password.')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -97,7 +127,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _handleSave,
+                        onPressed: _saving ? null : _handleSave,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -105,7 +135,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
+                        child: _saving
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                      : const Text(
                           'Save Changes',
                           style: TextStyle(
                             fontSize: 15,

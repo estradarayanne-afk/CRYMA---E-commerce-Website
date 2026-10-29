@@ -89,16 +89,16 @@ class VouchersScreen extends StatelessWidget {
           // Top section - discount
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.softRose,
-              borderRadius: const BorderRadius.only(
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
             ),
             child: Row(
               children: [
-                Icon(Icons.local_offer, size: 32, color: AppColors.primary),
+                const Icon(Icons.local_offer, size: 32, color: AppColors.primary),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

@@ -130,7 +130,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
           ),
         ],
       ),

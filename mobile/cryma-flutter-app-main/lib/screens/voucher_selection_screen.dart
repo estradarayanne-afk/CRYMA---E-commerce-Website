@@ -223,7 +223,7 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
                     // ============================================================
                     ..._vouchers
                         .map((voucher) => _buildVoucherCard(voucher))
-                        .toList(),
+                        ,
 
                     const SizedBox(height: 20),
                   ],

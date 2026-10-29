@@ -82,7 +82,7 @@ class HelpCenterScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ..._faqs.map((faq) => _buildFaqItem(faq)).toList(),
+                  ..._faqs.map((faq) => _buildFaqItem(faq)),
                 ],
               ),
             ),

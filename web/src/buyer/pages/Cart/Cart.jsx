@@ -13,6 +13,7 @@ import {
     saveBuyerCart,
 } from "../../../shared/utils/buyerAccess";
 import { getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
+import api from "../../../shared/services/api";
 
 import "./Cart.css";
 
@@ -99,6 +100,8 @@ function Cart() {
     );
     const [notice, setNotice] = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [checkingSellerStatus, setCheckingSellerStatus] = useState(() => getBuyerCart().length > 0);
+    const cartProductIdsKey = [...new Set(cart.map((item) => String(item.id)).filter(Boolean))].sort().join(",");
 
     useEffect(() => {
         const syncCart = () => setCart(getBuyerCart());
@@ -109,6 +112,43 @@ function Cart() {
             window.removeEventListener("storage", syncCart);
         };
     }, []);
+
+    useEffect(() => {
+        const productIds = cartProductIdsKey ? cartProductIdsKey.split(",") : [];
+        if (!productIds.length) {
+            setCheckingSellerStatus(false);
+            return undefined;
+        }
+
+        let cancelled = false;
+        setCheckingSellerStatus(true);
+        Promise.all(productIds.map(async (id) => {
+            try {
+                const { data } = await api.get(`/products/${encodeURIComponent(id)}`);
+                return [id, data?.data?.seller?.is_on_vacation === true];
+            } catch {
+                return [id, null];
+            }
+        })).then((results) => {
+            if (cancelled) return;
+            const vacationByProduct = new Map(results);
+            const latestCart = getBuyerCart();
+            const nextCart = latestCart.map((item) => {
+                const status = vacationByProduct.get(String(item.id));
+                return status === null || status === undefined
+                    ? item
+                    : { ...item, seller_on_vacation: status };
+            });
+            if (nextCart.some((item, index) => item.seller_on_vacation !== latestCart[index]?.seller_on_vacation)) {
+                saveBuyerCart(nextCart);
+                setCart(nextCart);
+            }
+        }).finally(() => {
+            if (!cancelled) setCheckingSellerStatus(false);
+        });
+
+        return () => { cancelled = true; };
+    }, [cartProductIdsKey]);
 
     useEffect(() => {
         const availableIds = new Set(
@@ -301,6 +341,8 @@ function Cart() {
         );
     }, [cart]);
 
+    const hasVacationSelected = selectedItems.some((item) => item.seller_on_vacation === true);
+
     const hasInvalidSelectedStock = selectedItems.some(
         (item) => {
             const stock = getKnownStock(item);
@@ -310,6 +352,14 @@ function Cart() {
     );
 
     const proceedToCheckout = () => {
+        if (checkingSellerStatus) {
+            showNotice("Checking seller availability. Please wait a moment.");
+            return;
+        }
+        if (hasVacationSelected) {
+            showNotice("A selected seller is on vacation and is not accepting orders. Deselect or remove the selected vacation items to continue.");
+            return;
+        }
         if (selectedItems.length === 0) {
             showNotice(
                 "Please select at least one product."
@@ -579,6 +629,7 @@ function Cart() {
                                                     }
                                                 </p>
                                             )}
+                                            {item.seller_on_vacation === true && <p className="cart-vacation-message">Seller is on vacation. This item cannot be checked out right now.</p>}
 
                                             {variant && (
                                                 <p className="cart-item-variant">{variant}</p>
@@ -737,21 +788,28 @@ function Cart() {
                             disabled={
                                 selectedItems.length ===
                                     0 ||
-                                hasInvalidSelectedStock
+                                hasInvalidSelectedStock ||
+                                hasVacationSelected ||
+                                checkingSellerStatus
                             }
                         >
                             <span>
                                 {selectedItems.length ===
                                 0
                                     ? "Select Products"
-                                    : hasInvalidSelectedStock
-                                    ? "Update Cart First"
-                                    : "Proceed to Checkout"}
+                                    : hasVacationSelected
+                                    ? "Seller On Vacation"
+                                    : checkingSellerStatus
+                                      ? "Checking Seller"
+                                      : hasInvalidSelectedStock
+                                        ? "Update Cart First"
+                                        : "Proceed to Checkout"}
                             </span>
 
                             <span>→</span>
                         </button>
 
+                        {hasVacationSelected && <p className="cart-vacation-message" role="alert">A selected seller is on vacation and is not accepting orders. Deselect or remove those items to continue.</p>}
                         <p className="cart-summary-note">
                             Only your selected products
                             will be prepared for checkout.

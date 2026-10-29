@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ExternalLink, Eye, Palette, Store } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ExternalLink, Eye, Palette, Store } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../../shared/services/api";
+import Dialog from "../../shared/components/Dialog";
 import "./Storefront.css";
 
 const DEFAULT_SETTINGS = {
     hero_title: "",
     hero_subtitle: "",
+    on_vacation: false,
     categories: null,
     featured_product_ids: [],
     show_featured: true,
@@ -25,6 +27,9 @@ function SellerStorefront() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
+    const [vacationConfirmOpen, setVacationConfirmOpen] = useState(false);
+    const [savingVacationMode, setSavingVacationMode] = useState(false);
+    const [vacationModeError, setVacationModeError] = useState("");
 
     useEffect(() => {
         Promise.all([
@@ -78,6 +83,43 @@ function SellerStorefront() {
         const value = String(id);
         if (selected.includes(value)) updateSetting("featured_product_ids", selected.filter((item) => item !== value));
         else if (selected.length < 12) updateSetting("featured_product_ids", [...selected, value]);
+    };
+
+    const saveVacationMode = async (enabled) => {
+        setVacationModeError("");
+        setError("");
+        setMessage("");
+        setSavingVacationMode(true);
+        try {
+            const { data } = await api.patch("/seller/storefront/vacation-mode", { on_vacation: enabled });
+            const isOnVacation = data.data.on_vacation === true;
+            setStore((current) => ({
+                ...current,
+                on_vacation: isOnVacation,
+                settings: { ...current.settings, on_vacation: isOnVacation },
+            }));
+            setMessage(isOnVacation
+                ? "Vacation mode is on. Your products remain visible, but buyers cannot order."
+                : "Vacation mode is off. Buyers can order your products again.");
+            setVacationConfirmOpen(false);
+        } catch (requestError) {
+            const validation = requestError.response?.data?.errors?.on_vacation?.[0];
+            const failure = validation || requestError.response?.data?.message || "Unable to update vacation mode.";
+            setVacationModeError(failure);
+            setError(failure);
+        } finally {
+            setSavingVacationMode(false);
+        }
+    };
+
+    const requestVacationModeChange = () => {
+        if (savingVacationMode || saving) return;
+        if (store.settings.on_vacation === true) {
+            void saveVacationMode(false);
+        } else {
+            setVacationModeError("");
+            setVacationConfirmOpen(true);
+        }
     };
 
     const save = async (event) => {
@@ -147,6 +189,13 @@ function SellerStorefront() {
 
                     <section className="storefront-form-section">
                         <div className="storefront-section-title"><Eye size={18} /><div><h2>Landing page</h2><p>Choose the content buyers see first.</p></div></div>
+                        <div className="storefront-vacation-control">
+                            <button type="button" role="switch" aria-checked={store.settings.on_vacation === true} aria-label="Vacation mode" className={`storefront-switch${store.settings.on_vacation === true ? " is-on" : ""}`} onClick={requestVacationModeChange} disabled={savingVacationMode || saving}>
+                                <span className="storefront-switch-thumb" />
+                            </button>
+                            <span><strong>Vacation mode <em>{store.settings.on_vacation === true ? "On" : "Off"}</em></strong><small>Your products stay visible and can be favorited. Buyers cannot add them to cart or place orders while this is on.</small></span>
+                            {savingVacationMode && <span className="storefront-switch-saving" role="status">Saving...</span>}
+                        </div>
                         <label className="storefront-field">Hero heading <span>Optional</span><input value={store.settings.hero_title || ""} onChange={(event) => updateSetting("hero_title", event.target.value)} maxLength={100} placeholder={store.name || "Welcome to our store"} /></label>
                         <label className="storefront-field">Hero message <span>Optional</span><textarea value={store.settings.hero_subtitle || ""} onChange={(event) => updateSetting("hero_subtitle", event.target.value)} maxLength={200} rows={2} placeholder={store.tagline || "A short welcome for your shoppers"} /></label>
 
@@ -189,6 +238,25 @@ function SellerStorefront() {
                     <p className="storefront-preview-help">Your page changes appear on your public store after you save.</p>
                 </aside>
             </div>
+            <Dialog
+                open={vacationConfirmOpen}
+                onClose={() => { if (!savingVacationMode) setVacationConfirmOpen(false); }}
+                ariaLabelledBy="vacation-mode-dialog-title"
+                className="storefront-vacation-dialog"
+                busy={savingVacationMode}
+            >
+                <div className="storefront-vacation-dialog-content">
+                    <div className="storefront-vacation-dialog-icon"><AlertTriangle size={21} /></div>
+                    <span className="sl-eyebrow">SELLER VACATION MODE</span>
+                    <h2 id="vacation-mode-dialog-title">Turn on vacation mode?</h2>
+                    <p>Your products will remain visible and buyers can still favorite them, but Add to Cart, Buy Now, and checkout will be blocked until you turn vacation mode off.</p>
+                    {vacationModeError && <div className="storefront-notice is-error" role="alert">{vacationModeError}</div>}
+                    <div className="storefront-vacation-dialog-actions">
+                        <button type="button" className="storefront-vacation-cancel" onClick={() => setVacationConfirmOpen(false)} disabled={savingVacationMode}>Cancel</button>
+                        <button type="button" className="sl-btn-primary" onClick={() => void saveVacationMode(true)} disabled={savingVacationMode}>{savingVacationMode ? "Turning on..." : "Yes, turn it on"}</button>
+                    </div>
+                </div>
+            </Dialog>
         </div>
     );
 }

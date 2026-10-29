@@ -26,7 +26,7 @@ class Chat {
 // CHAT LIST SCREEN
 // ============================================================
 class ChatListScreen extends StatelessWidget {
-  ChatListScreen({super.key});
+  const ChatListScreen({super.key});
 
   final List<Chat> _chats = const [
     Chat(
