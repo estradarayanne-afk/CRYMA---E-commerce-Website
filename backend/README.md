@@ -53,6 +53,40 @@ In order to ensure that the Laravel community is welcoming to all, please review
 
 If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
+## Local MySQL development
+
+MySQL Workbench is a database client. The application connects to a MySQL Server, which can be the local server managed through Workbench.
+
+The PHP CLI used for Laravel must have `pdo_mysql` enabled. On Windows, run `php --ini` to locate `php.ini`, enable `extension=pdo_mysql`, and confirm it with `php --ri pdo_mysql`. Restart the terminal and backend after changing the extension.
+
+1. In Workbench, connect to your local MySQL Server and run this once to create a dedicated development database account:
+
+   ```sql
+   CREATE DATABASE ecommerce_system
+     CHARACTER SET utf8mb4
+     COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'ecommerce_dev'@'127.0.0.1' IDENTIFIED BY 'choose-a-local-password';
+   GRANT ALL PRIVILEGES ON ecommerce_system.* TO 'ecommerce_dev'@'127.0.0.1';
+   ```
+
+   Use a unique local password and do not commit it or share it in chat.
+
+2. Copy `.env.example` to `.env` if needed. Set `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, and `DB_USERNAME` to match the local server, and set `DB_PASSWORD` to the password you chose. `.env` is ignored by Git. If your server requires TLS, set `MYSQL_ATTR_SSL_CA` to its CA certificate path.
+
+3. From this directory, create/update the schema and load development fixtures:
+
+   ```powershell
+   php artisan migrate --seed
+   ```
+
+   `migrate` creates the schema from versioned migration files. `--seed` adds synthetic development accounts and sample products; seeders are restricted to local/development/testing environments. Do not use development seed credentials in production.
+
+4. Open the same MySQL Server connection in Workbench and select the `ecommerce_system` schema to browse the app's tables and local data.
+
+### Sharing setup with teammates
+
+Commit and pull migrations and seeders through Git; each developer creates a separate local database and runs `php artisan migrate --seed`. Do not commit `.env`, SQL dumps of real data, credentials, or customer records. Migrations and seeders share the database structure and synthetic fixtures, not live database contents. To share real data, use an explicitly approved, access-controlled backup process with sensitive data removed.
+
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).

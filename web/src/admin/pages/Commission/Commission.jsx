@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Commission.css";
 
 function Commission() {
@@ -471,8 +472,7 @@ function Commission() {
 
                                                         <span />
 
-                                                        {commission.status ||
-                                                            "Pending"}
+                                                        {formatStatusLabel(commission.status, "Pending")}
 
                                                     </span>
 
@@ -636,8 +636,7 @@ function Commission() {
                                             </span>
 
                                             <strong>
-                                                {selectedCommission.status ||
-                                                    "Pending"}
+                                                {formatStatusLabel(selectedCommission.status, "Pending")}
                                             </strong>
                                         </div>
 

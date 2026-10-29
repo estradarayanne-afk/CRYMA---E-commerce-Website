@@ -72,7 +72,10 @@ class InactiveAccountAuthorizationTest extends TestCase
         $plainTextToken = $buyer->createToken('regression-test')->plainTextToken;
 
         $this->actingAs($admin, 'sanctum')
-            ->patchJson("/api/admin/users/{$buyer->id}/status", ['status' => 'suspended'])
+            ->patchJson("/api/admin/users/{$buyer->id}/status", [
+                'status' => 'suspended',
+                'suspension_reason' => 'Policy violation',
+            ])
             ->assertOk()
             ->assertJsonPath('data.status', 'suspended');
 

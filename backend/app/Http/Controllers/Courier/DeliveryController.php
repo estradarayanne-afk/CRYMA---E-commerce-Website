@@ -26,7 +26,7 @@ class DeliveryController extends Controller
     private function detailQuery(): Builder
     {
         return Delivery::with([
-            'order.items.product:id,name,image',
+            'order.items.product:id,name,image,weight_kg',
             'order.items.seller:id,first_name,last_name',
             'deliveryArea:id,name',
             'proof',
@@ -57,7 +57,8 @@ class DeliveryController extends Controller
                 'items' => $order->items->map(fn ($item) => [
                     'id' => $item->id,
                     'quantity' => $item->quantity,
-                    'product' => $item->product ? ['id' => $item->product->id, 'name' => $item->product->name, 'image' => $item->product->image] : null,
+                    'unit_weight_kg' => $item->unit_weight_kg ?? $item->product?->weight_kg,
+                    'product' => $item->product ? ['id' => $item->product->id, 'name' => $item->product->name, 'image' => $item->product->image, 'weight_kg' => $item->product->weight_kg] : null,
                 ])->values(),
             ] : null,
             'events' => $delivery->events->map(fn ($event) => [
@@ -123,7 +124,7 @@ class DeliveryController extends Controller
 
             $next = $validated['status'];
             if ($delivery->status === $next) {
-                return $delivery->load(['order.items.product:id,name,image', 'events']);
+                return $delivery->load(['order.items.product:id,name,image,weight_kg', 'events']);
             }
             if ($delivery->status !== $validated['expected_status']) {
                 abort(409, 'The delivery status changed. Refresh before updating it again.');
@@ -156,10 +157,10 @@ class DeliveryController extends Controller
                 'reason' => $reason,
             ]);
 
-            return $delivery->load(['order.items.product:id,name,image', 'events']);
+            return $delivery->load(['order.items.product:id,name,image,weight_kg', 'events']);
         });
 
-        $result->load(['order.items.product:id,name,image', 'deliveryArea:id,name', 'events']);
+        $result->load(['order.items.product:id,name,image,weight_kg', 'deliveryArea:id,name', 'events']);
         return response()->json(['success' => true, 'message' => 'Delivery status updated.', 'data' => $this->parcelData($result)]);
     }
 }

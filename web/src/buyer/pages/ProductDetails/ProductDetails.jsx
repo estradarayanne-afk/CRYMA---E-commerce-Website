@@ -25,7 +25,8 @@ import {
     saveBuyerWishlist,
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
-import { addProductToCart } from "../../../shared/utils/buyerProductActions";
+import { addProductToCart, getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
+import { getProductShopName } from "../../../shared/utils/productDiscovery";
 
 import "./ProductDetails.css";
 
@@ -39,6 +40,7 @@ function ProductDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [quantity, setQuantity] = useState(1);
+    const [selectedVariantId, setSelectedVariantId] = useState("");
     const [saved, setSaved] = useState(false);
     const [activeMediaIndex, setActiveMediaIndex] = useState(0);
     const [activeTab, setActiveTab] = useState("Description");
@@ -65,9 +67,11 @@ function ProductDetails() {
                 );
 
                 if (!cancelled) {
-                    setProduct(
-                        response.data?.data || null
-                    );
+                    const loadedProduct = response.data?.data || null;
+                    setProduct(loadedProduct);
+                    const initialVariant = loadedProduct?.variants?.find((variant) => Number(variant.stock) > 0) || loadedProduct?.variants?.[0];
+                    setSelectedVariantId(String(initialVariant?.id || ""));
+                    setQuantity(1);
                     setActiveMediaIndex(0);
                 }
             } catch (requestError) {
@@ -171,37 +175,23 @@ function ProductDetails() {
         };
     }, [id]);
 
-    const sellerName = useMemo(() => {
-        if (!product?.seller) {
-            return "Marketplace seller";
-        }
+    const shopName = getProductShopName(product?.seller);
 
-        if (typeof product.seller === "string") {
-            return product.seller;
-        }
-
-        return (
-            [
-                product.seller.first_name,
-                product.seller.middle_name,
-                product.seller.last_name,
-            ]
-                .filter(Boolean)
-                .join(" ") ||
-            product.seller.name ||
-            "Marketplace seller"
-        );
-    }, [product]);
-
-    const price = Number(product?.price || 0);
-    const stock = Number(product?.stock || 0);
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    const selectedVariant = variants.find((variant) => String(variant.id) === selectedVariantId) || variants[0] || null;
+    const price = Number(selectedVariant?.discounted_price || selectedVariant?.price || product?.price || 0);
+    const originalPrice = Number(selectedVariant?.price || product?.original_price || 0);
+    const stock = Number(selectedVariant?.stock ?? product?.stock ?? 0);
 
     const cartQuantity = useMemo(() => {
         const item = getBuyerCart().find(
-            (cartItem) => String(cartItem.id) === String(product?.id)
+            (cartItem) => getBuyerCartItemKey(cartItem) === getBuyerCartItemKey({
+                id: product?.id,
+                variant_id: selectedVariant?.id,
+            })
         );
         return Number(item?.quantity || 0);
-    }, [product?.id]);
+    }, [product?.id, selectedVariant?.id]);
 
     const showMessage = (message, type = "success") => {
         setActionMessage(message);
@@ -233,7 +223,19 @@ function ProductDetails() {
             return;
         }
 
-        const result = addProductToCart(getBuyerCart(), product, requestedQuantity);
+        const cartProduct = selectedVariant
+            ? {
+                ...product,
+                variant_id: selectedVariant.id,
+                variant_name: [
+                    selectedVariant.color ? `Color: ${selectedVariant.color}` : "",
+                    selectedVariant.size ? `Size: ${selectedVariant.size}` : "",
+                ].filter(Boolean).join(" · "),
+                price,
+                stock,
+            }
+            : product;
+        const result = addProductToCart(getBuyerCart(), cartProduct, requestedQuantity);
         if (!result.success) {
             showMessage(
                 result.reason === "insufficient_stock"
@@ -252,7 +254,7 @@ function ProductDetails() {
         if (redirectToCheckout) {
             localStorage.setItem(
                 CHECKOUT_ITEMS_KEY,
-                JSON.stringify([product.id])
+                JSON.stringify([getBuyerCartItemKey(cartProduct)])
             );
 
             navigate("/checkout");
@@ -334,6 +336,20 @@ function ProductDetails() {
         );
     };
 
+    const selectVariantOption = (field, value) => {
+        const matchingVariants = variants.filter((variant) => String(variant[field] || "") === value);
+        const currentVariant = matchingVariants.find((variant) =>
+            Number(variant.stock) > 0 &&
+            (field === "color"
+                ? String(variant.size || "") === String(selectedVariant?.size || "")
+                : String(variant.color || "") === String(selectedVariant?.color || ""))
+        );
+        const availableVariant = currentVariant || matchingVariants.find((variant) => Number(variant.stock) > 0) || matchingVariants[0];
+        setSelectedVariantId(String(availableVariant?.id || ""));
+        setQuantity(1);
+        setActiveMediaIndex(0);
+    };
+
     if (loading) {
         return (
             <main className="product-details-page">
@@ -379,7 +395,7 @@ function ProductDetails() {
         );
     }
 
-    const mediaItems = Array.isArray(product.media) && product.media.length
+    const productMedia = Array.isArray(product.media) && product.media.length
         ? product.media.filter((media) => media?.url && ["image", "video"].includes(media.type))
         : [
             ...(Array.isArray(product.images)
@@ -389,6 +405,15 @@ function ProductDetails() {
         ]
             .filter((url, index, urls) => typeof url === "string" && url.trim() && urls.indexOf(url) === index)
             .map((url) => ({ type: "image", url }));
+    const variantMedia = selectedVariant?.media_url
+        ? { type: selectedVariant.media_type || "image", url: selectedVariant.media_url }
+        : null;
+    const colorPhoto = selectedVariant?.color_image_url;
+    const mediaItems = variantMedia
+        ? [variantMedia, ...productMedia.filter((media) => media.url !== variantMedia.url)]
+        : colorPhoto
+            ? [{ type: "image", url: colorPhoto }, ...productMedia.filter((media) => media.url !== colorPhoto)]
+            : productMedia;
     const activeMedia = mediaItems[activeMediaIndex] || mediaItems[0] || null;
     const image = activeMedia?.type === "image" ? activeMedia.url : product.image || null;
 
@@ -514,13 +539,51 @@ function ProductDetails() {
                                 ₱
                                 {price.toLocaleString()}
                             </strong>
-                            {Number(product.original_price) > price && (
+                            {originalPrice > price && (
                                 <span className="product-detail-sale-price">
-                                    <del>₱{Number(product.original_price).toLocaleString()}</del>
-                                    <b>{Math.round((1 - price / Number(product.original_price)) * 100)}% off</b>
+                                    <del>₱{originalPrice.toLocaleString()}</del>
+                                    <b>{Math.round((1 - price / originalPrice) * 100)}% off</b>
                                 </span>
                             )}
                         </div>
+
+                        {variants.length > 0 && (
+                            <div className="product-variant-options">
+                                {["color", "size"].filter((field) => variants.some((variant) => variant[field])).map((field) => {
+                                    const options = [...new Set(variants.map((variant) => variant[field]).filter(Boolean))];
+                                    return (
+                                        <fieldset className="product-variant-group" key={field}>
+                                            <legend>{field === "color" ? "Color" : "Size"}</legend>
+                                            <div className="product-variant-buttons">
+                                                {options.map((option) => {
+                                                    const value = String(option);
+                                                    const available = variants.some((variant) =>
+                                                        String(variant[field] || "") === value
+                                                        && Number(variant.stock) > 0
+                                                        && (field !== "size"
+                                                            || !selectedVariant?.color
+                                                            || String(variant.color || "") === String(selectedVariant.color))
+                                                    );
+                                                    const active = String(selectedVariant?.[field] || "") === value;
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={value}
+                                                            className={active ? "active" : ""}
+                                                            aria-pressed={active}
+                                                            disabled={!available}
+                                                            onClick={() => selectVariantOption(field, value)}
+                                                        >
+                                                            {value}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </fieldset>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         <div className="product-stock-row">
                             <span>
@@ -654,18 +717,18 @@ function ProductDetails() {
 
                         <div className="product-seller-card">
                             <div className="seller-avatar">
-                                {sellerName
+                                {shopName
                                     .slice(0, 2)
                                     .toUpperCase()}
                             </div>
 
                             <div>
                                 <span>
-                                    Sold by
+                                    Shop
                                 </span>
 
                                 <strong>
-                                    {sellerName}
+                                    {shopName}
                                 </strong>
                             </div>
                             <button type="button" className="product-contact-seller" onClick={contactSeller}>
@@ -737,11 +800,11 @@ function ProductDetails() {
 
                                 <div>
                                     <span>
-                                        Seller
+                                        Shop
                                     </span>
 
                                     <strong>
-                                        {sellerName}
+                                        {shopName}
                                     </strong>
                                 </div>
                             </div>

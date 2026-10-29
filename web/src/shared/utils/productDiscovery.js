@@ -19,11 +19,24 @@ export function getProductSellerName(seller) {
     return fullName || String(seller.name || seller.business_name || "").trim();
 }
 
+export function getProductShopName(seller) {
+    if (typeof seller === "string") return seller.trim();
+    if (!seller || typeof seller !== "object") return "";
+
+    return String(
+        seller.seller_profile?.business_name
+        || seller.sellerProfile?.business_name
+        || seller.shop_name
+        || seller.business_name
+        || "CRYMA Shop",
+    ).trim();
+}
+
 export function matchesProductSearch(product, search) {
     const keyword = String(search || "").trim().toLocaleLowerCase();
     if (!keyword) return true;
 
-    return [product?.name, getProductCategory(product), getProductSellerName(product?.seller)]
+    return [product?.name, getProductCategory(product), getProductSellerName(product?.seller), getProductShopName(product?.seller)]
         .some((value) => String(value || "").toLocaleLowerCase().includes(keyword));
 }
 

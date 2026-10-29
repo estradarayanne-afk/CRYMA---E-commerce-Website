@@ -12,6 +12,7 @@ import {
     isBuyerSession,
     saveBuyerCart,
 } from "../../../shared/utils/buyerAccess";
+import { getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
 
 import "./Cart.css";
 
@@ -60,7 +61,7 @@ function readSelectedIds(cart) {
                     const stock = getKnownStock(item);
                     return stock === null || stock > 0;
                 })
-                .map((item) => String(item.id));
+                .map((item) => getBuyerCartItemKey(item));
         }
 
         const availableIds = new Set(
@@ -69,19 +70,23 @@ function readSelectedIds(cart) {
                     const stock = getKnownStock(item);
                     return stock === null || stock > 0;
                 })
-                .map((item) => String(item.id))
+                .map((item) => getBuyerCartItemKey(item))
         );
 
         return stored
             .map(String)
-            .filter((id) => availableIds.has(id));
+            .flatMap((id) => {
+                if (availableIds.has(id)) return [id];
+                const legacyMatches = cart.filter((item) => String(item.id) === id);
+                return legacyMatches.length === 1 ? [getBuyerCartItemKey(legacyMatches[0])] : [];
+            });
     } catch {
         return cart
             .filter((item) => {
                 const stock = getKnownStock(item);
                 return stock === null || stock > 0;
             })
-            .map((item) => String(item.id));
+            .map((item) => getBuyerCartItemKey(item));
     }
 }
 
@@ -133,7 +138,7 @@ function Cart() {
 
     const updateQuantity = (id, nextQuantity) => {
         const item = cart.find(
-            (cartItem) => String(cartItem.id) === String(id)
+            (cartItem) => getBuyerCartItemKey(cartItem) === String(id)
         );
 
         if (!item) {
@@ -172,7 +177,7 @@ function Cart() {
         }
 
         const nextCart = cart.map((cartItem) =>
-            String(cartItem.id) === String(id)
+            getBuyerCartItemKey(cartItem) === String(id)
                 ? {
                       ...cartItem,
                       quantity: safeQuantity,
@@ -206,7 +211,7 @@ function Cart() {
             const stock = getKnownStock(item);
             return stock === null || stock > 0;
         })
-        .map((item) => String(item.id));
+        .map((item) => getBuyerCartItemKey(item));
 
     const allSelected =
         availableCartIds.length > 0 &&
@@ -237,10 +242,10 @@ function Cart() {
             return;
         }
 
-        const removedIds = new Set(deleteTarget.items.map((item) => String(item.id)));
+        const removedIds = new Set(deleteTarget.items.map(getBuyerCartItemKey));
 
         const nextCart = cart.filter(
-            (cartItem) => !removedIds.has(String(cartItem.id))
+            (cartItem) => !removedIds.has(getBuyerCartItemKey(cartItem))
         );
 
         saveCart(nextCart);
@@ -262,7 +267,7 @@ function Cart() {
 
     const selectedItems = useMemo(() => {
         const selectedSet = new Set(selectedIds.map(String));
-        return cart.filter((item) => selectedSet.has(String(item.id)));
+        return cart.filter((item) => selectedSet.has(getBuyerCartItemKey(item)));
     }, [cart, selectedIds]);
 
     const requestRemoveSelected = () => {
@@ -329,7 +334,7 @@ function Cart() {
         localStorage.setItem(
             "cryma_checkout_item_ids",
             JSON.stringify(
-                selectedItems.map((item) => item.id)
+                selectedItems.map((item) => getBuyerCartItemKey(item))
             )
         );
 
@@ -483,7 +488,7 @@ function Cart() {
 
                                 const selected =
                                     selectedIds.includes(
-                                        String(item.id)
+                                        getBuyerCartItemKey(item)
                                     );
                                 const itemImage = [item.image, item.image_url, item.thumbnail, item.displayImage]
                                     .find((value) => typeof value === "string" && value.trim());
@@ -625,7 +630,7 @@ function Cart() {
                                                     }
                                                     onClick={() =>
                                                         updateQuantity(
-                                                            item.id,
+                                                            getBuyerCartItemKey(item),
                                                             quantity -
                                                                 1
                                                         )
@@ -655,7 +660,7 @@ function Cart() {
                                                         event
                                                     ) =>
                                                         handleQuantityInput(
-                                                            item.id,
+                                                            getBuyerCartItemKey(item),
                                                             event
                                                                 .target
                                                                 .value
@@ -672,7 +677,7 @@ function Cart() {
                                                     }
                                                     onClick={() =>
                                                         updateQuantity(
-                                                            item.id,
+                                                            getBuyerCartItemKey(item),
                                                             quantity +
                                                                 1
                                                         )

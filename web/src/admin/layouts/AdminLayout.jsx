@@ -3,12 +3,14 @@ import { useEffect, useState } from "react";
 import api from "../../shared/services/api";
 
 import "./AdminLayout.css";
+import "./AdminWorkspace.css";
 
 const NAV = [
     { to: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
     { to: "/admin/registrations", label: "Registrations", icon: "registrations" },
     { to: "/admin/users", label: "User Accounts", icon: "users" },
     { to: "/admin/seller-compliance", label: "Seller Compliance", icon: "compliance" },
+    { to: "/admin/store-name-requests", label: "Store Name Requests", icon: "store" },
     { to: "/admin/complaints", label: "Complaints", icon: "complaints" },
     { to: "/admin/commission", label: "Commission", icon: "commission" },
     { to: "/admin/vouchers", label: "Vouchers", icon: "vouchers" },
@@ -24,6 +26,7 @@ const AdminIcon = ({ name, className }) => {
         users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
         deliveries: <><path d="M3 7h11v11H3zM14 11h4l3 3v4h-7" /><circle cx="7.5" cy="19" r="1.5" /><circle cx="17.5" cy="19" r="1.5" /></>,
         compliance: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></>,
+        store: <><path d="M3 10h18l-1.2-5H4.2L3 10Z"/><path d="M5 10v10h14V10M9 20v-6h6v6"/><path d="M3 10c0 2 3 3 4 0 1 3 4 3 5 0 1 3 4 3 5 0 1 3 4 2 4 0"/></>,
         complaints: <><path d="m10.3 3-8.5 14a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3a2 2 0 0 0-3.4 0z" /><path d="M12 9v4m0 4h.01" /></>,
         commission: <><path d="M12 2v20M17 5.5C16.2 4.5 14.7 4 13 4h-2c-2.2 0-4 1.3-4 3s1.8 3 4 3h2c2.2 0 4 1.3 4 3s-1.8 3-4 3h-2c-1.7 0-3.2-.5-4-1.5" /></>,
         vouchers: <><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2a2 2 0 0 1 0-2.8l7.2-7.2a2 2 0 0 1 2.8 0l7.2 7.2a2 2 0 0 1 0 2.8z" /><circle cx="8.5" cy="8.5" r="1" /></>,

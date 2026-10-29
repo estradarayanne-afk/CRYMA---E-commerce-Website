@@ -64,6 +64,61 @@ class OrderCheckoutIntegrityTest extends TestCase
         ]);
     }
 
+    public function test_checkout_uses_the_selected_variant_price_and_decrements_its_stock(): void
+    {
+        [$buyer, $product] = $this->buyerAndProduct(price: '50.00', stock: 7);
+        $redMediumId = 'c4dece55-a7a5-4c44-a5e5-55504c469067';
+        $blueLargeId = '9b82222b-5d8c-412a-851f-02318cb7bde8';
+        $product->update([
+            'variants' => [
+                ['id' => $redMediumId, 'color' => 'Red', 'size' => 'M', 'price' => '50.00', 'discounted_price' => '40.00', 'stock' => 3],
+                ['id' => $blueLargeId, 'color' => 'Blue', 'size' => 'L', 'price' => '60.00', 'discounted_price' => null, 'stock' => 4],
+            ],
+        ]);
+
+        $response = $this->actingAs($buyer, 'sanctum')
+            ->withHeader('Idempotency-Key', '2f04175d-2335-4e22-8b66-c107af540996')
+            ->postJson('/api/orders', array_merge($this->checkoutPayload($product, 2), [
+                'items' => [[
+                    'product_id' => $product->id,
+                    'variant_id' => $redMediumId,
+                    'quantity' => 2,
+                ]],
+            ]));
+
+        $response->assertCreated()
+            ->assertJsonPath('data.subtotal', '80.00')
+            ->assertJsonPath('data.items.0.variant_label', 'Color: Red · Size: M')
+            ->assertJsonPath('data.items.0.unit_price', 40);
+
+        $this->assertSame(5, $product->fresh()->stock);
+        $this->assertSame(1, $product->fresh()->variants[0]['stock']);
+        $this->assertSame(4, $product->fresh()->variants[1]['stock']);
+    }
+
+    public function test_checkout_requires_a_valid_variant_for_products_with_variants(): void
+    {
+        [$buyer, $product] = $this->buyerAndProduct(price: '50.00', stock: 2);
+        $product->update([
+            'variants' => [[
+                'id' => 'c4dece55-a7a5-4c44-a5e5-55504c469067',
+                'color' => 'Red',
+                'size' => null,
+                'price' => '50.00',
+                'discounted_price' => null,
+                'stock' => 2,
+            ]],
+        ]);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->withHeader('Idempotency-Key', '885ca9ac-bfd3-4a2c-a910-d506890222d0')
+            ->postJson('/api/orders', $this->checkoutPayload($product, 1))
+            ->assertUnprocessable();
+
+        $this->assertSame(0, Order::count());
+        $this->assertSame(2, $product->fresh()->stock);
+    }
+
     public function test_repeated_checkout_key_returns_the_same_order_without_decrementing_stock_twice(): void
     {
         [$buyer, $product] = $this->buyerAndProduct(price: '25.00', stock: 4);

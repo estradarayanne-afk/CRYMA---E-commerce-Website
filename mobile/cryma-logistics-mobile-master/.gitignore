@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Database & uploads (local data only)
+storage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test coverage
+coverage/
+.nyc_output/
+.eslintcache
+
+# Internal agent/workflow files
+.agents/
+
+# Temp dev folder
+tempdev/
+
+# Flutter
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+flutter_app/build/
+*.g.dart
+
+# Android local config (machine-specific)
+flutter_app/android/local.properties
+flutter_app/android/.gradle/
+flutter_app/android/app/debug/
+flutter_app/android/app/profile/
+flutter_app/android/app/release/
+
+# Lock files (optional — keeping package-lock for reproducibility)
+# package-lock.json

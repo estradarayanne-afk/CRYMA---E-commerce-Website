@@ -14,7 +14,14 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'subtotal',
+        'unit_weight_kg',
+        'variant_label',
     ];
+
+    protected function casts(): array
+    {
+        return ['unit_weight_kg' => 'decimal:3'];
+    }
 
     public function order(): BelongsTo
     {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Users.css";
 
 function Users() {
@@ -44,6 +45,8 @@ function Users() {
         email: "",
         phone: "",
         role: "buyer",
+        password: "",
+        password_confirmation: "",
     });
 
     /* =========================================
@@ -215,6 +218,8 @@ function Users() {
             email: user.email || "",
             phone: user.phone || "",
             role: user.role || "buyer",
+            password: "",
+            password_confirmation: "",
         });
 
         setEditMode(true);
@@ -258,9 +263,15 @@ function Users() {
         setError("");
 
         try {
+            const payload = { ...editForm };
+            if (!payload.password && !payload.password_confirmation) {
+                delete payload.password;
+                delete payload.password_confirmation;
+            }
+
             const response = await api.patch(
                 `/admin/users/${selectedUser.id}`,
-                editForm
+                payload
             );
 
             const updatedUser = response.data.data;
@@ -588,8 +599,7 @@ function Users() {
                                                 <span className={`user-status ${getStatusClass(
                                                     user.status
                                                 )}`}>
-                                                    {user.status ||
-                                                        "Unknown"}
+                                                    {formatStatusLabel(user.status)}
                                                 </span>
                                             </td>
 
@@ -746,6 +756,7 @@ function Users() {
                                         {getRoleLabel(selectedUser.role)}
                                     </span>
                                     <span className={`user-status ${getStatusClass(selectedUser.status)}`}>
+                                        {formatStatusLabel(selectedUser.status)}
                                         {selectedUser.status || "Unknown"}
                                     </span>
                                 </div>
@@ -787,8 +798,7 @@ function Users() {
                                     <span>Status</span>
 
                                     <strong>
-                                        {selectedUser.status ||
-                                            "Unknown"}
+                                        {formatStatusLabel(selectedUser.status)}
                                     </strong>
                                 </div>
 
@@ -822,8 +832,7 @@ function Users() {
                                     Current status:
                                     <strong>
                                         {" "}
-                                        {selectedUser.status ||
-                                            "Unknown"}
+                                        {formatStatusLabel(selectedUser.status)}
                                     </strong>
                                 </p>
 
@@ -1040,6 +1049,42 @@ function Users() {
                                                 Logistics / Sorting Center
                                             </option>
                                         </select>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="edit-user-password">
+                                            New Password (optional)
+                                        </label>
+
+                                        <input
+                                            id="edit-user-password"
+                                            type="password"
+                                            name="password"
+                                            value={editForm.password}
+                                            onChange={handleEditChange}
+                                            autoComplete="new-password"
+                                            minLength={8}
+                                            maxLength={128}
+                                            disabled={saving}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="edit-user-password-confirmation">
+                                            Confirm New Password
+                                        </label>
+
+                                        <input
+                                            id="edit-user-password-confirmation"
+                                            type="password"
+                                            name="password_confirmation"
+                                            value={editForm.password_confirmation}
+                                            onChange={handleEditChange}
+                                            autoComplete="new-password"
+                                            minLength={8}
+                                            maxLength={128}
+                                            disabled={saving}
+                                        />
                                     </div>
 
                                 </div>

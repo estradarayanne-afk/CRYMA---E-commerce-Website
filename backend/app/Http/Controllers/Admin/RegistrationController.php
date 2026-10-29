@@ -179,7 +179,20 @@ public function approve(int $id)
             'email'       => ['sometimes', 'email', 'unique:users,email,' . $id],
             'phone'       => ['nullable', 'string', 'max:20'],
             'role'        => ['sometimes', 'in:buyer,seller,rider,logistics'],
+            'password'    => ['sometimes', 'required', 'string', 'min:8', 'max:128', 'confirmed'],
+            'password_confirmation' => [
+                'sometimes',
+                'required_with:password',
+                'string',
+                function ($attribute, $value, $fail) use ($request) {
+                    if (! $request->filled('password')) {
+                        $fail('A new password is required when confirming a password.');
+                    }
+                },
+            ],
         ]);
+
+        unset($data['password_confirmation']);
 
         if (($data['role'] ?? null) === 'logistics' && $user->role !== 'logistics') {
             return response()->json([

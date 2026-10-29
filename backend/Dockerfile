@@ -17,12 +17,14 @@ COPY . .
 RUN composer install --no-dev --optimize-autoloader
 
 RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views \
-    storage/logs storage/app/private storage/app/public bootstrap/cache database \
-    && touch database/database.sqlite \
-    && chown -R www-data:www-data storage bootstrap/cache database
+    storage/logs storage/app/private storage/app/public bootstrap/cache database /data \
+    && touch /data/database.sqlite \
+    && chown -R www-data:www-data storage bootstrap/cache database /data
+
+RUN php artisan storage:link --force
 
 ENV DB_CONNECTION=sqlite
-ENV DB_DATABASE=/var/www/database/database.sqlite
+ENV DB_DATABASE=/data/database.sqlite
 
 EXPOSE 10000
 

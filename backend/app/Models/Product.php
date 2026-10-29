@@ -19,6 +19,8 @@ class Product extends Model
         'description',
         'price',
         'discounted_price',
+        'weight_kg',
+        'variants',
         'stock',
         'category',
         'status',
@@ -33,6 +35,8 @@ class Product extends Model
         return [
             'price' => 'decimal:2',
             'discounted_price' => 'decimal:2',
+            'weight_kg' => 'decimal:3',
+            'variants' => 'array',
             'stock' => 'integer',
             'reviewed_at' => 'datetime',
         ];

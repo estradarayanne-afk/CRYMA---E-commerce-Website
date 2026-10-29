@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
     addProductToCart,
+    getBuyerCartItemKey,
     getProductDetailPath,
     toggleWishlistProduct,
 } from "./buyerProductActions.js";
@@ -31,4 +32,17 @@ test("cart action adds a new item with its requested quantity", () => {
     const result = addProductToCart([], { id: 5, name: "Item", stock: 8 }, 2);
     assert.equal(result.success, true);
     assert.deepEqual(result.cart, [{ id: 5, name: "Item", stock: 8, quantity: 2 }]);
+});
+
+test("cart keys keep separate product variants as separate line items", () => {
+    const red = { id: 5, variant_id: "red-m", variant_name: "Red · M", price: "20.00", stock: 2 };
+    const blue = { id: 5, variant_id: "blue-m", variant_name: "Blue · M", price: "22.00", stock: 3 };
+    const first = addProductToCart([], red);
+    const second = addProductToCart(first.cart, blue);
+    const sameVariant = addProductToCart(second.cart, red);
+
+    assert.equal(getBuyerCartItemKey(red), "5::red-m");
+    assert.equal(second.cart.length, 2);
+    assert.equal(sameVariant.cart.length, 2);
+    assert.equal(sameVariant.cart.find((item) => item.variant_id === "red-m").quantity, 2);
 });

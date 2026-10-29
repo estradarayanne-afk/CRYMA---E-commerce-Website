@@ -1,0 +1,160 @@
+.al-content {
+    --admin-surface: var(--white);
+    --admin-border: var(--color-border);
+    --admin-muted: var(--text-muted);
+    --admin-ink: var(--text-primary);
+    --admin-soft: var(--surface-neutral);
+}
+
+.al-content :is(
+    .dashboard-page,
+    .users-page,
+    .registrations-page,
+    .complaints-page,
+    .commission-page,
+    .reports-page,
+    .settings-page,
+    .seller-compliance-page,
+    .voucher-admin-page,
+    .account-settings-page,
+    .chat-page,
+    .ad-page
+) {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    color: var(--admin-ink);
+}
+
+.al-content :is(
+    .dashboard-page-header,
+    .users-header,
+    .registrations-header,
+    .complaints-header,
+    .commission-header,
+    .reports-page-header,
+    .settings-page-header,
+    .seller-compliance-header,
+    .account-page-header,
+    .chat-page-header
+) {
+    margin-bottom: 24px;
+}
+
+.al-content :is(
+    .dashboard-page-header h1,
+    .users-header h1,
+    .registrations-header h1,
+    .complaints-header h1,
+    .commission-header h1,
+    .reports-page-header h1,
+    .settings-page-header h1,
+    .seller-compliance-header h1,
+    .account-page-header h1,
+    .chat-page-header h1
+) {
+    color: var(--admin-ink);
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    line-height: 1.25;
+}
+
+.al-content :is(
+    .dashboard-page-header p,
+    .users-header p,
+    .registrations-header p,
+    .complaints-header p,
+    .commission-header p,
+    .reports-page-header p,
+    .settings-page-header p,
+    .seller-compliance-header p,
+    .account-page-header p,
+    .chat-page-header p
+) {
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.al-content :is(
+    [class*="-card"],
+    [class*="-panel"]
+) {
+    border-color: var(--admin-border);
+    border-radius: var(--radius-md);
+    background-color: var(--admin-surface);
+}
+
+.al-content :is(
+    [class$="-table"] thead,
+    [class$="-table"] thead tr
+) {
+    background: var(--admin-soft);
+}
+
+.al-content :is(
+    [class$="-table"] th
+) {
+    border-color: var(--admin-border);
+    color: var(--admin-muted);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+}
+
+.al-content :is(
+    [class$="-table"] td
+) {
+    border-color: var(--border-neutral);
+    color: var(--text-tertiary);
+    font-size: 13px;
+}
+
+.al-content :is(
+    [class$="-table"] tbody tr:hover
+) {
+    background: var(--rose-cream);
+}
+
+.al-content :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea
+) {
+    border-color: var(--admin-border);
+    border-radius: 9px;
+    color: var(--admin-ink);
+}
+
+.al-content :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea
+):focus {
+    border-color: var(--crimson);
+    box-shadow: var(--focus-ring);
+}
+
+@media (max-width: 700px) {
+    .al-content {
+        padding: 20px 16px 28px;
+    }
+
+    .al-content :is(
+        .dashboard-page-header,
+        .users-header,
+        .registrations-header,
+        .complaints-header,
+        .commission-header,
+        .reports-page-header,
+        .settings-page-header,
+        .seller-compliance-header,
+        .account-page-header,
+        .chat-page-header
+    ) {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+    }
+}

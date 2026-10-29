@@ -8,3 +8,28 @@
 .cw-root--collapsed{--cw-sidebar-width:78px}.cw-root--collapsed .cw-sidebar{padding-inline:10px}.cw-root--collapsed .cw-brand-copy,.cw-root--collapsed .cw-collapse-button{display:none}.cw-root--collapsed .cw-sidebar-brand-row{justify-content:center}.cw-root--collapsed .cw-nav-caption,.cw-root--collapsed .cw-nav a span,.cw-root--collapsed .cw-user-copy,.cw-root--collapsed .cw-logout span{display:none}.cw-root--collapsed .cw-nav a{justify-content:center;padding:0}.cw-root--collapsed .cw-nav a.active:before{left:-10px}.cw-root--collapsed .cw-sidebar-user{justify-content:center;padding-inline:0}.cw-root--collapsed .cw-logout{justify-content:center;padding:0}
 @media(max-width:760px){.cw-root{--cw-sidebar-width:276px}.cw-sidebar{transform:translateX(-105%);box-shadow:10px 0 40px rgba(38,21,26,.15)}.cw-root--mobile-open .cw-sidebar{transform:translateX(0)}.cw-sidebar-backdrop{position:fixed;z-index:40;inset:0;display:block;border:0;background:rgba(38,21,26,.42);opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}.cw-root--mobile-open .cw-sidebar-backdrop{opacity:1;visibility:visible}.cw-main,.cw-root--collapsed .cw-main{margin-left:0}.cw-root--collapsed .cw-sidebar{padding:20px 14px 14px}.cw-root--collapsed .cw-brand-copy,.cw-root--collapsed .cw-nav-caption,.cw-root--collapsed .cw-nav a span,.cw-root--collapsed .cw-user-copy,.cw-root--collapsed .cw-logout span{display:initial}.cw-root--collapsed .cw-sidebar-brand-row{justify-content:initial}.cw-root--collapsed .cw-sidebar-user{justify-content:flex-start;padding:7px 8px}.cw-root--collapsed .cw-logout{justify-content:flex-start;padding:0 12px}.cw-root--collapsed .cw-nav a{justify-content:flex-start;padding:0 13px}.cw-root--collapsed .cw-nav a.active:before{left:-14px}.cw-collapse-button{display:none}.cw-mobile-close,.cw-mobile-menu{display:grid}.cw-header{height:64px;padding:0 16px}.cw-header-greeting{max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.cw-content{padding:19px 16px 30px}}
 @media(prefers-reduced-motion:reduce){.cw-sidebar,.cw-main,.cw-sidebar-backdrop{transition:none}}
+
+.cw-root{--cw-sidebar-width:260px;background:var(--rose-cream,#fff7f8);font-family:"Poppins",sans-serif}
+.cw-sidebar{padding:0}
+.cw-sidebar-brand-row{height:72px;padding:0 18px;border-bottom:1px solid var(--color-border,#f0dde2)}
+.cw-brand-mark{width:38px;height:38px;flex-basis:38px;border:1px solid var(--color-border,#f0dde2);border-radius:11px;background:var(--blush,#f9dce4);color:var(--crimson,#b21f3a);font-size:17px;font-weight:700}
+.cw-brand-copy strong{color:var(--wine,#4b1725);font-size:16px;letter-spacing:.4px}
+.cw-brand-copy small{font-size:9px;letter-spacing:.7px;text-transform:uppercase}
+.cw-nav-caption{padding:24px 22px 10px;color:var(--text-muted,#8a6871);font-size:9px;font-weight:600;letter-spacing:1.3px}
+.cw-nav{gap:4px;padding:0 12px}
+.cw-nav a{min-height:46px;gap:13px;border:1px solid transparent;border-radius:11px;color:#5f4a50;font-size:13px;font-weight:550}
+.cw-nav a:hover{background:var(--rose-cream,#fff7f8);color:var(--crimson,#b21f3a);transform:translateX(2px)}
+.cw-nav a.active{border-color:#f2cad4;background:var(--blush,#f9dce4);box-shadow:inset 3px 0 0 var(--crimson,#b21f3a);color:var(--crimson,#b21f3a)}
+.cw-nav a.active:before{display:none}
+.cw-sidebar-footer{padding:14px;border-top-color:var(--color-border,#f0dde2)}
+.cw-main{width:calc(100% - var(--cw-sidebar-width))}
+.cw-header{height:72px;padding-inline:30px}
+.cw-content{width:100%;max-width:none;padding:28px 30px 40px}
+.cw-root--collapsed{--cw-sidebar-width:82px}
+.cw-root--collapsed .cw-sidebar{padding:0}
+.cw-root--collapsed .cw-sidebar-brand-row{height:72px;padding-inline:18px}
+.cw-root--collapsed .cw-brand-mark{display:grid}
+.cw-page .cw-page-heading h1,.cw-state h1{font-size:25px;font-weight:700;letter-spacing:-.4px}
+.cw-eyebrow{font-size:9px;font-weight:700;letter-spacing:1.2px;color:var(--deep-crimson,#7e1830)}
+@media(max-width:900px){.cw-root{--cw-sidebar-width:235px}.cw-header{padding-inline:20px}.cw-content{padding:24px 20px 32px}}
+@media(max-width:760px){.cw-root{--cw-sidebar-width:276px}.cw-sidebar{padding:0}.cw-root--collapsed .cw-sidebar{padding:0}.cw-sidebar-brand-row{height:64px;padding-inline:14px}.cw-header{height:64px;padding-inline:16px}.cw-content{padding:20px 16px 30px}.cw-main,.cw-root--collapsed .cw-main{width:100%;margin-left:0}}

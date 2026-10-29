@@ -14,6 +14,7 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 
 import api from "../../../shared/services/api";
+import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 
 import "./Orders.css";
 
@@ -156,7 +157,7 @@ function Orders() {
                 .toLowerCase();
 
         if (normalized === "pending") {
-            return "Order placed";
+            return "Order Placed";
         }
 
         const match =
@@ -170,13 +171,7 @@ function Orders() {
             return match.label;
         }
 
-        return normalized
-            ? normalized
-                  .replaceAll("_", " ")
-                  .replace(/\b\w/g, (letter) =>
-                      letter.toUpperCase()
-                  )
-            : "Unknown";
+        return formatStatusLabel(normalized);
     };
 
     const getStatusClass = (status) => {
