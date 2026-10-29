@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\SellerProfile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -42,6 +43,7 @@ class StorefrontController extends Controller
             'storefront_settings' => ['sometimes', 'array'],
             'storefront_settings.hero_title' => ['nullable', 'string', 'max:100'],
             'storefront_settings.hero_subtitle' => ['nullable', 'string', 'max:200'],
+            'storefront_settings.on_vacation' => ['sometimes', 'boolean'],
             'storefront_settings.categories' => ['present', 'array', 'max:20'],
             'storefront_settings.categories.*' => ['string', 'max:100', 'distinct'],
             'storefront_settings.featured_product_ids' => ['present', 'array', 'max:12'],
@@ -56,6 +58,35 @@ class StorefrontController extends Controller
             'success' => true,
             'message' => 'Storefront saved.',
             'data' => $this->storeData($profile->fresh()),
+        ]);
+    }
+
+    public function updateVacationMode(Request $request)
+    {
+        $validated = $request->validate([
+            'on_vacation' => ['required', 'boolean'],
+        ]);
+
+        $profile = DB::transaction(function () use ($request, $validated) {
+            $profile = SellerProfile::query()
+                ->where('user_id', $request->user()->id)
+                ->lockForUpdate()
+                ->first();
+            abort_unless($profile, 404, 'Seller profile not found.');
+
+            $settings = $profile->storefront_settings ?? [];
+            $settings['on_vacation'] = (bool) $validated['on_vacation'];
+            $profile->forceFill(['storefront_settings' => $settings])->save();
+
+            return $profile->fresh();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => $profile->storefront_settings['on_vacation']
+                ? 'Vacation mode is on. Buyers can browse and favorite products, but cannot order.'
+                : 'Vacation mode is off. Buyers can place orders again.',
+            'data' => $this->storeData($profile),
         ]);
     }
 
@@ -144,6 +175,7 @@ class StorefrontController extends Controller
             'logo_url' => $profile->store_logo_url,
             'banner_url' => $profile->store_banner_url,
             'settings' => $profile->storefront_settings,
+            'on_vacation' => (bool) data_get($profile->storefront_settings, 'on_vacation', false),
         ];
     }
 
@@ -160,6 +192,7 @@ class StorefrontController extends Controller
         $data['seller'] = [
             'id' => $product->seller_id,
             'seller_profile' => ['business_name' => $product->seller?->sellerProfile?->business_name],
+            'is_on_vacation' => (bool) data_get($product->seller?->sellerProfile?->storefront_settings, 'on_vacation', false),
         ];
 
         return $data;

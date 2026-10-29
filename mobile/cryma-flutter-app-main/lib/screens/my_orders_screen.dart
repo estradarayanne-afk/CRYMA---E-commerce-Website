@@ -315,7 +315,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       // BOTTOM NAVIGATION
       // ============================================================
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(top: BorderSide(color: AppColors.lightGray, width: 1)),
         ),
@@ -632,7 +632,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Start shopping to place an order',
             style: TextStyle(
               fontSize: 13,

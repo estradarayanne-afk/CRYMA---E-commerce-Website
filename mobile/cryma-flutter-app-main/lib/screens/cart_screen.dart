@@ -395,7 +395,7 @@ class _CartScreenState extends State<CartScreen> {
         ),
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(top: BorderSide(color: AppColors.lightGray, width: 1)),
         ),
@@ -604,7 +604,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Start shopping to add items',
             style: TextStyle(
               fontSize: 13,

@@ -174,7 +174,7 @@ class WelcomeScreen extends StatelessWidget {
                           backgroundColor: Colors.white,
                           elevation: 0,
                           padding: EdgeInsets.zero,
-                          side: BorderSide(
+                          side: const BorderSide(
                             color: AppColors.primary,
                             width: 2,
                           ),

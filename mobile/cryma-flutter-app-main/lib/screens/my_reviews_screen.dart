@@ -299,7 +299,7 @@ class MyReviewsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Start shopping and share your experience',
             style: TextStyle(
               fontSize: 13,

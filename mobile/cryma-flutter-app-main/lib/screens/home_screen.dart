@@ -255,11 +255,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.lightGray),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(Icons.search, color: AppColors.gray, size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
+                    Icon(Icons.search, color: AppColors.gray, size: 20),
+                    SizedBox(width: 8),
+                    Text(
                       'Search products, brands...',
                       style: TextStyle(
                         fontSize: 14,
@@ -293,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // BOTTOM NAVIGATION
       // ============================================================
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(top: BorderSide(color: AppColors.lightGray, width: 1)),
         ),

@@ -235,7 +235,7 @@ class WishlistScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Save your favorite items here',
             style: TextStyle(
                 fontSize: 13, color: AppColors.gray, fontFamily: 'Poppins'),

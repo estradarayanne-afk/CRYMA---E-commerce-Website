@@ -102,7 +102,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: AppColors.lightGray, width: 1),
+                    side: const BorderSide(color: AppColors.lightGray, width: 1),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -168,7 +168,7 @@ class OrderSuccessScreen extends StatelessWidget {
                       Navigator.pushReplacementNamed(context, '/home');
                     },
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.primary, width: 2),
+                      side: const BorderSide(color: AppColors.primary, width: 2),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),

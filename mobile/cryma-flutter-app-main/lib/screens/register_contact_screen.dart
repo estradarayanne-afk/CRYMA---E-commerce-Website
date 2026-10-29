@@ -16,21 +16,13 @@ class RegisterContactScreen extends StatefulWidget {
 }
 
 class _RegisterContactScreenState extends State<RegisterContactScreen> {
-  // ============================================================
-  // TEXT CONTROLLERS
-  // ============================================================
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _contactNumberController =
-      TextEditingController();
 
-  // ✅ NEW: GlobalKeys para sa validation
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _contactNumberController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _emailKey = GlobalKey<FormFieldState>();
   final _contactKey = GlobalKey<FormFieldState>();
 
-  // ============================================================
-  // DISPOSE
-  // ============================================================
   @override
   void dispose() {
     _emailController.dispose();
@@ -38,73 +30,20 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
     super.dispose();
   }
 
-  // ============================================================
-  // ✅ UPDATED: CONTINUE with validation
-  // ============================================================
   void _handleContinue() {
-    // 1. Validate lahat ng fields
     final isEmailValid = _emailKey.currentState?.validate() ?? false;
     final isContactValid = _contactKey.currentState?.validate() ?? false;
-
-    // ⛔ Kung may invalid, hindi mag-proceed
-    if (!isEmailValid || !isContactValid) {
-      return;
-    }
-
-    final email = _emailController.text.trim();
-    final contactNumber = _contactNumberController.text.trim();
-
-    final contactData = {
-      'email': email,
-      'contactNumber': contactNumber,
-    };
+    if (!isEmailValid || !isContactValid) return;
 
     Navigator.pushNamed(
       context,
       '/register_address',
       arguments: {
         'personalData': widget.personalData ?? {},
-        'contactData': contactData,
-      },
-    );
-  }
-
-  // ============================================================
-  // ALERT (for non-field errors)
-  // ============================================================
-  void _showAlert(String message) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text(
-            'Error',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        );
+        'contactData': {
+          'email': _emailController.text.trim(),
+          'contactNumber': _contactNumberController.text.trim(),
+        },
       },
     );
   }
@@ -211,10 +150,10 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
                     ),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Row(
+                  child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 2),
                         child: Icon(
                           Icons.email_outlined,
@@ -222,11 +161,11 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
                           color: Color(0xFF9CCFC0),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'A verification link will be sent to this email after registration.',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF687477),
                             fontFamily: 'Poppins',

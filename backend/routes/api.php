@@ -220,6 +220,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::middleware('role:seller')->group(function () {
     Route::get('/seller/storefront', [StorefrontController::class, 'show']);
     Route::patch('/seller/storefront', [StorefrontController::class, 'update']);
+    Route::patch('/seller/storefront/vacation-mode', [StorefrontController::class, 'updateVacationMode']);
     Route::post('/seller/storefront/name-change-request', [StorefrontController::class, 'requestNameChange']);
     Route::get('/seller/chat/conversations', [SellerChatController::class, 'conversations']);
     Route::get('/seller/chat/conversations/{id}', [SellerChatController::class, 'showConversation']);

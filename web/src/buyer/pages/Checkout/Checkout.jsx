@@ -474,6 +474,12 @@ function Checkout() {
             return false;
         }
 
+        const vacationItem = selectedCartItems.find((item) => item.seller_on_vacation === true);
+        if (vacationItem) {
+            setError("This seller is on vacation and is not accepting orders. Remove this item and try again when the seller returns.");
+            return false;
+        }
+
         if (appliedVoucherCode && (voucherLoading || !voucherPreview)) {
             setError(voucherError || "Wait for the selected voucher to finish validating, or remove it before placing your order.");
             return false;

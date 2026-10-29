@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\SellerProfile;
 use App\Models\Voucher;
 use App\Models\VoucherRedemption;
 use App\Support\VoucherDiscount;
@@ -337,6 +338,7 @@ class BuyerOrderController extends Controller
 
                 $items = [];
                 $variantStocks = [];
+                $vacationSellers = [];
                 $subtotalCents = 0;
 
                 $sellerIds = collect($validated['items'])
@@ -368,6 +370,21 @@ class BuyerOrderController extends Controller
                             422,
                             'One of the selected products is no longer available.'
                         );
+                    }
+
+                    $sellerId = (int) $product->seller_id;
+                    if (!array_key_exists($sellerId, $vacationSellers)) {
+                        $sellerProfile = SellerProfile::query()
+                            ->where('user_id', $sellerId)
+                            ->lockForUpdate()
+                            ->first();
+                        $vacationSellers[$sellerId] = [
+                            'on_vacation' => (bool) data_get($sellerProfile?->storefront_settings, 'on_vacation', false),
+                            'name' => $sellerProfile?->business_name ?: 'This seller',
+                        ];
+                    }
+                    if ($vacationSellers[$sellerId]['on_vacation']) {
+                        abort(422, $vacationSellers[$sellerId]['name'].' is on vacation and is not accepting orders. Please remove this item and try again when the seller returns.');
                     }
 
                     if ($product->stock < $requestedItem['quantity']) {
