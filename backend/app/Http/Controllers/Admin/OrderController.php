@@ -114,11 +114,7 @@ class OrderController extends Controller
                 abort(409, 'A cancelled order cannot be reopened.');
             }
             if ($currentStatus !== 'CANCELLED' && $validated['status'] === 'CANCELLED') {
-                foreach ($order->items as $item) {
-                    Product::whereKey($item->product_id)
-                        ->lockForUpdate()
-                        ->increment('stock', $item->quantity);
-                }
+                $this->restoreOrderStock($order);
             }
             $order->status = $validated['status'];
             $order->save();
@@ -130,5 +126,44 @@ class OrderController extends Controller
             'message' => 'Order status updated successfully.',
             'data' => $order,
         ]);
+    }
+    private function restoreOrderStock(Order $order): void
+    {
+        foreach ($order->items as $item) {
+            $product = Product::whereKey($item->product_id)->lockForUpdate()->first();
+            if (!$product) {
+                continue;
+            }
+
+            $variants = $product->variants ?? [];
+            if ($variants) {
+                $variantIndex = collect($variants)->search(function (array $variant) use ($item): bool {
+                    if (filled($item->variant_id)) {
+                        return (string) ($variant['id'] ?? '') === (string) $item->variant_id;
+                    }
+
+                    return filled($item->variant_label)
+                        && $this->variantLabel($variant) === $item->variant_label;
+                });
+
+                if ($variantIndex === false) {
+                    abort(409, "Cannot cancel order {$order->id}: a variant in the order no longer exists in product {$product->id}.");
+                }
+
+                $variants[$variantIndex]['stock'] = (int) ($variants[$variantIndex]['stock'] ?? 0) + (int) $item->quantity;
+                $product->variants = $variants;
+            }
+
+            $product->stock = (int) $product->stock + (int) $item->quantity;
+            $product->save();
+        }
+    }
+
+    private function variantLabel(array $variant): string
+    {
+        return collect([
+            filled($variant['color'] ?? null) ? 'Color: '.$variant['color'] : null,
+            filled($variant['size'] ?? null) ? 'Size: '.$variant['size'] : null,
+        ])->filter()->implode(' · ');
     }
 }
