@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductMedia;
+use App\Support\PublicStorageUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -29,7 +30,7 @@ class ProductController extends Controller
             'category' => ['nullable', 'string', 'max:255', Rule::in(array_merge(['All'], self::CATEGORIES))],
         ]);
 
-        $query = Product::with(['seller:id,first_name,last_name', 'media'])
+        $query = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'));
@@ -53,7 +54,7 @@ class ProductController extends Controller
      */
     public function publicShow(int $id)
     {
-        $product = Product::with(['seller:id,first_name,last_name', 'media'])
+        $product = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
@@ -87,6 +88,7 @@ class ProductController extends Controller
             ->where('seller_id', $user->id)
             ->latest()
             ->paginate($validated['per_page'] ?? 10);
+        $products->getCollection()->transform(fn (Product $product) => $this->sellerProductData($product));
 
         return response()->json([
             'success' => true,
@@ -120,22 +122,32 @@ class ProductController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'price' => ['required', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'weight_kg' => ['required', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
             'stock' => ['required', 'integer', 'min:0', 'max:4294967295'],
             'category' => ['required', Rule::in(self::CATEGORIES)],
             'status' => ['sometimes', 'required', 'in:active,inactive,out_of_stock'],
-            'variants' => ['sometimes', 'array', 'max:100'],
+            'variants' => ['sometimes', 'array', 'max:20'],
             'variants.*.id' => ['nullable', 'uuid', 'distinct'],
             'variants.*.color' => ['nullable', 'string', 'max:50'],
             'variants.*.size' => ['nullable', 'string', 'max:50'],
             'variants.*.price' => ['required_with:variants', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'variants.*.discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'variants.*.stock' => ['required_with:variants', 'integer', 'min:0', 'max:4294967295'],
+            'variant_media' => ['sometimes', 'array', 'max:20'],
+            'variant_media.*' => ['file', 'mimes:jpg,jpeg,png,webp,mp4,webm', 'max:1536'],
+            'variant_media_ids' => ['sometimes', 'array', 'max:20'],
+            'variant_media_ids.*' => ['required', 'uuid', 'distinct'],
+            'color_photos' => ['sometimes', 'array', 'max:8'],
+            'color_photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1536'],
+            'color_photo_colors' => ['sometimes', 'array', 'max:8'],
+            'color_photo_colors.*' => ['required', 'string', 'max:50'],
             'images' => ['sometimes', 'array', 'max:8'],
             'images.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1536'],
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
         $validated['variants'] = $this->normalizeVariantRows($validated['variants'] ?? []);
+        $this->validateVariantMediaInputs($validated['variants'], $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? [], [], $validated['color_photos'] ?? [], $validated['color_photo_colors'] ?? []);
         if ($validated['variants']) {
             $validated['price'] = $this->lowestVariantPrice($validated['variants']);
             $validated['discounted_price'] = null;
@@ -146,7 +158,13 @@ class ProductController extends Controller
         $this->validateDiscountedPrice($validated['discounted_price'] ?? null, $validated['price']);
         $storedPaths = [];
         try {
-            $product = DB::transaction(function () use ($user, $validated, &$storedPaths) {
+            $product = DB::transaction(function () use ($user, &$validated, &$storedPaths) {
+                $this->validateColorPhotoInputs(
+                    $validated['variants'],
+                    $validated['color_photos'] ?? [],
+                    $validated['color_photo_colors'] ?? [],
+                    []
+                );
                 $product = Product::create([
                     'seller_id' => $user->id,
                     'name' => $validated['name'],
@@ -154,6 +172,7 @@ class ProductController extends Controller
                     'description' => $validated['description'] ?? null,
                     'price' => $validated['price'],
                     'discounted_price' => $validated['discounted_price'] ?? null,
+                    'weight_kg' => $validated['weight_kg'],
                     'variants' => $validated['variants'] ?: null,
                     'stock' => $validated['stock'],
                     'category' => $validated['category'],
@@ -163,6 +182,26 @@ class ProductController extends Controller
                     'reviewed_by' => null,
                     'reviewed_at' => null,
                 ]);
+                $unusedPaths = [];
+                $validated['variants'] = $this->attachVariantPhotos(
+                    $product,
+                    $validated['variants'],
+                    [],
+                    $validated['color_photos'] ?? [],
+                    $validated['color_photo_colors'] ?? [],
+                    $storedPaths,
+                    $unusedPaths
+                );
+                $validated['variants'] = $this->attachVariantMedia(
+                    $product,
+                    $validated['variants'],
+                    [],
+                    $validated['variant_media'] ?? [],
+                    $validated['variant_media_ids'] ?? [],
+                    $storedPaths,
+                    $unusedPaths
+                );
+                $product->update(['variants' => $validated['variants'] ?: null]);
                 $this->storeMedia($product, $validated, $storedPaths);
 
                 return $product->load('media');
@@ -175,7 +214,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product submitted for admin review. It will appear in your storefront after approval.',
-            'data' => $product,
+            'data' => $this->sellerProductData($product),
         ], 201);
     }
 
@@ -205,7 +244,7 @@ class ProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $product,
+            'data' => $this->sellerProductData($product),
         ]);
     }
 
@@ -248,6 +287,7 @@ class ProductController extends Controller
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'discounted_price' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'weight_kg' => ['sometimes', 'required', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
             'stock' => ['sometimes', 'required', 'integer', 'min:0', 'max:4294967295'],
             'category' => ['sometimes', 'required', Rule::in(self::CATEGORIES)],
             'status' => [
@@ -255,13 +295,21 @@ class ProductController extends Controller
                 'required',
                 'in:active,inactive,out_of_stock',
             ],
-            'variants' => ['sometimes', 'array', 'max:100'],
+            'variants' => ['sometimes', 'array', 'max:20'],
             'variants.*.id' => ['nullable', 'uuid', 'distinct'],
             'variants.*.color' => ['nullable', 'string', 'max:50'],
             'variants.*.size' => ['nullable', 'string', 'max:50'],
             'variants.*.price' => ['required_with:variants', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'variants.*.discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'variants.*.stock' => ['required_with:variants', 'integer', 'min:0', 'max:4294967295'],
+            'variant_media' => ['sometimes', 'array', 'max:20'],
+            'variant_media.*' => ['file', 'mimes:jpg,jpeg,png,webp,mp4,webm', 'max:1536'],
+            'variant_media_ids' => ['sometimes', 'array', 'max:20'],
+            'variant_media_ids.*' => ['required', 'uuid', 'distinct'],
+            'color_photos' => ['sometimes', 'array', 'max:8'],
+            'color_photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1536'],
+            'color_photo_colors' => ['sometimes', 'array', 'max:8'],
+            'color_photo_colors.*' => ['required', 'string', 'max:50'],
             'replace_media' => ['sometimes', 'boolean'],
             'keep_media_ids' => ['sometimes', 'array', 'max:10'],
             'keep_media_ids.*' => ['integer', 'distinct'],
@@ -272,6 +320,7 @@ class ProductController extends Controller
         ]);
         if (array_key_exists('variants', $validated)) {
             $validated['variants'] = $this->normalizeVariantRows($validated['variants']);
+            $this->validateVariantMediaInputs($validated['variants'], $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? [], $product->variants ?? [], $validated['color_photos'] ?? [], $validated['color_photo_colors'] ?? []);
             if ($validated['variants']) {
                 $validated['price'] = $this->lowestVariantPrice($validated['variants']);
                 $validated['discounted_price'] = null;
@@ -279,6 +328,9 @@ class ProductController extends Controller
             } else {
                 $validated['variants'] = null;
             }
+        }
+        if (!array_key_exists('variants', $validated) && (!empty($validated['variant_media']) || !empty($validated['variant_media_ids']) || !empty($validated['color_photos']) || !empty($validated['color_photo_colors']))) {
+            throw ValidationException::withMessages(['variant_media' => ['Variant media can only be uploaded with variant rows.']]);
         }
         $this->validateMediaTotal($validated);
 
@@ -292,10 +344,60 @@ class ProductController extends Controller
         $mediaPathsToDelete = [];
         $storedPaths = [];
         try {
-            DB::transaction(function () use ($request, $product, $validated, &$mediaPathsToDelete, &$storedPaths) {
+            DB::transaction(function () use ($request, $product, &$validated, &$mediaPathsToDelete, &$storedPaths) {
+                $oldVariants = $product->variants ?? [];
+                $variantPathsToDelete = [];
+                if (array_key_exists('variants', $validated)) {
+                    $this->validateColorPhotoInputs(
+                        $validated['variants'] ?? [],
+                        $validated['color_photos'] ?? [],
+                        $validated['color_photo_colors'] ?? [],
+                        $oldVariants
+                    );
+                    $validated['variants'] = $validated['variants'] === null
+                        ? null
+                        : $this->attachVariantPhotos(
+                            $product,
+                            $validated['variants'],
+                            $oldVariants,
+                            $validated['color_photos'] ?? [],
+                            $validated['color_photo_colors'] ?? [],
+                            $storedPaths,
+                            $variantPathsToDelete
+                        );
+                    if ($validated['variants'] === null) {
+                        $variantPathsToDelete = collect($oldVariants)
+                            ->flatMap(fn (array $variant) => [$variant['media_path'] ?? null, $variant['image'] ?? null])
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all();
+                    } else {
+                        $legacyVariantPaths = $variantPathsToDelete;
+                        $validated['variants'] = $this->attachVariantMedia(
+                            $product,
+                            $validated['variants'],
+                            $oldVariants,
+                            $validated['variant_media'] ?? [],
+                            $validated['variant_media_ids'] ?? [],
+                            $storedPaths,
+                            $variantPathsToDelete
+                        );
+                        $variantPathsToDelete = array_values(array_unique(array_merge($legacyVariantPaths, $variantPathsToDelete)));
+                    }
+                    $mediaPathsToDelete = array_merge($mediaPathsToDelete, $variantPathsToDelete);
+                } elseif (!empty($validated['color_photos']) || !empty($validated['color_photo_colors']) || !empty($validated['variant_media']) || !empty($validated['variant_media_ids'])) {
+                    throw ValidationException::withMessages([
+                        'variant_media' => ['Variant media can only be uploaded with product variants.'],
+                    ]);
+                }
                 $product->update(collect($validated)->except([
                     'images',
                     'videos',
+                    'color_photos',
+                    'color_photo_colors',
+                    'variant_media',
+                    'variant_media_ids',
                     'replace_media',
                     'keep_media_ids',
                 ])->all());
@@ -322,7 +424,8 @@ class ProductController extends Controller
                 $listingChanged = collect(['name', 'description', 'category', 'variants'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
                     || $request->boolean('replace_media')
                     || !empty($validated['images'])
-                    || !empty($validated['videos']);
+                    || !empty($validated['videos'])
+                    || !empty($validated['variant_media']);
                 if ($listingChanged) {
                     $product->forceFill([
                         'review_status' => 'pending',
@@ -345,7 +448,7 @@ class ProductController extends Controller
             'message' => $product->fresh()->review_status === 'pending'
                 ? 'Product changes submitted for admin review. It will be visible to buyers after approval.'
                 : 'Product updated successfully.',
-            'data' => $product->fresh()->load('media'),
+            'data' => $this->sellerProductData($product->fresh()->load('media')),
         ]);
     }
 
@@ -373,7 +476,10 @@ class ProductController extends Controller
             ], 404);
         }
 
-        $mediaPaths = $product->media()->pluck('path')->all();
+        $mediaPaths = array_merge(
+            $product->media()->pluck('path')->all(),
+            collect($product->variants ?? [])->flatMap(fn (array $variant) => [$variant['media_path'] ?? null, $variant['image'] ?? null])->filter()->unique()->values()->all()
+        );
         $product->delete();
         Storage::disk('public')->delete($mediaPaths);
 
@@ -386,6 +492,7 @@ class ProductController extends Controller
     private function publicProductData(Product $product): array
     {
         $data = $product->toArray();
+        $data['variants'] = $this->variantsWithImageUrls($product->variants ?? []);
         $images = $product->media->where('type', 'image')->values();
         $videos = $product->media->where('type', 'video')->values();
         $data['images'] = $images->map(fn (ProductMedia $media) => $media->url)->all();
@@ -406,6 +513,260 @@ class ProductController extends Controller
         }
 
         return $data;
+    }
+
+    private function sellerProductData(Product $product): array
+    {
+        $data = $product->toArray();
+        $data['variants'] = $this->variantsWithImageUrls($product->variants ?? []);
+
+        return $data;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $variants
+     * @return array<int, array<string, mixed>>
+     */
+    private function variantsWithImageUrls(array $variants): array
+    {
+        return array_map(function (array $variant): array {
+            $imagePath = $variant['image'] ?? null;
+            $mediaPath = $variant['media_path'] ?? $imagePath;
+            $mediaType = $variant['media_type'] ?? ($mediaPath ? 'image' : null);
+            unset($variant['image'], $variant['media_path']);
+            $variant['color_image_url'] = $imagePath ? PublicStorageUrl::url($imagePath) : null;
+            $variant['media_type'] = $mediaType;
+            $variant['media_url'] = $mediaPath ? PublicStorageUrl::url($mediaPath) : null;
+
+            return $variant;
+        }, $variants);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $variants
+     * @param array<int, UploadedFile> $uploads
+     * @param array<int, string> $uploadColors
+     * @param array<int, array<string, mixed>> $existingVariants
+     */
+    /**
+     * Ensure every variant retains or receives its own image or video.
+     * Legacy color-photo uploads remain accepted and cover matching color variants.
+     */
+    private function validateVariantMediaInputs(
+        array $variants,
+        array $uploads,
+        array $uploadIds,
+        array $existingVariants,
+        array $colorPhotos,
+        array $colorPhotoColors
+    ): void {
+        if (count($uploads) !== count($uploadIds)) {
+            throw ValidationException::withMessages([
+                'variant_media' => ['Choose one photo or video for each uploaded variant file.'],
+            ]);
+        }
+
+        $variantIds = collect($variants)->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $newMediaIds = [];
+        foreach ($uploadIds as $index => $id) {
+            $id = (string) $id;
+            if (!in_array($id, $variantIds, true) || isset($newMediaIds[$id])) {
+                throw ValidationException::withMessages([
+                    "variant_media_ids.{$index}" => ['Choose a unique variant included in this product.'],
+                ]);
+            }
+            $newMediaIds[$id] = true;
+        }
+
+        $existingById = [];
+        $existingColors = [];
+        foreach ($existingVariants as $variant) {
+            $path = $variant['media_path'] ?? $variant['image'] ?? null;
+            if ($path) {
+                $existingById[(string) ($variant['id'] ?? '')] = true;
+                if (filled($variant['image'] ?? null)) {
+                    $existingColors[$this->colorKey($variant['color'] ?? null)] = true;
+                }
+            }
+        }
+        $newColors = [];
+        foreach ($colorPhotoColors as $color) {
+            $newColors[$this->colorKey($color)] = true;
+        }
+
+        foreach ($variants as $index => $variant) {
+            $id = (string) $variant['id'];
+            $color = $this->colorKey($variant['color'] ?? null);
+            if (isset($newMediaIds[$id]) || isset($existingById[$id]) || ($color !== '' && (isset($newColors[$color]) || isset($existingColors[$color])))) {
+                continue;
+            }
+            throw ValidationException::withMessages([
+                "variant_media.{$index}" => ['Upload one photo or video for every variant.'],
+                'color_photos' => ['Upload a photo or video for every variant.'],
+            ]);
+        }
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function attachVariantMedia(
+        Product $product,
+        array $variants,
+        array $existingVariants,
+        array $uploads,
+        array $uploadIds,
+        array &$storedPaths,
+        array &$pathsToDelete
+    ): array {
+        $existingById = [];
+        foreach ($existingVariants as $variant) {
+            $path = $variant['media_path'] ?? $variant['image'] ?? null;
+            if ($path) {
+                $existingById[(string) ($variant['id'] ?? '')] = [
+                    'path' => $path,
+                    'type' => $variant['media_type'] ?? 'image',
+                ];
+            }
+        }
+
+        $uploadsById = [];
+        foreach ($uploads as $index => $upload) {
+            $uploadsById[(string) ($uploadIds[$index] ?? '')] = $upload;
+        }
+
+        $updated = [];
+        foreach ($variants as $variant) {
+            $id = (string) $variant['id'];
+            $oldMedia = $existingById[$id] ?? null;
+            $colorImage = $variant['image'] ?? null;
+            if (isset($uploadsById[$id])) {
+                $upload = $uploadsById[$id];
+                $path = $upload->storePublicly("products/{$product->id}/variants", 'public');
+                if ($path === false) {
+                    throw new \RuntimeException('Unable to store variant media.');
+                }
+                $storedPaths[] = $path;
+                $type = str_starts_with((string) $upload->getMimeType(), 'video/') ? 'video' : 'image';
+            } elseif ($colorImage && (!$oldMedia || $colorImage !== $oldMedia['path'])) {
+                $path = $colorImage;
+                $type = 'image';
+            } elseif ($oldMedia) {
+                $path = $oldMedia['path'];
+                $type = $oldMedia['type'];
+            } else {
+                $path = $colorImage;
+                $type = $path ? 'image' : null;
+            }
+
+            $variant['media_path'] = $path;
+            $variant['media_type'] = $type;
+            $variant['image'] = $type === 'image' ? $path : null;
+            $updated[] = $variant;
+        }
+
+        $retainedPaths = collect($updated)->pluck('media_path')->filter()->unique();
+        $pathsToDelete = collect($existingById)->pluck('path')->unique()
+            ->reject(fn (string $path) => $retainedPaths->contains($path))
+            ->values()->all();
+
+        return $updated;
+    }
+    private function validateColorPhotoInputs(
+        array $variants,
+        array $uploads,
+        array $uploadColors,
+        array $existingVariants
+    ): void {
+        if (count($uploads) !== count($uploadColors)) {
+            throw ValidationException::withMessages([
+                'color_photos' => ['Select one photo for each color image upload.'],
+            ]);
+        }
+
+        $requiredColors = collect($variants)
+            ->map(fn (array $variant) => $this->colorKey($variant['color'] ?? null))
+            ->filter()
+            ->unique()
+            ->values();
+        if ($requiredColors->count() > 20) {
+            throw ValidationException::withMessages([
+                'variants' => ['A product can have up to 20 variants.'],
+            ]);
+        }
+
+        $uploadedColors = [];
+        foreach ($uploadColors as $index => $color) {
+            $key = $this->colorKey($color);
+            if ($key === '' || !$requiredColors->contains($key) || isset($uploadedColors[$key])) {
+                throw ValidationException::withMessages([
+                    "color_photo_colors.{$index}" => ['Choose a unique color used by this product.'],
+                ]);
+            }
+            $uploadedColors[$key] = true;
+        }
+
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $variants
+     * @param array<int, array<string, mixed>> $existingVariants
+     * @param array<int, UploadedFile> $uploads
+     * @param array<int, string> $uploadColors
+     * @param array<int, string> $storedPaths
+     * @param array<int, string> $pathsToDelete
+     * @return array<int, array<string, mixed>>
+     */
+    private function attachVariantPhotos(
+        Product $product,
+        array $variants,
+        array $existingVariants,
+        array $uploads,
+        array $uploadColors,
+        array &$storedPaths,
+        array &$pathsToDelete
+    ): array {
+        $oldImages = [];
+        foreach ($existingVariants as $variant) {
+            $key = $this->colorKey($variant['color'] ?? null);
+            if ($key !== '' && filled($variant['image'] ?? null)) {
+                $oldImages[$key] = $variant['image'];
+            }
+        }
+
+        $newImages = [];
+        foreach ($uploads as $index => $upload) {
+            $key = $this->colorKey($uploadColors[$index] ?? null);
+            $path = $upload->storePublicly("products/{$product->id}/variants", 'public');
+            if ($path === false) {
+                throw new \RuntimeException('Unable to store a product color photo.');
+            }
+            $storedPaths[] = $path;
+            $newImages[$key] = $path;
+        }
+
+        $imagesByColor = [];
+        foreach ($variants as $variant) {
+            $key = $this->colorKey($variant['color'] ?? null);
+            if ($key === '' || isset($imagesByColor[$key])) {
+                continue;
+            }
+            $imagesByColor[$key] = $newImages[$key] ?? $oldImages[$key] ?? null;
+        }
+
+        $updatedVariants = array_map(function (array $variant) use ($imagesByColor): array {
+            $key = $this->colorKey($variant['color'] ?? null);
+            $variant['image'] = $key === '' ? null : ($imagesByColor[$key] ?? null);
+
+            return $variant;
+        }, $variants);
+        $retainedPaths = collect($updatedVariants)->pluck('image')->filter()->unique();
+        $pathsToDelete = collect($oldImages)->unique()->reject(fn (string $path) => $retainedPaths->contains($path))->values()->all();
+
+        return $updatedVariants;
+    }
+
+    private function colorKey(?string $color): string
+    {
+        return mb_strtolower(trim((string) $color));
     }
 
     private function normalizeVariantsInput(Request $request): void
@@ -486,11 +847,13 @@ class ProductController extends Controller
     {
         $totalBytes = collect($validated['images'] ?? [])
             ->merge($validated['videos'] ?? [])
+            ->merge($validated['color_photos'] ?? [])
+            ->merge($validated['variant_media'] ?? [])
             ->sum(fn (UploadedFile $file) => $file->getSize() ?? 0);
 
         if ($totalBytes > 6 * 1024 * 1024) {
             throw ValidationException::withMessages([
-                'images' => ['The combined size of uploaded photos and videos must not exceed 6 MB per save.'],
+                'images' => ['The combined size of uploaded product and variant photos/videos must not exceed 6 MB per save.'],
             ]);
         }
     }

@@ -10,6 +10,7 @@ import {
     Package,
     Settings,
     ShoppingBag,
+    Store,
     Star,
     Truck,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import "../styles/SellerWorkspace.css";
 const NAV = [
     { to: "/seller/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/seller/inventory", label: "Inventory", icon: Package },
+    { to: "/seller/storefront", label: "Storefront", icon: Store },
     { to: "/seller/orders", label: "Orders", icon: ShoppingBag },
     { to: "/seller/logistics", label: "Logistics", icon: Truck },
     { to: "/seller/feedback", label: "Feedback", icon: Star },
@@ -73,13 +75,13 @@ function SellerLayout() {
     return (
         <div className={`al-root${sidebarCollapsed ? " al-root--collapsed" : ""}${mobileNavOpen ? " al-root--mobile-open" : ""}`}>
 
-            {/* ── SIDEBAR ── */}
+            {/* â”€â”€ SIDEBAR â”€â”€ */}
             <aside className="al-sidebar">
                 <div className="al-sidebar-top">
                     <div className="al-brand">
                         <span className="al-brand-mark">C</span>
                         <div className="al-brand-copy">
-                            <span className="al-brand-name">CRYMA<sup>®</sup></span>
+                            <span className="al-brand-name">CRYMA<sup>Â®</sup></span>
                             <span className="al-brand-sub">Seller Portal</span>
                         </div>
                     </div>
@@ -166,7 +168,7 @@ function SellerLayout() {
                 </div>
             </aside>
 
-            {/* ── MAIN ── */}
+            {/* â”€â”€ MAIN â”€â”€ */}
             <div className="al-main">
                 <header className="al-header">
                     <div className="al-header-left">
@@ -202,7 +204,7 @@ function SellerLayout() {
                 </main>
             </div>
 
-            {/* ── LOGOUT MODAL ── */}
+            {/* â”€â”€ LOGOUT MODAL â”€â”€ */}
             {logoutModalOpen && (
                 <div
                     className="al-modal-backdrop"

@@ -44,14 +44,15 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   List<Map<String, String>> get _specifications => [
         {'label': 'Category', 'value': _product['category'].toString()},
         {
-          'label': 'Seller',
-          'value': _product['seller']?.toString() ?? 'Seller'
+          'label': 'Shop',
+          'value': _product['seller']?.toString() ?? 'CRYMA Shop'
         },
         {'label': 'Available Stock', 'value': _currentStock.toString()},
       ];
 
   String _selectedImage = '';
   String _selectedColor = 'Black';
+  String _selectedSize = '';
   int _quantity = 1;
   List<Map<String, dynamic>> _variants = [];
   final List<Map<String, dynamic>> _reviews = [];
@@ -113,19 +114,31 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       final variants = (json['variants'] as List? ?? [])
           .whereType<Map<String, dynamic>>()
           .toList();
+      final colors = variants
+          .map((variant) => variant['color']?.toString() ?? '')
+          .where((color) => color.isNotEmpty)
+          .toSet()
+          .toList();
+      Map<String, dynamic>? initialVariant;
+      for (final variant in variants) {
+        if ((int.tryParse(variant['stock']?.toString() ?? '') ?? 0) > 0) {
+          initialVariant = variant;
+          break;
+        }
+      }
+      initialVariant ??= variants.isEmpty ? null : variants.first;
+      final seller = json['seller'] is Map<String, dynamic>
+          ? json['seller'] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final sellerProfile = seller['seller_profile'] is Map<String, dynamic>
+          ? seller['seller_profile'] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final businessName = sellerProfile['business_name']?.toString().trim();
+      final colorImage =
+          initialVariant?['color_image_url']?.toString().trim() ?? '';
       final price = double.tryParse(json['price']?.toString() ?? '') ?? 0;
       final originalPrice =
           double.tryParse(json['original_price']?.toString() ?? '') ?? price;
-      final options = variants
-          .map(
-            (variant) => [
-              variant['color']?.toString(),
-              variant['size']?.toString(),
-            ].where((value) => value != null && value.isNotEmpty).join(' / '),
-          )
-          .where((option) => option.isNotEmpty)
-          .toSet()
-          .toList();
       if (!mounted) return;
       setState(() {
         _variants = variants;
@@ -140,21 +153,25 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           'sold': json['sales_count'] ?? 0,
           'category': json['category']?.toString() ?? 'Other',
           'images': imagePaths.isEmpty ? [''] : imagePaths,
-          'colors': options,
+          'colors': colors,
           'stock': int.tryParse(json['stock']?.toString() ?? '') ?? 0,
           'discount': originalPrice > 0
               ? ((originalPrice - price) / originalPrice * 100).round()
               : 0,
           'description': json['description']?.toString() ?? '',
-          'seller': json['seller'] is Map<String, dynamic>
-              ? '${json['seller']['first_name'] ?? ''} ${json['seller']['last_name'] ?? ''}'
-                  .trim()
-              : 'CRYMA Seller',
+          'seller': businessName == null || businessName.isEmpty
+              ? 'CRYMA Shop'
+              : businessName,
         };
-        _selectedImage = imagePaths.isEmpty ? '' : imagePaths.first;
-        _selectedColor = options.isEmpty ? 'Standard' : options.first;
-        if (variants.isNotEmpty) {
-          _selectedVariantId = variants.first['id']?.toString();
+        _selectedImage = colorImage.isNotEmpty
+            ? ApiService.instance.resolveImageUrl(colorImage)
+            : imagePaths.isEmpty
+                ? ''
+                : imagePaths.first;
+        _selectedColor = initialVariant?['color']?.toString() ?? '';
+        _selectedSize = initialVariant?['size']?.toString() ?? '';
+        if (initialVariant != null) {
+          _selectedVariantId = initialVariant['id']?.toString();
         }
         _isLoading = false;
       });
@@ -165,6 +182,214 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _selectVariant(Map<String, dynamic> variant) {
+    final colorImage = variant['color_image_url']?.toString().trim() ?? '';
+    setState(() {
+      _selectedVariantId = variant['id']?.toString();
+      _selectedColor = variant['color']?.toString() ?? '';
+      _selectedSize = variant['size']?.toString() ?? '';
+      _quantity = 1;
+      if (colorImage.isNotEmpty) {
+        _selectedImage = ApiService.instance.resolveImageUrl(colorImage);
+      }
+    });
+  }
+
+  List<String> get _productColors =>
+      List<String>.from(_product['colors'] as List? ?? const []);
+
+  List<String> get _productSizes => _variants
+      .where((variant) =>
+          variant['size'] != null &&
+          variant['size'].toString().trim().isNotEmpty &&
+          (_selectedColor.isEmpty ||
+              variant['color']?.toString() == _selectedColor))
+      .map((variant) => variant['size'].toString())
+      .toSet()
+      .toList();
+
+  bool _colorAvailable(String color) => _variants.any((variant) =>
+      variant['color']?.toString() == color &&
+      (int.tryParse(variant['stock']?.toString() ?? '') ?? 0) > 0);
+
+  bool _sizeAvailable(String size) => _variants.any((variant) =>
+      variant['size']?.toString() == size &&
+      (_selectedColor.isEmpty ||
+          variant['color']?.toString() == _selectedColor) &&
+      (int.tryParse(variant['stock']?.toString() ?? '') ?? 0) > 0);
+
+  void _selectColor(String color) {
+    final availableVariants = _variants
+        .where((variant) =>
+            variant['color']?.toString() == color &&
+            (int.tryParse(variant['stock']?.toString() ?? '') ?? 0) > 0)
+        .toList();
+    if (availableVariants.isEmpty) return;
+    final variant = availableVariants.firstWhere(
+      (row) => row['size']?.toString() == _selectedSize,
+      orElse: () => availableVariants.first,
+    );
+    _selectVariant(variant);
+  }
+
+  void _selectSize(String size) {
+    final variant = _variants.firstWhere(
+      (row) =>
+          row['size']?.toString() == size &&
+          (_selectedColor.isEmpty ||
+              row['color']?.toString() == _selectedColor) &&
+          (int.tryParse(row['stock']?.toString() ?? '') ?? 0) > 0,
+    );
+    _selectVariant(variant);
+  }
+
+  Widget _buildColorOptions() {
+    if (_productColors.isEmpty) return const SizedBox.shrink();
+    const colorMap = {
+      'Black': Colors.black,
+      'Blue': Colors.blue,
+      'White': Colors.grey,
+      'Red': Colors.red,
+      'Green': Colors.green,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Color',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGray,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        const SizedBox(height: 7),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _productColors.map((color) {
+              final selected = _selectedColor == color;
+              final available = _colorAvailable(color);
+              return GestureDetector(
+                onTap: available ? () => _selectColor(color) : null,
+                child: Opacity(
+                  opacity: available ? 1 : 0.45,
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 9),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          selected ? const Color(0xFFF1F7F7) : AppColors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.primary
+                            : const Color(0xFFE5E5E5),
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 15,
+                          height: 15,
+                          decoration: BoxDecoration(
+                            color: colorMap[color] ?? Colors.grey,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          color,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight:
+                                selected ? FontWeight.w600 : FontWeight.w400,
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.darkGray,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSizeOptions() {
+    final sizes = _productSizes;
+    if (sizes.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Size',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGray,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        const SizedBox(height: 7),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: sizes.map((size) {
+            final selected = _selectedSize == size;
+            final available = _sizeAvailable(size);
+            return GestureDetector(
+              onTap: available ? () => _selectSize(size) : null,
+              child: Opacity(
+                opacity: available ? 1 : 0.45,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0xFFF1F7F7) : AppColors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.primary
+                          : const Color(0xFFE5E5E5),
+                      width: selected ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Text(
+                    size,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                      color: selected ? AppColors.primary : AppColors.darkGray,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   // ============================================================
@@ -628,95 +853,9 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           ),
           const SizedBox(height: 16),
 
-          // COLOR
-          const Text(
-            'Color',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.darkGray,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 7),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: (_product['colors'] as List<String>).map<Widget>((
-                color,
-              ) {
-                final bool isSelected = _selectedColor == color;
-                final Map<String, Color> colorMap = {
-                  'Black': Colors.black,
-                  'Blue': Colors.blue,
-                  'White': Colors.grey,
-                };
-
-                return GestureDetector(
-                  onTap: () {
-                    final variant = _variants.firstWhere(
-                      (row) =>
-                          [row['color']?.toString(), row['size']?.toString()]
-                              .where(
-                                (value) => value != null && value.isNotEmpty,
-                              )
-                              .join(' / ') ==
-                          color,
-                    );
-                    setState(() {
-                      _selectedColor = color;
-                      _selectedVariantId = variant['id']?.toString();
-                      _quantity = 1;
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 9),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFF1F7F7)
-                          : AppColors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : const Color(0xFFE5E5E5),
-                        width: isSelected ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 15,
-                          height: 15,
-                          decoration: BoxDecoration(
-                            color: colorMap[color] ?? Colors.grey,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          color,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w400,
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.darkGray,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+          _buildColorOptions(),
+          const SizedBox(height: 16),
+          _buildSizeOptions(),
           const SizedBox(height: 16),
 
           // QUANTITY

@@ -1157,3 +1157,19 @@ button.checkout-summary-change:hover {
     font-size: 12px;
     line-height: 1.45;
 }
+
+@media (max-width: 800px) {
+    .checkout-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .checkout-summary {
+        position: static;
+    }
+}
+
+@media (max-width: 600px) {
+    .checkout-payment-option {
+        min-width: min(210px, 100%);
+    }
+}

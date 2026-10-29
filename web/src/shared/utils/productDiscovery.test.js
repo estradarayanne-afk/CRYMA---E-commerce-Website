@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
     getProductCategory,
+    getProductShopName,
     getProductSellerName,
     matchesProductCategory,
     matchesProductSearch,
@@ -16,6 +17,7 @@ test("product discovery reads the category and seller fields returned by the API
 
     assert.equal(getProductCategory(product), "Home & Garden");
     assert.equal(getProductSellerName(product.seller), "Maria Santos");
+    assert.equal(getProductShopName(product.seller), "CRYMA Shop");
     assert.equal(matchesProductSearch(product, "Santos"), true);
     assert.equal(matchesProductCategory(product, "home & garden"), true);
 });
@@ -30,4 +32,15 @@ test("product discovery tolerates alternate category objects and seller names", 
     assert.equal(matchesProductCategory(product, "Books & Media"), true);
     assert.equal(matchesProductCategory(product, "Electronics & Gadgets"), false);
     assert.equal(matchesProductSearch(product, "   "), true);
+});
+
+test("buyer-facing shop name prefers the seller business name", () => {
+    assert.equal(
+        getProductShopName({ first_name: "Maria", seller_profile: { business_name: "Maria's Closet" } }),
+        "Maria's Closet",
+    );
+    assert.equal(
+        getProductShopName({ first_name: "Maria", last_name: "Santos" }),
+        "CRYMA Shop",
+    );
 });

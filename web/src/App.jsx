@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import ProtectedRoute from "./shared/components/ProtectedRoute";
 
-// ── AUTH ──
+// â”€â”€ AUTH â”€â”€
 import Login from "./auth/pages/BuyerLogin";
 import AdminLogin from "./auth/pages/AdminLogin";
 import Register from "./auth/pages/Register";
@@ -10,7 +10,7 @@ import RegistrationChoice from "./auth/pages/RegistrationChoice";
 import PasswordRecovery from "./auth/pages/PasswordRecovery";
 import PolicyPage from "./shared/pages/PolicyPage";
 
-// ── ADMIN ──
+// â”€â”€ ADMIN â”€â”€
 import AdminLayout from "./admin/layouts/AdminLayout";
 import AdminDashboard from "./admin/pages/Dashboard/Dashboard";
 import Registrations from "./admin/pages/registrations/Registrations";
@@ -22,8 +22,9 @@ import AdminSettings from "./admin/pages/Settings/Settings";
 import AccountSettings from "./admin/pages/AccountSettings/AccountSettings";
 import AdminChat from "./admin/pages/Chat/Chat";
 import SellerCompliance from "./admin/pages/SellerCompliance/SellerCompliance";
+import StoreNameRequests from "./admin/pages/StoreNameRequests";
 
-// ── BUYER ──
+// â”€â”€ BUYER â”€â”€
 import BuyerHome from "./buyer/pages/Home/Home";
 import BuyerCart from "./buyer/pages/Cart/Cart";
 import BuyerCategories from "./buyer/pages/Categories/Categories";
@@ -37,10 +38,12 @@ import BuyerAccount from "./buyer/pages/Account/Account";
 import BuyerVouchers from "./buyer/pages/Vouchers/Vouchers";
 import BuyerLayout from "./buyer/layouts/BuyerLayout";
 import BuyerWishlist from "./buyer/pages/Wishlist/Wishlist";
+import PublicStorefront from "./buyer/pages/Storefront";
 
-// ── SELLER ──
+// â”€â”€ SELLER â”€â”€
 import SellerLayout from "./seller/layouts/SellerLayout";
 import SellerDashboard from "./seller/pages/Dashboard";
+import SellerStorefront from "./seller/pages/Storefront";
 import SellerInventory from "./seller/pages/Inventory";
 import SellerOrders from "./seller/pages/Orders";
 import SellerLogistics from "./seller/pages/Logistics";
@@ -58,7 +61,7 @@ import ParcelOperations from "./logistics/pages/ParcelOperations";
 import LogisticsProfile from "./logistics/pages/Profile";
 import LogisticsAccountSettings from "./logistics/pages/AccountSettings";
 
-// ── COURIER ──
+// â”€â”€ COURIER â”€â”€
 import CourierDashboard from "./courier/pages/Dashboard";
 import CourierChat from "./courier/pages/Chat";
 import CourierDeliveries from "./courier/pages/Deliveries";
@@ -118,6 +121,8 @@ function App() {
                         path="/shop"
                         element={<BuyerCategories />}
                     />
+
+                    <Route path="/stores/:slug" element={<PublicStorefront />} />
 
                     <Route
                         path="/products/:id"
@@ -228,6 +233,7 @@ function App() {
                             path="seller-compliance"
                             element={<SellerCompliance />}
                         />
+                        <Route path="store-name-requests" element={<StoreNameRequests />} />
 
                         <Route
                             path="complaints"
@@ -292,6 +298,11 @@ function App() {
                         <Route
                             path="inventory"
                             element={<SellerInventory />}
+                        />
+
+                        <Route
+                            path="storefront"
+                            element={<SellerStorefront />}
                         />
 
                         <Route

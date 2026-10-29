@@ -17,6 +17,7 @@ import {
 import api from "../../shared/services/api";
 import ConfirmationModal from "../components/ConfirmationModal";
 import "./LogisticsLayout.css";
+import "../../admin/layouts/AdminWorkspace.css";
 
 const LINKS = [
     { to: "/logistics/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -163,7 +164,7 @@ function LogisticsLayout() {
                     </div>
                     <div className="lw-header-status"><span />System online</div>
                 </header>
-                <main className="lw-content"><Outlet /></main>
+                <main className="lw-content al-content"><Outlet /></main>
             </div>
             {mobileNavOpen && <button type="button" className="lw-mobile-backdrop" aria-label="Close navigation menu" onClick={() => setMobileNavOpen(false)} />}
             <ConfirmationModal open={logoutModalOpen} title="Sign out?" description="Are you sure you want to sign out of your Logistics account?" confirmLabel="Sign out" busy={loggingOut} onCancel={closeLogoutModal} onConfirm={() => void logout()} />

@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { ClipboardList, History, LayoutDashboard, LogOut, Menu, PackageCheck, PanelLeftClose, PanelLeftOpen, Settings, UserRound, Wallet, MessageCircle, X } from "lucide-react";
 import api from "../../shared/services/api";
 import CourierConfirmModal from "../components/CourierConfirmModal";
+import "../../admin/layouts/AdminWorkspace.css";
 import "./CourierLayout.css";
 
 const LINKS = [
@@ -72,7 +73,7 @@ export default function CourierLayout() {
                 <div className="cw-header-title"><span>Courier workspace</span><strong>{LINKS.find(({ to }) => location.pathname === to || location.pathname.startsWith(`${to}/`))?.label || "Overview"}</strong></div>
                 <span className="cw-header-greeting">Welcome, {name.split(" ")[0]}</span>
             </header>
-            <main className="cw-content"><Outlet /></main>
+            <main className="cw-content al-content"><Outlet /></main>
         </div>
         {confirmLogout && <CourierConfirmModal title="Sign out of CRYMA?" message="You’ll need to sign in again to manage courier assignments." confirmLabel="Log out" danger loading={loggingOut} onCancel={() => setConfirmLogout(false)} onConfirm={() => void logout()} />}
     </div>;
