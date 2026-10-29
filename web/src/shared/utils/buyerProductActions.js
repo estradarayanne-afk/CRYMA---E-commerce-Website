@@ -31,6 +31,10 @@ export function addProductToCart(cart, product, requestedQuantity = 1) {
         return { success: false, reason: "invalid_item", cart };
     }
 
+    if (product.seller_on_vacation === true || product.seller?.is_on_vacation === true) {
+        return { success: false, reason: "seller_on_vacation", cart };
+    }
+
     const existingIndex = cart.findIndex((item) => getBuyerCartItemKey(item) === getBuyerCartItemKey(product));
     const existing = existingIndex >= 0 ? cart[existingIndex] : null;
     const currentQuantity = Number(existing?.quantity || 0);

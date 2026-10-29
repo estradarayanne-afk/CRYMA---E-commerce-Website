@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -16,9 +17,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       List.generate(6, (index) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
 
-  // ✅ Timer para sa Resend
   int _secondsRemaining = 60;
   bool _canResend = false;
+  bool _isVerifying = false;
+  bool _isResending = false;
 
   @override
   void initState() {
@@ -37,7 +39,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.dispose();
   }
 
-  // ✅ Timer logic
   void _startResendTimer() {
     setState(() {
       _secondsRemaining = 60;
@@ -58,25 +59,16 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
   }
 
-  // ✅ Handle paste (6-digit code)
   void _handlePaste(String value) {
-    // Tanggalin ang non-digits
-    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length >= 6) {
-      // I-fill lahat ng boxes
-      for (int i = 0; i < 6; i++) {
-        _controllers[i].text = digits[i];
-      }
-      _focusNodes[5].requestFocus();
-      // Auto-verify pag puno
-      _handleVerify();
-    } else {
-      // Fill sa unang box lang
-      _controllers[0].text = digits;
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '').substring(0, value.replaceAll(RegExp(r'[^0-9]'), '').length.clamp(0, 6));
+    for (var index = 0; index < _controllers.length; index++) {
+      _controllers[index].text = index < digits.length ? digits[index] : '';
     }
+    _focusNodes[digits.isEmpty ? 0 : digits.length - 1].requestFocus();
+    if (digits.length == 6) _handleVerify();
   }
 
-  void _handleVerify() {
+  Future<void> _handleVerify() async {
     final otp = _controllers.map((c) => c.text).join();
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,27 +76,62 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       );
       return;
     }
-    // Navigate to Registration Pending
-    Navigator.pushReplacementNamed(context, '/registration_pending');
+    if (_isVerifying) return;
+    setState(() => _isVerifying = true);
+    try {
+      await ApiService.instance.verifyEmail(
+        email: widget.email ?? '',
+        otp: otp,
+      );
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/registration_pending');
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification failed. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isVerifying = false);
+    }
   }
 
-  void _handleResend() {
-    if (!_canResend) return;
-
-    // TODO: I-connect kay Ciara para sa actual resend API
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('A new code has been sent to your email'),
-      ),
-    );
-
-    // Clear lahat ng boxes
-    for (var controller in _controllers) {
+  Future<void> _handleResend() async {
+    if (!_canResend || _isResending) return;
+    setState(() => _isResending = true);
+    var resent = false;
+    try {
+      await ApiService.instance.resendVerification(widget.email ?? '');
+      resent = true;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A new code has been sent to your email')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not resend code. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isResending = false);
+    }
+    if (!resent || !mounted) return;
+    for (final controller in _controllers) {
       controller.clear();
     }
     _focusNodes[0].requestFocus();
-
-    // Restart timer
     _startResendTimer();
   }
 
@@ -201,20 +228,19 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         // ✅ Max 1 digit per box
-                        LengthLimitingTextInputFormatter(1),
+                        LengthLimitingTextInputFormatter(6),
                       ],
                       onChanged: (value) {
-                        // ✅ Auto-next pag may digit
+                        if (value.length > 1) {
+                          _handlePaste(value);
+                          return;
+                        }
                         if (value.isNotEmpty && index < 5) {
                           _focusNodes[index + 1].requestFocus();
-                        }
-                        // ✅ Auto-back pag empty
-                        if (value.isEmpty && index > 0) {
+                        } else if (value.isEmpty && index > 0) {
                           _focusNodes[index - 1].requestFocus();
                         }
-                        // ✅ Auto-verify pag puno lahat
-                        final otp = _controllers.map((c) => c.text).join();
-                        if (otp.length == 6) {
+                        if (_controllers.map((c) => c.text).join().length == 6) {
                           _handleVerify();
                         }
                       },
@@ -228,7 +254,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _handleVerify,
+                  onPressed: _isVerifying ? null : _handleVerify,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -236,15 +262,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Verify',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.white,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
+                  child: _isVerifying
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Verify',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.white,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 16),

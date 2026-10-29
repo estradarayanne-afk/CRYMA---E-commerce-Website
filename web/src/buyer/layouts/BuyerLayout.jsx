@@ -30,9 +30,11 @@ function BuyerLayout() {
             const product = event.detail;
             const result = addProductToCart(getBuyerCart(), product);
             if (!result.success) {
-                const message = result.reason === "insufficient_stock"
-                    ? `Only ${result.stock} item${result.stock === 1 ? "" : "s"} available.`
-                    : "Unable to add this item to your cart.";
+                const message = result.reason === "seller_on_vacation"
+                    ? "This seller is on vacation and is not accepting orders."
+                    : result.reason === "insufficient_stock"
+                      ? `Only ${result.stock} item${result.stock === 1 ? "" : "s"} available.`
+                      : "Unable to add this item to your cart.";
                 notify({ message, type: "error" });
                 event.preventDefault();
                 return;

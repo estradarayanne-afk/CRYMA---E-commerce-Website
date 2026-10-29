@@ -53,6 +53,7 @@ function ProductCard({
     const originalPrice = Number(product?.original_price ?? product?.compare_at_price ?? 0);
 
     const shopName = getProductShopName(product?.seller);
+    const sellerOnVacation = product?.seller?.is_on_vacation === true || product?.seller_on_vacation === true;
     const productCategory = getProductCategory(product);
 
     const handleSave = () => {
@@ -115,6 +116,7 @@ function ProductCard({
                 }`}
             >
                 <div className="buyer-product-image">
+                    {sellerOnVacation && <span className="buyer-product-vacation-badge">On vacation</span>}
                     {productImage && failedImage !== productImage ? (
                         <img
                             src={productImage}
@@ -211,12 +213,12 @@ function ProductCard({
                 <button
                     type="button"
                     className="buyer-product-add"
-                    disabled={stock <= 0}
+                    disabled={stock <= 0 || sellerOnVacation}
                 onClick={handleAddToCart}
                 >
                     <ShoppingCart size={15} />
 
-                    {stock > 0
+                    {sellerOnVacation ? "On vacation" : stock > 0
                         ? product?.variants?.length ? "Choose Options" : "Add to Cart"
                         : "Out of Stock"}
                 </button>

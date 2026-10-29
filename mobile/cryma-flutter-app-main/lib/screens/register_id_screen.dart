@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../utils/colors.dart';
 
 class RegisterIDScreen extends StatefulWidget {
@@ -19,6 +20,8 @@ class RegisterIDScreen extends StatefulWidget {
 
 class _RegisterIDScreenState extends State<RegisterIDScreen> {
   String? _selectedFile;
+  String? _selectedFileName;
+  final _picker = ImagePicker();
 
   void _showAlert(String message) {
     showDialog(
@@ -54,6 +57,19 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickFile() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedFile = picked.path;
+        _selectedFileName = picked.name;
+      });
+    }
   }
 
   void _handleContinue() {
@@ -222,11 +238,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
                     SizedBox(
                       height: 46,
                       child: ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedFile = 'sample-id.jpg';
-                          });
-                        },
+                        onPressed: _pickFile,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE8F3F1),
                           foregroundColor: AppColors.primary,
@@ -251,7 +263,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
                     if (_selectedFile != null) ...[
                       const SizedBox(height: 10),
                       Text(
-                        '✓ $_selectedFile',
+                        '✓ $_selectedFileName',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 12,

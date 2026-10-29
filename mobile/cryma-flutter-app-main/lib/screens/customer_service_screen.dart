@@ -53,15 +53,15 @@ class CustomerServiceScreen extends StatelessWidget {
                         color: AppColors.softRose,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Column(
+                      child: const Column(
                         children: [
                           Icon(
                             Icons.support_agent,
                             size: 60,
                             color: AppColors.primary,
                           ),
-                          const SizedBox(height: 12),
-                          const Text(
+                          SizedBox(height: 12),
+                          Text(
                             'How can we help you?',
                             style: TextStyle(
                               fontSize: 18,
@@ -70,8 +70,8 @@ class CustomerServiceScreen extends StatelessWidget {
                               fontFamily: 'Poppins',
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          const Text(
+                          SizedBox(height: 4),
+                          Text(
                             'Our team is here to assist you',
                             style: TextStyle(
                               fontSize: 12,

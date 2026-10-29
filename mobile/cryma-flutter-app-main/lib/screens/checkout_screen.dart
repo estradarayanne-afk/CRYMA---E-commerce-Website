@@ -244,24 +244,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ),
                         ),
                         Card(
-                          child: RadioGroup<String>(
-                            groupValue: _paymentMethod,
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _paymentMethod = value);
-                              }
-                            },
-                            child: const Column(
-                              children: [
-                                RadioListTile<String>(
-                                  value: 'cash_on_delivery',
-                                  title: Text('Cash on Delivery'),
-                                ),
-                                RadioListTile<String>(
-                                  value: 'gcash',
-                                  title: Text('GCash'),
-                                ),
-                              ],
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: RadioGroup<String>(
+                              groupValue: _paymentMethod,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _paymentMethod = value);
+                                }
+                              },
+                              child: const Column(
+                                children: [
+                                  RadioListTile<String>(
+                                    value: 'cash_on_delivery',
+                                    title: Text('Cash on Delivery'),
+                                  ),
+                                  RadioListTile<String>(
+                                    value: 'gcash',
+                                    title: Text('GCash'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),

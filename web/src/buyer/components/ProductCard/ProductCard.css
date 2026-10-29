@@ -242,3 +242,7 @@
     .buyer-product-add,
     .buyer-product-save { transition: none; }
 }
+
+.buyer-product-image { position:relative; }
+.buyer-product-vacation-badge { position:absolute; z-index:1; top:9px; left:9px; padding:6px 9px; border:1px solid #f0d5dc; border-radius:999px; background:#fff7f8; color:#7e1830; box-shadow:0 3px 12px rgba(38,21,26,.12); font-size:10px; font-weight:750; }
+.buyer-product-add:disabled { cursor:not-allowed; opacity:.65; }

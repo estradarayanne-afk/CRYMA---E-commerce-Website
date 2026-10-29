@@ -176,6 +176,7 @@ function ProductDetails() {
     }, [id]);
 
     const shopName = getProductShopName(product?.seller);
+    const sellerOnVacation = product?.seller?.is_on_vacation === true || product?.seller_on_vacation === true;
 
     const variants = Array.isArray(product?.variants) ? product.variants : [];
     const selectedVariant = variants.find((variant) => String(variant.id) === selectedVariantId) || variants[0] || null;
@@ -205,6 +206,10 @@ function ProductDetails() {
     const addToCart = ({
         redirectToCheckout = false,
     } = {}) => {
+        if (sellerOnVacation) {
+            showMessage("This seller is on vacation and is not accepting orders.", "error");
+            return;
+        }
         if (!product || stock <= 0) {
             return;
         }
@@ -686,7 +691,7 @@ function ProductDetails() {
                                     addToCart()
                                 }
                                 disabled={
-                                    stock <= 0
+                                    stock <= 0 || sellerOnVacation
                                 }
                             >
                                 <ShoppingCart
@@ -702,12 +707,14 @@ function ProductDetails() {
                                     handleBuyNow
                                 }
                                 disabled={
-                                    stock <= 0
+                                    stock <= 0 || sellerOnVacation
                                 }
                             >
                                 Buy Now
                             </button>
                         </div>
+
+                        {sellerOnVacation && <p className="product-vacation-notice" role="status">This seller is on vacation and is not accepting orders right now.</p>}
 
                         {actionMessage && (
                             <div className={`product-action-message ${actionMessageType}`} role="status" aria-live="polite">
