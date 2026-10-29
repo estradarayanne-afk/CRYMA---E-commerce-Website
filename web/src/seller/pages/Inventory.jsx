@@ -455,6 +455,7 @@ function Inventory() {
                                         <div className="sl-inventory-status">
                                             <span className={`sl-badge ${p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
                                                 {formatStatusLabel(p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active")}
+                                                {p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active"}
                                             </span>
                                             {p.review_status === "pending" && <span className="sl-badge sl-badge--review">Pending admin review</span>}
                                             {p.review_status === "rejected" && <span className="sl-badge sl-badge--rejected" title={p.review_reason || "Review the product and update its listing to resubmit."}>Rejected · edit to resubmit</span>}

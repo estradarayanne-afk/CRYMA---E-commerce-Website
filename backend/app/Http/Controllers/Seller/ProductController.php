@@ -422,6 +422,7 @@ class ProductController extends Controller
                 $this->storeMedia($product, $validated, $storedPaths);
 
                 $listingChanged = collect(['name', 'description', 'category', 'variants'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
+                $listingChanged = collect(['name', 'description', 'category'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
                     || $request->boolean('replace_media')
                     || !empty($validated['images'])
                     || !empty($validated['videos'])
