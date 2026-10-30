@@ -73,9 +73,26 @@ class LogisticsOperationsTest extends TestCase
         $this->actingAs($logistics, 'sanctum')
             ->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", [
                 'delivery_area_id' => $area->id,
-                'courier_profile_id' => $otherProfile->id,
+                'courier_profile_id' => $courierProfile->id,
                 'expected_status' => Delivery::AT_SORTING_CENTER,
             ])->assertUnprocessable();
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+        ])->assertOk()->assertJsonPath('message', 'Parcel scanned. Read its delivery address, choose the destination area, then assign a rider for that area.');
+        $this->assertDatabaseHas('delivery_events', [
+            'delivery_id' => $delivery->id,
+            'actor_id' => $logistics->id,
+            'event_type' => 'parcel_scanned',
+            'previous_status' => Delivery::AT_SORTING_CENTER,
+            'new_status' => Delivery::AT_SORTING_CENTER,
+        ]);
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", [
+            'delivery_area_id' => $area->id,
+            'courier_profile_id' => $otherProfile->id,
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+        ])->assertUnprocessable();
 
         $this->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", [
             'delivery_area_id' => $area->id,

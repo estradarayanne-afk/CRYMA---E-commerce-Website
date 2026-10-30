@@ -2776,3 +2776,38 @@ min-height: 100vh;
     .buyer-hero-main-photo,
     .buyer-hero-main-photo img { animation: none; }
 }
+
+/* Marketplace app layout for phone browsers. */
+@media (max-width: 700px) {
+    .buyer-global-shell .buyer-home-main { width: 100%; padding: 10px 12px 24px; }
+    .buyer-home-main { display: flex; flex-direction: column; gap: 16px; }
+    .buyer-landing-hero { display: contents; }
+    .buyer-landing-hero-content { display: none; }
+    .buyer-landing-hero-visual { order: 0; width: 100%; min-height: 0; height: auto; }
+    .buyer-hero-main-photo { min-height: 0; height: clamp(145px, 43vw, 205px); border-radius: 14px; animation: none; }
+    .buyer-hero-main-photo img { width: 100%; height: 100%; object-fit: cover; animation: none; }
+    .buyer-hero-photo-overlay { right: 16px; bottom: 16px; left: 16px; }
+    .buyer-hero-photo-overlay > span { font-size: 9px; }
+    .buyer-hero-photo-overlay strong { font-size: clamp(20px, 6vw, 28px); }
+    .buyer-hero-photo-overlay button { font-size: 12px; }
+    .buyer-hero-carousel-arrow { width: 32px; height: 32px; }
+    .buyer-landing-category-section { order: 1; margin: 0; padding: 4px 0 0; background: transparent; border: 0; box-shadow: none; }
+    .buyer-landing-category-section .buyer-landing-section-heading { margin: 0 0 10px; }
+    .buyer-landing-category-section .buyer-landing-section-heading > div > span { color: #a3163a; font-size: 10px; letter-spacing: .15em; }
+    .buyer-landing-category-section h2 { margin: 2px 0 0; font-size: 19px; line-height: 1.25; }
+    .buyer-landing-category-section .buyer-landing-section-heading p { display: none; }
+    .buyer-landing-category-grid { display: flex; gap: 10px; overflow-x: auto; padding: 2px 1px 8px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+    .buyer-landing-category-grid::-webkit-scrollbar { display: none; }
+    .buyer-landing-category-card { flex: 0 0 116px; min-height: 112px; height: 112px; border-radius: 12px; scroll-snap-align: start; }
+    .buyer-category-number, .buyer-landing-category-card > svg { display: none; }
+    .buyer-category-name { font-size: 13px; }
+    .buyer-landing-featured { order: 2; margin: 0; padding: 16px 12px; border: 1px solid #f0e1e4; border-radius: 14px; background: #fff; box-shadow: 0 3px 12px rgba(74, 17, 32, .05); }
+    .buyer-landing-featured .buyer-landing-section-heading { margin-bottom: 12px; align-items: center; }
+    .buyer-landing-featured .buyer-landing-section-heading > div > span { color: #a3163a; font-size: 10px; letter-spacing: .13em; }
+    .buyer-landing-featured h2 { margin: 3px 0 0; font-size: 18px; line-height: 1.25; }
+    .buyer-landing-featured .buyer-landing-section-heading p { display: none; }
+    .buyer-section-link { flex: 0 0 auto; font-size: 12px; }
+    .buyer-landing-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .buyer-landing-value-section, .buyer-how-section, .buyer-landing-cta-section { display: none; }
+    .buyer-empty-featured { padding: 20px 12px; }
+}
