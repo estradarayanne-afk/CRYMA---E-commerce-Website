@@ -188,6 +188,7 @@ class LogisticsController extends Controller
             abort_unless($area->is_active, 422, 'This delivery area is inactive.');
             abort_unless($order->status === $values['expected_status'] && $delivery->status === $order->status, 409, 'Parcel status changed. Refresh the logistics queue.');
             abort_unless(in_array($order->status, [Delivery::AT_SORTING_CENTER, Delivery::SORTED], true), 422, 'Only parcels at or processed by the sorting center can be assigned.');
+            abort_unless($delivery->events()->where('event_type', 'parcel_scanned')->exists(), 422, 'Scan the parcel at the sorting center before sorting and assigning it.');
             abort_unless($eligibility->find($courier->id) && $eligibility->isEligibleForArea($courier, $area->id), 422, 'The selected courier is no longer eligible for this area.');
 
             if ($order->status === Delivery::AT_SORTING_CENTER) {
@@ -225,6 +226,30 @@ class LogisticsController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Parcel sorted and assigned to an area courier.', 'data' => $delivery]);
+    }
+
+    public function scanParcel(Request $request, int $orderId)
+    {
+        $values = $request->validate(['expected_status' => ['required', 'in:AT_SORTING_CENTER,SORTED']]);
+        $delivery = DB::transaction(function () use ($request, $orderId, $values) {
+            $order = Order::whereKey($orderId)->lockForUpdate()->firstOrFail();
+            $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($order->status === $values['expected_status'] && $delivery->status === $values['expected_status'], 409, 'Parcel status changed. Refresh the queue before scanning.');
+
+            if (!$delivery->events()->where('event_type', 'parcel_scanned')->exists()) {
+                OrderDeliveryProjection::event($delivery, [
+                    'actor_id' => $request->user()->id,
+                    'event_type' => 'parcel_scanned',
+                    'previous_status' => $values['expected_status'],
+                    'new_status' => $values['expected_status'],
+                    'reason' => 'Parcel scanned at sorting center.',
+                ]);
+            }
+
+            return $delivery->load(['order', 'deliveryArea', 'events.actor']);
+        });
+
+        return response()->json(['success' => true, 'message' => 'Parcel scanned. Read its delivery address, choose the destination area, then assign a rider for that area.', 'data' => $delivery]);
     }
 
     public function reassignDelivery(Request $request, int $orderId, CourierEligibility $eligibility)

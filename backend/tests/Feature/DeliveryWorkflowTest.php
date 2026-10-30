@@ -89,6 +89,7 @@ class DeliveryWorkflowTest extends TestCase
         $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/sort-and-assign", [
             'delivery_area_id' => $area->id, 'courier_profile_id' => $otherProfile->id, 'expected_status' => Delivery::AT_SORTING_CENTER,
         ])->assertUnprocessable();
+        $this->patchJson("/api/admin/orders/{$order->id}/scan", ['expected_status' => Delivery::AT_SORTING_CENTER])->assertOk();
         $this->patchJson("/api/admin/orders/{$order->id}/sort-and-assign", [
             'delivery_area_id' => $area->id, 'courier_profile_id' => $profile->id, 'expected_status' => Delivery::AT_SORTING_CENTER,
         ])->assertOk()->assertJsonPath('data.status', Delivery::ASSIGNED);
@@ -220,6 +221,7 @@ class DeliveryWorkflowTest extends TestCase
         $area = DeliveryArea::create(['name' => 'Legacy continuation']);
         $area->couriers()->attach($courier->id, ['assigned_by' => $admin->id]);
 
+        $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/scan", ['expected_status' => Delivery::AT_SORTING_CENTER])->assertOk();
         $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/sort-and-assign", [
             'delivery_area_id' => $area->id, 'courier_profile_id' => $courier->id, 'expected_status' => Delivery::AT_SORTING_CENTER,
         ])->assertOk();

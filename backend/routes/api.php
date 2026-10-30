@@ -83,6 +83,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/admin/delivery-areas/{areaId}/couriers', [LogisticsController::class, 'assignCourierToArea']);
         Route::delete('/admin/delivery-areas/{areaId}/couriers/{courierProfileId}', [LogisticsController::class, 'removeCourierFromArea']);
         Route::post('/admin/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
+        Route::patch('/admin/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);
         Route::patch('/admin/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
         Route::patch('/admin/orders/{orderId}/legacy-sorting-receipt', [LogisticsController::class, 'confirmLegacySortingReceipt']);
         Route::get('/admin/deliveries/{id}', [AdminDeliveryController::class, 'show']);
@@ -111,6 +112,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/logistics/delivery-areas', [LogisticsController::class, 'areas']);
         Route::post('/logistics/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
         Route::patch('/logistics/orders/{orderId}/sorting-receipt', [ParcelOperationsController::class, 'confirmSortingReceipt']);
+        Route::patch('/logistics/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);
         Route::patch('/logistics/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
         Route::post('/logistics/orders/{orderId}/delivery-assignment', [LogisticsController::class, 'reassignDelivery']);
         Route::patch('/logistics/orders/{orderId}/delivery-resolution', [AdminDeliveryController::class, 'resolve']);

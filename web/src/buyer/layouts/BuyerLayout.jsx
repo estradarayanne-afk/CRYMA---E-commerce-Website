@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Grid2X2, House, Search, ShoppingCart, UserRound } from "lucide-react";
 import BuyerNavbar from "../components/BuyerNavbar/BuyerNavbar";
 import AuthModal from "../../shared/components/AuthModal";
 import Toast from "../../shared/components/Toast";
@@ -15,6 +16,7 @@ import "./BuyerLayout.css";
 function BuyerLayout() {
     const [toast, setToast] = useState(null);
     const toastIdRef = useRef(0);
+    const location = useLocation();
 
     useEffect(() => {
         const notify = (detail) => {
@@ -63,6 +65,24 @@ function BuyerLayout() {
             <main className="buyer-global-main">
                 <Outlet />
             </main>
+
+            <nav className="buyer-mobile-tab-bar" aria-label="Mobile shopping navigation">
+                <NavLink to="/" end className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                    <House size={20} aria-hidden="true" /><span>Home</span>
+                </NavLink>
+                <NavLink to="/shop" className={({ isActive }) => `buyer-mobile-tab${isActive && location.pathname === "/shop" ? " active" : ""}`}>
+                    <Grid2X2 size={20} aria-hidden="true" /><span>Categories</span>
+                </NavLink>
+                <button type="button" className="buyer-mobile-tab" onClick={() => window.dispatchEvent(new Event("cryma-open-mobile-search"))}>
+                    <Search size={20} aria-hidden="true" /><span>Search</span>
+                </button>
+                <NavLink to="/cart" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                    <ShoppingCart size={20} aria-hidden="true" /><span>Cart</span>
+                </NavLink>
+                <NavLink to="/account" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                    <UserRound size={20} aria-hidden="true" /><span>Account</span>
+                </NavLink>
+            </nav>
 
             <BuyerSellerChatWidget />
 
