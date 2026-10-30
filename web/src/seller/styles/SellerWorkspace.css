@@ -676,3 +676,46 @@
     .sl-variant-media-copy { grid-column:1/-1; }
     .sl-variant-media-card > img,.sl-variant-media-card > video { max-height:90px; }
 }
+
+/* Inventory edit and removal dialogs */
+.sl-modal--edit { display: flex; width: min(760px, 100%); height: min(90dvh, 900px); flex-direction: column; overflow: hidden; }
+.sl-modal--edit > .sl-modal-head { flex: 0 0 auto; }
+.sl-modal--edit .sl-product-form { min-height: 0; flex: 1; overflow-y: auto; }
+.sl-modal--edit .sl-modal-foot { position: relative; z-index: 2; flex: 0 0 auto; background: var(--white); }
+.sl-modal--remove { width: min(520px, 100%); }
+.sl-remove-body { display: grid; gap: 18px; }
+.sl-remove-intro { margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.sl-remove-intro strong { color: var(--text-primary); }
+.sl-remove-options { display: grid; gap: 12px; }
+.sl-remove-option { display: grid; gap: 5px; width: 100%; min-height: 76px; padding: 15px 17px; border: 1px solid var(--color-border); border-radius: 11px; text-align: left; font: inherit; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+.sl-remove-option:hover:not(:disabled) { transform: translateY(-1px); }
+.sl-remove-option strong { font-size: 14px; font-weight: 700; }
+.sl-remove-option span { font-size: 12px; line-height: 1.45; }
+.sl-remove-option--danger { border-color: #6f1728; background: #6f1728; color: #fff; }
+.sl-remove-option--danger:hover:not(:disabled) { background: #54111e; }
+.sl-remove-option--archive { border-color: #d6c8ca; background: #f8f4f3; color: var(--text-primary); }
+.sl-remove-option--archive:hover:not(:disabled) { border-color: var(--crimson); background: #fff; }
+.sl-remove-option:disabled { opacity: .65; cursor: wait; }
+.sl-remove-foot { justify-content: flex-end; }
+@media (max-width: 600px) {
+    .sl-modal--edit { width: 100%; height: calc(100dvh - 24px); }
+    .sl-remove-option { padding: 13px 14px; }
+}
+
+/* Seller inventory polish */
+.sl-row-actions { gap: 8px; }
+.sl-btn-sm--remove { margin-left: 16px; transform: translateX(8px); border-color: #722033; background: #722033; color: #fff; }
+.sl-btn-sm--remove:hover { border-color: #501421; background: #501421; color: #fff; }
+.sl-modal-heading-copy h3 { margin: 0; }
+.sl-modal-heading-copy p { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+.sl-modal--edit > .sl-modal-head { padding-top: 24px; padding-bottom: 21px; background: linear-gradient(135deg, #fff 0%, #fbf2f3 100%); }
+.sl-modal--edit .sl-product-form { gap: 14px; }
+.sl-modal--edit .sl-form-section { gap: 16px; padding: 18px; border: 1px solid #f0e4e6; border-radius: 13px; background: #fffdfd; }
+.sl-modal--edit .sl-form-section + .sl-form-section { padding-top: 18px; }
+.sl-modal--edit .sl-form-section-heading { padding-bottom: 2px; }
+.sl-modal--edit .sl-form-section-heading h4 { font-size: 16px; }
+.sl-modal--edit .sl-modal-foot { box-shadow: 0 -8px 20px rgba(38,21,26,.04); }
+@media (max-width: 600px) {
+    .sl-modal--edit .sl-form-section { padding: 14px; }
+    .sl-btn-sm--remove { margin-left: 8px; transform: none; }
+}

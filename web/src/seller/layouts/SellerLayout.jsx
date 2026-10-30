@@ -4,6 +4,7 @@ import {
     BarChart3,
     ChevronDown,
     ChevronUp,
+    Clock3,
     LayoutDashboard,
     LogOut,
     MessageCircle,
@@ -40,6 +41,7 @@ function SellerLayout() {
     const [profileOpen, setProfileOpen] = useState(false);
     const [logoutModalOpen, setLogoutModalOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+    const [headerDate, setHeaderDate] = useState(() => new Date());
 
     const user = (() => {
         try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
@@ -54,6 +56,11 @@ function SellerLayout() {
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [mobileNavOpen]);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setHeaderDate(new Date()), 60_000);
+        return () => window.clearInterval(timer);
+    }, []);
 
     if (!token || !user || user.role !== "seller") {
         return <Navigate to="/login" replace />;
@@ -195,6 +202,10 @@ function SellerLayout() {
                         <div className="al-header-status">
                             <span className="al-status-dot" />
                             Store online
+                        </div>
+                        <div className="al-header-date">
+                            <span className="al-header-date-icon"><Clock3 aria-hidden="true" /></span>
+                            <div><span>Today</span><strong>{headerDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</strong></div>
                         </div>
                     </div>
                 </header>
