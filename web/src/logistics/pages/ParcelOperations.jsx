@@ -31,7 +31,7 @@ const parcelWeight = (items = []) => {
 const PAGE_CONFIG = {
     pickups: { eyebrow: "PICKUP QUEUE", title: "Seller pickup requests", description: "Assign a verified, eligible courier to seller orders marked ready for pickup." },
     incoming: { eyebrow: "INBOUND PARCELS", title: "Incoming parcels", description: "Verify parcel handover and record sorting-center receipt." },
-    sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Record destination area and assign an eligible courier to each received parcel." },
+    sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Receive and scan parcels, read each delivery address, choose its destination area, then assign a rider who covers that area." },
     assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Assign or reassign deliveries using configured area coverage and courier eligibility." },
     monitoring: { eyebrow: "DELIVERY OPERATIONS", title: "Courier Deliveries", description: "Monitor courier assignments, delivery status, history, failed attempts, and returns." },
     reports: { eyebrow: "OPERATIONS SUMMARY", title: "Logistics reports", description: "Current counts derived from CRYMA order and delivery records." },
@@ -111,8 +111,8 @@ export default function ParcelOperations({ section }) {
         courier.delivery_areas?.some((area) => Number(area.id) === Number(areaId) && area.is_active));
     const getReason = (key) => reasons[key] || "";
     const setReason = (key, value) => setReasons((current) => ({ ...current, [key]: value }));
-    const courierSelect = (couriers, value, onChange, label) => (
-        <select aria-label={label} value={value || ""} onChange={(event) => onChange(event.target.value)}>
+    const courierSelect = (couriers, value, onChange, label, disabled = false) => (
+        <select aria-label={label} value={value || ""} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
             <option value="">Select eligible courier</option>
             {couriers.map((courier) => (
                 <option value={courier.id} key={courier.id}>
@@ -146,17 +146,34 @@ export default function ParcelOperations({ section }) {
 
     const confirmReceipt = (assignment) => {
         requestConfirmation(
-            "Confirm sorting-center receipt?",
+            "Receive parcel at the sorting center?",
             `This records order #${assignment.order_id} as received at the sorting center.`,
             () => void mutate(
                 `receipt-${assignment.id}`,
                 () => api.patch(`/logistics/orders/${assignment.order_id}/sorting-receipt`, { expected_status: "PICKED_UP" }),
-                "Sorting-center receipt confirmed.",
+                        "Parcel received at the sorting center.",
+            ),
+        );
+    };
+
+    const scanParcel = (order) => {
+        requestConfirmation(
+            "Scan parcel at sorting center?",
+            `Confirm that parcel #${order.id} has been physically received and scanned. You can then read the address and route it to an area rider.`,
+            () => void mutate(
+                `scan-${order.id}`,
+                () => api.patch(`/logistics/orders/${order.id}/scan`, { expected_status: order.status }),
+                `Parcel #${order.id} scanned. Continue with its destination area and rider.`,
             ),
         );
     };
 
     const sortAndAssign = (order) => {
+        const scanned = order.delivery?.events?.some((event) => event.event_type === "parcel_scanned");
+        if (!scanned) {
+            setError("Scan the parcel before choosing its delivery area and rider.");
+            return;
+        }
         const areaId = Number(areaChoices[order.id] || order.delivery?.delivery_area_id);
         const courierProfileId = Number(deliveryChoices[order.id]);
         if (!areaId || !courierProfileId || !eligibleForArea(areaId).some((courier) => courier.id === courierProfileId)) {
@@ -278,17 +295,32 @@ export default function ParcelOperations({ section }) {
                         </section>
                     )}
 
-                    {section === "incoming" && <section className="lo-panel"><h2>Collected parcels awaiting receipt</h2>
+                    {section === "incoming" && <section className="lo-panel"><h2>Parcels awaiting sorting-center receipt</h2>
                         {awaitingReceipt.length === 0 ? <p className="lw-empty">No collected parcels are awaiting sorting-center receipt.</p> : awaitingReceipt.map((assignment) => <article className="lo-row" key={assignment.id}>
                             <div><strong>Order #{assignment.order_id} · Collected</strong><span>Pickup courier: {courierName(assignment.courierProfile)}</span><small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small><small>Collection recorded: {assignment.picked_up_at ? new Date(assignment.picked_up_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small></div>
-                            <button type="button" disabled={!!saving} onClick={() => confirmReceipt(assignment)}>{saving === `receipt-${assignment.id}` ? "Saving…" : "Confirm sorting-center receipt"}</button>
+                            <button type="button" disabled={!!saving} onClick={() => confirmReceipt(assignment)}>{saving === `receipt-${assignment.id}` ? "Receiving…" : "Receive parcel"}</button>
                         </article>)}</section>}
 
-                    {section === "sorting" && <section className="lo-panel"><h2>Parcels at the sorting center</h2>
-                        {(queue.sorting_orders || []).filter((order) => order.status === "AT_SORTING_CENTER").length === 0 ? <p className="lw-empty">No received parcels are waiting to be sorted.</p> : queue.sorting_orders.filter((order) => order.status === "AT_SORTING_CENTER").map((order) => <article className="lo-row" key={order.id}>
-                            <div><strong>Order #{order.id}</strong><span>Destination: {order.delivery_address || "Address unavailable"}</span><small>{(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(order.items)}</small></div>
-                            <div className="lo-actions"><select aria-label={`Area for order ${order.id}`} value={areaChoices[order.id] || ""} onChange={(event) => setAreaChoices((current) => ({ ...current, [order.id]: event.target.value }))}><option value="">Select active area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>{courierSelect(eligibleForArea(areaChoices[order.id]), deliveryChoices[order.id], (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Delivery courier for order ${order.id}`)}<button type="button" disabled={!!saving} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : "Sort and assign"}</button></div>
-                        </article>)}</section>}
+                    {section === "sorting" && <section className="lo-panel"><h2>Receive · Scan · Read address · Sort · Assign</h2>
+                        {(queue.sorting_orders || []).filter((order) => ["AT_SORTING_CENTER", "SORTED"].includes(order.status)).length === 0 ? <p className="lw-empty">No received parcels are waiting to be sorted.</p> : queue.sorting_orders.filter((order) => ["AT_SORTING_CENTER", "SORTED"].includes(order.status)).map((order) => {
+                            const scanned = order.delivery?.events?.some((event) => event.event_type === "parcel_scanned");
+                            const areaId = areaChoices[order.id] || order.delivery?.delivery_area_id || "";
+                            const eligible = eligibleForArea(areaId);
+                            const courierId = deliveryChoices[order.id] || (order.status === "SORTED" ? order.delivery?.courier_profile_id : "");
+                            return <article className="lo-row lo-sort-row" key={order.id}>
+                                <div className="lo-parcel-details"><strong>Parcel #{order.id} <span className="lo-stage-pill">{scanned ? "Scanned · ready to route" : "Received · scan required"}</span></strong>
+                                    <span className="lo-destination"><b>Delivery address</b>{order.delivery_address || "Address unavailable"}</span>
+                                    <small>Items: {(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</small><small>Parcel weight: {parcelWeight(order.items)}</small>
+                                    {scanned && <small>Scan recorded: {new Date(order.delivery.events.find((event) => event.event_type === "parcel_scanned")?.created_at || Date.now()).toLocaleString("en-PH")}</small>}
+                                </div>
+                                <div className="lo-routing-fields">
+                                    {!scanned && <button type="button" disabled={!!saving} onClick={() => scanParcel(order)}>{saving === `scan-${order.id}` ? "Scanning…" : "Scan parcel"}</button>}
+                                    <label>Destination area<select aria-label={`Destination area for parcel ${order.id}`} value={areaChoices[order.id] || order.delivery?.delivery_area_id || ""} disabled={!scanned || !!saving} onChange={(event) => { setAreaChoices((current) => ({ ...current, [order.id]: event.target.value })); setDeliveryChoices((current) => ({ ...current, [order.id]: "" })); }}><option value="">Read address and select area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></label>
+                                    <label>Rider assigned to this area{courierSelect(eligible, courierId, (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Rider for parcel ${order.id}`, !scanned || !!saving)}</label>
+                                    <button type="button" disabled={!scanned || !!saving || !areaId || !courierId} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : "Sort and assign to rider"}</button>
+                                </div>
+                            </article>;
+                        })}</section>}
 
                     {section === "assignment" && <section className="lo-panel"><h2>Sorted parcels awaiting dispatch</h2>
                         {(queue.sorting_orders || []).filter((order) => order.status === "SORTED").length === 0 ? <p className="lw-empty">No sorted parcels are awaiting a delivery assignment.</p> : queue.sorting_orders.filter((order) => order.status === "SORTED").map((order) => <article className="lo-row" key={order.id}>

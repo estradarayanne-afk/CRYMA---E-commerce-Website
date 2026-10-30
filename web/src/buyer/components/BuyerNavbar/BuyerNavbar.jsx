@@ -99,6 +99,12 @@ function BuyerNavbar() {
     const [logoutOpen, setLogoutOpen] = useState(false);
 
     useEffect(() => {
+        const openSearch = () => setMobileOpen(true);
+        window.addEventListener("cryma-open-mobile-search", openSearch);
+        return () => window.removeEventListener("cryma-open-mobile-search", openSearch);
+    }, []);
+
+    useEffect(() => {
         if (!profileImageKey || user?.role !== "buyer" || !localStorage.getItem("token")) return undefined;
 
         let cancelled = false;
