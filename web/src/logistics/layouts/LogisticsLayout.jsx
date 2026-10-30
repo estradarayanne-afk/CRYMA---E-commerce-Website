@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     BarChart3,
     Boxes,
     ClipboardList,
+    Clock3,
     ChevronDown,
     LayoutDashboard,
     LogOut,
@@ -32,6 +33,8 @@ const LINKS = [
 
 function LogisticsLayout() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const [headerDate, setHeaderDate] = useState(() => new Date());
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
@@ -46,8 +49,14 @@ function LogisticsLayout() {
         }
     });
     const closeLogoutModal = useCallback(() => setLogoutModalOpen(false), []);
+    const currentPage = LINKS.find(({ to }) => to === location.pathname)?.label || "Logistics";
     const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Logistics staff";
     const initials = fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setHeaderDate(new Date()), 60_000);
+        return () => window.clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         if (!mobileNavOpen) return undefined;
@@ -160,9 +169,9 @@ function LogisticsLayout() {
                         <button type="button" className="lw-mobile-menu-toggle" onClick={() => { setSidebarCollapsed(false); setMobileNavOpen((open) => !open); }} aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={mobileNavOpen} aria-controls="logistics-workspace-navigation">
                             <span /><span /><span />
                         </button>
-                        <div className="lw-breadcrumb"><span>CRYMA</span><span>/</span><strong>Logistics</strong></div>
+                        <div className="lw-breadcrumb"><span>CRYMA</span><span>/</span><strong>{currentPage}</strong></div>
                     </div>
-                    <div className="lw-header-status"><span />System online</div>
+                    <div className="lw-header-right"><div className="lw-header-status"><span />System online</div><div className="lw-header-date"><span className="lw-header-date-icon"><Clock3 aria-hidden="true" /></span><div><span>Today</span><strong>{headerDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" })}</strong></div></div></div>
                 </header>
                 <main className="lw-content al-content"><Outlet /></main>
             </div>

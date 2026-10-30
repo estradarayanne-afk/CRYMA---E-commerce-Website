@@ -340,6 +340,21 @@ function Inventory() {
         }
     };
 
+    const handleArchiveFromDelete = async () => {
+        if (!confirmDelete) return;
+        setArchiving(true);
+        setActionError("");
+        try {
+            await api.patch(`/seller/products/${confirmDelete.id}/archive`);
+            setConfirmDelete(null);
+            showToast("Product archived.");
+            await load();
+        } catch (err) {
+            setActionError(err.response?.data?.message || "Failed to archive product. Please try again.");
+        } finally {
+            setArchiving(false);
+        }
+    };
     const set = (e) => {
         const { name, value } = e.target;
         setForm((current) => ({ ...current, [name]: value }));
@@ -455,7 +470,8 @@ function Inventory() {
                                         <div className="sl-inventory-status">
                                             <span className={`sl-badge ${p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
                                                 {formatStatusLabel(p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active")}
-                                                {p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active"}
+
+
                                             </span>
                                             {p.review_status === "pending" && <span className="sl-badge sl-badge--review">Pending admin review</span>}
                                             {p.review_status === "rejected" && <span className="sl-badge sl-badge--rejected" title={p.review_reason || "Review the product and update its listing to resubmit."}>Rejected · edit to resubmit</span>}
@@ -468,7 +484,7 @@ function Inventory() {
                                             <button className="sl-btn-sm sl-btn-sm--ghost" onClick={() => { setActionError(""); setConfirmArchive(p); }}>
                                                 {p.status === "archived" ? "Restore" : "Archive"}
                                             </button>
-                                            <button className="sl-btn-sm sl-btn-sm--ghost" onClick={() => { setActionError(""); setConfirmDelete(p); }}>Remove</button>
+                                            <button className="sl-btn-sm sl-btn-sm--remove" onClick={() => { setActionError(""); setConfirmDelete(p); }}>Remove</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -484,14 +500,14 @@ function Inventory() {
                     open={modal !== null}
                     onClose={closeProductForm}
                     ariaLabelledBy="inventory-modal-title"
-                    className="sl-modal"
+                    className="sl-modal sl-modal--edit"
                     busy={saving}
                 >
                         <div className="sl-modal-head">
-                            <div><span className="sl-modal-eyebrow">PRODUCT LISTING</span><h3 id="inventory-modal-title">{modal === "add" ? "Add Product" : "Edit Product"}</h3></div>
+                            <div className="sl-modal-heading-copy"><span className="sl-modal-eyebrow">{modal === "add" ? "NEW LISTING" : "PRODUCT LISTING"}</span><h3 id="inventory-modal-title">{modal === "add" ? "Add Product" : "Edit Product"}</h3>{modal !== "add" && <p>Update product details, options, pricing, and media.</p>}</div>
                             <button type="button" className="sl-modal-close" aria-label="Close product form" onClick={closeProductForm} disabled={saving}>✕</button>
                         </div>
-                        <form className="sl-modal-body sl-product-form" onSubmit={(event) => { event.preventDefault(); void handleSave(); }}>
+                        <form id="inventory-product-form" className="sl-modal-body sl-product-form" onSubmit={(event) => { event.preventDefault(); void handleSave(); }}>
                             {actionError && <div className="auth-notice auth-notice--error" role="alert">{actionError}</div>}
                             <section className="sl-form-section">
                                 <div className="sl-form-section-heading"><h4>Product information</h4><p>Help shoppers identify and understand your item.</p></div>
@@ -647,13 +663,14 @@ function Inventory() {
                                     </div>
                                 ) : <div className="sl-media-empty"><Upload size={18} /><span>No media added yet. Clear photos help shoppers understand your product.</span></div>}
                             </section>
+
+                        </form>
                         <div className="sl-modal-foot">
                             <button type="button" className="sl-btn-ghost" onClick={closeProductForm} disabled={saving}>Cancel</button>
-                            <button type="submit" className="sl-btn-primary" disabled={saving}>
+                            <button type="submit" form="inventory-product-form" className="sl-btn-primary" disabled={saving}>
                                 {saving ? "Saving…" : modal === "add" ? "Add Product" : "Save Changes"}
                             </button>
                         </div>
-                        </form>
                 </Dialog>
             )}
 
@@ -693,24 +710,29 @@ function Inventory() {
                     open={Boolean(confirmDelete)}
                     onClose={() => setConfirmDelete(null)}
                     ariaLabelledBy="inventory-delete-title"
-                    className="sl-modal sl-modal--sm"
-                    busy={deleting}
+                    className="sl-modal sl-modal--sm sl-modal--remove"
+                    busy={deleting || archiving}
                 >
                         <div className="sl-modal-head">
-                            <h3 id="inventory-delete-title">Remove Product</h3>
-                            <button type="button" className="sl-modal-close" aria-label="Close confirmation" onClick={() => setConfirmDelete(null)} disabled={deleting}>✕</button>
+                            <div><span className="sl-modal-eyebrow">INVENTORY ACTION</span><h3 id="inventory-delete-title">Remove this product?</h3></div>
+                            <button type="button" className="sl-modal-close" aria-label="Close confirmation" onClick={() => setConfirmDelete(null)} disabled={deleting || archiving}>×</button>
                         </div>
-                        <div className="sl-modal-body">
+                        <div className="sl-modal-body sl-remove-body">
                             {actionError && <div className="auth-notice auth-notice--error" role="alert">{actionError}</div>}
-                            <p style={{ fontSize: 14, color: "#4a6462" }}>
-                                Remove "{confirmDelete.name}" permanently from your inventory?
-                            </p>
+                            <p className="sl-remove-intro"><strong>{confirmDelete.name}</strong> will be permanently deleted if you remove it. You can archive it instead to hide it from your store and restore it later.</p>
+                            <div className="sl-remove-options">
+                                <button type="button" className="sl-remove-option sl-remove-option--danger" onClick={handleDelete} disabled={deleting || archiving}>
+                                    <strong>{deleting ? "Removing product…" : "Remove permanently"}</strong>
+                                    <span>Delete this product and its listing from your inventory.</span>
+                                </button>
+                                <button type="button" className="sl-remove-option sl-remove-option--archive" onClick={handleArchiveFromDelete} disabled={deleting || archiving}>
+                                    <strong>{archiving ? "Moving to archive…" : "Move to archive instead"}</strong>
+                                    <span>Hide it from shoppers; you can restore it later.</span>
+                                </button>
+                            </div>
                         </div>
-                        <div className="sl-modal-foot">
-                            <button className="sl-btn-ghost" onClick={() => setConfirmDelete(null)} disabled={deleting}>Cancel</button>
-                            <button className="sl-btn-primary" onClick={handleDelete} disabled={deleting}>
-                                {deleting ? "Removing…" : "Remove Product"}
-                            </button>
+                        <div className="sl-modal-foot sl-remove-foot">
+                            <button type="button" className="sl-btn-ghost" onClick={() => setConfirmDelete(null)} disabled={deleting || archiving}>Cancel</button>
                         </div>
                 </Dialog>
             )}
