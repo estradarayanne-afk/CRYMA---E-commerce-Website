@@ -18,7 +18,7 @@ class LogisticsController extends Controller
 {
     public function queue(CourierEligibility $eligibility)
     {
-        $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name'];
+        $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name', 'items.seller.addresses'];
         $pickupOrders = Order::with($orderDetails)->where('status', 'READY_FOR_PICKUP')
             ->whereDoesntHave('pickupAssignment')
             ->where(fn ($query) => $query->whereDoesntHave('delivery')
@@ -66,7 +66,8 @@ class LogisticsController extends Controller
     {
         if (is_string($request->input('name'))) $request->merge(['name' => trim($request->input('name'))]);
         $values = $request->validate(['name' => ['required', 'string', 'max:100', 'not_regex:/^\s*$/', 'unique:delivery_areas,name']]);
-        return response()->json(['success' => true, 'data' => DeliveryArea::create(['name' => $values['name'], 'is_active' => true])], 201);
+        $centralHubId = \App\Models\LogisticsHub::where('code', 'CRYMA-CENTRAL')->value('id');
+        return response()->json(['success' => true, 'data' => DeliveryArea::create(['name' => $values['name'], 'is_active' => true, 'hub_id' => $centralHubId])], 201);
     }
 
     public function updateArea(Request $request, int $areaId)
@@ -117,42 +118,69 @@ class LogisticsController extends Controller
         $values = $request->validate([
             'courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id'],
             'expected_courier_profile_id' => ['nullable', 'integer'],
+            'scheduled_at' => ['required', 'date', 'after:now'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ]);
         $courier = $eligibility->find((int) $values['courier_profile_id']);
         abort_unless($courier, 422, 'The selected pickup rider is not eligible.');
         $reason = isset($values['reason']) ? trim($values['reason']) : null;
+        $requestedSchedule = \Illuminate\Support\Carbon::parse($values['scheduled_at']);
 
         try {
-            $assignment = DB::transaction(function () use ($request, $orderId, $values, $courier, $reason, $eligibility) {
-                $order = Order::whereKey($orderId)->lockForUpdate()->firstOrFail();
+            $assignment = DB::transaction(function () use ($request, $orderId, $values, $courier, $reason, $eligibility, $requestedSchedule) {
+                $order = Order::with(['items.seller.addresses'])->whereKey($orderId)->lockForUpdate()->firstOrFail();
                 $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
                 $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
                 abort_unless($eligibility->find($courier->id), 422, 'The pickup rider is no longer eligible.');
                 abort_unless($order->status === 'READY_FOR_PICKUP', 422, 'Only seller-ready orders can be assigned for pickup.');
+                $courierChanged = false;
+                $scheduleChanged = true;
 
                 if ($assignment) {
-                    abort_unless(in_array($assignment->status, [PickupAssignment::ASSIGNED, PickupAssignment::ACCEPTED], true) && !$assignment->picked_up_at, 422, 'Pickup rider cannot be changed after collection.');
-                    if ((int) $assignment->courier_profile_id === (int) $courier->id) return $assignment;
-                    abort_unless($request->filled('expected_courier_profile_id') && (int) $values['expected_courier_profile_id'] === (int) $assignment->courier_profile_id, 409, 'Pickup assignment changed. Refresh and try again.');
-                    abort_unless($reason, 422, 'A reason is required when changing a pickup rider.');
+                    abort_unless(in_array($assignment->status, [PickupAssignment::REQUESTED, PickupAssignment::ASSIGNED, PickupAssignment::ACCEPTED], true) && !$assignment->picked_up_at, 422, 'Pickup rider cannot be changed after collection.');
+                    if ($assignment->status === PickupAssignment::REQUESTED) {
+                        $previousCourier = null;
+                        $previousAssignmentStatus = PickupAssignment::REQUESTED;
+                    } else {
+                        $courierChanged = (int) $assignment->courier_profile_id !== (int) $courier->id;
+                        $scheduleChanged = !$assignment->scheduled_at || !$assignment->scheduled_at->equalTo($requestedSchedule);
+                        if (!$courierChanged && !$scheduleChanged) return $assignment;
+                        if ($courierChanged) {
+                            abort_unless($request->filled('expected_courier_profile_id') && (int) $values['expected_courier_profile_id'] === (int) $assignment->courier_profile_id, 409, 'Pickup assignment changed. Refresh and try again.');
+                            abort_unless($reason, 422, 'A reason is required when changing a pickup rider.');
+                        }
+                    }
                 } else {
                     abort_unless(!$delivery || ($delivery->legacy_imported && $delivery->status === 'READY_FOR_PICKUP'), 409, 'This order already has a delivery record and cannot enter pickup assignment automatically.');
                     $delivery ??= Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
                     $assignment = new PickupAssignment(['order_id' => $order->id, 'delivery_id' => $delivery->id]);
                 }
 
-                $previousCourier = $assignment->courier_profile_id;
-                $previousAssignmentStatus = $assignment->exists ? $assignment->status : $order->status;
+                if (!$assignment->pickup_address) {
+                    $address = $order->items->first()?->seller?->addresses?->sortByDesc('is_default')->first();
+                    abort_unless($address, 422, 'Add a seller pickup address in Account Settings before assigning a courier.');
+                    $assignment->pickup_address = collect([
+                        $address->recipient_name ? 'Contact: '.$address->recipient_name : null,
+                        $address->phone ? 'Phone: '.$address->phone : null,
+                        implode(', ', array_filter([$address->house_number, $address->building_name, $address->unit_number, $address->street])),
+                        $address->barangay, $address->municipality, $address->province, $address->region, $address->postal_code,
+                    ])->filter()->implode(', ');
+                }
+
+                $previousCourier ??= $assignment->courier_profile_id;
+                $previousAssignmentStatus ??= $assignment->exists ? $assignment->status : $order->status;
                 $assignment->fill([
                     'courier_profile_id' => $courier->id,
                     'assigned_by' => $request->user()->id,
                     'status' => PickupAssignment::ASSIGNED,
                     'assigned_at' => now(),
+                    'scheduled_at' => $requestedSchedule,
                 ])->save();
                 OrderDeliveryProjection::event($delivery, [
                     'actor_id' => $request->user()->id,
-                    'event_type' => $previousCourier ? 'pickup_reassigned' : 'pickup_assigned',
+                    'event_type' => $previousCourier
+                        ? ($scheduleChanged && !$courierChanged ? 'pickup_rescheduled' : 'pickup_reassigned')
+                        : 'pickup_assigned',
                     'previous_status' => $previousAssignmentStatus,
                     'new_status' => PickupAssignment::ASSIGNED,
                     'previous_courier_profile_id' => $previousCourier,
@@ -186,6 +214,7 @@ class LogisticsController extends Controller
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             $area = DeliveryArea::whereKey($values['delivery_area_id'])->lockForUpdate()->firstOrFail();
             abort_unless($area->is_active, 422, 'This delivery area is inactive.');
+            abort_unless((int) ($area->hub_id ?? 0) === (int) ($delivery->current_hub_id ?? 0), 409, 'Parcel is at a different hub. Create a hub transfer to the area’s hub before assigning the final-mile courier.');
             abort_unless($order->status === $values['expected_status'] && $delivery->status === $order->status, 409, 'Parcel status changed. Refresh the logistics queue.');
             abort_unless(in_array($order->status, [Delivery::AT_SORTING_CENTER, Delivery::SORTED], true), 422, 'Only parcels at or processed by the sorting center can be assigned.');
             abort_unless($delivery->events()->where('event_type', 'parcel_scanned')->exists(), 422, 'Scan the parcel at the sorting center before sorting and assigning it.');
@@ -327,7 +356,7 @@ class LogisticsController extends Controller
             abort_unless($delivery->legacy_imported && $delivery->status === Delivery::PICKED_UP && $order->status === Delivery::PICKED_UP, 409, 'Only legacy parcels marked picked up can be verified here.');
             abort_unless(!$order->pickupAssignment()->exists(), 409, 'This parcel has an active pickup assignment.');
 
-            $delivery->update(['status' => Delivery::AT_SORTING_CENTER]);
+            $delivery->update(['status' => Delivery::AT_SORTING_CENTER, 'current_hub_id' => \App\Models\LogisticsHub::where('code', 'CRYMA-CENTRAL')->value('id')]);
             $order->update(['status' => Delivery::AT_SORTING_CENTER]);
             OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $request->user()->id,

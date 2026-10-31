@@ -45,4 +45,6 @@ class Delivery extends Model
     public function pickupAssignment(): HasOne { return $this->hasOne(PickupAssignment::class); }
     public function proof(): HasOne { return $this->hasOne(DeliveryProof::class); }
     public function events(): HasMany { return $this->hasMany(DeliveryEvent::class)->orderBy('created_at')->orderBy('id'); }
+    public function currentHub() { return $this->belongsTo(LogisticsHub::class, 'current_hub_id'); }
+    public function hubTransfers(): HasMany { return $this->hasMany(HubTransfer::class); }
 }

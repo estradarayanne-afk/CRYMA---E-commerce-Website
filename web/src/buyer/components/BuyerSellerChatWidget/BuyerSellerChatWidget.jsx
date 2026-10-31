@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
     Check,
     CheckCheck,
+    ChevronDown,
     LoaderCircle,
     MessageCircle,
+    Maximize2,
     Minimize2,
+    PackageCheck,
+    Store,
     RefreshCw,
     Send,
     X,
@@ -40,12 +44,18 @@ function getLatestMessage(conversation) {
 
 function BuyerSellerChatWidget() {
     const location = useLocation();
+    const navigate = useNavigate();
     const [buyerSession, setBuyerSession] = useState(isBuyerSession);
     const [conversations, setConversations] = useState([]);
+    const [buyerOrders, setBuyerOrders] = useState([]);
+    const [ordersLoading, setOrdersLoading] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const [activeConversation, setActiveConversation] = useState(null);
     const [drafts, setDrafts] = useState({});
+    const [attachedProductId, setAttachedProductId] = useState("");
+    const [attachedOrderId, setAttachedOrderId] = useState("");
     const [panelOpen, setPanelOpen] = useState(false);
+    const [expanded, setExpanded] = useState(false);
     const [minimized, setMinimized] = useState(false);
     const [listLoading, setListLoading] = useState(false);
     const [listError, setListError] = useState("");
@@ -60,6 +70,8 @@ function BuyerSellerChatWidget() {
     const pendingMessageRef = useRef(new Map());
     const sendingRef = useRef(false);
     const detailRequestRef = useRef(0);
+    const storeChatRequestRef = useRef(0);
+    const handledRouteChatRequestRef = useRef("");
     const selectedIdRef = useRef(selectedId);
     const listRequestInFlightRef = useRef(false);
     const panelWasOpenRef = useRef(false);
@@ -73,6 +85,10 @@ function BuyerSellerChatWidget() {
         : null;
     const conversationReady = Boolean(selectedConversation);
     const unreadCount = useMemo(() => getSellerUnreadCount(conversations), [conversations]);
+    const shareableOrders = useMemo(() => buyerOrders.filter((order) => (
+        order.items?.some((item) => Number(item.seller_id) === Number(selectedConversation?.seller_id))
+    )), [buyerOrders, selectedConversation?.seller_id]);
+    const selectedOrder = shareableOrders.find((order) => String(order.id) === String(attachedOrderId));
 
     useEffect(() => {
         selectedIdRef.current = selectedId;
@@ -102,6 +118,8 @@ function BuyerSellerChatWidget() {
             setSelectedId(null);
             setActiveConversation(null);
             setDrafts({});
+            setAttachedProductId("");
+            setAttachedOrderId("");
             setPanelOpen(false);
             setMinimized(false);
             setListError("");
@@ -158,6 +176,37 @@ function BuyerSellerChatWidget() {
         };
     }, [eligible, loadConversations]);
 
+    useEffect(() => {
+        if (!eligible || !panelOpen || !selectedConversation?.seller_id) {
+            setBuyerOrders([]);
+            setOrdersLoading(false);
+            return undefined;
+        }
+        let cancelled = false;
+        setOrdersLoading(true);
+        api.get("/orders")
+            .then(({ data }) => {
+                if (cancelled) return;
+                const rows = data?.data?.data ?? data?.data ?? [];
+                setBuyerOrders(Array.isArray(rows) ? rows : []);
+            })
+            .catch(() => { if (!cancelled) setBuyerOrders([]); })
+            .finally(() => { if (!cancelled) setOrdersLoading(false); });
+        return () => { cancelled = true; };
+    }, [eligible, panelOpen, selectedConversation?.seller_id]);
+
+    const selectConversation = useCallback((id) => {
+        if (String(id) === String(selectedIdRef.current)) return;
+        detailRequestRef.current += 1;
+        selectedIdRef.current = id;
+        setSelectedId(id);
+        setActiveConversation(null);
+        setAttachedProductId("");
+        setAttachedOrderId("");
+        setConversationError("");
+        setSendError("");
+    }, []);
+
     const loadConversation = useCallback(async (id, { silent = false } = {}) => {
         const requestId = ++detailRequestRef.current;
         if (!silent) {
@@ -203,6 +252,104 @@ function BuyerSellerChatWidget() {
         }
     }, [userId]);
 
+    const openStoreConversation = useCallback(async (sellerId) => {
+        if (!eligible || !sellerId || !isBuyerSession()) return;
+        const requestId = ++storeChatRequestRef.current;
+        setPanelOpen(true);
+        setMinimized(false);
+        setListLoading(true);
+        setConversationLoading(true);
+        setListError("");
+        setConversationError("");
+
+        try {
+            const response = await api.get("/buyer/chat/conversations");
+            if (requestId !== storeChatRequestRef.current || String(getStoredUser()?.id) !== String(userId)) return;
+            let sellerConversations = getSellerConversations(response.data?.data);
+            setConversations(sellerConversations);
+
+            let conversation = sellerConversations.find((item) => String(item.seller_id || item.seller?.id) === String(sellerId));
+            if (!conversation) {
+                const created = await api.post("/buyer/chat/seller-conversations", { seller_id: Number(sellerId) });
+                if (requestId !== storeChatRequestRef.current || String(getStoredUser()?.id) !== String(userId)) return;
+                conversation = created.data?.data;
+                if (!conversation?.id) throw new Error("Could not open a conversation with this store.");
+                sellerConversations = [conversation, ...sellerConversations];
+                setConversations(sellerConversations);
+            }
+
+            const alreadySelected = String(selectedIdRef.current) === String(conversation.id);
+            selectConversation(conversation.id);
+            setActiveConversation(conversation);
+            if (alreadySelected) await loadConversation(conversation.id);
+        } catch (error) {
+            if (requestId === storeChatRequestRef.current) {
+                setConversationError(error.response?.data?.message || error.message || "This store's conversation could not be opened.");
+            }
+        } finally {
+            if (requestId === storeChatRequestRef.current) {
+                setListLoading(false);
+                setConversationLoading(false);
+            }
+        }
+    }, [eligible, loadConversation, selectConversation, userId]);
+
+    const openConversationById = useCallback(async (conversationId) => {
+        if (!eligible || !conversationId || !isBuyerSession()) return;
+        const requestId = ++storeChatRequestRef.current;
+        setPanelOpen(true);
+        setMinimized(false);
+        setConversationLoading(true);
+        setConversationError("");
+        try {
+            const response = await api.get(`/buyer/chat/conversations/${conversationId}`);
+            const conversation = response.data?.data;
+            if (requestId !== storeChatRequestRef.current || String(getStoredUser()?.id) !== String(userId)) return;
+            if (!conversation || !getSellerConversations([conversation]).length) {
+                throw new Error("This seller conversation is not available.");
+            }
+            setConversations((current) => [conversation, ...current.filter((item) => String(item.id) !== String(conversation.id))]);
+            const alreadySelected = String(selectedIdRef.current) === String(conversation.id);
+            selectConversation(conversation.id);
+            setActiveConversation(conversation);
+            if (alreadySelected) await loadConversation(conversation.id);
+        } catch (error) {
+            if (requestId === storeChatRequestRef.current) {
+                setConversationError(error.response?.data?.message || error.message || "This seller conversation could not be opened.");
+            }
+        } finally {
+            if (requestId === storeChatRequestRef.current) setConversationLoading(false);
+        }
+    }, [eligible, loadConversation, selectConversation, userId]);
+
+    useEffect(() => {
+        const requestKey = location.state?.openSellerChatRequest;
+        if (!eligible || !requestKey || handledRouteChatRequestRef.current === requestKey) return;
+        handledRouteChatRequestRef.current = requestKey;
+        const conversationId = location.state?.openSellerChatConversationId;
+        setPanelOpen(true);
+        setMinimized(false);
+        if (conversationId) void openConversationById(conversationId);
+        else if (!conversations.length) void loadConversations();
+        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }, [eligible, location.key, location.pathname, location.search, location.state, navigate, conversations.length, loadConversations, openConversationById]);
+
+    useEffect(() => {
+        const handleOpenSellerChat = (event) => {
+            if (event.detail?.conversationId) {
+                void openConversationById(event.detail.conversationId);
+            } else if (event.detail?.sellerId) {
+                void openStoreConversation(event.detail.sellerId);
+            } else {
+                setPanelOpen(true);
+                setMinimized(false);
+                if (!conversations.length) void loadConversations();
+            }
+        };
+        window.addEventListener("cryma-open-seller-chat", handleOpenSellerChat);
+        return () => window.removeEventListener("cryma-open-seller-chat", handleOpenSellerChat);
+    }, [conversations.length, loadConversations, openConversationById, openStoreConversation]);
+
     useEffect(() => {
         if (!eligible || !panelOpen || selectedId === null) return undefined;
         let cancelled = false;
@@ -236,7 +383,7 @@ function BuyerSellerChatWidget() {
             if (event.key === "Escape") setPanelOpen(false);
             if (!isSmallViewport || event.key !== "Tab") return;
             const controls = [...(panelRef.current?.querySelectorAll(
-                'button:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+                'button:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
             ) || [])].filter((control) => control.getClientRects().length > 0);
             if (!controls?.length) return;
             const firstControl = controls[0];
@@ -270,16 +417,6 @@ function BuyerSellerChatWidget() {
         return undefined;
     }, [panelOpen, selectedId, conversationLoading, conversationReady]);
 
-    const selectConversation = (id) => {
-        if (String(id) === String(selectedId)) return;
-        detailRequestRef.current += 1;
-        selectedIdRef.current = id;
-        setSelectedId(id);
-        setActiveConversation(null);
-        setConversationError("");
-        setSendError("");
-    };
-
     const updateDraft = (value) => {
         if (selectedId === null) return;
         setDrafts((current) => setSellerConversationDraft(current, selectedId, value));
@@ -288,7 +425,9 @@ function BuyerSellerChatWidget() {
 
     const sendMessage = async (event) => {
         event.preventDefault();
-        const message = draft.trim();
+        const orderId = attachedOrderId;
+        const productId = attachedProductId;
+        const message = draft.trim() || (orderId ? `I'm sharing Order #${orderId} for context.` : productId ? "I'm sharing this product for reference." : "");
         if (!message || !selectedConversation || sendingRef.current) return;
         const conversationId = selectedConversation.id;
         const ownerId = userId;
@@ -299,12 +438,15 @@ function BuyerSellerChatWidget() {
             const requestId = getChatMessageRequestId(
                 pendingMessageRef.current.get(String(conversationId)),
                 message,
-                conversationId,
+                `${conversationId}:${productId || ""}:${orderId || ""}`,
             );
-            pendingMessageRef.current.set(String(conversationId), { message, scope: conversationId, id: requestId });
+            const messageScope = `${conversationId}:${productId || ""}:${orderId || ""}`;
+            pendingMessageRef.current.set(String(conversationId), { message, scope: messageScope, id: requestId });
             const response = await api.post(`/buyer/chat/conversations/${conversationId}/messages`, {
                 message,
                 client_message_id: requestId,
+                product_id: productId || null,
+                order_id: orderId || null,
             });
             if (!isBuyerSession() || String(getStoredUser()?.id) !== String(ownerId)) return;
             const newMessage = response.data?.data;
@@ -323,6 +465,8 @@ function BuyerSellerChatWidget() {
                     : item
             )));
             setDrafts((current) => setSellerConversationDraft(current, conversationId, ""));
+            setAttachedProductId("");
+            setAttachedOrderId("");
             pendingMessageRef.current.delete(String(conversationId));
             showBuyerToast("Message sent");
             window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -347,13 +491,15 @@ function BuyerSellerChatWidget() {
         setMinimized(false);
         if (!conversations.length && !listLoading) void loadConversations();
     };
+    const selectedIdentity = selectedConversation ? getConversationIdentity(selectedConversation) : null;
+    const storefrontSlug = selectedConversation?.seller?.seller_profile?.store_slug;
 
     return (
         <div className={`buyer-seller-chat-widget${panelOpen ? " is-open" : ""}`}>
             {panelOpen ? (
                 <section
                     ref={panelRef}
-                    className="buyer-seller-chat-panel"
+                    className={`buyer-seller-chat-panel${selectedId !== null ? " has-selection" : ""}${expanded ? " is-expanded" : ""}`}
                     role={isSmallViewport ? "dialog" : "region"}
                     aria-modal={isSmallViewport ? "true" : undefined}
                     aria-label="Seller messages"
@@ -367,17 +513,29 @@ function BuyerSellerChatWidget() {
                                 onClick={() => {
                                     selectedIdRef.current = null;
                                     setSelectedId(null);
+                                    setAttachedProductId("");
+                                    setAttachedOrderId("");
                                 }}
                             >
                                 <ArrowLeft size={18} />
                             </button>
                         )}
                         <div className="buyer-seller-chat-title">
-                            <strong>{selectedConversation ? getConversationIdentity(selectedConversation).name : "Seller messages"}</strong>
-                            <span>{selectedConversation?.product?.name || "Chat with marketplace sellers"}</span>
+                            {storefrontSlug ? (
+                                <Link
+                                    className="buyer-seller-chat-store-name"
+                                    to={`/stores/${encodeURIComponent(storefrontSlug)}`}
+                                    aria-label={`Visit ${selectedIdentity.name}'s storefront`}
+                                    title="Visit storefront"
+                                >
+                                    <Store size={15} aria-hidden="true" />
+                                    <strong>{selectedIdentity.name}</strong>
+                                </Link>
+                            ) : <strong>{selectedIdentity?.name || "Seller messages"}</strong>}
+                            <span>{selectedConversation?.product?.name ? `About ${selectedConversation.product.name}` : selectedConversation ? "Seller conversation" : "Chat with marketplace sellers"}</span>
                         </div>
-                        <button type="button" className="buyer-seller-chat-icon" onClick={() => { setPanelOpen(false); setMinimized(true); }} aria-label="Minimize seller messages">
-                            <Minimize2 size={17} />
+                        <button type="button" className="buyer-seller-chat-icon" onClick={() => setExpanded((current) => !current)} aria-label={expanded ? "Restore seller messages" : "Expand seller messages"} title={expanded ? "Restore window" : "Expand chat space"}>
+                            {expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
                         </button>
                         <button type="button" className="buyer-seller-chat-icon" onClick={() => { setPanelOpen(false); setMinimized(false); }} aria-label="Close seller messages">
                             <X size={18} />
@@ -431,7 +589,12 @@ function BuyerSellerChatWidget() {
                         </aside>
 
                         <section className="buyer-seller-chat-thread" aria-label="Conversation messages">
-                            {!selectedId ? (
+                            {!selectedId && conversationError ? (
+                                <div className="buyer-seller-chat-state" role="alert">
+                                    <span>{conversationError}</span>
+                                    <button type="button" onClick={() => void loadConversations()}><RefreshCw size={14} /> Try again</button>
+                                </div>
+                            ) : !selectedId ? (
                                 <div className="buyer-seller-chat-state buyer-seller-chat-thread-empty">
                                     <MessageCircle size={24} />
                                     <span>Select a seller conversation</span>
@@ -457,6 +620,20 @@ function BuyerSellerChatWidget() {
                                             return (
                                                 <div key={item.id} className={`buyer-seller-chat-message${mine ? " mine" : ""}`}>
                                                     <p>{item.message}</p>
+                                                    {item.product && <div className="buyer-seller-chat-card-group"><Link className="buyer-seller-chat-shared-card" to={`/products/${item.product.id}`}>
+                                                        <span className="buyer-seller-chat-shared-image">{item.product.media?.find((media) => media.type === "image")?.url ? <img src={item.product.media.find((media) => media.type === "image").url} alt="" /> : <PackageCheck size={18} />}</span>
+                                                        <span className="buyer-seller-chat-shared-copy"><strong>{item.product.name}</strong><span>₱{Number(item.product.discounted_price ?? item.product.price ?? 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} · {item.product.status === "active" && Number(item.product.stock) > 0 ? "In stock" : "Unavailable"}</span></span>
+                                                    </Link>
+                                                        {mine && <div className="buyer-seller-chat-card-replies" aria-label="Quick replies about this product">
+                                                            {[["Availability", `Hi! Is ${item.product.name} currently available?`], ["Delivery", `Hi! What are the delivery options for ${item.product.name}?`], ["Voucher", `Hi! Is there an available voucher for ${item.product.name}?`]].map(([label, prompt]) => <button type="button" key={label} onClick={() => { setAttachedOrderId(""); setAttachedProductId(String(item.product.id)); updateDraft(prompt); inputRef.current?.focus(); }}>{label}</button>)}
+                                                        </div>}
+                                                    </div>}
+                                                    {item.order && <div className="buyer-seller-chat-card-group"><div className="buyer-seller-chat-shared-card order"><PackageCheck size={17} /><span className="buyer-seller-chat-shared-copy"><strong>Order #{item.order.id}</strong><span>{item.order.items?.[0]?.product?.name || "Order details"} · {String(item.order.status || "").replaceAll("_", " ")} · ₱{Number(item.order.total_amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span></span></div>
+                                                        {mine && <div className="buyer-seller-chat-card-replies" aria-label="Quick replies about this order">
+                                                            <button type="button" onClick={() => { setAttachedProductId(""); setAttachedOrderId(String(item.order.id)); updateDraft(`Hi! Could you update me on Order #${item.order.id}?`); inputRef.current?.focus(); }}>Status</button>
+                                                            <button type="button" onClick={() => { setAttachedProductId(""); setAttachedOrderId(String(item.order.id)); updateDraft(`Hi! When can I expect Order #${item.order.id} to ship?`); inputRef.current?.focus(); }}>Delivery</button>
+                                                        </div>}
+                                                    </div>}
                                                     <span>{formatTime(item.created_at)}{mine && (item.is_read ? <CheckCheck size={12} aria-label="Read" /> : <Check size={12} aria-label="Sent" />)}</span>
                                                 </div>
                                             );
@@ -470,6 +647,32 @@ function BuyerSellerChatWidget() {
                                     </div>
                                     <form className="buyer-seller-chat-composer" onSubmit={sendMessage}>
                                         {sendError && <p className="buyer-seller-chat-send-error" role="alert">{sendError}</p>}
+                                        {selectedConversation.seller_id && <div className="buyer-seller-chat-order-tools">
+                                            <label className="buyer-seller-chat-order-picker" htmlFor="buyer-floating-share-order">
+                                                <PackageCheck size={15} aria-hidden="true" />
+                                                <span>Share an order</span>
+                                                <select
+                                                    id="buyer-floating-share-order"
+                                                    aria-label="Choose an order to share with this seller"
+                                                    value={attachedOrderId}
+                                                    onChange={(event) => { setAttachedOrderId(event.target.value); setAttachedProductId(""); }}
+                                                    disabled={ordersLoading || !shareableOrders.length || sending}
+                                                >
+                                                    <option value="">{ordersLoading ? "Loading orders…" : "Select order"}</option>
+                                                    {shareableOrders.map((order) => <option key={order.id} value={order.id}>Order #{order.id} · {order.status}</option>)}
+                                                </select>
+                                                <ChevronDown size={14} aria-hidden="true" />
+                                            </label>
+                                            <span className="buyer-seller-chat-order-hint">{selectedOrder ? `Order #${selectedOrder.id} will be attached` : shareableOrders.length ? "Only this seller’s orders are shown" : ordersLoading ? "Loading your orders" : "No orders from this seller yet"}</span>
+                                            {selectedOrder && <div className="buyer-seller-chat-card-replies" aria-label="Quick replies about selected order">
+                                                <button type="button" onClick={() => { updateDraft(`Hi! Could you update me on Order #${selectedOrder.id}?`); inputRef.current?.focus(); }}>Ask about status</button>
+                                                <button type="button" onClick={() => { updateDraft(`Hi! When can I expect Order #${selectedOrder.id} to ship?`); inputRef.current?.focus(); }}>Ask about delivery</button>
+                                            </div>}
+                                        </div>}
+                                        {(attachedProductId || attachedOrderId) && <div className="buyer-seller-chat-attachment-hint" role="status">
+                                            <PackageCheck size={14} /> {attachedProductId ? "Product card will be included" : `Order #${attachedOrderId} will be included`}
+                                            <button type="button" onClick={() => { setAttachedProductId(""); setAttachedOrderId(""); }} aria-label="Remove attached card"><X size={13} /></button>
+                                        </div>}
                                         <textarea
                                             ref={inputRef}
                                             value={draft}
@@ -486,7 +689,7 @@ function BuyerSellerChatWidget() {
                                             aria-label="Write a seller message"
                                             disabled={sending || conversationLoading}
                                         />
-                                        <button type="submit" aria-label="Send message" disabled={sending || conversationLoading || !draft.trim()}>
+                                        <button type="submit" aria-label="Send message" disabled={sending || conversationLoading || (!draft.trim() && !attachedOrderId && !attachedProductId)}>
                                             {sending ? <LoaderCircle size={18} className="buyer-seller-chat-spinner" /> : <Send size={17} />}
                                         </button>
                                     </form>

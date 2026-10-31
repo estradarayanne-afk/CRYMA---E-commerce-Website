@@ -5,18 +5,29 @@ import api from "../../shared/services/api";
 import "./AdminLayout.css";
 import "./AdminWorkspace.css";
 
-const NAV = [
-    { to: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
-    { to: "/admin/registrations", label: "Registrations", icon: "registrations" },
-    { to: "/admin/users", label: "User Accounts", icon: "users" },
-    { to: "/admin/seller-compliance", label: "Seller Compliance", icon: "compliance" },
-    { to: "/admin/store-name-requests", label: "Store Name Requests", icon: "store" },
-    { to: "/admin/complaints", label: "Complaints", icon: "complaints" },
-    { to: "/admin/commission", label: "Commission", icon: "commission" },
-    { to: "/admin/vouchers", label: "Vouchers", icon: "vouchers" },
-    { to: "/admin/reports", label: "Reports", icon: "reports" },
-    { to: "/admin/settings", label: "Platform Settings", icon: "settings" },
-    { to: "/admin/chat", label: "Customer Service", icon: "chat" },
+const NAV_GROUPS = [
+    { label: "Overview", items: [
+        { to: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
+    ] },
+    { label: "People & support", items: [
+        { to: "/admin/registrations", label: "Registrations", icon: "registrations" },
+        { to: "/admin/users", label: "User Accounts", icon: "users" },
+        { to: "/admin/seller-compliance", label: "Seller Compliance", icon: "compliance" },
+        { to: "/admin/complaints", label: "Complaints", icon: "complaints" },
+        { to: "/admin/chat", label: "Customer Service", icon: "chat" },
+    ] },
+    { label: "Finance", items: [
+        { to: "/admin/refund-requests", label: "Refund Requests", icon: "refunds" },
+        { to: "/admin/finance", label: "Commission & Settlements", icon: "commission" },
+        { to: "/admin/reports", label: "Reports", icon: "reports" },
+    ] },
+    { label: "Operations", items: [
+        { to: "/admin/parcel-flow", label: "Parcel Flow & Hubs", icon: "deliveries" },
+        { to: "/admin/vouchers", label: "Vouchers", icon: "vouchers" },
+    ] },
+    { label: "Platform", items: [
+        { to: "/admin/settings", label: "Platform Settings", icon: "settings" },
+    ] },
 ];
 
 const AdminIcon = ({ name, className }) => {
@@ -28,7 +39,9 @@ const AdminIcon = ({ name, className }) => {
         compliance: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></>,
         store: <><path d="M3 10h18l-1.2-5H4.2L3 10Z"/><path d="M5 10v10h14V10M9 20v-6h6v6"/><path d="M3 10c0 2 3 3 4 0 1 3 4 3 5 0 1 3 4 3 5 0 1 3 4 2 4 0"/></>,
         complaints: <><path d="m10.3 3-8.5 14a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3a2 2 0 0 0-3.4 0z" /><path d="M12 9v4m0 4h.01" /></>,
+        refunds: <><path d="M12 3v18m5-14.5C16.2 5 14.5 4.2 12 4.2c-3 0-5 1.3-5 3.3 0 5 10 2.3 10 7.2 0 2.1-2 3.5-5 3.5-2.4 0-4.4-.8-5.5-2.4" /><path d="M4 4v4h4M20 20v-4h-4" /></>,
         commission: <><path d="M12 2v20M17 5.5C16.2 4.5 14.7 4 13 4h-2c-2.2 0-4 1.3-4 3s1.8 3 4 3h2c2.2 0 4 1.3 4 3s-1.8 3-4 3h-2c-1.7 0-3.2-.5-4-1.5" /></>,
+        settlements: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h3" /></>,
         vouchers: <><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2a2 2 0 0 1 0-2.8l7.2-7.2a2 2 0 0 1 2.8 0l7.2 7.2a2 2 0 0 1 0 2.8z" /><circle cx="8.5" cy="8.5" r="1" /></>,
         reports: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>,
         settings: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.8 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.8-1l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.8-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.8 1l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 2z" /></>,
@@ -52,7 +65,6 @@ const [profileOpen, setProfileOpen] = useState(false);
 const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 const [loggingOut, setLoggingOut] = useState(false);
 const [headerDate, setHeaderDate] = useState(() => new Date());
-
 useEffect(() => {
     if (!mobileNavOpen) return undefined;
     const handleKeyDown = (event) => {
@@ -117,7 +129,7 @@ return (
         <aside className="al-sidebar">
             <div className="al-sidebar-top">
                 <div className="al-brand">
-                    <span className="al-brand-mark">C</span>
+                    <img className="al-brand-mark" src="/cryma-favicon.png" alt="" />
 
                     <div className="al-brand-copy">
                         <span className="al-brand-name">
@@ -140,29 +152,26 @@ return (
                 </button>
             </div>
 
-            <div className="al-section-label">
-                <span>Workspace</span>
-            </div>
-
             <nav className="al-nav" id="admin-workspace-navigation" aria-label="Administrator workspace">
-                {NAV.map(({ to, label, icon }) => (
-                    <NavLink
-                        key={to}
-                        to={to}
-                        onClick={() => setMobileNavOpen(false)}
-                        title={sidebarCollapsed ? label : undefined}
-                        className={({ isActive }) =>
-                            isActive ? "active" : ""
-                        }
-                    >
-                        <span className="al-nav-icon" aria-hidden="true">
-                            <AdminIcon name={icon} />
-                        </span>
-
-                        <span className="al-nav-label">{label}</span>
-
-                        <span className="al-nav-active-dot" />
-                    </NavLink>
+                {NAV_GROUPS.map((group) => (
+                    <div className="al-nav-group" key={group.label}>
+                        <div className="al-section-label"><span>{group.label}</span></div>
+                        <div className="al-nav-group-items">
+                            {group.items.map(({ to, label, icon }) => (
+                                <NavLink
+                                    key={to}
+                                    to={to}
+                                    onClick={() => setMobileNavOpen(false)}
+                                    title={sidebarCollapsed ? label : undefined}
+                                    className={({ isActive }) => isActive ? "active" : ""}
+                                >
+                                    <span className="al-nav-icon" aria-hidden="true"><AdminIcon name={icon} /></span>
+                                    <span className="al-nav-label">{label}</span>
+                                    <span className="al-nav-active-dot" />
+                                </NavLink>
+                            ))}
+                        </div>
+                    </div>
                 ))}
             </nav>
 

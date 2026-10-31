@@ -10,6 +10,7 @@ const LINKS = [
     { to: "/courier/dashboard", label: "Overview", icon: LayoutDashboard },
     { to: "/courier/pickups", label: "Seller pickups", icon: PackageCheck },
     { to: "/courier/deliveries", label: "Assigned deliveries", icon: ClipboardList },
+    { to: "/courier/parcel-flow", label: "Hub transfers & returns", icon: PackageCheck },
     { to: "/courier/history", label: "Delivery history", icon: History },
     { to: "/courier/earnings", label: "Earnings", icon: Wallet },
     { to: "/courier/chat", label: "Messages", icon: MessageCircle },

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductMedia;
 use App\Support\PublicStorageUrl;
+use App\Support\ArchivedProductPurger;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -25,25 +26,61 @@ class ProductController extends Controller
     public function publicIndex(Request $request)
     {
         $request->merge(['search' => is_string($request->input('search')) ? trim($request->input('search')) : $request->input('search')]);
-        $request->validate([
+        $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:255', Rule::in(array_merge(['All'], self::CATEGORIES))],
+            'min_price' => ['nullable', 'numeric', 'min:0'],
+            'max_price' => ['nullable', 'numeric', 'min:0'],
+            'stock' => ['sometimes', 'boolean'],
+            'sort' => ['nullable', Rule::in(['featured', 'newest', 'price-low', 'price-high'])],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
         ]);
 
-        $query = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,storefront_settings', 'media'])
+        $query = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,store_slug,store_logo_url,storefront_settings', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'));
 
-        if ($request->filled('category') && $request->category !== 'All') {
-            $query->where('category', $request->category);
+        if (!empty($validated['category']) && $validated['category'] !== 'All') {
+            $query->where('category', $validated['category']);
         }
 
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+        if (!empty($validated['search'])) {
+            $term = $validated['search'];
+            $query->where(function ($searchQuery) use ($term) {
+                $searchQuery->where('name', 'like', '%' . $term . '%')
+                    ->orWhere('category', 'like', '%' . $term . '%')
+                    ->orWhereHas('seller', function ($sellerQuery) use ($term) {
+                        $sellerQuery->where('first_name', 'like', '%' . $term . '%')
+                            ->orWhere('last_name', 'like', '%' . $term . '%')
+                            ->orWhereHas('sellerProfile', fn ($profileQuery) => $profileQuery->where('business_name', 'like', '%' . $term . '%'));
+                    });
+            });
         }
 
-        $products = $query->latest()->paginate(20);
+        if (isset($validated['min_price'])) {
+            $query->whereRaw('COALESCE(discounted_price, price) >= ?', [$validated['min_price']]);
+        }
+
+        if (isset($validated['max_price'])) {
+            $query->whereRaw('COALESCE(discounted_price, price) <= ?', [$validated['max_price']]);
+        }
+
+        if (!empty($validated['stock'])) {
+            $query->where('stock', '>', 0);
+        }
+
+        $sort = $validated['sort'] ?? 'featured';
+        if ($sort === 'price-low') {
+            $query->orderByRaw('COALESCE(discounted_price, price) asc')->orderByDesc('id');
+        } elseif ($sort === 'price-high') {
+            $query->orderByRaw('COALESCE(discounted_price, price) desc')->orderByDesc('id');
+        } else {
+            $query->latest();
+        }
+
+        $products = $query->paginate($validated['per_page'] ?? 20);
         $products->getCollection()->transform(fn (Product $product) => $this->publicProductData($product));
 
         return response()->json(['success' => true, 'data' => $products]);
@@ -54,7 +91,7 @@ class ProductController extends Controller
      */
     public function publicShow(int $id)
     {
-        $product = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,storefront_settings', 'media'])
+        $product = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,store_slug,store_logo_url,storefront_settings', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
@@ -84,7 +121,8 @@ class ProductController extends Controller
         $validated = $request->validate([
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
-        $products = Product::with('media')
+        app(ArchivedProductPurger::class)->purge((int) $user->id);
+        $products = Product::with('media')->withCount(['orderItems', 'reviews'])
             ->where('seller_id', $user->id)
             ->latest()
             ->paginate($validated['per_page'] ?? 10);
@@ -93,6 +131,29 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'data' => $products,
+        ]);
+    }
+
+    public function bulkStoreCategory(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->role === 'seller', 403, 'Only sellers can organize products.');
+
+        $validated = $request->validate([
+            'product_ids' => ['required', 'array', 'min:1', 'max:500'],
+            'product_ids.*' => ['required', 'integer', 'distinct', Rule::exists('products', 'id')->where('seller_id', $user->id)],
+            'store_category' => ['required', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
+        ]);
+
+        $updated = Product::query()
+            ->where('seller_id', $user->id)
+            ->whereIn('id', $validated['product_ids'])
+            ->update(['store_category' => $validated['store_category'], 'updated_at' => now()]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$updated} products added to {$validated['store_category']}.",
+            'data' => ['updated' => $updated, 'store_category' => $validated['store_category']],
         ]);
     }
 
@@ -111,6 +172,9 @@ class ProductController extends Controller
         }
 
         $this->normalizeVariantsInput($request);
+        if ($request->boolean('is_draft')) {
+            return $this->storeDraft($request, $user);
+        }
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'sku' => [
@@ -124,7 +188,7 @@ class ProductController extends Controller
             'discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'weight_kg' => ['required', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
             'stock' => ['required', 'integer', 'min:0', 'max:4294967295'],
-            'category' => ['required', Rule::in(self::CATEGORIES)],
+            'store_category' => ['nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
             'status' => ['sometimes', 'required', 'in:active,inactive,out_of_stock'],
             'variants' => ['sometimes', 'array', 'max:20'],
             'variants.*.id' => ['nullable', 'uuid', 'distinct'],
@@ -146,6 +210,7 @@ class ProductController extends Controller
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        $validated['category'] = $this->registeredBusinessCategory($user);
         $validated['variants'] = $this->normalizeVariantRows($validated['variants'] ?? []);
         $this->validateVariantMediaInputs($validated['variants'], $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? [], [], $validated['color_photos'] ?? [], $validated['color_photo_colors'] ?? []);
         if ($validated['variants']) {
@@ -176,6 +241,7 @@ class ProductController extends Controller
                     'variants' => $validated['variants'] ?: null,
                     'stock' => $validated['stock'],
                     'category' => $validated['category'],
+                    'store_category' => $validated['store_category'] ?? null,
                     'status' => $validated['status'] ?? 'active',
                     'review_status' => 'pending',
                     'review_reason' => null,
@@ -218,6 +284,195 @@ class ProductController extends Controller
         ], 201);
     }
 
+    private function storeDraft(Request $request, $user)
+    {
+        $this->normalizeDraftVariantValues($request);
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'sku' => ['nullable', 'string', 'max:64', Rule::unique('products', 'sku')->where(fn ($query) => $query->where('seller_id', $user->id))],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'weight_kg' => ['nullable', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
+            'stock' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'store_category' => ['nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
+            'variants' => ['sometimes', 'array', 'max:20'],
+            'variants.*.id' => ['nullable', 'uuid', 'distinct'],
+            'variants.*.color' => ['nullable', 'string', 'max:50'],
+            'variants.*.size' => ['nullable', 'string', 'max:50'],
+            'variants.*.price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.stock' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'variant_media' => ['sometimes', 'array', 'max:20'],
+            'variant_media.*' => ['file', 'mimes:jpg,jpeg,png,webp,mp4,webm', 'max:1536'],
+            'variant_media_ids' => ['sometimes', 'array', 'max:20'],
+            'variant_media_ids.*' => ['required', 'uuid', 'distinct'],
+            'images' => ['sometimes', 'array', 'max:8'],
+            'images.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1536'],
+            'videos' => ['sometimes', 'array', 'max:2'],
+            'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
+        ]);
+        $validated['category'] = $this->registeredBusinessCategory($user);
+        $variants = $this->normalizeDraftVariantRows($validated['variants'] ?? []);
+        $this->validateDraftVariantMediaReferences($variants, $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? []);
+        $this->validateMediaTotal($validated);
+        $storedPaths = [];
+        try {
+            $product = DB::transaction(function () use ($user, $validated, $variants, &$storedPaths) {
+                $product = Product::create([
+                    'seller_id' => $user->id,
+                    'name' => $validated['name'] ?? null,
+                    'sku' => $validated['sku'] ?? null,
+                    'description' => $validated['description'] ?? null,
+                    'price' => $validated['price'] ?? null,
+                    'discounted_price' => $validated['discounted_price'] ?? null,
+                    'weight_kg' => $validated['weight_kg'] ?? null,
+                    'variants' => $variants ?: null,
+                    'stock' => $validated['stock'] ?? 0,
+                    'category' => $validated['category'],
+                    'store_category' => $validated['store_category'] ?? null,
+                    'status' => 'inactive',
+                    'review_status' => 'approved',
+                    'is_draft' => true,
+                ]);
+                $unusedPaths = [];
+                $variants = $this->attachVariantMedia($product, $variants, [], $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? [], $storedPaths, $unusedPaths);
+                $product->update(['variants' => $variants ?: null]);
+                $this->storeMedia($product, $validated, $storedPaths);
+
+                return $product->load('media');
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($storedPaths);
+            throw $exception;
+        }
+
+        return response()->json(['success' => true, 'message' => 'Product draft saved. Continue editing it any time from Inventory.', 'data' => $this->sellerProductData($product)], 201);
+    }
+
+    private function updateDraft(Request $request, Product $product, $user)
+    {
+        $this->normalizeDraftVariantValues($request);
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'sku' => ['sometimes', 'nullable', 'string', 'max:64', Rule::unique('products', 'sku')->where(fn ($query) => $query->where('seller_id', $user->id))->ignore($product->id)],
+            'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'price' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'discounted_price' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'weight_kg' => ['sometimes', 'nullable', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
+            'stock' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:4294967295'],
+            'store_category' => ['sometimes', 'nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
+            'variants' => ['sometimes', 'array', 'max:20'],
+            'variants.*.id' => ['nullable', 'uuid', 'distinct'],
+            'variants.*.color' => ['nullable', 'string', 'max:50'],
+            'variants.*.size' => ['nullable', 'string', 'max:50'],
+            'variants.*.price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'variants.*.stock' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'variant_media' => ['sometimes', 'array', 'max:20'],
+            'variant_media.*' => ['file', 'mimes:jpg,jpeg,png,webp,mp4,webm', 'max:1536'],
+            'variant_media_ids' => ['sometimes', 'array', 'max:20'],
+            'variant_media_ids.*' => ['required', 'uuid', 'distinct'],
+            'replace_media' => ['sometimes', 'boolean'],
+            'keep_media_ids' => ['sometimes', 'array', 'max:10'],
+            'keep_media_ids.*' => ['integer', 'distinct'],
+            'images' => ['sometimes', 'array', 'max:8'],
+            'images.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1536'],
+            'videos' => ['sometimes', 'array', 'max:2'],
+            'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
+        ]);
+        $variants = array_key_exists('variants', $validated) ? $this->normalizeDraftVariantRows($validated['variants']) : ($product->variants ?? []);
+        $this->validateDraftVariantMediaReferences($variants, $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? []);
+        $this->validateMediaTotal($validated);
+        $storedPaths = [];
+        $mediaPathsToDelete = [];
+        try {
+            DB::transaction(function () use ($request, $product, $user, $validated, &$variants, &$storedPaths, &$mediaPathsToDelete) {
+                $fields = collect($validated)->only(['name', 'sku', 'description', 'price', 'discounted_price', 'weight_kg', 'stock', 'store_category'])->all();
+                $fields['category'] = $this->registeredBusinessCategory($user);
+                if (array_key_exists('variants', $validated)) {
+                    $oldVariants = $product->variants ?? [];
+                    $variantPathsToDelete = [];
+                    $variants = $this->attachVariantMedia($product, $variants, $oldVariants, $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? [], $storedPaths, $variantPathsToDelete);
+                    $mediaPathsToDelete = array_merge($mediaPathsToDelete, $variantPathsToDelete);
+                    $fields['variants'] = $variants ?: null;
+                }
+                $fields['status'] = 'inactive';
+                $fields['is_draft'] = true;
+                $fields['review_status'] = 'approved';
+                $fields['review_reason'] = null;
+                $fields['reviewed_by'] = null;
+                $fields['reviewed_at'] = null;
+                $product->update($fields);
+
+                if ($request->boolean('replace_media')) {
+                    $keepIds = array_map('intval', $validated['keep_media_ids'] ?? []);
+                    $existing = $product->media()->get();
+                    if (collect($keepIds)->diff($existing->pluck('id'))->isNotEmpty()) {
+                        throw ValidationException::withMessages(['keep_media_ids' => ['One or more selected media files do not belong to this product.']]);
+                    }
+                    $retained = $existing->filter(fn (ProductMedia $media) => in_array((int) $media->id, $keepIds, true));
+                    $this->validateMediaCounts($retained, $validated);
+                    $removed = $existing->reject(fn (ProductMedia $media) => in_array((int) $media->id, $keepIds, true));
+                    $mediaPathsToDelete = array_merge($mediaPathsToDelete, $removed->pluck('path')->all());
+                    ProductMedia::whereIn('id', $removed->pluck('id'))->delete();
+                } else {
+                    $this->validateMediaCounts($product->media()->get(), $validated);
+                }
+                $this->storeMedia($product, $validated, $storedPaths);
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($storedPaths);
+            throw $exception;
+        }
+        Storage::disk('public')->delete($mediaPathsToDelete);
+
+        return response()->json(['success' => true, 'message' => 'Product draft saved.', 'data' => $this->sellerProductData($product->fresh()->load('media'))]);
+    }
+
+    private function normalizeDraftVariantValues(Request $request): void
+    {
+        $this->normalizeVariantsInput($request);
+        $variants = $request->input('variants');
+        if (!is_array($variants)) return;
+        foreach ($variants as &$variant) {
+            foreach (['price', 'discounted_price', 'stock'] as $field) {
+                if (($variant[$field] ?? null) === '') $variant[$field] = null;
+            }
+        }
+        $request->merge(['variants' => $variants]);
+    }
+
+    private function normalizeDraftVariantRows(array $variants): array
+    {
+        return array_map(function (array $variant): array {
+            $price = $variant['price'] ?? null;
+            $discountedPrice = $variant['discounted_price'] ?? null;
+            if ($price !== null && $discountedPrice !== null) $this->validateDiscountedPrice((string) $discountedPrice, (string) $price);
+            return [
+                'id' => $variant['id'] ?? (string) Str::uuid(),
+                'color' => filled($variant['color'] ?? null) ? trim((string) $variant['color']) : null,
+                'size' => filled($variant['size'] ?? null) ? trim((string) $variant['size']) : null,
+                'price' => $price === null ? null : (string) $price,
+                'discounted_price' => $discountedPrice === null ? null : (string) $discountedPrice,
+                'stock' => ($variant['stock'] ?? null) === null ? null : (int) $variant['stock'],
+            ];
+        }, $variants);
+    }
+
+    private function validateDraftVariantMediaReferences(array $variants, array $uploads, array $uploadIds): void
+    {
+        $variantIds = collect($variants)->pluck('id')->map(fn ($id) => (string) $id)->all();
+        if (count($uploads) !== count($uploadIds)) {
+            throw ValidationException::withMessages(['variant_media' => ['Choose a variant for each uploaded variant file.']]);
+        }
+        foreach ($uploadIds as $index => $id) {
+            if (!in_array((string) $id, $variantIds, true)) {
+                throw ValidationException::withMessages(["variant_media_ids.{$index}" => ['Choose a variant included in this product.']]);
+            }
+        }
+    }
+
     /**
      * Get a single product owned by the authenticated seller.
      */
@@ -232,7 +487,7 @@ class ProductController extends Controller
             ], 403);
         }
 
-        $product = Product::with('media')->where('seller_id', $user->id)
+        $product = Product::with('media')->withCount(['orderItems', 'reviews'])->where('seller_id', $user->id)
             ->find($id);
 
         if (!$product) {
@@ -272,6 +527,10 @@ class ProductController extends Controller
             ], 404);
         }
 
+        if ($request->boolean('is_draft')) {
+            return $this->updateDraft($request, $product, $user);
+        }
+
         $this->normalizeVariantsInput($request);
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:150'],
@@ -289,7 +548,8 @@ class ProductController extends Controller
             'discounted_price' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'weight_kg' => ['sometimes', 'required', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
             'stock' => ['sometimes', 'required', 'integer', 'min:0', 'max:4294967295'],
-            'category' => ['sometimes', 'required', Rule::in(self::CATEGORIES)],
+            'store_category' => ['sometimes', 'nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
+            'is_draft' => ['sometimes', 'boolean'],
             'status' => [
                 'sometimes',
                 'required',
@@ -318,6 +578,7 @@ class ProductController extends Controller
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        $validated['category'] = $this->registeredBusinessCategory($user);
         if (array_key_exists('variants', $validated)) {
             $validated['variants'] = $this->normalizeVariantRows($validated['variants']);
             $this->validateVariantMediaInputs($validated['variants'], $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? [], $product->variants ?? [], $validated['color_photos'] ?? [], $validated['color_photo_colors'] ?? []);
@@ -421,6 +682,7 @@ class ProductController extends Controller
 
                 $this->storeMedia($product, $validated, $storedPaths);
                 $listingChanged = collect(['name', 'description', 'category'])->contains(fn (string $field): bool => array_key_exists($field, $validated))
+                    || (($validated['is_draft'] ?? false) === false && $product->is_draft)
                     || $request->boolean('replace_media')
                     || !empty($validated['images'])
                     || !empty($validated['videos'])
@@ -520,8 +782,27 @@ class ProductController extends Controller
     {
         $data = $product->toArray();
         $data['variants'] = $this->variantsWithImageUrls($product->variants ?? []);
+        $data['archive_expires_at'] = $product->status === 'archived' && $product->archived_at
+            ? $product->archived_at->copy()->addDays(ArchivedProductPurger::RETENTION_DAYS)->toIso8601String()
+            : null;
+        $data['archive_retained_for_history'] = (int) ($data['order_items_count'] ?? 0) > 0 || (int) ($data['reviews_count'] ?? 0) > 0;
 
         return $data;
+    }
+
+    private function storeCategoriesFor($user): array
+    {
+        $categories = data_get($user->sellerProfile?->storefront_settings, 'store_categories', []);
+
+        return is_array($categories) ? $categories : [];
+    }
+
+    private function registeredBusinessCategory($user): string
+    {
+        $category = $user->sellerProfile?->line_of_business;
+        abort_unless(is_string($category) && in_array($category, self::CATEGORIES, true), 422, 'Your registered business line is missing or invalid. Contact support to update your seller profile.');
+
+        return $category;
     }
 
     /**
@@ -947,6 +1228,7 @@ class ProductController extends Controller
 
         $product->update([
             'status' => 'archived',
+            'archived_at' => now(),
         ]);
 
         return response()->json([
@@ -989,6 +1271,7 @@ class ProductController extends Controller
 
         $product->update([
             'status' => 'inactive',
+            'archived_at' => null,
         ]);
 
         return response()->json([

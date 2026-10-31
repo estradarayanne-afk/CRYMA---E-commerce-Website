@@ -1,0 +1,8 @@
+.admin-finance-page { display:grid; gap:12px; }
+.admin-finance-tabs { display:flex; align-items:center; gap:5px; width:max-content; max-width:100%; padding:5px; border:1px solid #eadde1; border-radius:12px; background:#fff; box-shadow:0 4px 13px rgba(65,13,29,.035); }
+.admin-finance-tabs button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:38px; padding:0 14px; border:1px solid transparent; border-radius:8px; background:transparent; color:#765a63; font:650 11px/1 inherit; cursor:pointer; transition:background .16s ease,color .16s ease,box-shadow .16s ease; }
+.admin-finance-tabs button:hover:not(.is-active) { background:#fff5f7; color:#70213a; }
+.admin-finance-tabs button.is-active { border-color:#7e1830; background:linear-gradient(135deg,#7e1830,#922b47); color:#fff; box-shadow:0 3px 8px rgba(83,17,35,.18); }
+.admin-finance-tabs button:focus-visible { outline:2px solid #a93654; outline-offset:2px; }
+.admin-finance-panel { min-width:0; }
+@media (max-width:520px) { .admin-finance-tabs { width:100%; } .admin-finance-tabs button { flex:1; padding:0 9px; } }

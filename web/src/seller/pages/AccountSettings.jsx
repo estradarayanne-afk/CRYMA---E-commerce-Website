@@ -1,15 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ImagePlus } from "lucide-react";
 import api from "../../shared/services/api";
 import { formatStatusLabel } from "../../shared/utils/statusLabel";
 
 function SellerAccountSettings() {
     const [user, setUser] = useState(null);
     const [profileForm, setProfileForm] = useState({ first_name: "", last_name: "", email: "", phone: "" });
-    const [storeNameRequest, setStoreNameRequest] = useState({ currentName: "", requested_name: "", status: null, reason: "" });
-    const [requestName, setRequestName] = useState("");
-    const [savingStoreName, setSavingStoreName] = useState(false);
-    const [storeNameMessage, setStoreNameMessage] = useState("");
-    const [storeNameError, setStoreNameError] = useState("");
     const [passwordForm, setPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "" });
     const [loading, setLoading] = useState(true);
     const [savingProfile, setSavingProfile] = useState(false);
@@ -17,54 +13,97 @@ function SellerAccountSettings() {
     const [profileMsg, setProfileMsg] = useState("");
     const [passwordMsg, setPasswordMsg] = useState("");
     const [error, setError] = useState("");
+    const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+    const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
+    const [profilePhotoFile, setProfilePhotoFile] = useState(null);
+    const [profilePhotoError, setProfilePhotoError] = useState("");
+    const profilePhotoPreviewRef = useRef("");
 
     useEffect(() => {
-        Promise.all([api.get("/user"), api.get("/seller/storefront")]).then(([userResponse, storeResponse]) => {
+        api.get("/user").then((userResponse) => {
             const u = userResponse.data.user;
-            const store = storeResponse.data.data;
             setUser(u);
             setProfileForm({ first_name: u.first_name || "", last_name: u.last_name || "", email: u.email || "", phone: u.phone || "" });
-            setStoreNameRequest({ currentName: store.name || "", requested_name: store.name_change_request?.requested_name || "", status: store.name_change_request?.status || null, reason: store.name_change_request?.reason || "" });
         }).catch(() => setError("Unable to load account information."))
           .finally(() => setLoading(false));
+    }, []);
+
+    useEffect(() => {
+        if (!user?.profile_image_path) {
+            return undefined;
+        }
+        let active = true;
+        let objectUrl = "";
+        api.get("/account/profile-image", { responseType: "blob" }).then(({ data }) => {
+            if (!data?.size) return;
+            objectUrl = URL.createObjectURL(data);
+            if (!active) { URL.revokeObjectURL(objectUrl); return; }
+            setProfilePhotoUrl(objectUrl);
+        }).catch(() => { if (active) setProfilePhotoUrl(""); });
+        return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    }, [user?.profile_image_path]);
+
+    useEffect(() => () => {
+        if (profilePhotoPreviewRef.current) URL.revokeObjectURL(profilePhotoPreviewRef.current);
     }, []);
 
     const setP = (e) => setProfileForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     const setPw = (e) => setPasswordForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
+    const chooseProfilePhoto = (event) => {
+        const file = event.target.files?.[0] || null;
+        event.target.value = "";
+        setProfilePhotoError("");
+        if (!file) return;
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setProfilePhotoError("Choose a JPG, PNG, or WebP image.");
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            setProfilePhotoError("The profile photo must be 2 MB or smaller.");
+            return;
+        }
+        if (profilePhotoPreviewRef.current) URL.revokeObjectURL(profilePhotoPreviewRef.current);
+        const preview = URL.createObjectURL(file);
+        profilePhotoPreviewRef.current = preview;
+        setProfilePhotoPreview(preview);
+        setProfilePhotoFile(file);
+    };
+
     const saveProfile = async (e) => {
         e.preventDefault();
         setError(""); setProfileMsg(""); setSavingProfile(true);
         try {
-            await api.patch("/account/profile", {
-                first_name: profileForm.first_name,
-                last_name: profileForm.last_name,
-                phone: profileForm.phone || null,
-            });
-            const updated = { ...user, ...profileForm };
+            let response;
+            if (profilePhotoFile) {
+                const payload = new FormData();
+                payload.append("first_name", profileForm.first_name);
+                payload.append("last_name", profileForm.last_name);
+                payload.append("phone", profileForm.phone || "");
+                payload.append("profile_image", profilePhotoFile);
+                payload.append("_method", "PATCH");
+                response = await api.post("/account/profile", payload);
+            } else {
+                response = await api.patch("/account/profile", {
+                    first_name: profileForm.first_name,
+                    last_name: profileForm.last_name,
+                    phone: profileForm.phone || null,
+                });
+            }
+            const updated = { ...user, ...response.data.data, ...profileForm };
             setUser(updated);
             localStorage.setItem("user", JSON.stringify(updated));
+            window.dispatchEvent(new Event("cryma-user-updated"));
+            setProfilePhotoFile(null);
+            setProfilePhotoPreview("");
+            if (profilePhotoPreviewRef.current) URL.revokeObjectURL(profilePhotoPreviewRef.current);
+            profilePhotoPreviewRef.current = "";
             setProfileMsg("Profile updated successfully.");
         } catch (err) {
             setError(err.response?.data?.message || "Unable to update profile.");
         } finally { setSavingProfile(false); }
     };
 
-    const submitStoreNameRequest = async (event) => {
-        event.preventDefault();
-        setStoreNameError("");
-        setStoreNameMessage("");
-        setSavingStoreName(true);
-        try {
-            const { data } = await api.post("/seller/storefront/name-change-request", { requested_name: requestName });
-            setStoreNameRequest((current) => ({ ...current, requested_name: data.data.requested_name, status: data.data.status, reason: "" }));
-            setRequestName("");
-            setStoreNameMessage(data.message || "Your request has been sent to an admin.");
-        } catch (err) {
-            const validation = err.response?.data?.errors?.requested_name?.[0];
-            setStoreNameError(validation || err.response?.data?.message || "Unable to submit your store name request.");
-        } finally { setSavingStoreName(false); }
-    };
     const savePassword = async (e) => {
         e.preventDefault();
         setError(""); setPasswordMsg("");
@@ -93,19 +132,26 @@ function SellerAccountSettings() {
                     <h1 className="sl-h1">Account Settings</h1>
                     <p>Manage your seller profile and account security.</p>
                 </div>
-                <div style={{ width: 52, height: 52, borderRadius: 14, background: "var(--crimson)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700 }}>
-                    {initials}
-                </div>
             </div>
 
             {error && <div className="auth-notice auth-notice--error" style={{ marginBottom: 20 }}>{error}</div>}
 
+            <div className="sl-account-columns">
+            <div className="sl-account-column">
             {/* PROFILE */}
             <div className="sl-card sl-account-card sl-account-profile-card">
                 <div className="sl-panel-head">
                     <div><h3>Personal Information</h3><p>Update your seller profile details</p></div>
                 </div>
                 <form className="sl-account-form" onSubmit={saveProfile}>
+                    <div className="sl-profile-photo-control">
+                        <div className="sl-profile-photo-preview">{(profilePhotoPreview || profilePhotoUrl) ? <img src={profilePhotoPreview || profilePhotoUrl} alt="" /> : initials}</div>
+                        <div className="sl-profile-photo-copy"><strong>Profile photo</strong><span>JPG, PNG, or WebP · up to 2 MB</span>
+                            <label className="sl-profile-photo-button" htmlFor="seller-profile-photo"><ImagePlus size={15} />{profilePhotoFile ? "Choose a different photo" : "Upload photo"}</label>
+                            <input id="seller-profile-photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseProfilePhoto} />
+                            {profilePhotoError && <small className="sl-field-error" role="alert">{profilePhotoError}</small>}
+                        </div>
+                    </div>
                     <div className="sl-form-row">
                         <div className="sl-field">
                             <label htmlFor="seller-first-name">First Name</label>
@@ -131,22 +177,6 @@ function SellerAccountSettings() {
                     <button className="sl-btn-primary" type="submit" disabled={savingProfile}>
                         {savingProfile ? "Saving…" : "Save Changes"}
                     </button>
-                </form>
-            </div>
-
-            <div className="sl-card sl-account-card">
-                <div className="sl-panel-head"><div><h3>Store name change</h3><p>Store name changes are optional and require admin approval.</p></div></div>
-                <form className="sl-account-form" onSubmit={submitStoreNameRequest}>
-                    <div className="sl-form-row">
-                        <div className="sl-field"><label>Current store name</label><input value={storeNameRequest.currentName} readOnly /></div>
-                        <div className="sl-field"><label htmlFor="seller-requested-store-name">Requested store name</label><input id="seller-requested-store-name" value={requestName} onChange={(event) => setRequestName(event.target.value)} maxLength={100} minLength={2} required disabled={savingStoreName || storeNameRequest.status === "pending"} placeholder="Enter a new store name" /></div>
-                    </div>
-                    {storeNameRequest.status === "pending" && <p role="status">Request pending admin review: <strong>{storeNameRequest.requested_name}</strong></p>}
-                    {storeNameRequest.status === "rejected" && <p role="status">Your previous request for <strong>{storeNameRequest.requested_name}</strong> was rejected.{storeNameRequest.reason ? ` Reason: ${storeNameRequest.reason}` : ""} You can submit a new request.</p>}
-                    {storeNameRequest.status === "approved" && <p role="status">Your store name change was approved.</p>}
-                    {storeNameError && <div className="auth-notice auth-notice--error" role="alert">{storeNameError}</div>}
-                    {storeNameMessage && <div className="auth-notice auth-notice--success" role="status">{storeNameMessage}</div>}
-                    <button className="sl-btn-primary" type="submit" disabled={savingStoreName || storeNameRequest.status === "pending"}>{savingStoreName ? "Sending request…" : "Request name change"}</button>
                 </form>
             </div>
             {/* PASSWORD */}
@@ -175,11 +205,13 @@ function SellerAccountSettings() {
                     </button>
                 </form>
             </div>
+            </div>
+            <div className="sl-account-column">
 
             {/* ACCOUNT INFO */}
             <div className="sl-card sl-account-card sl-account-info-card">
                 <div className="sl-panel-head">
-                    <div><h3>Account Information</h3></div>
+                    <div><h3>Account Information</h3><p>Seller account details and current status</p></div>
                 </div>
                 <div className="sl-account-info-grid">
                     {[
@@ -193,6 +225,8 @@ function SellerAccountSettings() {
                         </div>
                     ))}
                 </div>
+            </div>
+            </div>
             </div>
         </div>
     );

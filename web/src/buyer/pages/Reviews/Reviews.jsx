@@ -321,7 +321,7 @@ function Reviews() {
                     Back to Order
                 </Link>
 
-                <header className="reviews-header">
+                <header className="reviews-header buyer-page-masthead">
                     <div>
                         <span className="reviews-eyebrow">
                             YOUR FEEDBACK

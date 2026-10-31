@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, CheckCheck, LoaderCircle, MessageCircle, Send } from "lucide-react";
+import { Bot, Check, CheckCheck, LoaderCircle, MessageCircle, PackageCheck, Search, Send, Sparkles, X } from "lucide-react";
 import api from "../../shared/services/api";
 import { getChatMessageRequestId } from "../../shared/utils/chatMessageRequest";
 import "./Chat.css";
@@ -21,6 +21,24 @@ function getName(person) {
     return [person?.first_name, person?.last_name].filter(Boolean).join(" ") || "Buyer";
 }
 
+function getSellerHelpReply(question) {
+    const text = question.toLowerCase();
+    if (/pickup|courier|shipping|shipment|delivery/.test(text)) return "For a ready order, open Logistics and choose Schedule pickup. The request uses your default saved seller address. Logistics assigns a courier and sets the pickup date and time; you can follow updates from the order details.";
+    if (/return|refund|repay/.test(text)) return "Customer Service reviews and approves refund requests. If a return is required, follow it in Returns. Confirm the parcel only after it physically reaches your store; Customer Service can then complete the approved repayment.";
+    if (/order|prepare|status|confirm/.test(text)) return "Open Orders and select the order to review its details. Move it through Confirm Order, Start Preparing, and Mark Ready for Pickup. Mark it ready only after the parcel is packed.";
+    if (/stock|inventory|product|price/.test(text)) return "Open Manage Inventory to add or update products, prices, discounts, vouchers, and stock levels. Check the product’s stock value before confirming availability to a buyer.";
+    if (/voucher|coupon|discount/.test(text)) return "Create and manage seller promotions in Vouchers. Set the eligible product, discount, claim limit, and active dates, then verify the voucher is active before sharing it with a buyer.";
+    if (/earning|payout|settlement|sales|report/.test(text)) return "Open Earnings & Reports to review your sales and earnings. Check the selected date range and payout status there; this chat assistant does not read live financial records.";
+    if (/chat|buyer|message|reply|customer/.test(text)) return "Use the buyer inbox on the left to open a conversation. Quick replies are inserted into the message box as drafts, so you can review and edit them before sending.";
+    return "I can guide you through Orders, Logistics and pickup, Returns and refunds, Inventory, Vouchers, or Earnings & Reports. I don’t access live order or payout records, but I can show you where to check them.";
+}
+
+const QUICK_REPLIES = [
+    "Thanks for reaching out. We’re checking this and will update you shortly.",
+    "Could you share your order number so I can check the details?",
+    "Thanks for your patience. We’ll get back to you as soon as we can.",
+];
+
 function Chat() {
     const [conversations, setConversations] = useState([]);
     const [selectedConversation, setSelectedConversation] = useState(null);
@@ -30,12 +48,20 @@ function Chat() {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    const [conversationSearch, setConversationSearch] = useState("");
+    const [assistantOpen, setAssistantOpen] = useState(false);
+    const [assistantDraft, setAssistantDraft] = useState("");
+    const [assistantTyping, setAssistantTyping] = useState(false);
+    const [assistantMessages, setAssistantMessages] = useState([{ role: "assistant", text: "Hi! I can help you find the right seller workflow. What do you need help with?" }]);
     const messagesEndRef = useRef(null);
+    const assistantEndRef = useRef(null);
+    const assistantScopeRef = useRef(null);
     const pendingMessageRef = useRef(null);
     const openRequestRef = useRef(0);
 
     const openConversation = useCallback(async (id) => {
         const requestId = ++openRequestRef.current;
+        assistantScopeRef.current = `${id}:pending`;
         setMessagesLoading(true);
         setError("");
         try {
@@ -103,6 +129,50 @@ function Chat() {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [selectedConversation?.messages]);
+
+    useEffect(() => {
+        if (assistantOpen) assistantEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [assistantMessages, assistantOpen]);
+
+    useEffect(() => {
+        const conversationId = selectedConversation?.id || null;
+        const productId = selectedConversation?.product_id || selectedConversation?.product?.id || "";
+        assistantScopeRef.current = conversationId ? `${conversationId}:${productId}` : null;
+        setAssistantDraft("");
+        setAssistantMessages([{ role: "assistant", text: conversationId
+            ? `I’m ready to help with ${selectedConversation?.product?.name || "this buyer conversation"}. Ask about its live product details or this buyer’s recent order status.`
+            : "Hi! I can help you find the right seller workflow. Select a buyer chat to ask about its live product and order details." }]);
+    }, [selectedConversation?.id, selectedConversation?.product_id, selectedConversation?.product?.id]);
+
+    const askSellerAssistant = async (question) => {
+        const text = String(question || assistantDraft).trim();
+        if (!text || assistantTyping) return;
+        const requestedScope = selectedConversation
+            ? `${selectedConversation.id}:${selectedConversation.product_id || selectedConversation.product?.id || ""}`
+            : null;
+        setAssistantMessages((current) => [...current, { role: "seller", text }]);
+        setAssistantDraft("");
+        setAssistantTyping(true);
+        try {
+            const { data } = await api.post("/seller/chat/assistant", {
+                message: text,
+                conversation_id: selectedConversation?.id || null,
+            });
+            if (assistantScopeRef.current !== requestedScope) return;
+            const result = data?.data;
+            const context = result?.product?.name
+                ? `Live product: ${result.product.name}`
+                : result?.order?.id
+                    ? `Live order: #${result.order.id}`
+                    : null;
+            setAssistantMessages((current) => [...current, { role: "assistant", text: result?.reply || getSellerHelpReply(text), context }]);
+        } catch {
+            if (assistantScopeRef.current !== requestedScope) return;
+            setAssistantMessages((current) => [...current, { role: "assistant", text: `${getSellerHelpReply(text)} Live order or product data is temporarily unavailable.`, context: null }]);
+        } finally {
+            setAssistantTyping(false);
+        }
+    };
 
     useEffect(() => {
         if (!selectedConversation?.id) return undefined;
@@ -182,15 +252,32 @@ function Chat() {
         }
     };
 
+    const filteredConversations = conversations.filter((conversation) => {
+        const last = conversation.messages?.[0];
+        const searchable = [getName(conversation.buyer), conversation.buyer?.email, conversation.product?.name, last?.message]
+            .filter(Boolean).join(" ").toLowerCase();
+        return searchable.includes(conversationSearch.trim().toLowerCase());
+    });
+
     return (
         <main className="sl-page seller-chat-page">
-            <header className="sl-page-head">
+            <header className="sl-page-head seller-chat-page-head">
                 <div>
-                    <div className="sl-eyebrow">MESSAGING</div>
-                    <h1 className="sl-h1">Messages</h1>
-                    <p>Respond to buyers about your products. Conversations refresh every few seconds.</p>
+                    <span className="sl-eyebrow">MESSAGING</span>
+                    <h1 className="sl-h1">Customer Service</h1>
+                    <p>Communicate with buyers about your products and orders.</p>
                 </div>
+                <button type="button" className="seller-assistant-trigger" onClick={() => setAssistantOpen((open) => !open)} aria-expanded={assistantOpen} aria-controls="seller-assistant-panel"><Sparkles size={15} /> Seller assistant</button>
             </header>
+
+            {assistantOpen && <section className="seller-assistant-panel" id="seller-assistant-panel" role="dialog" aria-label="Seller assistant">
+                <header><span className="seller-assistant-mark"><Bot size={17} /></span><div><strong>Seller assistant</strong><small>Quick help for your CRYMA workspace</small></div><button type="button" className="seller-assistant-close" onClick={() => setAssistantOpen(false)} aria-label="Close seller assistant"><X size={17} /></button></header>
+                <div className="seller-assistant-context">{selectedConversation ? <><span>Active buyer chat</span><strong>{selectedConversation.product?.name || getName(selectedConversation.buyer)}</strong><small>Product and this buyer’s order status are checked live when you ask.</small></> : <><span>General seller help</span><strong>Select a buyer chat to include its live product and order details.</strong></>}</div>
+                <div className="seller-assistant-messages" role="log" aria-live="polite">{assistantMessages.map((item, index) => <div key={`${item.role}-${index}`} className={`seller-assistant-message ${item.role}`}><span>{item.role === "assistant" ? "CRYMA helper" : "You"}</span>{item.context && <small className="seller-assistant-live-context">{item.context}</small>}<p>{item.text}</p></div>)}{assistantTyping && <div className="seller-assistant-typing" role="status"><LoaderCircle size={13} className="seller-chat-spinner" /> Checking live product and order details…</div>}<div ref={assistantEndRef} /></div>
+                <div className="seller-assistant-prompts" aria-label="Suggested help topics">{(selectedConversation?.product?.name ? [`What’s the current price and stock of ${selectedConversation.product.name}?`, "What is the latest order status?", "How do I schedule a pickup?"] : ["How do I schedule a pickup?", "How do I handle a return?", "How do I update stock?"]).map((prompt) => <button type="button" key={prompt} onClick={() => void askSellerAssistant(prompt)} disabled={assistantTyping}>{prompt}</button>)}</div>
+                <form className="seller-assistant-composer" onSubmit={(event) => { event.preventDefault(); void askSellerAssistant(assistantDraft); }}><input value={assistantDraft} onChange={(event) => setAssistantDraft(event.target.value)} maxLength={300} placeholder="Ask about this product or order…" aria-label="Ask the seller assistant" disabled={assistantTyping} /><button type="submit" disabled={!assistantDraft.trim() || assistantTyping} aria-label="Ask"><Send size={15} /></button></form>
+                <p className="seller-assistant-disclaimer">Uses live CRYMA product and order records for the selected buyer chat. It does not read payouts or buyer addresses.</p>
+            </section>}
 
             {error && (
                 <div className="seller-chat-alert" role="alert">
@@ -211,16 +298,19 @@ function Chat() {
             <section className="seller-chat-panel" aria-label="Seller messages">
                 <aside className="seller-chat-sidebar">
                     <div className="seller-chat-sidebar-title">
-                        <div><span>INBOX</span><h2>Conversations</h2></div>
+                        <div><span>BUYER INBOX</span><h2>Buyer chats</h2></div>
                         <strong>{conversations.length}</strong>
                     </div>
+                    <label className="seller-chat-search"><Search size={15} aria-hidden="true" /><input type="search" value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} placeholder="Search buyers or products" aria-label="Search conversations by buyer or product" /></label>
                     {loading ? (
                         <div className="seller-chat-empty" role="status"><LoaderCircle className="seller-chat-spinner" size={19} /> Loading messages…</div>
                     ) : conversations.length === 0 ? (
                         <div className="seller-chat-empty"><MessageCircle size={22} /><span>No buyer conversations yet.</span></div>
+                    ) : filteredConversations.length === 0 ? (
+                        <div className="seller-chat-empty">No conversations match your search.</div>
                     ) : (
                         <div className="seller-chat-list">
-                            {conversations.map((conversation) => {
+                            {filteredConversations.map((conversation) => {
                                 const last = conversation.messages?.[0];
                                 const unread = Number(conversation.unread_messages_count || 0) > 0;
                                 return (
@@ -263,6 +353,18 @@ function Chat() {
                                             <div key={item.id} className={`seller-chat-message-row${mine ? " mine" : ""}`}>
                                                 <div className="seller-chat-message-content">
                                                     <p>{item.message}</p>
+                                                    {item.product && (
+                                                        <div className="seller-chat-shared-product-card">
+                                                            <span className="seller-chat-shared-product-image">{item.product.media?.find((media) => media.type === "image")?.url ? <img src={item.product.media.find((media) => media.type === "image").url} alt="" /> : <PackageCheck size={20} />}</span>
+                                                            <span className="seller-chat-shared-product-copy"><strong>{item.product.name}</strong><span>₱{Number(item.product.discounted_price ?? item.product.price ?? 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} · {item.product.status === "active" && Number(item.product.stock) > 0 ? "In stock" : "Unavailable"}</span></span>
+                                                        </div>
+                                                    )}
+                                                    {item.order && (
+                                                        <div className="seller-chat-shared-order">
+                                                            <PackageCheck size={16} aria-hidden="true" />
+                                                            <div><strong>Order #{item.order.id}</strong><span>{item.order.items?.map((orderItem) => orderItem.product?.name).filter(Boolean).join(", ") || "Order details"} · {String(item.order.status || "").replaceAll("_", " ")} · ₱{Number(item.order.total_amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span></div>
+                                                        </div>
+                                                    )}
                                                     <span>{formatTime(item.created_at)}{mine && (item.is_read ? <CheckCheck size={13} aria-label="Read" /> : <Check size={13} aria-label="Sent" />)}</span>
                                                 </div>
                                             </div>
@@ -273,6 +375,7 @@ function Chat() {
                                 )}
                                 <div ref={messagesEndRef} />
                             </div>
+                            <div className="seller-chat-quick-replies" aria-label="Quick replies"><span>Quick replies</span>{QUICK_REPLIES.map((reply) => <button type="button" key={reply} onClick={() => setMessage(reply)} disabled={sending || messagesLoading}>{reply}</button>)}</div>
                             <form className="seller-chat-composer" onSubmit={handleSendMessage}>
                                 <textarea
                                     value={message}

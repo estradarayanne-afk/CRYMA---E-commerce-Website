@@ -1,6 +1,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Eye, Package, PackageX } from "lucide-react";
 import api from "../../shared/services/api";
 import { formatStatusLabel } from "../../shared/utils/statusLabel";
 
@@ -58,10 +59,10 @@ function Dashboard() {
     const selectedBreakdown = inventoryBreakdown.find((item) => item.key === selectedInventoryStatus);
     const currentProducts = selectedBreakdown ? selectedBreakdown.products : products;
     const inventoryStats = [
-        { label: "Products Listed", value: products.length, change: `${activeProducts.length} active`, color: "#093f43" },
-        { label: "Active Products", value: activeProducts.length, change: "Visible to buyers", color: "#176b68" },
-        { label: "Low Stock", value: lowStockProducts.length, change: "Needs restock", color: "#2f7d68" },
-        { label: "Out of Stock", value: outOfStockProducts.length, change: "Unavailable", color: "#638177" },
+        { label: "Products listed", value: products.length, change: `${activeProducts.length} active and approved`, icon: Package, tone: "total" },
+        { label: "Active products", value: activeProducts.length, change: "Visible to buyers", icon: Eye, tone: "active" },
+        { label: "Low stock", value: lowStockProducts.length, change: "Review and restock", icon: AlertTriangle, tone: "low" },
+        { label: "Out of stock", value: outOfStockProducts.length, change: "Unavailable to buyers", icon: PackageX, tone: "out" },
     ];
 
     return (
@@ -86,13 +87,16 @@ function Dashboard() {
 
             {/* STATS */}
             <div className="sl-stats seller-dashboard-stats">
-                {inventoryStats.map((s) => (
-                    <div className="sl-stat-card seller-dashboard-stat" key={s.label}>
-                        <span className="sl-stat-label">{s.label}</span>
-                        <strong className="sl-stat-value" style={{ color: s.color }}>{inventoryLoading || inventoryError ? "â€”" : s.value}</strong>
+                {inventoryStats.map((s) => {
+                    const StatIcon = s.icon;
+                    return (
+                    <div className={`sl-stat-card seller-dashboard-stat seller-dashboard-stat--${s.tone}`} key={s.label}>
+                        <div className="seller-dashboard-stat-top"><span className="sl-stat-label">{s.label}</span><span className="seller-dashboard-stat-icon"><StatIcon size={18} aria-hidden="true" /></span></div>
+                        <strong className="sl-stat-value">{inventoryLoading || inventoryError ? "—" : s.value}</strong>
                         <span className="sl-stat-change">{inventoryLoading ? "Loading inventory" : inventoryError ? "Unavailable" : s.change}</span>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             <div className="sl-grid-2 seller-dashboard-grid">
@@ -101,7 +105,7 @@ function Dashboard() {
                     <div className="sl-panel-head">
                         <div>
                             <h3>Inventory Overview</h3>
-                            <p>Current product status</p>
+                            <p>{inventoryLoading ? "Loading your stock summary" : "Select a status to filter the product list"}</p>
                         </div>
                     </div>
                     <div className="seller-inventory-stats" aria-label="Inventory status statistics">
@@ -148,7 +152,6 @@ function Dashboard() {
                                 <div className="sl-list-right">
                                     <span className={`sl-badge ${product.review_status === "pending" ? "sl-badge--review" : product.review_status === "rejected" ? "sl-badge--rejected" : product.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
                                         {formatStatusLabel(product.review_status === "pending" ? "Pending review" : product.review_status === "rejected" ? "Rejected" : product.status)}
-                                        {product.review_status === "pending" ? "Pending review" : product.review_status === "rejected" ? "Rejected" : product.status}
                                     </span>
                                 </div>
                             </div>
@@ -161,7 +164,7 @@ function Dashboard() {
             {/* LOW STOCK ALERT */}
             <div className="sl-panel sl-panel--alert seller-dashboard-panel">
                 <div className="sl-panel-head">
-                    <div><h3>Low Stock Alert</h3><p>Items needing restock</p></div>
+                    <div><h3>Low Stock Alert</h3><p>{lowStockProducts.length ? `${lowStockProducts.length} ${lowStockProducts.length === 1 ? "product needs" : "products need"} attention` : "No products need restocking right now"}</p></div>
                     <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>Manage inventory</button>
                 </div>
                 <div className="sl-list">

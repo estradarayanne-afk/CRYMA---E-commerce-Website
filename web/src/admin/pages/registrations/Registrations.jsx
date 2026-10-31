@@ -247,6 +247,7 @@ function Registrations() {
                       }
                     : current
             );
+            return true;
         } catch (error) {
             console.error(error);
 
@@ -254,6 +255,7 @@ function Registrations() {
                 error,
                 `Unable to ${action} the document.`
             );
+            return false;
         }
     };
 
@@ -273,7 +275,7 @@ function Registrations() {
         setError("");
         setSuccess("");
 
-        await updateDocument(
+        const rejected = await updateDocument(
             selectedDocument.id,
             "reject",
             {
@@ -281,9 +283,22 @@ function Registrations() {
             }
         );
 
-        setSelectedDocument(null);
-        setRejectionReason("");
+        if (rejected) {
+            setSelectedDocument(null);
+            setRejectionReason("");
+        }
         setRejectingDocument(false);
+    };
+
+    const resendCorrectionLink = async (documentId) => {
+        setError("");
+        setSuccess("");
+        try {
+            const { data } = await api.post(`/admin/documents/${documentId}/correction-link`);
+            setSuccess(data.message || "Replacement link sent to applicant.");
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Unable to resend the replacement link.");
+        }
     };
 
     const handleViewDocument = async (document) => {
@@ -1284,6 +1299,9 @@ function Registrations() {
                                                             {document.file_size ? `${(document.file_size / 1024).toFixed(0)} KB · ` : ""}
                                                             {formatDate(document.created_at)}
                                                         </span>
+                                                        {document.replaces_document_id && <span className="document-meta">Replacement for document #{document.replaces_document_id}</span>}
+                                                        {document.status === "rejected" && document.rejection_reason && <span className="document-rejection-reason">Reason: {document.rejection_reason}</span>}
+                                                        {document.status === "rejected" && selectedRegistration.status === "pending" && <button type="button" className="document-correction-resend-button" onClick={() => void resendCorrectionLink(document.id)}>Resend replacement link</button>}
 
                                                     </div>
 

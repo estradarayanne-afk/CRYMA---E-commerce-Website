@@ -7,13 +7,17 @@ export default function Pickups() {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const load = useCallback(async () => {
-        setLoading(true); setError("");
+    const load = useCallback(async ({ quiet = false } = {}) => {
+        if (!quiet) { setLoading(true); setError(""); }
         try { const { data } = await api.get("/courier/pickups"); setRows(data?.data || []); }
-        catch (err) { setError(err.response?.data?.message || "Pickup assignments are unavailable."); }
-        finally { setLoading(false); }
+        catch (err) { if (!quiet) setError(err.response?.data?.message || "Pickup assignments are unavailable."); }
+        finally { if (!quiet) setLoading(false); }
     }, []);
-    useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+    useEffect(() => {
+        const timer = window.setTimeout(() => void load(), 0);
+        const refresh = window.setInterval(() => { void load({ quiet: true }); }, 30_000);
+        return () => { window.clearTimeout(timer); window.clearInterval(refresh); };
+    }, [load]);
 
     return <section className="cw-page"><header className="cw-page-heading"><div><span className="cw-eyebrow">PICKUP WORKSPACE</span><h1>Seller pickups</h1><p>Collect assigned parcels and record their arrival at the sorting center.</p></div><button type="button" onClick={() => void load()} disabled={loading}>Refresh</button></header>
         {error && <div className="cw-alert" role="alert">{error}<button type="button" onClick={() => void load()}>Try again</button></div>}

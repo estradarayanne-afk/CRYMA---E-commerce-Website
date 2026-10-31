@@ -23,11 +23,14 @@ class Product extends Model
         'variants',
         'stock',
         'category',
+        'store_category',
         'status',
         'review_status',
         'review_reason',
         'reviewed_by',
         'reviewed_at',
+        'is_draft',
+        'archived_at',
     ];
 
     protected function casts(): array
@@ -39,6 +42,8 @@ class Product extends Model
             'variants' => 'array',
             'stock' => 'integer',
             'reviewed_at' => 'datetime',
+            'is_draft' => 'boolean',
+            'archived_at' => 'datetime',
         ];
     }
 
@@ -63,6 +68,11 @@ class Product extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
     }
 
     public function reviewer(): BelongsTo

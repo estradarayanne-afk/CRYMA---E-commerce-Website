@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
     Check,
     Package,
@@ -7,6 +8,7 @@ import {
     X,
 } from "lucide-react";
 import api from "../../shared/services/api";
+import { parseDeliveryAddress } from "../../shared/utils/deliveryAddress";
 import ParcelSlip from "../components/ParcelSlip";
 
 const STATUS_FLOW = [
@@ -36,6 +38,7 @@ const STATUS_BG = {
     PREPARING: "#e9f3f2",
     READY_FOR_PICKUP: "#e9f6ef",
 };
+const ORDERS_PER_PAGE = 8;
 
 function normalizeStatus(status) {
     if (!status) return "PLACED";
@@ -66,6 +69,19 @@ function formatDate(value) {
         year: "numeric",
         month: "short",
         day: "numeric",
+    });
+}
+
+function formatDateTime(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleString("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
     });
 }
 
@@ -102,9 +118,25 @@ function getNextLabel(status) {
     return labels[status] || null;
 }
 
+function getStatusHelp(status) {
+    const descriptions = {
+        PLACED: "New order received. Confirm it to start preparing the items.",
+        CONFIRMED: "Order confirmed. Gather the items and prepare the parcel.",
+        PREPARING: "Parcel is being prepared. Mark it ready after packing is complete.",
+        READY_FOR_PICKUP: "Parcel is ready. Waiting for pickup.",
+        COMPLETED: "This order has been completed.",
+        CANCELLED: "This order was cancelled.",
+    };
+    return descriptions[status] || "Review the order details and current progress below.";
+}
+
 function Orders() {
+    const location = useLocation();
+    const notificationOrderId = Number(location.state?.sellerNotification?.order_id || 0);
+    const handledNotificationKey = useRef(null);
     const [orders, setOrders] = useState([]);
     const [filter, setFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
     const [selected, setSelected] = useState(null);
 
     const [loading, setLoading] = useState(true);
@@ -112,8 +144,8 @@ function Orders() {
     const [actionLoading, setActionLoading] = useState(false);
     const [notice, setNotice] = useState("");
 
-    const loadOrders = useCallback(async () => {
-        setLoading(true);
+    const loadOrders = useCallback(async ({ quiet = false } = {}) => {
+        if (!quiet) setLoading(true);
         setError("");
 
         try {
@@ -138,7 +170,7 @@ function Orders() {
                     "Unable to load seller orders."
             );
         } finally {
-            setLoading(false);
+            if (!quiet) setLoading(false);
         }
     }, []);
 
@@ -146,6 +178,22 @@ function Orders() {
         const timer = window.setTimeout(() => { void loadOrders(); }, 0);
         return () => window.clearTimeout(timer);
     }, [loadOrders]);
+
+    useEffect(() => {
+        if (!notificationOrderId || orders.length === 0 || handledNotificationKey.current === location.key) return;
+        const notifiedOrder = orders.find((order) => Number(order.id) === notificationOrderId);
+        if (!notifiedOrder) return;
+        handledNotificationKey.current = location.key;
+        setFilter("all");
+        setCurrentPage(Math.floor(orders.findIndex((order) => Number(order.id) === notificationOrderId) / ORDERS_PER_PAGE) + 1);
+        setSelected(notifiedOrder);
+    }, [location.key, notificationOrderId, orders]);
+
+    useEffect(() => {
+        if (!selected || !["READY_FOR_PICKUP", "PICKED_UP", "AT_SORTING_CENTER", "SORTED", "ASSIGNED_TO_RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED"].includes(normalizeStatus(selected.status))) return undefined;
+        const timer = window.setInterval(() => { void loadOrders({ quiet: true }); }, 30_000);
+        return () => window.clearInterval(timer);
+    }, [loadOrders, selected?.id, selected?.status]);
 
     const normalizedOrders = useMemo(() => {
         return orders.map((order) => ({
@@ -163,6 +211,18 @@ function Orders() {
             (order) => order.displayStatus === filter
         );
     }, [normalizedOrders, filter]);
+
+    const pageCount = Math.max(1, Math.ceil(visible.length / ORDERS_PER_PAGE));
+    const pageOrders = visible.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE);
+
+    useEffect(() => {
+        if (currentPage > pageCount) setCurrentPage(pageCount);
+    }, [currentPage, pageCount]);
+
+    const needsActionCount = useMemo(
+        () => normalizedOrders.filter((order) => ["PLACED", "CONFIRMED", "PREPARING"].includes(order.displayStatus)).length,
+        [normalizedOrders],
+    );
 
     const updateStatus = async (order) => {
         const currentStatus = normalizeStatus(order.status);
@@ -219,6 +279,21 @@ function Orders() {
         }
     };
 
+    const requestPickup = async (order) => {
+        setActionLoading(true);
+        setNotice("");
+        setError("");
+        try {
+            const response = await api.post(`/seller/orders/${order.id}/pickup-request`);
+            await loadOrders();
+            setNotice(response?.data?.message || `Pickup requested for order #${order.id}.`);
+        } catch (err) {
+            setError(err.response?.data?.message || "Unable to schedule courier pickup.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const getOrderSubtotal = (order) => {
         if (order?.subtotal !== undefined) {
             return Number(order.subtotal || 0);
@@ -236,26 +311,19 @@ function Orders() {
         );
     };
 
-    const getCustomerAddress = (order) => {
-        return order?.delivery_address || "No delivery address provided.";
-    };
-
     return (
         <div className="sl-page">
-            <div className="sl-page-head">
+            <header className="sl-page-head sl-orders-page-head">
                 <div>
-                    <div className="sl-eyebrow">
-                        ORDER MANAGEMENT
-                    </div>
-
+                    <span className="sl-eyebrow">SELLER WORKSPACE · ORDERS</span>
                     <h1 className="sl-h1">Orders</h1>
-
-                    <p>
-                        Review customer orders, pack items, and update
-                        the order status when ready.
-                    </p>
+                    <p>Confirm new orders, prepare the parcel, then mark it ready for pickup. Select any order below to see buyer and item details.</p>
                 </div>
-            </div>
+                <div className="sl-orders-header-status" role="status" aria-live="polite">
+                    <span className="sl-orders-header-status-dot" aria-hidden="true" />
+                    <span><strong>{needsActionCount}</strong><small>{needsActionCount === 1 ? "order needs" : "orders need"} your action</small></span>
+                </div>
+            </header>
 
             {notice && (
                 <div
@@ -299,9 +367,10 @@ function Orders() {
                                     ? "active"
                                     : ""
                             }
-                            onClick={() =>
-                                setFilter(status)
-                            }
+                            onClick={() => {
+                                setFilter(status);
+                                setCurrentPage(1);
+                            }}
                         >
                             {status === "all"
                                 ? "All Orders"
@@ -321,6 +390,7 @@ function Orders() {
                 }`}
             >
                 <div className="sl-card sl-orders-list">
+                    <div className="sl-orders-list-head"><div><h2>Order list</h2><p>{visible.length} {visible.length === 1 ? "order" : "orders"}{filter === "all" ? " across all statuses" : ` · ${STATUS_LABEL[filter] || "filtered"}`}</p></div><span className="sl-orders-list-hint">Select a row to view details</span></div>
                     {loading ? (
                         <div className="sl-orders-state">
                             <div className="sl-orders-spinner" />
@@ -342,15 +412,15 @@ function Orders() {
                                     <tr>
                                         <th>Order ID</th>
                                         <th>Customer</th>
-                                        <th>Items</th>
-                                        <th>Amount</th>
+                                        <th>Quantity</th>
+                                        <th>Order total</th>
                                         <th>Date</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
-                                    {visible.map((order) => {
+                                    {pageOrders.map((order) => {
                                         const status =
                                             order.displayStatus;
 
@@ -443,19 +513,25 @@ function Orders() {
                             </table>
                         </div>
                     )}
+                    {!loading && visible.length > ORDERS_PER_PAGE && <nav className="sl-orders-pagination" aria-label="Order list pages">
+                        <span>Page {currentPage} of {pageCount}</span>
+                        <div>
+                            <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage <= 1}>Previous</button>
+                            <button type="button" onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))} disabled={currentPage >= pageCount}>Next</button>
+                        </div>
+                    </nav>}
                 </div>
 
                 {selected && (
                     <div className="sl-card sl-order-detail">
                         <ParcelSlip order={selected} />
                         <div className="sl-detail-head">
-                            <div>
-                                <h3>
-                                    Order #{selected.id}
-                                </h3>
-
+                            <div className="sl-order-detail-heading">
+                                <span className="sl-order-detail-eyebrow">ORDER DETAILS</span>
+                                <h3>Order #{selected.id}</h3>
+                                <p>{getStatusHelp(normalizeStatus(selected.status))}</p>
                                 <span
-                                    className="sl-badge"
+                                    className={`sl-badge sl-order-detail-status sl-order-detail-status--${normalizeStatus(selected.status).toLowerCase()}`}
                                     style={{
                                         color:
                                             STATUS_COLOR[
@@ -493,7 +569,7 @@ function Orders() {
                             </button>
                         </div>
 
-                        <div className="sl-detail-section">
+                        <div className="sl-detail-section sl-order-detail-customer">
                             <p className="sl-detail-label">
                                 Customer
                             </p>
@@ -515,17 +591,22 @@ function Orders() {
                             </p>
                         </div>
 
-                        <div className="sl-detail-section">
+                        <div className="sl-detail-section sl-order-detail-address">
                             <p className="sl-detail-label">
                                 Delivery Address
                             </p>
-
-                            <p className="sl-detail-val">
-                                {getCustomerAddress(selected)}
-                            </p>
+                            {(() => {
+                                const address = parseDeliveryAddress(selected.delivery_address);
+                                return <div className="sl-delivery-address-content">
+                                    {address.label && <span className="sl-delivery-address-type">Address label · {address.label}</span>}
+                                    {address.recipient && <p className="sl-detail-val"><span>Recipient</span><strong>{address.recipient}</strong></p>}
+                                    {address.contact && <p className="sl-detail-val"><span>Contact</span><strong>{address.contact}</strong></p>}
+                                    <div className="sl-delivery-address-lines">{address.addressLines.length ? address.addressLines.map((line, index) => <span key={`${line}-${index}`}>{line}</span>) : <span>No delivery address provided.</span>}</div>
+                                </div>;
+                            })()}
                         </div>
 
-                        <div className="sl-detail-section">
+                        <div className="sl-detail-section sl-order-detail-payment">
                             <p className="sl-detail-label">
                                 Payment Method
                             </p>
@@ -538,9 +619,9 @@ function Orders() {
                             </p>
                         </div>
 
-                        <div className="sl-detail-section">
+                        <div className="sl-detail-section sl-order-detail-items">
                             <p className="sl-detail-label">
-                                Order Items
+                                Items in this order
                             </p>
 
                             <div className="sl-order-items">
@@ -557,12 +638,7 @@ function Orders() {
                                                         "Product"}
                                                 </strong>
 
-                                                <span>
-                                                    Qty:{" "}
-                                                    {
-                                                        item.quantity
-                                                    }
-                                                </span>
+                                                <span>{item.quantity} × {formatMoney(item.unit_price)}</span>
                                             </div>
 
                                             <strong>
@@ -576,7 +652,7 @@ function Orders() {
                             </div>
                         </div>
 
-                        {["CONFIRMED", "PREPARING", "READY_FOR_PICKUP"].includes(
+                        {["CONFIRMED", "PREPARING", "READY_FOR_PICKUP", "PICKED_UP", "AT_SORTING_CENTER", "SORTED", "ASSIGNED_TO_RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED", "DELIVERED", "COMPLETED"].includes(
                             normalizeStatus(selected.status)
                         ) && (
                             <section className="sl-preparation-panel" aria-labelledby="sl-preparation-title">
@@ -587,9 +663,30 @@ function Orders() {
                                         <p>Order status is the authoritative fulfillment record.</p>
                                     </div>
                                 </div>
-                                {normalizeStatus(selected.status) === "READY_FOR_PICKUP" ? (
+                                {!['CONFIRMED', 'PREPARING'].includes(normalizeStatus(selected.status)) ? (
                                     <div className="sl-preparation-ready" role="status">
-                                        This order is marked ready for pickup. Carrier assignment, pickup scheduling, and shipment tracking are not available in this seller workspace.
+                                        {(() => {
+                                            const pickup = selected.delivery_progress?.pickup;
+                                            const status = pickup?.status;
+                                            const labels = {
+                                                PICKUP_REQUESTED: "Pickup requested. Logistics will assign a courier.",
+                                                ASSIGNED_TO_PICKUP_RIDER: `Pickup scheduled${pickup.courier?.name ? ` with ${pickup.courier.name}` : ""}.`,
+                                                ACCEPTED_BY_PICKUP_RIDER: `Courier accepted the pickup${pickup.courier?.name ? ` · ${pickup.courier.name}` : ""}.`,
+                                                PICKED_UP: "Courier collected the parcel. It is on the way to the sorting center.",
+                                                AT_SORTING_CENTER: "Parcel received at the sorting center.",
+                                            };
+                                            return <>
+                                                <strong>{labels[status] || "Parcel is ready for courier pickup."}</strong>
+                                                {status === "PICKUP_REQUESTED" && <p>Requested {formatDateTime(pickup.requested_at)}. Follow status updates here.</p>}
+                                                {pickup?.pickup_address && <p>Pickup location: {pickup.pickup_address}</p>}
+                                                {pickup?.scheduled_at && <p>Pickup scheduled: {formatDateTime(pickup.scheduled_at)}</p>}
+                                                {pickup?.courier?.phone && <p>Courier contact: {pickup.courier.phone}</p>}
+                                                {!status && <><p>Schedule a pickup to send this parcel to the logistics team.</p><button type="button" className="sl-btn-primary" disabled={actionLoading} onClick={() => void requestPickup(selected)}>{actionLoading ? "Scheduling…" : "Schedule courier pickup"}</button></>}
+                                                {pickup?.picked_up_at && <p>Collected {formatDateTime(pickup.picked_up_at)}</p>}
+                                                {pickup?.received_at && <p>Received at sorting center {formatDateTime(pickup.received_at)}</p>}
+                                                {(selected.delivery_progress?.events || []).length > 0 && <ol className="sl-preparation-steps">{selected.delivery_progress.events.map((event, index) => <li key={`${event.event_type}-${index}`}>{String(event.event_type || "Shipment update").replaceAll("_", " ")} · {formatDateTime(event.created_at)}</li>)}</ol>}
+                                            </>;
+                                        })()}
                                     </div>
                                 ) : (
                                     <>
@@ -601,15 +698,12 @@ function Orders() {
                                         <p className="sl-preparation-note">
                                             The preparation guide does not save a separate packing status. Select “Mark Ready for Pickup” only after the parcel is packed; that action updates the order status.
                                         </p>
-                                        <p className="sl-preparation-note">
-                                            Carrier assignment, pickup scheduling, and shipment tracking are not connected to this workspace.
-                                        </p>
                                     </>
                                 )}
                             </section>
                         )}
 
-                        <div className="sl-detail-section">
+                        <div className="sl-detail-section sl-order-detail-total">
                             <p className="sl-detail-label">
                                 Order Total
                             </p>
@@ -624,13 +718,13 @@ function Orders() {
                             </p>
                         </div>
 
-                        <div className="sl-detail-section">
+                        <div className="sl-detail-section sl-order-detail-date">
                             <p className="sl-detail-label">
-                                Order Date
+                                Order Date & Time
                             </p>
 
                             <p className="sl-detail-val">
-                                {formatDate(
+                                {formatDateTime(
                                     selected.created_at
                                 )}
                             </p>
@@ -642,7 +736,7 @@ function Orders() {
                             ) === "PREPARING" && (
                                 <button
                                     type="button"
-                                    className="sl-btn-ghost"
+                                    className="sl-order-action-button sl-order-action-button--print"
                                     onClick={() =>
                                         window.print()
                                     }
@@ -659,7 +753,7 @@ function Orders() {
                             ) && (
                                 <button
                                     type="button"
-                                    className="sl-btn-primary"
+                                    className="sl-order-action-button sl-order-action-button--primary"
                                     disabled={actionLoading}
                                     onClick={() =>
                                         updateStatus(

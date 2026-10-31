@@ -96,6 +96,9 @@
     font-size: 17px;
     font-weight: 700;
     border-color: var(--color-border);
+    object-fit: contain;
+    background: transparent;
+    border: 0;
 }
 
 .al-brand-copy {
@@ -199,18 +202,35 @@
    ========================================================= */
 
 .al-nav {
-    padding: 0 12px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 10px 12px 14px;
 
     display: flex;
     flex-direction: column;
     gap: 4px;
 
     overflow-y: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(126, 24, 48, 0.28) transparent;
+    padding-bottom: 14px;
 }
 
-.al-nav::-webkit-scrollbar { display: none; }
+.al-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.al-nav-group + .al-nav-group { margin-top:8px; }
+.al-nav-group .al-section-label { padding:10px 13px 4px; color:#b9929b; font-size:9px; font-weight:750; letter-spacing:1.15px; }
+.al-nav-group:first-child .al-section-label { padding-top:3px; }
+.al-nav-group-items { display:flex; flex-direction:column; gap:4px; }
+.al-nav::-webkit-scrollbar { width:5px; }
+.al-nav::-webkit-scrollbar-track { background:transparent; }
+.al-nav::-webkit-scrollbar-thumb { border-radius:99px; background:rgba(126,24,48,.25); }
+.al-nav::-webkit-scrollbar-thumb:hover { background:rgba(126,24,48,.5); }
 
 .al-nav a {
     min-height: 46px;
@@ -730,8 +750,10 @@
 }
 
 .al-root--collapsed .al-nav {
-    padding: 0 10px;
+    padding: 10px 10px 14px;
 }
+
+.al-root--collapsed .al-nav-group + .al-nav-group { margin-top:8px; }
 
 .al-root--collapsed .al-nav a {
     justify-content: center;
@@ -1119,9 +1141,9 @@
 .al-root .al-sidebar-top { border-bottom-color: rgba(255, 255, 255, 0.08); }
 .al-root .al-brand-mark {
     color: #fff;
-    background: linear-gradient(145deg, #A82C48, #642033);
-    border-color: rgba(255, 180, 195, 0.28);
-    box-shadow: 0 0 20px rgba(226, 87, 119, 0.24);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
 }
 .al-root .al-brand-name { color: #FFF8F9; }
 .al-root .al-brand-sub, .al-root .al-section-label { color: #B9929B; }
@@ -1405,6 +1427,75 @@
 }
 .al-root .al-content button:active:not(:disabled) { transform:translateY(0) scale(.985); }
 .al-root .al-content button:disabled { cursor:not-allowed; opacity:.56; }
+.al-root .al-content :is(.approve-button,.seller-approve-button,.seller-product-approve-button,.user-activate-button,.complaint-review-button,.complaint-resolve-button,.commission-done-button,.reports-generate-button,.settings-submit,.account-submit,.voucher-primary-button,.refund-action-buttons button:not(.reject):not(.secondary),.ad-heading button,.ad-actions button:not(.ad-secondary-button),.ad-action-row button) {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-height:38px;
+    padding:0 14px;
+    border:1px solid #70172d;
+    border-radius:10px;
+    background:linear-gradient(135deg,#922744,#5a1229);
+    color:#fff;
+    font-size:12px;
+    font-weight:700;
+    line-height:1.15;
+    box-shadow:0 4px 10px rgba(79,16,37,.14),inset 0 1px rgba(255,255,255,.16);
+    cursor:pointer;
+}
+.al-root .al-content :is(.approve-button,.seller-approve-button,.seller-product-approve-button,.user-activate-button,.complaint-review-button,.complaint-resolve-button,.commission-done-button,.reports-generate-button,.settings-submit,.account-submit,.voucher-primary-button,.refund-action-buttons button:not(.reject):not(.secondary),.ad-heading button,.ad-actions button:not(.ad-secondary-button),.ad-action-row button):hover:not(:disabled) {
+    border-color:#4d0e22;
+    background:linear-gradient(135deg,#7c1d38,#3f0b1c);
+    box-shadow:0 7px 15px rgba(79,16,37,.22),inset 0 1px rgba(255,255,255,.18);
+    transform:translateY(-1px);
+}
+.al-root .al-content :is(.reject-button,.seller-reject-button,.seller-product-reject-button,.seller-suspend-button,.user-suspend-button,.complaint-dismiss-button,.delete-button,.settings-confirm-action.danger,.refund-action-buttons .reject) {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-height:36px;
+    padding:0 13px;
+    border:1px solid #d7a5a8;
+    border-radius:9px;
+    background:linear-gradient(135deg,#fff8f8,#ffeded);
+    color:#a52535;
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 3px 8px rgba(143,34,47,.07);
+}
+.al-root .al-content :is(.reject-button,.seller-reject-button,.seller-product-reject-button,.seller-suspend-button,.user-suspend-button,.complaint-dismiss-button,.delete-button,.settings-confirm-action.danger,.refund-action-buttons .reject):hover:not(:disabled) {
+    border-color:#bd6872;
+    background:#ffebed;
+    box-shadow:0 5px 12px rgba(143,34,47,.14);
+    transform:translateY(-1px);
+}
+.al-root .al-content :is(.view-button,.view-document-button,.seller-view-button,.user-view-button,.complaint-view-button,.commission-view-button,.complaint-evidence-button,.complaint-cancel-button,.modal-cancel-button,.cancel-button,.account-confirm-cancel,.settings-confirm-cancel,.voucher-secondary-button,.ad-secondary-button,.ad-area-heading button,.ad-area-couriers button,.refund-action-buttons .secondary,.pagination-button,.commission-pagination-button,.commission-pagination-page:not(.active),.complaints-pagination-button,.complaints-pagination-page:not(.active),.seller-compliance-pagination-button,.seller-compliance-pagination-page:not(.active),.users-pagination-button) {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-height:34px;
+    padding:0 12px;
+    border:1px solid #e5cbd2;
+    border-radius:9px;
+    background:linear-gradient(180deg,#fff,#fff8fa);
+    color:#67233a;
+    font-size:11px;
+    font-weight:650;
+    cursor:pointer;
+    box-shadow:0 2px 6px rgba(70,20,38,.045),inset 0 1px #fff;
+}
+.al-root .al-content :is(.view-button,.view-document-button,.seller-view-button,.user-view-button,.complaint-view-button,.commission-view-button,.complaint-evidence-button,.complaint-cancel-button,.modal-cancel-button,.cancel-button,.account-confirm-cancel,.settings-confirm-cancel,.voucher-secondary-button,.ad-secondary-button,.ad-area-heading button,.ad-area-couriers button,.refund-action-buttons .secondary,.pagination-button,.commission-pagination-button,.commission-pagination-page:not(.active),.complaints-pagination-button,.complaints-pagination-page:not(.active),.seller-compliance-pagination-button,.seller-compliance-pagination-page:not(.active),.users-pagination-button):hover:not(:disabled) {
+    border-color:#bd8292;
+    background:#fff0f4;
+    color:#4e1027;
+    box-shadow:0 5px 11px rgba(70,20,38,.09);
+    transform:translateY(-1px);
+}
+.al-root .al-content :is(.approve-button,.seller-approve-button,.seller-product-approve-button,.user-activate-button,.complaint-review-button,.complaint-resolve-button,.commission-done-button,.reports-generate-button,.settings-submit,.account-submit,.voucher-primary-button,.reject-button,.seller-reject-button,.seller-product-reject-button,.seller-suspend-button,.user-suspend-button,.complaint-dismiss-button,.delete-button,.settings-confirm-action,.refund-action-buttons button,.view-button,.view-document-button,.seller-view-button,.user-view-button,.complaint-view-button,.commission-view-button,.complaint-evidence-button,.complaint-cancel-button,.modal-cancel-button,.cancel-button,.account-confirm-cancel,.settings-confirm-cancel,.voucher-secondary-button,.ad-secondary-button,.ad-area-heading button,.ad-area-couriers button,.refund-action-buttons .secondary,.pagination-button,.commission-pagination-button,.commission-pagination-page,.complaints-pagination-button,.complaints-pagination-page,.seller-compliance-pagination-button,.seller-compliance-pagination-page,.users-pagination-button):disabled { box-shadow:none; transform:none; }
 .al-root .al-content select {
     min-height:40px;
     padding:0 40px 0 13px;

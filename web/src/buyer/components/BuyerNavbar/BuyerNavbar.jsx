@@ -6,7 +6,6 @@ import {
     Heart,
     LogOut,
     Menu,
-    MessageCircle,
     Package,
     Search,
     ShoppingCart,
@@ -14,7 +13,7 @@ import {
     UserRound,
     X,
 } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import api from "../../../shared/services/api";
 import { openAuthModal } from "../../../shared/components/authModalEvents";
@@ -70,6 +69,8 @@ function isAvailableCartItem(item) {
 
 function BuyerNavbar() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const isLandingPage = location.pathname === "/";
     const navbarRef = useRef(null);
 
     const [user, setUser] = useState(getStoredUser);
@@ -351,39 +352,42 @@ function BuyerNavbar() {
                         <Menu size={21} strokeWidth={2.2} />
                     </button>
 
-                    {/* LOGO */}
-                    <NavLink
-                        to={logoDestination}
-                        className="cryma-navbar-logo"
-                        onClick={closeMenus}
-                        aria-label={user ? "CRYMA All Categories" : "CRYMA landing page"}
-                    >
-                        <span className="cryma-logo-mark">
-                            C
-                        </span>
-
-                        <span className="cryma-logo-word">
-                            CRYMA
-                        </span>
-                    </NavLink>
-
-                    {/* MAIN NAVIGATION */}
-                    <nav
-                        className="cryma-main-navigation"
-                        aria-label="Main navigation"
-                    >
+                    <div className="cryma-navbar-brand-group">
+                        {/* LOGO */}
                         <NavLink
-                            to="/shop"
-                            end
+                            to={logoDestination}
+                            className="cryma-navbar-logo"
                             onClick={closeMenus}
-                            className={({ isActive }) => `cryma-nav-link${isActive ? " active" : ""}`}
+                            aria-label={user ? "CRYMA All Categories" : "CRYMA landing page"}
                         >
-                            All Categories
+                            <img className="cryma-logo-mark" src="/cryma-favicon.png" alt="" />
+                            <span className="cryma-logo-word">CRYMA</span>
                         </NavLink>
-                    </nav>
 
-                    {/* SEARCH */}
-                    <form
+                        {/* MAIN NAVIGATION */}
+                        <nav
+                            className="cryma-main-navigation"
+                            aria-label="Main navigation"
+                        >
+                            <NavLink
+                                to="/shop"
+                                end
+                                onClick={closeMenus}
+                                className={({ isActive }) => `cryma-nav-link${isActive ? " active" : ""}`}
+                            >
+                                All Categories
+                            </NavLink>
+                        </nav>
+                    </div>
+
+                    {/* LANDING PAGE CONTENT NAVIGATION / PRODUCT SEARCH */}
+                    {isLandingPage ? (
+                        <nav className="cryma-landing-nav" aria-label="Landing page sections">
+                            <a href="#featured-products" onClick={closeMenus}>Featured</a>
+                            <a href="#how-it-works" onClick={closeMenus}>How it works</a>
+                            <a href="#delivery-journey" onClick={closeMenus}>Delivery journey</a>
+                        </nav>
+                    ) : <form
                         className="cryma-navbar-search"
                         onSubmit={handleSearch}
                     >
@@ -449,7 +453,7 @@ function BuyerNavbar() {
                                 </div>
                             </div>
                         )}
-                    </form>
+                    </form>}
 
                     {/* RIGHT ACTIONS */}
                     <div className="cryma-navbar-actions">
@@ -510,24 +514,6 @@ function BuyerNavbar() {
                             )}
                         </div>
 
-                        {/* MESSAGES */}
-                        <div className="cryma-action-container">
-                            <button
-                                type="button"
-                                className={`cryma-icon-action ${messagesOpen ? "active" : ""}`}
-                                onClick={() => {
-                                    if (!requireBuyer("Sign in to view seller messages", "Sign in to contact marketplace sellers.", "/buyer/chat")) return;
-                                    setMessagesOpen((current) => !current);
-                                    setNotificationOpen(false);
-                                    setCartOpen(false);
-                                }}
-                                aria-label="Seller messages"
-                                aria-expanded={messagesOpen}
-                            >
-                                <MessageCircle size={18} />
-                            </button>
-                        </div>
-
                         {messagesOpen && (
                             <section className="cryma-messages-popover" aria-label="Recent conversations">
                                 <header>
@@ -542,7 +528,7 @@ function BuyerNavbar() {
                                     const latest = conversation.messages?.[0];
                                     const identity = getConversationIdentity(conversation);
                                     return (
-                                        <button key={conversation.id} type="button" className="cryma-message-preview" onClick={() => { setMessagesOpen(false); navigate(`/buyer/chat?conversation=${conversation.id}`); }}>
+                                        <button key={conversation.id} type="button" className="cryma-message-preview" onClick={() => { setMessagesOpen(false); window.dispatchEvent(new CustomEvent("cryma-open-seller-chat", { detail: { conversationId: conversation.id } })); }}>
                                             <span className={`cryma-message-avatar ${identity.type}`}>{identity.initials}</span>
                                             <span><strong>{identity.name}</strong><small>{latest?.message || conversation.product?.name || "Start a conversation"}</small></span>
                                             <time>{conversation.updated_at ? new Date(conversation.updated_at).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" }) : ""}</time>
@@ -551,7 +537,7 @@ function BuyerNavbar() {
                                 }) : (
                                     <p className="cryma-messages-state">No seller conversations yet. Contact a seller from a product page to start one.</p>
                                 )}
-                                <button type="button" className="cryma-open-messages" onClick={() => { setMessagesOpen(false); goTo("/buyer/chat"); }}>Open seller messages</button>
+                                <button type="button" className="cryma-open-messages" onClick={() => { setMessagesOpen(false); window.dispatchEvent(new CustomEvent("cryma-open-seller-chat")); }}>Open seller messages</button>
                                 <button type="button" className="cryma-open-messages" onClick={() => { setMessagesOpen(false); goTo("/buyer/support"); }}>Contact Customer Service</button>
                             </section>
                         )}
@@ -795,9 +781,7 @@ function BuyerNavbar() {
                                 onClick={closeMenus}
                                 className="cryma-mobile-logo"
                             >
-                                <span className="cryma-logo-mark">
-                                    C
-                                </span>
+                                <img className="cryma-logo-mark" src="/cryma-favicon.png" alt="" />
 
                                 <span className="cryma-logo-word">
                                     CRYMA
@@ -844,8 +828,15 @@ function BuyerNavbar() {
                             </div>
                         </div>
 
-                        {/* MOBILE SEARCH */}
-                        <form
+                        {/* MOBILE LANDING PAGE LINKS / PRODUCT SEARCH */}
+                        {isLandingPage ? (
+                            <nav className="cryma-mobile-section-nav" aria-label="Landing page sections">
+                                <span>Explore this page</span>
+                                <a href="#featured-products" onClick={closeMenus}>Featured products <span>01</span></a>
+                                <a href="#how-it-works" onClick={closeMenus}>How it works <span>02</span></a>
+                                <a href="#delivery-journey" onClick={closeMenus}>Delivery journey <span>03</span></a>
+                            </nav>
+                        ) : <form
                             className="cryma-mobile-search"
                             onSubmit={handleSearch}
                         >
@@ -865,7 +856,7 @@ function BuyerNavbar() {
                             <button type="submit">
                                 Search
                             </button>
-                        </form>
+                        </form>}
 
                         <nav
                             className="cryma-mobile-navigation"

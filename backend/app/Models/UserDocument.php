@@ -10,7 +10,7 @@ class UserDocument extends Model
 {
     use HasFactory;
 
-    protected $hidden = ['file_path'];
+    protected $hidden = ['file_path', 'correction_token_hash'];
 
     protected $fillable = [
         'user_id',
@@ -21,7 +21,15 @@ class UserDocument extends Model
         'file_size',
         'status',
         'rejection_reason',
+        'correction_token_hash',
+        'correction_token_expires_at',
+        'replaces_document_id',
     ];
+
+    protected function casts(): array
+    {
+        return ['correction_token_expires_at' => 'datetime'];
+    }
 
     /**
      * Get the user who owns this document.
@@ -29,5 +37,10 @@ class UserDocument extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function replacesDocument(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'replaces_document_id');
     }
 }

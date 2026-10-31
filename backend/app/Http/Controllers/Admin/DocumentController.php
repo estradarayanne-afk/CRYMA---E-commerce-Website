@@ -4,8 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserDocument;
+use App\Mail\RegistrationDocumentCorrectionMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Throwable;
 
 class DocumentController extends Controller
 {
@@ -177,16 +182,65 @@ class DocumentController extends Controller
             ], 422);
         }
 
+        $token = Str::random(64);
         $document->update([
             'status' => 'rejected',
             'rejection_reason' => $request->rejection_reason,
+            'correction_token_hash' => hash('sha256', $token),
+            'correction_token_expires_at' => now()->addDays(7),
         ]);
+
+        $emailSent = $this->sendCorrectionEmail($document, $token);
 
         return response()->json([
             'success' => true,
-            'message' => 'Document rejected successfully.',
+            'message' => $emailSent
+                ? 'Document rejected. The applicant was emailed a secure replacement link.'
+                : 'Document rejected, but the replacement email could not be sent. Please contact the applicant.',
+            'email_sent' => $emailSent,
             'data' => $document,
         ]);
+    }
+
+    public function resendCorrectionLink(Request $request, int $id)
+    {
+        abort_unless($request->user()?->role === 'admin', 403, 'Unauthorized.');
+        $document = UserDocument::with('user')->whereKey($id)->where('status', 'rejected')->firstOrFail();
+        abort_unless($document->user?->status === 'pending', 409, 'The applicant is no longer awaiting registration review.');
+
+        $token = Str::random(64);
+        $document->update([
+            'correction_token_hash' => hash('sha256', $token),
+            'correction_token_expires_at' => now()->addDays(7),
+        ]);
+        $emailSent = $this->sendCorrectionEmail($document, $token);
+
+        return response()->json([
+            'success' => $emailSent,
+            'message' => $emailSent ? 'A fresh replacement link was emailed to the applicant.' : 'The replacement email could not be sent. Check mail delivery settings and retry.',
+        ], $emailSent ? 200 : 503);
+    }
+
+    private function sendCorrectionEmail(UserDocument $document, string $token): bool
+    {
+        $document->loadMissing('user');
+        try {
+            $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+            $correctionUrl = $frontendUrl.'/application/document-correction?document_id='.$document->id.'&token='.$token;
+            Mail::to($document->user->email)->send(new RegistrationDocumentCorrectionMail(
+                $document->user->first_name ?: 'Applicant',
+                str($document->document_type)->replace('_', ' ')->title()->toString(),
+                $document->rejection_reason,
+                $correctionUrl,
+            ));
+            return true;
+        } catch (Throwable $exception) {
+            Log::warning('Unable to send applicant document correction link.', [
+                'document_id' => $document->id,
+                'exception_class' => $exception::class,
+            ]);
+            return false;
+        }
     }
 
     /**

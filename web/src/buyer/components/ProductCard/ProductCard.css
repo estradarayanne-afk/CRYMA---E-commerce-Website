@@ -236,6 +236,54 @@
     .buyer-product-add { font-size: 11px; }
 }
 
+.buyer-product-card {
+    transform-style: preserve-3d;
+}
+.buyer-product-card.is-tiltable { transform: perspective(1000px) rotateX(var(--card-tilt-x,0deg)) rotateY(var(--card-tilt-y,0deg)); will-change: transform; }
+.buyer-product-image.has-image:not(.has-loaded-image) { background: #f3e9e7; }
+.buyer-product-image.has-image:not(.has-loaded-image)::before {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    background: linear-gradient(105deg,transparent 25%,rgba(255,255,255,.74) 47%,transparent 67%);
+    content: "";
+    animation: crymaProductShimmer 1.3s ease-in-out infinite;
+}
+.buyer-product-image img { opacity: 0; transition: opacity .28s ease,transform .45s cubic-bezier(.2,.75,.25,1); }
+.buyer-product-image img.is-loaded,.buyer-product-image.has-loaded-image img { opacity: 1; }
+.buyer-product-image-fallback {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 45%,rgba(239,167,184,.3),transparent 35%),linear-gradient(145deg,#faf5f1,#eee3df);
+}
+.buyer-product-fallback-orbit {
+    position: absolute;
+    width: 132px;
+    height: 132px;
+    border: 1px solid rgba(161,38,67,.12);
+    border-radius: 50%;
+    box-shadow: 0 0 0 16px rgba(161,38,67,.035),0 0 0 34px rgba(161,38,67,.025);
+}
+.buyer-product-fallback-mark {
+    display: grid;
+    width: 68px;
+    height: 68px;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.84);
+    border-radius: 22px;
+    background: linear-gradient(145deg,rgba(255,255,255,.95),rgba(246,224,225,.84));
+    color: #9d2442;
+    box-shadow: 0 17px 28px rgba(78,24,41,.13),inset 0 1px 0 white;
+    transform: rotate(-8deg) translateZ(24px);
+}
+.buyer-product-image-fallback small { z-index: 1; margin-top: 12px; color: #805563; font-size: 9px; letter-spacing: .17em; }
+@keyframes crymaProductShimmer { to { transform: translateX(110%); } }
+@media (prefers-reduced-motion: reduce) {
+    .buyer-product-card,.buyer-product-image img { transition: none; }
+    .buyer-product-card.is-tiltable { transform: none; }
+    .buyer-product-image.has-image:not(.has-loaded-image)::before { animation: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .buyer-product-card,
     .buyer-product-image img,

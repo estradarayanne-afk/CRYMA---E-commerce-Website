@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Delivery;
+use App\Models\PickupAssignment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -121,11 +123,64 @@ class OrderController extends Controller
         ]);
     }
 
+    public function requestPickup(Request $request, int $id)
+    {
+        $user = $request->user();
+        $address = $user->addresses()->orderByDesc('is_default')->latest('id')->first();
+        abort_unless($address, 422, 'Add a seller pickup address in Account Settings before requesting a courier pickup.');
+        $pickupAddress = collect([
+            $address->recipient_name ? 'Contact: '.$address->recipient_name : null,
+            $address->phone ? 'Phone: '.$address->phone : null,
+            implode(', ', array_filter([
+                $address->house_number,
+                $address->building_name,
+                $address->unit_number,
+                $address->street,
+            ])),
+            $address->barangay,
+            $address->municipality,
+            $address->province,
+            $address->region,
+            $address->postal_code,
+        ])->filter()->implode(', ');
+        $assignment = DB::transaction(function () use ($user, $id, $pickupAddress) {
+            $order = Order::whereHas('items', fn ($query) => $query->where('seller_id', $user->id))
+                ->whereKey($id)->lockForUpdate()->firstOrFail();
+            abort_unless(strtoupper((string) $order->status) === 'READY_FOR_PICKUP', 422, 'Mark the order ready before scheduling pickup.');
+
+            $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
+            $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
+            if ($assignment) {
+                abort_unless($assignment->status === PickupAssignment::REQUESTED, 409, 'A pickup has already been scheduled or completed.');
+                return $assignment;
+            }
+            abort_unless(!$delivery || ($delivery->legacy_imported && $delivery->status === 'READY_FOR_PICKUP'), 409, 'This order already has an active shipment.');
+            $delivery ??= Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
+            $assignment = PickupAssignment::create([
+                'order_id' => $order->id,
+                'delivery_id' => $delivery->id,
+                'assigned_by' => $user->id,
+                'status' => PickupAssignment::REQUESTED,
+                'pickup_address' => $pickupAddress,
+                'requested_at' => now(),
+            ]);
+            \App\Support\OrderDeliveryProjection::event($delivery, [
+                'actor_id' => $user->id,
+                'event_type' => 'pickup_requested',
+                'previous_status' => 'READY_FOR_PICKUP',
+                'new_status' => PickupAssignment::REQUESTED,
+            ]);
+            return $assignment;
+        });
+
+        return response()->json(['success' => true, 'message' => 'Courier pickup requested.', 'data' => $assignment]);
+    }
+
     private function sellerOrderQuery(User $user): Builder
     {
         return Order::with([
             'delivery.events',
-            'delivery.pickupAssignment',
+            'delivery.pickupAssignment.courierProfile.user:id,first_name,last_name,phone',
             'delivery.deliveryArea',
             'buyer:id,first_name,middle_name,last_name,email,phone',
             'items' => function ($query) use ($user) {

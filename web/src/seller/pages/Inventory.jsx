@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ImagePlus, Trash2, Upload, Video } from "lucide-react";
+import { Archive, ImagePlus, Pencil, RotateCcw, Tags, Trash2, Upload, Video } from "lucide-react";
 import api from "../../shared/services/api";
 import { formatStatusLabel } from "../../shared/utils/statusLabel";
-import { PRODUCT_CATEGORIES } from "../../shared/constants/categories";
 import Dialog from "../../shared/components/Dialog";
 import Toast from "../../shared/components/Toast";
 
 const EMPTY_FORM = {
     name: "",
     sku: "",
-    category: PRODUCT_CATEGORIES[0],
+    store_category: "",
     description: "",
     price: "",
     discounted_price: "",
@@ -24,8 +23,28 @@ const MAX_VARIANTS = 20;
 const MAX_MEDIA_FILE_BYTES = 1536 * 1024;
 const MAX_MEDIA_TOTAL_BYTES = 6 * 1024 * 1024;
 
+function InventoryPrice({ product }) {
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    if (variants.length) {
+        const prices = variants.map((variant) => variant.discounted_price || variant.price)
+            .filter((price) => price !== null && price !== "" && Number.isFinite(Number(price)))
+            .map(Number);
+        return prices.length ? <><strong>From ₱{Math.min(...prices).toLocaleString()}</strong><span>{variants.length} variants</span></> : "Price needed";
+    }
+    if (product.price == null) return "Not set";
+    return product.discounted_price
+        ? <><strong>₱{Number(product.discounted_price).toLocaleString()}</strong><del>₱{Number(product.price).toLocaleString()}</del></>
+        : `₱${Number(product.price).toLocaleString()}`;
+}
+
 function Inventory() {
     const [products, setProducts] = useState([]);
+    const [storeCategories, setStoreCategories] = useState([]);
+    const [registeredCategory, setRegisteredCategory] = useState("");
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [bulkStoreCategory, setBulkStoreCategory] = useState("");
+    const [bulkSaving, setBulkSaving] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [search, setSearch] = useState("");
@@ -39,8 +58,6 @@ function Inventory() {
     const [saving, setSaving] = useState(false);
     const [confirmArchive, setConfirmArchive] = useState(null);
     const [archiving, setArchiving] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(null);
-    const [deleting, setDeleting] = useState(false);
     const [toast, setToast] = useState(null);
     const [actionError, setActionError] = useState("");
     const toastIdRef = useRef(0);
@@ -75,21 +92,54 @@ function Inventory() {
         return () => window.clearTimeout(timer);
     }, [load]);
 
+    useEffect(() => {
+        api.get("/seller/storefront").then(({ data }) => {
+            setStoreCategories(Array.isArray(data.data.settings?.store_categories) ? data.data.settings.store_categories : []);
+            setRegisteredCategory(data.data.registered_category || "");
+        }).catch(() => setStoreCategories([]));
+    }, []);
+
     useEffect(() => () => {
         previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
         previewUrlsRef.current.clear();
     }, []);
 
     const visible = products.filter((p) => {
-        const matchSearch = `${p.name} ${p.sku || ""}`.toLowerCase().includes(search.toLowerCase());
+        const matchSearch = `${p.name || "Untitled product"} ${p.sku || ""}`.toLowerCase().includes(search.toLowerCase());
         const matchFilter =
             filter === "all" ? true :
+            filter === "draft" ? p.is_draft === true :
             filter === "low" ? p.stock > 0 && p.stock <= 3 :
             filter === "out" ? p.stock === 0 :
             filter === "archived" ? p.status === "archived" :
             filter === "active" ? p.status === "active" : true;
         return matchSearch && matchFilter;
     });
+    const visibleIds = visible.map((product) => product.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedProductIds.includes(id));
+    const toggleProductSelection = (id) => setSelectedProductIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    const toggleVisibleSelection = () => setSelectedProductIds((current) => allVisibleSelected
+        ? current.filter((id) => !visibleIds.includes(id))
+        : [...new Set([...current, ...visibleIds])]);
+    const assignSelectedProducts = async () => {
+        if (!selectedProductIds.length || !bulkStoreCategory || bulkSaving) return;
+        setBulkSaving(true);
+        try {
+            const { data } = await api.patch("/seller/products/bulk-store-category", {
+                product_ids: selectedProductIds,
+                store_category: bulkStoreCategory,
+            });
+            showToast(data.message || "Products assigned to the storefront category.");
+            setSelectedProductIds([]);
+            setSelectionMode(false);
+            setBulkStoreCategory("");
+            await load();
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Unable to assign the selected products.");
+        } finally {
+            setBulkSaving(false);
+        }
+    };
 
     const clearMediaDraft = () => {
         previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -124,15 +174,15 @@ function Inventory() {
                 }]),
         ));
         setForm({
-            name: p.name,
+            name: p.name || "",
             sku: p.sku || "",
-            category: p.category,
+            store_category: p.store_category || "",
             description: p.description || "",
-            price: String(p.price),
+            price: p.price == null ? "" : String(p.price),
             discounted_price: p.discounted_price ? String(p.discounted_price) : "",
             stock: String(p.stock),
             weight_kg: p.weight_kg ? String(p.weight_kg) : "",
-            variants: Array.isArray(p.variants) ? p.variants : [],
+            variants: Array.isArray(p.variants) ? p.variants.map((variant) => ({ ...variant, price: variant.price == null ? "" : String(variant.price), discounted_price: variant.discounted_price == null ? "" : String(variant.discounted_price), stock: variant.stock == null ? "" : String(variant.stock) })) : [],
             status: p.status || "active",
         });
         setModal(p);
@@ -226,10 +276,17 @@ function Inventory() {
             return next;
         });
     };
-    const handleSave = async () => {
+    const handleSave = async (saveAsDraft = false) => {
         const hasVariants = form.variants.length > 0;
-        if (!form.name.trim() || (!hasVariants && (!form.price || !form.stock))) return;
-        if (!form.weight_kg || !Number.isFinite(Number(form.weight_kg)) || Number(form.weight_kg) <= 0 || Number(form.weight_kg) > 100000) {
+        if (saveAsDraft && !form.name.trim()) {
+            const message = "Add a product name so you can identify this draft later.";
+            setFormErrors((current) => ({ ...current, name: message }));
+            setActionError(message);
+            document.getElementById("inventory-product-name")?.focus();
+            return;
+        }
+        if (!saveAsDraft && (!form.name.trim() || (!hasVariants && (!form.price || !form.stock)))) return;
+        if ((!saveAsDraft || form.weight_kg) && (!form.weight_kg || !Number.isFinite(Number(form.weight_kg)) || Number(form.weight_kg) <= 0 || Number(form.weight_kg) > 100000)) {
             setFormErrors((current) => ({ ...current, weight_kg: "Enter a product weight greater than 0 kg and no more than 100,000 kg." }));
             return;
         }
@@ -237,7 +294,7 @@ function Inventory() {
             setFormErrors((current) => ({ ...current, variants: `You can add up to ${MAX_VARIANTS} variants per product.` }));
             return;
         }
-        const missingVariant = form.variants.find((variant) => !variantMedia[String(variant.id)]?.url);
+        const missingVariant = saveAsDraft ? null : form.variants.find((variant) => !variantMedia[String(variant.id)]?.url);
         if (missingVariant) {
             setFormErrors((current) => ({ ...current, variantMedia: `Upload a photo or video for every variant. ${missingVariant.color || missingVariant.size || "Variant"} is missing media.` }));
             return;
@@ -249,7 +306,7 @@ function Inventory() {
             const payload = new FormData();
             payload.append("name", form.name.trim());
             payload.append("sku", form.sku.trim());
-            payload.append("category", form.category);
+            payload.append("store_category", form.store_category);
             payload.append("description", form.description);
             payload.append("weight_kg", form.weight_kg);
             const variantPrices = form.variants
@@ -261,6 +318,7 @@ function Inventory() {
                 ? String(form.variants.reduce((total, variant) => total + (Number(variant.stock) || 0), 0))
                 : form.stock);
             payload.append("status", form.status);
+            payload.append("is_draft", saveAsDraft ? "1" : "0");
             payload.append("variants", JSON.stringify(form.variants.map(({ image, media_path, media_type, media_url, color_image_url, ...variant }) => variant)));
             form.variants.forEach((variant) => {
                 const media = variantMedia[String(variant.id)];
@@ -273,11 +331,12 @@ function Inventory() {
             mediaUploads.filter((media) => media.type === "video").forEach(({ file }) => payload.append("videos[]", file));
             if (modal === "add") {
                 const response = await api.post("/seller/products", payload);
-                showToast(response.data.message || "Product submitted for admin review.");
+                showToast(response.data.message || (saveAsDraft ? "Product draft saved." : "Product submitted for admin review."));
             } else {
                 payload.append("_method", "PATCH");
                 payload.append("replace_media", "1");
                 existingMedia.forEach((media) => payload.append("keep_media_ids[]", String(media.id)));
+                if (modal.is_draft && !saveAsDraft) payload.set("status", "active");
                 const response = await api.post(`/seller/products/${modal.id}`, payload);
                 showToast(response.data.message || "Product updated.");
             }
@@ -324,37 +383,6 @@ function Inventory() {
         }
     };
 
-    const handleDelete = async () => {
-        if (!confirmDelete) return;
-        setDeleting(true);
-        setActionError("");
-        try {
-            await api.delete(`/seller/products/${confirmDelete.id}`);
-            setConfirmDelete(null);
-            showToast("Product removed.");
-            await load();
-        } catch (err) {
-            setActionError(err.response?.data?.message || "Failed to remove product. Please try again.");
-        } finally {
-            setDeleting(false);
-        }
-    };
-
-    const handleArchiveFromDelete = async () => {
-        if (!confirmDelete) return;
-        setArchiving(true);
-        setActionError("");
-        try {
-            await api.patch(`/seller/products/${confirmDelete.id}/archive`);
-            setConfirmDelete(null);
-            showToast("Product archived.");
-            await load();
-        } catch (err) {
-            setActionError(err.response?.data?.message || "Failed to archive product. Please try again.");
-        } finally {
-            setArchiving(false);
-        }
-    };
     const set = (e) => {
         const { name, value } = e.target;
         setForm((current) => ({ ...current, [name]: value }));
@@ -426,18 +454,29 @@ function Inventory() {
 
             {/* TOOLBAR */}
             <div className="sl-toolbar">
-                <div className="sl-search-wrap">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input aria-label="Search products" value={search} maxLength={100} onChange={(e) => setSearch(e.target.value)} placeholder="Search by product name or SKU" />
-                </div>
-                <div className="sl-filter-tabs">
-                    {["all", "active", "low", "out", "archived"].map((f) => (
+                <div className="sl-filter-tabs sl-inventory-filters">
+                    {["all", "active", "low", "out", "draft", "archived"].map((f) => (
                         <button type="button" key={f} className={filter === f ? "active" : ""} aria-pressed={filter === f} onClick={() => setFilter(f)}>
-                            {f === "low" ? "Low Stock" : f === "out" ? "Out of Stock" : f.charAt(0).toUpperCase() + f.slice(1)}
+                            {f === "low" ? "Low Stock" : f === "out" ? "Out of Stock" : f === "draft" ? "Drafts" : f.charAt(0).toUpperCase() + f.slice(1)}
                         </button>
                     ))}
                 </div>
+                <div className="sl-inventory-tools">
+                    <div className="sl-search-wrap">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <input aria-label="Search products" value={search} maxLength={100} onChange={(e) => setSearch(e.target.value)} placeholder="Search by product name or SKU" />
+                    </div>
+                    <button type="button" className={`sl-inventory-organize-trigger${selectionMode ? " is-active" : ""}`} aria-pressed={selectionMode} onClick={() => { setSelectionMode((current) => !current); setSelectedProductIds([]); setBulkStoreCategory(""); }}><Tags size={15} /> {selectionMode ? "Exit organizing" : "Organize products"}</button>
+                </div>
             </div>
+
+            {filter === "archived" && <p className="sl-inventory-archive-policy">Archived products are removed after 60 days. Restore an item before then to keep it in Inventory; products with order or review history are retained.</p>}
+
+            {selectionMode && <div className="sl-inventory-bulkbar" role="region" aria-label="Bulk category assignment">
+                <div className="sl-inventory-bulk-title"><Tags size={16} /><span><strong>Assign storefront subcategory</strong><small>{selectedProductIds.length ? `${selectedProductIds.length} products selected` : "Select products from the list below"}</small></span></div>
+                {storeCategories.length ? <><select aria-label="Choose storefront category" value={bulkStoreCategory} onChange={(event) => setBulkStoreCategory(event.target.value)} disabled={!selectedProductIds.length || bulkSaving}><option value="">Choose a storefront category</option>{storeCategories.map((category) => <option value={category} key={category}>{category}</option>)}</select><button type="button" className="sl-btn-primary" onClick={() => void assignSelectedProducts()} disabled={!selectedProductIds.length || !bulkStoreCategory || bulkSaving}>{bulkSaving ? "Assigning…" : "Assign category"}</button></> : <span>Create a category in Storefront settings first.</span>}
+                <button type="button" className="sl-inventory-clear-selection" onClick={() => { setSelectedProductIds([]); setSelectionMode(false); }}>Cancel</button>
+            </div>}
 
             {/* TABLE */}
             <div className="sl-card">
@@ -445,46 +484,48 @@ function Inventory() {
                     <table className="sl-table">
                         <thead>
                             <tr>
-                                <th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th>
+                                {selectionMode && <th className="sl-inventory-select-cell"><span>Select</span><input type="checkbox" aria-label="Select all visible products for storefront subcategory assignment" checked={allVisibleSelected} onChange={toggleVisibleSelection} disabled={!visible.length} /></th>}<th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {loading && <tr><td colSpan={6} className="sl-empty" role="status">Loading products…</td></tr>}
-                            {!loading && visible.length === 0 && <tr><td colSpan={6} className="sl-empty">{search ? "No products match your search." : products.length ? "No products in this filter." : "No products yet. Add your first product to start building your storefront."}</td></tr>}
+                            {loading && <tr><td colSpan={selectionMode ? 7 : 6} className="sl-empty" role="status">Loading products…</td></tr>}
+                            {!loading && visible.length === 0 && <tr><td colSpan={selectionMode ? 7 : 6} className="sl-empty">{search ? "No products match your search." : products.length ? "No products in this filter." : "No products yet. Add your first product to start building your storefront."}</td></tr>}
                             {!loading && visible.map((p) => (
                                 <tr key={p.id} className={p.status === "archived" ? "sl-row-muted" : ""}>
+                                    {selectionMode && <td className="sl-inventory-select-cell"><input type="checkbox" aria-label={`Select ${p.name}`} checked={selectedProductIds.includes(p.id)} onChange={() => toggleProductSelection(p.id)} /></td>}
                                     <td>
                                         <div className="sl-inventory-product">
                                             {p.image && <img src={p.image} alt="" loading="lazy" />}
-                                            <div><strong>{p.name}</strong><span>{p.sku ? `SKU ${p.sku}` : "No SKU"} · {(p.media || []).length} media</span></div>
+                                            <div><strong>{p.name || "Untitled product"}</strong><span>{p.sku ? `SKU ${p.sku}` : "No SKU"} · {(p.media || []).length} media</span></div>
                                         </div>
                                     </td>
-                                    <td>{p.category}</td>
-                                    <td className="sl-inventory-price">{p.variants?.length ? <><strong>From ₱{Math.min(...p.variants.map((variant) => Number(variant.discounted_price || variant.price))).toLocaleString()}</strong><span>{p.variants.length} variants</span></> : p.discounted_price ? <><strong>₱{Number(p.discounted_price).toLocaleString()}</strong><del>₱{Number(p.price).toLocaleString()}</del></> : `₱${Number(p.price).toLocaleString()}`}</td>
+                                    <td>{p.category || "Not set"}</td>
+                                    <td className="sl-inventory-price"><InventoryPrice product={p} /></td>
                                     <td>
                                         <span className={`sl-stock ${p.stock === 0 ? "sl-stock--out" : p.stock <= 3 ? "sl-stock--low" : ""}`}>
-                                            {p.stock === 0 ? "Out of stock" : `${p.stock} units`}
+                                            {p.is_draft && p.stock === 0 ? "Not set" : p.stock === 0 ? "Out of stock" : `${p.stock} units`}
                                         </span>
                                     </td>
                                     <td>
                                         <div className="sl-inventory-status">
-                                            <span className={`sl-badge ${p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
-                                                {formatStatusLabel(p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active")}
+                                            <span className={`sl-badge ${p.is_draft ? "sl-badge--draft" : p.status === "active" ? "sl-badge--green" : "sl-badge--muted"}`}>
+                                                {p.is_draft ? "Draft" : formatStatusLabel(p.status === "out_of_stock" ? "Out of stock" : p.status === "archived" ? "Archived" : p.status === "inactive" ? "Inactive" : "Active")}
 
 
                                             </span>
                                             {p.review_status === "pending" && <span className="sl-badge sl-badge--review">Pending admin review</span>}
                                             {p.review_status === "rejected" && <span className="sl-badge sl-badge--rejected" title={p.review_reason || "Review the product and update its listing to resubmit."}>Rejected · edit to resubmit</span>}
                                             {p.review_status === "rejected" && p.review_reason && <small className="sl-review-reason">Reason: {p.review_reason}</small>}
+                                            {p.status === "archived" && <small className={`sl-archive-expiry${p.archive_retained_for_history ? " is-retained" : ""}`}>{p.archive_retained_for_history ? "Kept for order/review history" : `Auto-removes ${p.archive_expires_at ? new Date(p.archive_expires_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "after 60 days"}`}</small>}
                                         </div>
                                     </td>
-                                    <td>
-                                        <div className="sl-row-actions">
-                                            <button className="sl-btn-sm" onClick={() => openEdit(p)}>Edit</button>
-                                            <button className="sl-btn-sm sl-btn-sm--ghost" onClick={() => { setActionError(""); setConfirmArchive(p); }}>
+                                    <td className="sl-inventory-actions-cell">
+                                        <div className="sl-row-actions" role="group" aria-label={`Actions for ${p.name}`}>
+                                            <button type="button" className="sl-btn-sm sl-btn-sm--edit" onClick={() => openEdit(p)}><Pencil size={13} aria-hidden="true" /> Edit</button>
+                                            <button type="button" className={`sl-btn-sm sl-btn-sm--archive${p.status === "archived" ? " is-restore" : ""}`} onClick={() => { setActionError(""); setConfirmArchive(p); }}>
+                                                {p.status === "archived" ? <RotateCcw size={13} aria-hidden="true" /> : <Archive size={13} aria-hidden="true" />}
                                                 {p.status === "archived" ? "Restore" : "Archive"}
                                             </button>
-                                            <button className="sl-btn-sm sl-btn-sm--remove" onClick={() => { setActionError(""); setConfirmDelete(p); }}>Remove</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -504,25 +545,39 @@ function Inventory() {
                     busy={saving}
                 >
                         <div className="sl-modal-head">
-                            <div className="sl-modal-heading-copy"><span className="sl-modal-eyebrow">{modal === "add" ? "NEW LISTING" : "PRODUCT LISTING"}</span><h3 id="inventory-modal-title">{modal === "add" ? "Add Product" : "Edit Product"}</h3>{modal !== "add" && <p>Update product details, options, pricing, and media.</p>}</div>
+                            <div className="sl-modal-heading-copy">
+                                <span className="sl-modal-eyebrow">{modal === "add" ? "NEW LISTING" : modal.is_draft ? "SAVED DRAFT" : "EDITING PRODUCT"}</span>
+                                <h3 id="inventory-modal-title">{modal === "add" ? "Add a product" : form.name || (modal.is_draft ? "Untitled product draft" : "Edit product")}</h3>
+                                <p>{modal === "add" ? "Add product details now, or save a draft and continue later." : modal.is_draft ? "Complete the listing, then submit it for review when it is ready." : "Changes apply to this product when you select Save changes."}</p>
+                            </div>
+                            {modal !== "add" && (existingMedia.find((media) => media.type === "image") || mediaUploads.find((media) => media.type === "image")) && (
+                                <img className="sl-edit-product-thumb" src={mediaUploads.find((media) => media.type === "image")?.previewUrl || existingMedia.find((media) => media.type === "image")?.url} alt="" />
+                            )}
                             <button type="button" className="sl-modal-close" aria-label="Close product form" onClick={closeProductForm} disabled={saving}>✕</button>
                         </div>
                         <form id="inventory-product-form" className="sl-modal-body sl-product-form" onSubmit={(event) => { event.preventDefault(); void handleSave(); }}>
                             {actionError && <div className="auth-notice auth-notice--error" role="alert">{actionError}</div>}
                             <section className="sl-form-section">
-                                <div className="sl-form-section-heading"><h4>Product information</h4><p>Help shoppers identify and understand your item.</p></div>
+                                <div className="sl-form-section-heading"><span className="sl-form-step">1</span><div><h4>Product details</h4><p>Name, your registered business line, and description shoppers will see.</p></div></div>
                             <div className="sl-form-row">
                                 <div className="sl-field">
                                     <label htmlFor="inventory-product-name">Product name <b>*</b></label>
                                     <input id="inventory-product-name" name="name" value={form.name} maxLength={150} onChange={set} placeholder="e.g. Ribbed Knit Co-ord" disabled={saving} required aria-invalid={Boolean(formErrors.name)} aria-describedby={formErrors.name ? "inventory-product-name-error" : undefined} />
                                     {formErrors.name && <small id="inventory-product-name-error" className="sl-field-error">{formErrors.name}</small>}
                                 </div>
+                                <div className="sl-field sl-business-line">
+                                    <label>Business line</label>
+                                    <div className="sl-business-line-value">{registeredCategory || "Loading registered business line…"}</div>
+                                    <small className="sl-opt">Set during seller registration. Products are automatically listed under this business line.</small>
+                                </div>
                                 <div className="sl-field">
-                                    <label htmlFor="inventory-product-category">Category <b>*</b></label>
-                                    <select id="inventory-product-category" name="category" value={form.category} onChange={set} disabled={saving} required aria-invalid={Boolean(formErrors.category)} aria-describedby={formErrors.category ? "inventory-product-category-error" : undefined}>
-                                        {PRODUCT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                                    <label htmlFor="inventory-product-store-category">Storefront category <span className="sl-opt">(optional)</span></label>
+                                    <select id="inventory-product-store-category" name="store_category" value={form.store_category} onChange={set} disabled={saving}>
+                                        <option value="">Choose a storefront category</option>
+                                        {storeCategories.map((category) => <option value={category} key={category}>{category}</option>)}
                                     </select>
-                                    {formErrors.category && <small id="inventory-product-category-error" className="sl-field-error">{formErrors.category}</small>}
+                                    <small className="sl-opt">Organize this item under one of your store categories. Manage categories in Storefront settings.</small>
+                                    {formErrors.store_category && <small className="sl-field-error">{formErrors.store_category}</small>}
                                 </div>
                             </div>
                             <div className="sl-form-row">
@@ -554,20 +609,26 @@ function Inventory() {
                             </div>
                             </section>
                             <section className="sl-form-section">
-                                <div className="sl-form-section-heading"><h4>Price and stock</h4><p>Set a product-wide price, or define prices and stock for each color and size combination.</p></div>
+                                <div className="sl-form-section-heading"><span className="sl-form-step">2</span><div><h4>Price and options</h4><p>Set one price and stock level, or add color or size options with their own price and quantity.</p></div></div>
                                 {form.variants.length > 0 ? (
                                     <div className="sl-variant-editor">
                                         <div className="sl-variant-editor-heading">
                                             <strong>Color and size variants <span className="sl-variant-count">{form.variants.length}/{MAX_VARIANTS}</span></strong>
-                                            <button type="button" className="sl-btn-sm" onClick={addVariant} disabled={saving || form.variants.length >= MAX_VARIANTS}>+ Add variant</button>
+                                            <button type="button" className="sl-btn-sm" onClick={addVariant} disabled={saving || form.variants.length >= MAX_VARIANTS}>+ Add another option</button>
                                         </div>
-                                        <p className="sl-variant-help">Each combination can have its own price, sale price, and stock. Enter at least a color or a size.</p>
+                                        <p className="sl-variant-help">Options replace the single product price and stock. Set the price and quantity for each option below, and upload one photo or video for every option.</p>
                                         {form.variants.map((variant, index) => {
                                             const variantId = String(variant.id || index);
                                             const media = variantMedia[variantId];
                                             return (
                                                 <div className="sl-variant-entry" key={variantId}>
+                                                    <div className="sl-variant-entry-heading">
+                                                        <strong>Option {index + 1}</strong>
+                                                        <button type="button" className="sl-variant-delete" onClick={() => removeVariant(index)} disabled={saving}><Trash2 size={14} /> Remove option</button>
+                                                    </div>
+                                                    <p className="sl-variant-entry-note">Enter a color, a size, or both. Then set this option’s price and available quantity.</p>
                                                     <div className="sl-variant-row">
+                                                        <div className="sl-variant-attributes">
                                                         <div className="sl-field">
                                                             <label htmlFor={"variant-color-" + index}>Color</label>
                                                             <input id={"variant-color-" + index} value={variant.color || ""} maxLength={50} placeholder="e.g. Navy blue" onChange={(event) => updateVariant(index, "color", event.target.value)} disabled={saving} />
@@ -576,6 +637,8 @@ function Inventory() {
                                                             <label htmlFor={"variant-size-" + index}>Size</label>
                                                             <input id={"variant-size-" + index} value={variant.size || ""} maxLength={50} placeholder="e.g. M" onChange={(event) => updateVariant(index, "size", event.target.value)} disabled={saving} />
                                                         </div>
+                                                        </div>
+                                                        <div className="sl-variant-pricing">
                                                         <div className="sl-field">
                                                             <label htmlFor={"variant-price-" + index}>Price (₱)</label>
                                                             <input id={"variant-price-" + index} type="number" min="0" max="9999999999.99" step="0.01" value={variant.price} placeholder="0.00" onChange={(event) => updateVariant(index, "price", event.target.value)} disabled={saving} required />
@@ -588,7 +651,7 @@ function Inventory() {
                                                             <label htmlFor={"variant-stock-" + index}>Stock</label>
                                                             <input id={"variant-stock-" + index} type="number" min="0" max="4294967295" step="1" value={variant.stock} placeholder="0" onChange={(event) => updateVariant(index, "stock", event.target.value)} disabled={saving} required />
                                                         </div>
-                                                        <button type="button" className="sl-btn-sm sl-variant-remove" onClick={() => removeVariant(index)} disabled={saving} aria-label={"Remove variant " + (index + 1)}><Trash2 size={15} /></button>
+                                                        </div>
                                                     </div>
                                                     <div className={"sl-variant-media-card" + (!media?.url ? " is-missing" : "")}>
                                                         <div className="sl-variant-media-copy">
@@ -629,12 +692,12 @@ function Inventory() {
                                                 {formErrors.stock && <small id="inventory-product-stock-error" className="sl-field-error">{formErrors.stock}</small>}
                                             </div>
                                         </div>
-                                        <button type="button" className="sl-btn-ghost sl-add-variant-button" onClick={addVariant} disabled={saving || form.variants.length >= MAX_VARIANTS}>Add color and size variants</button>
+                                        <button type="button" className="sl-btn-ghost sl-add-variant-button" onClick={addVariant} disabled={saving || form.variants.length >= MAX_VARIANTS}>+ Add color or size options</button>
                                     </>
                                 )}
                             </section>
                             <section className="sl-form-section">
-                                <div className="sl-form-section-heading"><h4>Photos and videos</h4><p>Upload up to 8 JPG, PNG, or WebP photos and 2 MP4 or WebM videos. Each file can be up to 1.5 MB; new uploads can total up to 6 MB per save.</p></div>
+                                <div className="sl-form-section-heading"><span className="sl-form-step">3</span><div><h4>Product photos and videos</h4><p>Photos: up to 8 JPG, PNG, or WebP. Videos: up to 2 MP4 or WebM. Each file can be 1.5 MB; total uploads can be 6 MB per save.</p></div></div>
                                 <div className="sl-media-upload-actions">
                                     <label className="sl-media-upload-button"><ImagePlus size={17} /> Add photos
                                         <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={saving || existingMedia.filter((media) => media.type === "image").length + mediaUploads.filter((media) => media.type === "image").length >= MEDIA_LIMITS.image} onChange={(event) => addMediaFiles("image", event)} />
@@ -667,8 +730,9 @@ function Inventory() {
                         </form>
                         <div className="sl-modal-foot">
                             <button type="button" className="sl-btn-ghost" onClick={closeProductForm} disabled={saving}>Cancel</button>
+                            {(modal === "add" || modal.is_draft) && <button type="button" className="sl-btn-ghost sl-save-draft-button" onClick={() => void handleSave(true)} disabled={saving}>{saving ? "Saving…" : "Save draft"}</button>}
                             <button type="submit" form="inventory-product-form" className="sl-btn-primary" disabled={saving}>
-                                {saving ? "Saving…" : modal === "add" ? "Add Product" : "Save Changes"}
+                                {saving ? "Saving…" : modal === "add" ? "Add Product" : modal.is_draft ? "Submit for review" : "Save Changes"}
                             </button>
                         </div>
                 </Dialog>
@@ -704,38 +768,7 @@ function Inventory() {
                 </Dialog>
             )}
 
-            {/* DELETE CONFIRM */}
-            {confirmDelete && (
-                <Dialog
-                    open={Boolean(confirmDelete)}
-                    onClose={() => setConfirmDelete(null)}
-                    ariaLabelledBy="inventory-delete-title"
-                    className="sl-modal sl-modal--sm sl-modal--remove"
-                    busy={deleting || archiving}
-                >
-                        <div className="sl-modal-head">
-                            <div><span className="sl-modal-eyebrow">INVENTORY ACTION</span><h3 id="inventory-delete-title">Remove this product?</h3></div>
-                            <button type="button" className="sl-modal-close" aria-label="Close confirmation" onClick={() => setConfirmDelete(null)} disabled={deleting || archiving}>×</button>
-                        </div>
-                        <div className="sl-modal-body sl-remove-body">
-                            {actionError && <div className="auth-notice auth-notice--error" role="alert">{actionError}</div>}
-                            <p className="sl-remove-intro"><strong>{confirmDelete.name}</strong> will be permanently deleted if you remove it. You can archive it instead to hide it from your store and restore it later.</p>
-                            <div className="sl-remove-options">
-                                <button type="button" className="sl-remove-option sl-remove-option--danger" onClick={handleDelete} disabled={deleting || archiving}>
-                                    <strong>{deleting ? "Removing product…" : "Remove permanently"}</strong>
-                                    <span>Delete this product and its listing from your inventory.</span>
-                                </button>
-                                <button type="button" className="sl-remove-option sl-remove-option--archive" onClick={handleArchiveFromDelete} disabled={deleting || archiving}>
-                                    <strong>{archiving ? "Moving to archive…" : "Move to archive instead"}</strong>
-                                    <span>Hide it from shoppers; you can restore it later.</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div className="sl-modal-foot sl-remove-foot">
-                            <button type="button" className="sl-btn-ghost" onClick={() => setConfirmDelete(null)} disabled={deleting || archiving}>Cancel</button>
-                        </div>
-                </Dialog>
-            )}
+
         </div>
     );
 }

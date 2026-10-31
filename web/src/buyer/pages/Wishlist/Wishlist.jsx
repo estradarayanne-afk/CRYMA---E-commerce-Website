@@ -105,7 +105,7 @@ function Wishlist() {
         <main className="wishlist-page">
             <div className="wishlist-container">
 
-                <header className="wishlist-header">
+                <header className="wishlist-header buyer-page-masthead">
                     <div className="wishlist-heading-icon">
                         <Heart size={19} />
                     </div>

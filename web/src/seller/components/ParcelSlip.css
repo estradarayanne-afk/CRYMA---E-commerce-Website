@@ -1,6 +1,47 @@
 .sl-parcel-slip {
     display: none;
 }
+.sl-parcel-address-line { display:block; }
+
+@media print {
+    .sl-parcel-slip {
+        gap:2mm !important;
+        padding:5mm !important;
+        color:#24151a !important;
+    }
+    .sl-parcel-slip-header {
+        align-items:center !important;
+        margin:-5mm -5mm 0 !important;
+        padding:4mm 5mm !important;
+        border:0 !important;
+        background:#741a33 !important;
+        color:#fff !important;
+        -webkit-print-color-adjust:exact !important;
+        print-color-adjust:exact !important;
+    }
+    .sl-parcel-slip-header p { color:#f4dbe2 !important; font-size:6.5pt !important; font-weight:bold !important; }
+    .sl-parcel-slip-header h1 { color:#fff !important; font-size:15pt !important; letter-spacing:.02em !important; }
+    .sl-parcel-slip-header > strong { display:grid !important; gap:1mm !important; padding:2mm !important; border:1px solid rgba(255,255,255,.4) !important; border-radius:2mm !important; font-size:12pt !important; text-align:center !important; }
+    .sl-parcel-slip-header > strong small { color:#f4dbe2 !important; font-size:5.5pt !important; letter-spacing:.1em !important; }
+    .sl-parcel-slip-parties { gap:2mm !important; }
+    .sl-parcel-slip-parties section { gap:.7mm !important; }
+    .sl-parcel-ship-to { padding:2mm !important; border:1.5px solid #741a33 !important; border-radius:2mm !important; background:#fff9fa !important; }
+    .sl-parcel-slip-parties h2,.sl-parcel-slip-items h2 { color:#741a33 !important; font-size:7pt !important; font-weight:bold !important; }
+    .sl-parcel-ship-to > strong { font-size:11pt !important; }
+    .sl-parcel-slip-parties span,.sl-parcel-slip-parties p { font-size:7.3pt !important; line-height:1.25 !important; }
+    .sl-parcel-address-type { color:#741a33 !important; font-weight:bold !important; }
+    .sl-parcel-address-lines { display:grid !important; gap:.5mm !important; margin:0 !important; }
+    .sl-parcel-address-line { padding-top:.5mm !important; border-top:.2mm solid #ead9de !important; }
+    .sl-parcel-ship-from { grid-template-columns:1fr 1fr !important; align-items:center !important; padding:1.5mm 2mm !important; border-bottom:.3mm dashed #a8949a !important; }
+    .sl-parcel-ship-from h2 { grid-column:1 / -1 !important; }
+    .sl-parcel-slip-items { gap:1mm !important; }
+    .sl-parcel-slip-items-head,.sl-parcel-slip-item { padding:.7mm 0 !important; border-color:#eadde1 !important; }
+    .sl-parcel-slip-payment { padding:1.5mm 0 !important; border-color:#741a33 !important; }
+    .sl-parcel-slip-code { gap:.5mm !important; }
+    .sl-parcel-barcode { height:10mm !important; }
+    .sl-parcel-slip-code > strong { font-size:7pt !important; }
+    .sl-parcel-slip > footer { padding-top:1mm !important; font-size:6pt !important; }
+}
 
 @media print {
     @page {

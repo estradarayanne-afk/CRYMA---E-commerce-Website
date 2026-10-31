@@ -51,6 +51,12 @@
     color: var(--deep-crimson);
 }
 
+.buyer-voucher-tabs { display:flex; gap:6px; width:max-content; max-width:100%; padding:5px; border:1px solid var(--color-border); border-radius:11px; background:var(--white); }
+.buyer-voucher-tabs button { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 12px; border:0; border-radius:8px; background:transparent; color:var(--text-secondary); font:700 12px/1 inherit; cursor:pointer; }
+.buyer-voucher-tabs button.is-active { background:var(--deep-crimson); color:#fff; }
+.buyer-voucher-tabs button span { min-width:20px; padding:4px 5px; border-radius:999px; background:rgba(120,30,55,.1); color:inherit; font-size:10px; text-align:center; }
+.buyer-voucher-tabs button.is-active span { background:rgba(255,255,255,.18); }
+
 .buyer-vouchers-state,
 .buyer-vouchers-empty {
     padding: 32px 20px;
@@ -139,6 +145,7 @@
 }
 
 .buyer-voucher-code-row button,
+.buyer-voucher-claim,
 .buyer-voucher-shop-link {
     display: inline-flex;
     align-items: center;
@@ -156,6 +163,9 @@
     cursor: pointer;
 }
 
+.buyer-voucher-code-row .buyer-voucher-claim { border-color:#7e1830; background:#7e1830; color:#fff; }
+.buyer-voucher-code-row button:disabled { opacity:.6; cursor:wait; }
+
 .buyer-voucher-details p {
     color: var(--text-secondary);
     font-size: 13px;
@@ -166,6 +176,8 @@
     font-size: 12px;
     font-weight: 650;
 }
+
+.buyer-voucher-details .buyer-voucher-seller { margin:9px 0 5px; color:#8c3150; font-size:11px; font-weight:750; }
 
 .buyer-voucher-details ul {
     display: flex;

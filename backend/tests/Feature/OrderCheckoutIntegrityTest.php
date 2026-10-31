@@ -233,25 +233,19 @@ class OrderCheckoutIntegrityTest extends TestCase
         $this->assertSame(1, $product->fresh()->stock);
     }
 
-    public function test_gcash_remains_a_payment_selection_and_does_not_mark_order_paid(): void
+    public function test_checkout_rejects_gcash_as_an_unsupported_payment_method(): void
     {
         [$buyer, $product] = $this->buyerAndProduct(price: '10.00', stock: 2);
 
-        $response = $this->actingAs($buyer, 'sanctum')
+        $this->actingAs($buyer, 'sanctum')
             ->withHeader('Idempotency-Key', 'c7654176-c253-4a6e-92d9-69a1c490a67f')
             ->postJson('/api/orders', array_merge($this->checkoutPayload($product, 1), [
                 'payment_method' => 'gcash',
             ]))
-            ->assertCreated()
-            ->assertJsonPath('data.payment_method', 'gcash')
-            ->assertJsonPath('data.status', 'pending')
-            ->assertJsonMissingPath('data.payment_status');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['payment_method']);
 
-        $this->assertDatabaseHas('orders', [
-            'id' => $response->json('data.id'),
-            'payment_method' => 'gcash',
-            'status' => 'pending',
-        ]);
+        $this->assertSame(0, Order::count());
     }
 
     public function test_checkout_rejects_totals_that_exceed_the_orders_decimal_capacity(): void

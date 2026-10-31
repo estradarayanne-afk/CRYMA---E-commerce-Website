@@ -266,6 +266,11 @@ function OrderDetails() {
     const [confirming, setConfirming] = useState(false);
     const [receiptConfirmOpen, setReceiptConfirmOpen] = useState(false);
     const [receiptActionError, setReceiptActionError] = useState("");
+    const [refundFormOpen, setRefundFormOpen] = useState(false);
+    const [refundReason, setRefundReason] = useState("");
+    const [refundAmount, setRefundAmount] = useState("");
+    const [refundSubmitting, setRefundSubmitting] = useState(false);
+    const [refundError, setRefundError] = useState("");
 
     const isLoggedIn =
         !!localStorage.getItem(
@@ -295,10 +300,9 @@ function OrderDetails() {
                             `/orders/${id}`
                         );
 
-                    setOrder(
-                        response?.data
-                            ?.data || null
-                    );
+                    const loadedOrder = response?.data?.data || null;
+                    setOrder(loadedOrder);
+                    setRefundAmount(String(loadedOrder?.total_amount || ""));
                 } catch (requestError) {
                     console.error(
                         "Order details error:",
@@ -345,6 +349,31 @@ function OrderDetails() {
             setReceiptActionError(message);
         } finally {
             setConfirming(false);
+        }
+    };
+
+    const submitRefundRequest = async (event) => {
+        event.preventDefault();
+        if (!order || refundSubmitting) return;
+        setRefundSubmitting(true);
+        setRefundError("");
+        setNotice("");
+        try {
+            const response = await api.post(`/orders/${order.id}/refund-requests`, {
+                reason: refundReason.trim(),
+                requested_amount: Number(refundAmount),
+            });
+            setNotice("Your refund request was submitted for review. You can follow its status here and in Customer Service chat.");
+            setRefundFormOpen(false);
+            setRefundReason("");
+            const submittedRefund = response?.data?.data;
+            if (submittedRefund) {
+                setOrder((current) => current ? { ...current, latest_refund_request: submittedRefund } : current);
+            }
+        } catch (requestError) {
+            setRefundError(requestError?.response?.data?.message || "We couldn't submit your refund request. Please review the details and try again.");
+        } finally {
+            setRefundSubmitting(false);
         }
     };
 
@@ -431,6 +460,27 @@ function OrderDetails() {
     const isReturned =
         currentStatus ===
         "RETURNED";
+
+    const refundRequest = order?.latest_refund_request || null;
+    const refundRequestOpen = ["pending", "under_review", "approved", "refunded"].includes(refundRequest?.status);
+    const refundEligible = ["DELIVERED", "COMPLETED"].includes(currentStatus) && !refundRequestOpen;
+
+    const refundRequestForm = (
+        <form className="order-refund-form" onSubmit={submitRefundRequest}>
+            <label>Amount requested
+                <div className="order-refund-amount"><span>₱</span><input type="number" min="0.01" max={total} step="0.01" required value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} /></div>
+                <small>Maximum {formatMoney(total)}. Customer Service may approve a different amount.</small>
+            </label>
+            <label htmlFor="order-refund-reason">Reason for request</label>
+            <textarea id="order-refund-reason" minLength={10} maxLength={2000} required value={refundReason} onChange={(event) => setRefundReason(event.target.value)} placeholder="Tell us what happened and why you are requesting a refund." />
+            {refundError && <p className="order-refund-error" role="alert">{refundError}</p>}
+            <p className="order-refund-disclaimer">Cash on Delivery orders are not refunded automatically. If approved, Customer Service will contact you to arrange repayment outside the app.</p>
+            <div className="order-refund-actions">
+                <button type="button" onClick={() => setRefundFormOpen(false)} disabled={refundSubmitting}>Cancel</button>
+                <button type="submit" disabled={refundSubmitting || refundReason.trim().length < 10 || Number(refundAmount) <= 0 || Number(refundAmount) > total}>{refundSubmitting ? "Submitting…" : "Submit for review"}</button>
+            </div>
+        </form>
+    );
 
     if (!isLoggedIn) {
         return null;
@@ -519,7 +569,7 @@ function OrderDetails() {
                     </h1>
 
                     <p>
-                        Placed{" "}
+                        Placed on{" "}
                         {formatDate(
                             order.created_at
                         )}
@@ -569,7 +619,7 @@ function OrderDetails() {
 
                 <div>
                     <span>
-                        Current status
+                        LATEST UPDATE
                     </span>
 
                     <h2>
@@ -596,11 +646,11 @@ function OrderDetails() {
                                 <div className="order-panel-heading">
                                     <div>
                                         <span>
-                                            TRACKING
+                                            DELIVERY JOURNEY
                                         </span>
 
                                         <h2>
-                                            Order progress
+                                            Track your order
                                         </h2>
                                     </div>
                                 </div>
@@ -668,7 +718,7 @@ function OrderDetails() {
                                                                 ? step.description
                                                                 : completed
                                                                 ? "Completed"
-                                                                : "Waiting for this step."}
+                                                                : "Not started yet"}
                                                             {deliveryEvent?.created_at && (
                                                                 <><br />{new Date(deliveryEvent.created_at).toLocaleString("en-PH")}</>
                                                             )}
@@ -679,6 +729,10 @@ function OrderDetails() {
                                         }
                                     )}
                                 </div>
+                                {(order.delivery_progress?.events || []).filter((event) => event.event_type?.startsWith("hub_transfer_")).map((event) => (
+                                    <p key={`${event.event_type}-${event.created_at}`}><strong>{event.event_type === "hub_transfer_departed" ? "Hub transfer departed" : "Hub transfer arrived"}:</strong> {event.reason} · {formatDate(event.created_at)}</p>
+                                ))}
+                                {order.delivery_progress?.current_hub?.name && <p><strong>Current hub:</strong> {order.delivery_progress.current_hub.name}</p>}
                             </section>
                         )}
 
@@ -707,11 +761,11 @@ function OrderDetails() {
                         <div className="order-panel-heading">
                             <div>
                                 <span>
-                                    ITEMS
+                                    ORDER CONTENTS
                                 </span>
 
                                 <h2>
-                                    Items in this order
+                                    Your items
                                 </h2>
                             </div>
 
@@ -792,10 +846,7 @@ function OrderDetails() {
                                                 </strong>
 
                                                 <span>
-                                                    Qty{" "}
-                                                    {
-                                                        quantity
-                                                    }
+                                                    Quantity: {quantity}
                                                 </span>
                                                 {item.variant_label && <span>{item.variant_label}</span>}
                                             </div>
@@ -805,7 +856,7 @@ function OrderDetails() {
                                                     {formatMoney(
                                                         unitPrice
                                                     )}{" "}
-                                                    each
+                                                    per item
                                                 </span>
 
                                                 <strong>
@@ -821,11 +872,42 @@ function OrderDetails() {
                         </div>
                     </section>
 
+                    {(refundEligible || refundRequest) && (
+                        <section className="order-panel order-refund-panel">
+                            <div className="order-panel-heading">
+                                <div>
+                                    <span>REFUND SUPPORT</span>
+                                    <h2>{refundRequest ? `Refund request #${refundRequest.id}` : "Request a refund"}</h2>
+                                </div>
+                                {refundRequest && <span className={`order-refund-status ${refundRequest.status}`}>{refundRequest.status.replaceAll("_", " ")}</span>}
+                            </div>
+
+                            {refundRequest ? (
+                                <div className="order-refund-details">
+                                    <p><strong>Requested amount:</strong> {formatMoney(refundRequest.requested_amount)}</p>
+                                    {refundRequest.approved_amount && <p><strong>Approved amount:</strong> {formatMoney(refundRequest.approved_amount)}</p>}
+                                    <p><strong>Reason:</strong> {refundRequest.reason}</p>
+                                    {refundRequest.review_note && <p><strong>Customer Service:</strong> {refundRequest.review_note}</p>}
+                                    {refundRequest.return_required && <p><strong>Return parcel:</strong> {refundRequest.return_shipment?.status?.replaceAll("_", " ") || "Awaiting logistics assignment"}{refundRequest.return_shipment?.current_hub?.name ? ` · ${refundRequest.return_shipment.current_hub.name}` : ""}</p>}
+                                    {refundRequest.status === "refunded" && <p><strong>Repayment recorded:</strong> {refundRequest.refund_method?.replaceAll("_", " ")}{refundRequest.refunded_at ? ` · ${formatDate(refundRequest.refunded_at)}` : ""}</p>}
+                                    <p className="order-refund-disclaimer">Refunds are reviewed by Customer Service. CRYMA does not send money automatically. The team will confirm the repayment arrangement with you.</p>
+                                    <Link to="/buyer/support" className="order-refund-chat-link"><MessageCircle size={15} /> Open Customer Service chat</Link>
+                                    {refundRequest.status === "rejected" && (refundFormOpen ? refundRequestForm : <button type="button" className="order-refund-start" onClick={() => { setRefundError(""); setRefundFormOpen(true); }}>Submit a new request</button>)}
+                                </div>
+                            ) : (
+                                <div className="order-refund-details">
+                                    <p>Submit the amount and reason for Customer Service to review. Approval and repayment are not automatic.</p>
+                                    {!refundFormOpen ? <button type="button" className="order-refund-start" onClick={() => { setRefundError(""); setRefundFormOpen(true); }}>Start refund request</button> : refundRequestForm}
+                                </div>
+                            )}
+                        </section>
+                    )}
+
                     <section className="order-panel">
                         <div className="order-panel-heading">
                             <div>
                                 <span>
-                                    DELIVERY
+                                    SHIP TO
                                 </span>
 
                                 <h2>
@@ -897,11 +979,11 @@ function OrderDetails() {
                 <aside className="order-details-sidebar">
                     <section className="order-summary-panel">
                         <span className="order-summary-eyebrow">
-                            ORDER SUMMARY
+                            PAYMENT SUMMARY
                         </span>
 
                         <h2>
-                            Payment details
+                            Order total
                         </h2>
 
                         <div className="order-summary-line">
@@ -918,7 +1000,7 @@ function OrderDetails() {
 
                         <div className="order-summary-line">
                             <span>
-                                Delivery
+                                Delivery fee
                             </span>
 
                             <strong>
@@ -944,7 +1026,7 @@ function OrderDetails() {
 
                         <div className="order-summary-total">
                             <span>
-                                Total
+                                Total for this order
                             </span>
 
                             <strong>
@@ -967,7 +1049,7 @@ function OrderDetails() {
 
                     <section className="order-mini-panel">
                         <span className="order-summary-eyebrow">
-                            ORDER INFORMATION
+                            ORDER INFO
                         </span>
 
                         <div>
@@ -1009,7 +1091,7 @@ function OrderDetails() {
                     <section className="order-mini-panel order-support-panel">
                         <span className="order-summary-eyebrow">NEED HELP?</span>
                         <strong>CRYMA Customer Service</strong>
-                        <p>Ask us about this order, delivery, payment, or a return.</p>
+                        <p>Our team can help with tracking, delivery, payment, or returns.</p>
                         <button type="button" onClick={() => navigate("/buyer/support")}>
                             <MessageCircle size={15} />
                             Contact Customer Service

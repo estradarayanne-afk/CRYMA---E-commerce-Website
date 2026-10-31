@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowRight,
     CheckCircle2,
-    ChevronLeft,
-    ChevronRight,
     MessageCircle,
     PackageOpen,
     ShieldCheck,
@@ -13,10 +11,10 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../../shared/services/api";
+import HomeHeroScene from "./HomeHeroScene";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import { PRODUCT_CATEGORIES } from "../../../shared/constants/categories";
 import {
-    HERO_DISCOVERY_CATEGORIES,
     LANDING_VISUALS,
     getLandingCategoryVisual,
 } from "../../../shared/constants/landingVisuals";
@@ -28,11 +26,6 @@ import {
 } from "../../../shared/utils/buyerAccess";
 
 import "./Home.css";
-
-const HERO_CAROUSEL_SLIDES = HERO_DISCOVERY_CATEGORIES.map((category) => ({
-    category,
-    ...getLandingCategoryVisual(category),
-})).filter((slide) => slide.src);
 
 function getBuyerGreetingName() {
     try {
@@ -95,28 +88,61 @@ function normalizeProduct(product) {
 
 function Home() {
     const navigate = useNavigate();
+    const heroRef = useRef(null);
     const buyerSession = isBuyerSession();
     const greetingName = buyerSession ? getBuyerGreetingName() : "";
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [activeHeroSlide, setActiveHeroSlide] = useState(0);
-    const [heroPaused, setHeroPaused] = useState(false);
 
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [cartModalOpen, setCartModalOpen] = useState(false);
 
     useEffect(() => {
-        const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        if (heroPaused || prefersReducedMotion || HERO_CAROUSEL_SLIDES.length < 2) return undefined;
+        const hero = heroRef.current;
+        if (!hero || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return undefined;
 
-        const interval = window.setInterval(() => {
-            setActiveHeroSlide((current) => (current + 1) % HERO_CAROUSEL_SLIDES.length);
-        }, 5000);
+        const onPointerMove = (event) => {
+            const bounds = hero.getBoundingClientRect();
+            const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+            const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+            hero.style.setProperty("--hero-copy-x", `${-x * 8}px`);
+            hero.style.setProperty("--hero-copy-y", `${-y * 6}px`);
+        };
+        const resetParallax = () => {
+            hero.style.setProperty("--hero-copy-x", "0px");
+            hero.style.setProperty("--hero-copy-y", "0px");
+        };
 
-        return () => window.clearInterval(interval);
-    }, [heroPaused]);
+        hero.addEventListener("pointermove", onPointerMove, { passive: true });
+        hero.addEventListener("pointerleave", resetParallax, { passive: true });
+        return () => {
+            hero.removeEventListener("pointermove", onPointerMove);
+            hero.removeEventListener("pointerleave", resetParallax);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return undefined;
+
+        const sections = document.querySelectorAll("#featured-products, #categories, .buyer-landing-value-section, #how-it-works, #delivery-journey");
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add("is-visible");
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.12, rootMargin: "0px 0px -48px 0px" });
+
+        sections.forEach((section) => {
+            section.classList.add("buyer-scroll-reveal");
+            observer.observe(section);
+        });
+
+        return () => observer.disconnect();
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -251,12 +277,12 @@ function Home() {
             <main className="buyer-home-main">
 
                 {/* HERO */}
-                <section className="buyer-landing-hero">
+                <section className="buyer-landing-hero" ref={heroRef}>
 
                     <div className="buyer-landing-hero-content">
 
                         <span className="buyer-landing-eyebrow">
-                            {buyerSession ? "YOUR CRYMA MARKETPLACE" : "WELCOME TO CRYMA"}
+                            {buyerSession ? "YOUR NEIGHBORHOOD MARKETPLACE" : "LOCAL FINDS. REAL PEOPLE."}
                         </span>
 
                         {buyerSession && (
@@ -269,25 +295,22 @@ function Home() {
                         <h1>
                             {buyerSession ? (
                                 <>
-                                    Find your next
+                                    Your next find
                                     <br />
-                                    <em>favorite thing.</em>
+                                    <em>is closer.</em>
                                 </>
                             ) : (
                                 <>
-                                    Shopping should
+                                    Good things
                                     <br />
-                                    feel a little
-                                    <br />
-                                    <em>more personal.</em>
+                                    <em>move closer.</em>
                                 </>
                             )}
                         </h1>
 
                         <p>
-                            Discover everyday finds from independent
-                            sellers, curated products, and people
-                            worth discovering &mdash; all in one marketplace.
+                            Meet independent sellers, find things you love, and get
+                            them delivered through CRYMA &mdash; all in one local marketplace.
                         </p>
 
                         <div className="buyer-landing-actions">
@@ -332,84 +355,14 @@ function Home() {
 
                     </div>
 
-                    <div
-                        className="buyer-landing-hero-visual"
-                        onMouseEnter={() => setHeroPaused(true)}
-                        onMouseLeave={() => setHeroPaused(false)}
-                        onFocusCapture={() => setHeroPaused(true)}
-                        onBlurCapture={(event) => {
-                            if (!event.currentTarget.contains(event.relatedTarget)) setHeroPaused(false);
-                        }}
-                    >
-
-                        <div className="buyer-hero-main-photo">
-                            <img
-                                key={HERO_CAROUSEL_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
-                                src={HERO_CAROUSEL_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
-                                alt={HERO_CAROUSEL_SLIDES[activeHeroSlide]?.alt || LANDING_VISUALS.hero.alt}
-                                fetchPriority="high"
-                                decoding="async"
-                                onError={(event) => {
-                                    event.currentTarget.hidden = true;
-                                    event.currentTarget.parentElement?.classList.add("image-unavailable");
-                                }}
-                            />
-
-                            <div className="buyer-hero-photo-overlay">
-                                <span>DISCOVER</span>
-                                <strong>
-                                    {HERO_CAROUSEL_SLIDES[activeHeroSlide]?.category || "Things you'll love."}
-                                </strong>
-                                {HERO_CAROUSEL_SLIDES[activeHeroSlide] && (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleCategoryClick(HERO_CAROUSEL_SLIDES[activeHeroSlide].category)}
-                                    >
-                                        Explore category <ArrowRight size={15} aria-hidden="true" />
-                                    </button>
-                                )}
-                            </div>
-
-                            {HERO_CAROUSEL_SLIDES.length > 1 && (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="buyer-hero-carousel-arrow buyer-hero-carousel-prev"
-                                        aria-label="Show previous featured category"
-                                        onClick={() => setActiveHeroSlide((current) => (current - 1 + HERO_CAROUSEL_SLIDES.length) % HERO_CAROUSEL_SLIDES.length)}
-                                    >
-                                        <ChevronLeft size={19} aria-hidden="true" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="buyer-hero-carousel-arrow buyer-hero-carousel-next"
-                                        aria-label="Show next featured category"
-                                        onClick={() => setActiveHeroSlide((current) => (current + 1) % HERO_CAROUSEL_SLIDES.length)}
-                                    >
-                                        <ChevronRight size={19} aria-hidden="true" />
-                                    </button>
-                                    <div className="buyer-hero-carousel-dots" aria-label="Featured category slides">
-                                        {HERO_CAROUSEL_SLIDES.map((slide, index) => (
-                                            <button
-                                                key={slide.category}
-                                                type="button"
-                                                className={index === activeHeroSlide ? "active" : ""}
-                                                aria-label={`Show ${slide.category}`}
-                                                aria-current={index === activeHeroSlide ? "true" : undefined}
-                                                onClick={() => setActiveHeroSlide(index)}
-                                            />
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
+                    <div className="buyer-landing-hero-visual buyer-hero-three-visual">
+                        <HomeHeroScene />
                     </div>
                 </section>
 
 
                 {/* FEATURED */}
-                <section className="buyer-landing-section buyer-landing-featured">
+                <section id="featured-products" className="buyer-landing-section buyer-landing-featured">
 
                     <div className="buyer-landing-section-heading">
 
@@ -491,6 +444,7 @@ function Home() {
                                     key={product.id}
                                     product={product}
                                     onAddToCart={handleAddToCart}
+                                    tiltOnHover
                                 />
                             ))}
 
@@ -500,7 +454,7 @@ function Home() {
 
 
                 {/* CATEGORY DISCOVERY */}
-                <section className="buyer-landing-section buyer-landing-category-section">
+                <section id="categories" className="buyer-landing-section buyer-landing-category-section">
 
                     <div className="buyer-landing-section-heading">
 
@@ -512,17 +466,24 @@ function Home() {
                             </h2>
 
                             <p>
-                                Browse different corners of CRYMA
-                                and discover products from sellers
-                                across the marketplace.
+                                Explore local sellers and new finds across CRYMA.
                             </p>
                         </div>
+
+                        <button
+                            type="button"
+                            className="buyer-category-section-link"
+                            onClick={handleStartShopping}
+                        >
+                            All categories
+                            <ArrowRight size={15} aria-hidden="true" />
+                        </button>
 
                     </div>
 
                     <div className="buyer-landing-category-grid">
 
-                        {categoryHighlights.map(
+                        {categoryHighlights.slice(0, 8).map(
                             (category, index) => (
                                 <button
                                     key={category}
@@ -638,8 +599,10 @@ function Home() {
                 </section>
 
 
+                </>}
+
                 {/* HOW IT WORKS */}
-                <section className="buyer-how-section">
+                <section id="how-it-works" className="buyer-how-section">
 
                     <div className="buyer-landing-section-heading">
 
@@ -699,13 +662,23 @@ function Home() {
                     </div>
                 </section>
 
-
                 {/* LOGISTICS */}
-                <section className="buyer-logistics-section">
+                <section id="delivery-journey" className="buyer-logistics-section">
 
                     <div className="buyer-logistics-decoration">
                         <span>CRYMA</span>
                     </div>
+
+                    <svg className="buyer-logistics-route" viewBox="0 0 480 280" fill="none" aria-hidden="true">
+                        <path className="buyer-logistics-route-path" d="M30 170 C80 55 175 60 210 160 S360 265 440 120" />
+                        <path className="buyer-logistics-route-highlight" d="M30 170 C80 55 175 60 210 160 S360 265 440 120" />
+                        <g className="buyer-logistics-route-truck">
+                            <rect x="-17" y="-11" width="25" height="16" rx="3" />
+                            <path d="M8 -7h8l7 7v5H8z" fill="currentColor" />
+                            <circle cx="-9" cy="8" r="4" />
+                            <circle cx="14" cy="8" r="4" />
+                        </g>
+                    </svg>
 
                     <div className="buyer-logistics-content">
 
@@ -785,7 +758,6 @@ function Home() {
 
                     </div>
                 </section>
-                </>}
 
 
                 {/* FOOTER */}

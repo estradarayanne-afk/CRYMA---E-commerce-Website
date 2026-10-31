@@ -60,6 +60,124 @@
     color: var(--text-primary, #26151a);
 }
 
+/* Consistent CRYMA masthead for buyer account and activity pages. The shop
+   browsing header is intentionally excluded so its product feed stays compact. */
+.buyer-global-shell .buyer-page-masthead {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-height: 142px;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 22px;
+    padding: 24px 28px;
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: 18px;
+    background:
+        radial-gradient(ellipse at 88% -20%, rgba(255,222,228,.27), transparent 37%),
+        linear-gradient(112deg, #40111f 0%, #721c35 48%, #a83c59 100%);
+    box-shadow: 0 16px 34px -17px rgba(55,8,23,.45), 0 5px 12px rgba(68,17,34,.1),
+        inset 0 1px rgba(255,255,255,.23), inset 0 -2px rgba(43,5,16,.2);
+}
+
+.buyer-global-shell .buyer-page-masthead::after {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    right: 18px;
+    color: rgba(255,255,255,.075);
+    content: "CRYMA";
+    font: 700 clamp(58px, 9vw, 112px)/1 Georgia, "Times New Roman", serif;
+    letter-spacing: .11em;
+    transform: translateY(-50%) rotate(-8deg);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.buyer-global-shell .buyer-page-masthead > * {
+    position: relative;
+    z-index: 1;
+}
+
+.buyer-global-shell .buyer-page-masthead h1 {
+    color: #fff9fa;
+    font: 600 clamp(27px, 2.8vw, 35px)/1.12 Georgia, "Times New Roman", serif;
+    letter-spacing: -.04em;
+    text-shadow: 0 2px 12px rgba(35,4,14,.2);
+}
+
+.buyer-global-shell .buyer-page-masthead :where(p, span) {
+    color: rgba(255,247,249,.86);
+}
+
+.buyer-global-shell .buyer-page-masthead :where(.cart-eyebrow, .reviews-eyebrow,
+    .buyer-vouchers-eyebrow, .account-eyebrow, .buyer-chat-eyebrow) {
+    color: #f6cbd4;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .17em;
+}
+
+.buyer-global-shell .buyer-page-masthead :where(.cart-header-count,
+    .reviews-completed-badge, .buyer-vouchers-icon, .account-hero-edit) {
+    position: relative;
+    z-index: 1;
+    border-color: rgba(255,255,255,.28);
+    background: rgba(48,8,23,.25);
+    color: #fff7f7;
+    box-shadow: inset 0 1px rgba(255,255,255,.12);
+}
+
+.buyer-global-shell .buyer-page-masthead .wishlist-heading-icon {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(255,255,255,.27);
+    border-radius: 13px;
+    background: rgba(48,8,23,.25);
+    color: #fff7f7;
+}
+
+.buyer-global-shell .buyer-page-masthead .account-avatar-large {
+    border-color: rgba(255,255,255,.55);
+    background: rgba(255,255,255,.16);
+    color: #fff;
+    box-shadow: 0 5px 16px rgba(35,4,14,.2);
+}
+
+.buyer-global-shell .buyer-page-masthead .account-hero-edit:hover {
+    border-color: rgba(255,255,255,.55);
+    background: rgba(255,255,255,.18);
+}
+
+.buyer-global-shell .buyer-page-masthead .cart-header-count {
+    padding: 9px 13px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+    .buyer-global-shell .buyer-page-masthead {
+        min-height: 0;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 19px;
+        border-radius: 15px;
+    }
+
+    .buyer-global-shell .buyer-page-masthead::after {
+        right: 5px;
+        font-size: 70px;
+    }
+
+    .buyer-global-shell .buyer-page-masthead h1 { font-size: 27px; }
+    .buyer-global-shell .buyer-page-masthead p { font-size: 12px; }
+    .buyer-global-shell .buyer-page-masthead .account-avatar-large { width: 58px; height: 58px; flex-basis: 58px; }
+}
+
 @media (max-width: 900px) {
     .buyer-global-shell {
         --buyer-page-gutter: 20px;

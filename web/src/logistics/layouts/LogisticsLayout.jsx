@@ -26,6 +26,7 @@ const LINKS = [
     { to: "/logistics/pickups", label: "Pickup Requests", icon: ClipboardList },
     { to: "/logistics/incoming-parcels", label: "Incoming Parcels", icon: PackageCheck },
     { to: "/logistics/sorting", label: "Sorting", icon: Boxes },
+    { to: "/logistics/parcel-flow", label: "Parcel Flow & Hubs", icon: Boxes },
     { to: "/logistics/delivery-assignment", label: "Delivery Assignment", icon: MapPinned },
     { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", icon: Truck },
     { to: "/logistics/reports", label: "Reports", icon: BarChart3 },
@@ -131,7 +132,7 @@ function LogisticsLayout() {
             <aside className="lw-sidebar">
                 <div className="lw-sidebar-top">
                     <div className="lw-brand">
-                        <span className="lw-brand-mark">C</span>
+                        <img className="lw-brand-mark" src="/cryma-favicon.png" alt="" />
                         <span className="lw-brand-copy"><strong>CRYMA</strong><small>Logistics Panel</small></span>
                     </div>
                     <button type="button" className="lw-sidebar-toggle" onClick={() => setSidebarCollapsed((value) => !value)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>

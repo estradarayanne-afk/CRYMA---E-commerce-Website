@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Voucher extends Model
 {
     protected $fillable = [
         'code',
+        'seller_id',
         'description',
         'discount_type',
         'discount_value',
@@ -42,5 +44,15 @@ class Voucher extends Model
     public function redemptions(): HasMany
     {
         return $this->hasMany(VoucherRedemption::class);
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function claims(): HasMany
+    {
+        return $this->hasMany(VoucherClaim::class);
     }
 }

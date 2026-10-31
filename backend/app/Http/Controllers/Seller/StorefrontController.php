@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\SellerProfile;
+use App\Support\PublicStorageUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,13 +20,7 @@ class StorefrontController extends Controller
         abort_unless($profile, 404, 'Seller profile not found.');
         $this->ensureSlug($profile);
 
-        return response()->json(['success' => true, 'data' => [...$this->storeData($profile->fresh()), 'name_change_request' => [
-            'requested_name' => $profile->requested_business_name,
-            'status' => $profile->business_name_request_status,
-            'requested_at' => $profile->business_name_requested_at,
-            'reviewed_at' => $profile->business_name_reviewed_at,
-            'reason' => $profile->business_name_request_reason,
-        ]]]);
+        return response()->json(['success' => true, 'data' => $this->storeData($profile->fresh())]);
     }
 
     public function update(Request $request)
@@ -34,23 +29,42 @@ class StorefrontController extends Controller
         abort_unless($profile, 404, 'Seller profile not found.');
         $this->ensureSlug($profile);
 
+        if (is_string($request->input('storefront_settings'))) {
+            $decodedSettings = json_decode($request->input('storefront_settings'), true);
+            if (is_array($decodedSettings)) {
+                $request->merge(['storefront_settings' => $decodedSettings]);
+            }
+        }
+
         $validated = $request->validate([
             'store_tagline' => ['nullable', 'string', 'max:100'],
             'store_description' => ['nullable', 'string', 'max:1000'],
             'store_accent_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'store_logo_url' => ['nullable', 'url', 'max:2048'],
             'store_banner_url' => ['nullable', 'url', 'max:2048'],
+            'store_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'store_banner' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'storefront_settings' => ['sometimes', 'array'],
             'storefront_settings.hero_title' => ['nullable', 'string', 'max:100'],
             'storefront_settings.hero_subtitle' => ['nullable', 'string', 'max:200'],
             'storefront_settings.on_vacation' => ['sometimes', 'boolean'],
             'storefront_settings.categories' => ['present', 'array', 'max:20'],
             'storefront_settings.categories.*' => ['string', 'max:100', 'distinct'],
+            'storefront_settings.store_categories' => ['present', 'array', 'max:20'],
+            'storefront_settings.store_categories.*' => ['string', 'min:1', 'max:100', 'distinct'],
             'storefront_settings.featured_product_ids' => ['present', 'array', 'max:12'],
             'storefront_settings.featured_product_ids.*' => ['integer', 'distinct', Rule::exists('products', 'id')->where('seller_id', $request->user()->id)],
             'storefront_settings.show_featured' => ['required_with:storefront_settings', 'boolean'],
             'storefront_settings.show_categories' => ['required_with:storefront_settings', 'boolean'],
         ]);
+
+        foreach (['store_logo' => 'store_logo_url', 'store_banner' => 'store_banner_url'] as $fileField => $urlField) {
+            if ($request->hasFile($fileField)) {
+                $path = $request->file($fileField)->storePublicly('storefronts/' . $request->user()->id, 'public');
+                $validated[$urlField] = PublicStorageUrl::url($path);
+            }
+            unset($validated[$fileField]);
+        }
 
         $profile->fill($validated)->save();
 
@@ -90,45 +104,38 @@ class StorefrontController extends Controller
         ]);
     }
 
-    public function requestNameChange(Request $request)
+    public function updateName(Request $request)
     {
-        $profile = $request->user()->sellerProfile;
-        abort_unless($profile, 404, 'Seller profile not found.');
-
         $values = $request->validate([
-            'requested_name' => ['required', 'string', 'min:2', 'max:100', 'not_regex:/^\s*$/'],
+            'business_name' => ['required', 'string', 'min:2', 'max:100', 'not_regex:/^\s*$/'],
         ]);
-        $requestedName = trim($values['requested_name']);
+        $newName = preg_replace('/\s+/u', ' ', trim($values['business_name']));
+        $profile = DB::transaction(function () use ($request, $newName) {
+            $profile = SellerProfile::query()->where('user_id', $request->user()->id)->lockForUpdate()->first();
+            abort_unless($profile, 404, 'Seller profile not found.');
+            if (mb_strtolower($newName) === mb_strtolower(trim($profile->business_name))) {
+                throw ValidationException::withMessages(['business_name' => ['Enter a name different from your current store name.']]);
+            }
+            $taken = SellerProfile::query()
+                ->where('user_id', '!=', $request->user()->id)
+                ->whereRaw('LOWER(TRIM(business_name)) = ?', [mb_strtolower($newName)])
+                ->exists();
+            if ($taken) {
+                throw ValidationException::withMessages(['business_name' => ['That store name is already taken. Choose another name.']]);
+            }
+            $profile->forceFill([
+                'business_name' => $newName,
+                'requested_business_name' => null,
+                'business_name_request_status' => null,
+                'business_name_requested_at' => null,
+                'business_name_reviewed_at' => null,
+                'business_name_reviewed_by' => null,
+                'business_name_request_reason' => null,
+            ])->save();
+            return $profile->fresh();
+        });
 
-        if (mb_strtolower($requestedName) === mb_strtolower(trim($profile->business_name))) {
-            throw ValidationException::withMessages(['requested_name' => ['Enter a name different from your current store name.']]);
-        }
-        if ($profile->business_name_request_status === 'pending') {
-            throw ValidationException::withMessages(['requested_name' => ['You already have a store name request waiting for admin review.']]);
-        }
-
-        $taken = SellerProfile::query()
-            ->where('user_id', '!=', $request->user()->id)
-            ->whereRaw('LOWER(TRIM(business_name)) = ?', [mb_strtolower($requestedName)])
-            ->exists();
-        if ($taken) {
-            throw ValidationException::withMessages(['requested_name' => ['That store name is already taken. Choose another name.']]);
-        }
-
-        $profile->forceFill([
-            'requested_business_name' => $requestedName,
-            'business_name_request_status' => 'pending',
-            'business_name_requested_at' => now(),
-            'business_name_reviewed_at' => null,
-            'business_name_reviewed_by' => null,
-            'business_name_request_reason' => null,
-        ])->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Store name change request sent to admin.',
-            'data' => ['requested_name' => $profile->requested_business_name, 'status' => $profile->business_name_request_status],
-        ], 201);
+        return response()->json(['success' => true, 'message' => 'Store name updated.', 'data' => $this->storeData($profile)]);
     }
     public function publicShow(string $slug)
     {
@@ -167,7 +174,9 @@ class StorefrontController extends Controller
     private function storeData(SellerProfile $profile): array
     {
         return [
+            'seller_id' => $profile->user_id,
             'name' => $profile->business_name,
+            'registered_category' => $profile->line_of_business,
             'slug' => $profile->store_slug,
             'tagline' => $profile->store_tagline,
             'description' => $profile->store_description,

@@ -21,6 +21,15 @@ class VoucherDiscount
         if (!$voucher->is_active) {
             $this->reject('This voucher is not active.');
         }
+        if (!$voucher->claims()->where('buyer_id', $buyerId)->exists()) {
+            $this->reject('Claim this voucher before applying it to your order.');
+        }
+        if ($voucher->seller_id !== null) {
+            $sellerIds = collect($items)->map(fn (array $item) => (int) $item[0]->seller_id)->unique();
+            if ($sellerIds->count() !== 1 || !$sellerIds->contains((int) $voucher->seller_id)) {
+                $this->reject('This voucher is only valid for products from the seller who created it.');
+            }
+        }
         if ($voucher->starts_at && $voucher->starts_at->isFuture()) {
             $this->reject('This voucher is not available yet.');
         }

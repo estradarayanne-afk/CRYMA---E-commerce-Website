@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\User;
+use App\Notifications\SellerActivityNotification;
 use Illuminate\Http\Request;
 
 class ReviewController extends Controller
@@ -179,6 +181,16 @@ class ReviewController extends Controller
             'rating' => $validated['rating'],
             'comment' => $validated['comment'] ?? null,
         ]);
+
+        $buyerName = trim(implode(' ', array_filter([$request->user()->first_name, $request->user()->last_name]))) ?: 'A buyer';
+        $seller = User::query()->where('role', 'seller')->find($product->seller_id);
+        $seller?->notify(new SellerActivityNotification(
+            'New product review',
+            "{$buyerName} left a {$review->rating}-star review for {$product->name}.",
+            'new_product_review',
+            '/seller/feedback',
+            ['product_id' => $product->id, 'review_id' => $review->id, 'rating' => $review->rating],
+        ));
 
         $review->load(
             'buyer:id,first_name,last_name'

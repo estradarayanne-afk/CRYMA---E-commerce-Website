@@ -22,7 +22,8 @@ export function getConversationIdentity(conversation) {
         };
     }
 
-    const sellerName = personName(conversation.seller) || "Marketplace Seller";
+    const sellerProfile = conversation.seller?.seller_profile || conversation.seller?.sellerProfile;
+    const sellerName = sellerProfile?.business_name || personName(conversation.seller) || "Marketplace Seller";
     const initials = sellerName
         .split(/\s+/)
         .slice(0, 2)
@@ -32,7 +33,7 @@ export function getConversationIdentity(conversation) {
 
     return {
         name: sellerName,
-        description: "Product Seller",
+        description: sellerProfile?.business_name ? "CRYMA Store" : "Product Seller",
         initials: initials || "S",
         type: "seller",
     };

@@ -119,6 +119,7 @@ function AuthModal() {
                                 embedded
                                 selectedRole={registrationRole}
                                 onSwitchToLogin={() => switchMode("login")}
+                                onReturnToCryma={close}
                             />
                         ) : (
                             <RegistrationChoice embedded onChooseRole={setRegistrationRole} />

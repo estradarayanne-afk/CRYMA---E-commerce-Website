@@ -7,11 +7,13 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    MessageCircle,
+    Ban,
     Search,
     SlidersHorizontal,
     X,
 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
@@ -86,6 +88,7 @@ const SORT_OPTIONS = [
 ];
 
 function Orders() {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] =
         useSearchParams();
 
@@ -139,6 +142,41 @@ function Orders() {
 
     const [filtersOpen, setFiltersOpen] =
         useState(false);
+    const [orderActionId, setOrderActionId] = useState(null);
+
+    const contactSeller = async (order) => {
+        const productId = order.items?.[0]?.product_id || order.items?.[0]?.product?.id;
+        if (!productId) {
+            setError("This order has no product details to open a seller conversation.");
+            return;
+        }
+        try {
+            setOrderActionId(order.id);
+            setError("");
+            const response = await api.post("/buyer/chat/seller-conversations", { product_id: Number(productId) });
+            const conversationId = response.data?.data?.id;
+            if (!conversationId) throw new Error("Conversation could not be opened.");
+            window.dispatchEvent(new CustomEvent("cryma-open-seller-chat", { detail: { conversationId } }));
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || requestError.message || "Unable to open this seller conversation.");
+        } finally {
+            setOrderActionId(null);
+        }
+    };
+
+    const cancelOrder = async (order) => {
+        if (!window.confirm(`Cancel Order #${order.id}? This cancels all items in this order and returns the reserved stock to the seller.`)) return;
+        try {
+            setOrderActionId(order.id);
+            setError("");
+            await api.post(`/orders/${order.id}/cancel`);
+            await fetchOrders();
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Unable to cancel this order. Contact the seller if it has already been prepared or shipped.");
+        } finally {
+            setOrderActionId(null);
+        }
+    };
 
     const currentPage =
         Number(
@@ -761,23 +799,13 @@ function Orders() {
 
                 <button
                     type="button"
-                    className={`orders-filter-button ${
-                        filtersOpen
-                            ? "active"
-                            : ""
-                    }`}
-                    onClick={() =>
-                        setFiltersOpen(
-                            (current) =>
-                                !current
-                        )
-                    }
+                    className={`orders-filter-button ${filtersOpen ? "active" : ""}`}
+                    onClick={() => setFiltersOpen((current) => !current)}
                 >
-                    <SlidersHorizontal
-                        size={16}
-                    />
+                    <SlidersHorizontal size={16} />
                     Filters
                 </button>
+
             </section>
 
             {filtersOpen && (
@@ -1319,17 +1347,19 @@ function Orders() {
                                                 </strong>
                                             </div>
 
-                                            <Link
-                                                className="order-view-button"
-                                                to={`/orders/${order.id}`}
-                                            >
-                                                View Details
-                                                <ChevronRight
-                                                    size={
-                                                        15
-                                                    }
-                                                />
-                                            </Link>
+                                            <div className="orders-card-actions">
+                                                <button type="button" className="orders-contact-seller" onClick={() => contactSeller(order)} disabled={orderActionId === order.id}>
+                                                    <MessageCircle size={15} /> Contact seller
+                                                </button>
+                                                {["pending", "placed"].includes(String(order.status || "").toLowerCase()) && (
+                                                    <button type="button" className="orders-cancel-order" onClick={() => cancelOrder(order)} disabled={orderActionId === order.id}>
+                                                        <Ban size={15} /> Cancel order
+                                                    </button>
+                                                )}
+                                                <Link className="order-view-button" to={`/orders/${order.id}`}>
+                                                    View Details <ChevronRight size={15} />
+                                                </Link>
+                                            </div>
                                         </div>
                                     </article>
                                 );

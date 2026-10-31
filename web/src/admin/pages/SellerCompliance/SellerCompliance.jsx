@@ -587,9 +587,9 @@ function SellerCompliance() {
                                         Seller
                                     </th>
 
-                                    <th>
-                                        Business
-                                    </th>
+                                    <th>Business Name</th>
+
+                                    <th>Business Line</th>
 
                                     <th>
                                         Email
@@ -619,7 +619,7 @@ function SellerCompliance() {
                                     <tr>
 
                                         <td
-                                            colSpan="6"
+                                            colSpan="7"
                                             className="seller-compliance-empty"
                                         >
                                             No seller records found.
@@ -669,13 +669,11 @@ function SellerCompliance() {
                                             {/* BUSINESS */}
 
                                             <td className="seller-business-cell">
+                                                {seller.seller_profile?.business_name || "Not provided"}
+                                            </td>
 
-                                                <strong>{seller
-                                                    .seller_profile
-                                                    ?.business_name ||
-                                                    "—"}</strong>
-                                                <span className="seller-business-category">{seller.seller_profile?.line_of_business || "Category not set"}</span>
-
+                                            <td className="seller-business-cell">
+                                                <span className="seller-business-category">{seller.seller_profile?.line_of_business || "Not provided"}</span>
                                             </td>
 
 
