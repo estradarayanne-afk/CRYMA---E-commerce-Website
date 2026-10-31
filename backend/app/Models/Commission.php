@@ -14,6 +14,7 @@ class Commission extends Model
         'commission_amount',
         'seller_earnings',
         'status',
+        'payout_method', 'payout_reference', 'paid_by', 'paid_at', 'payout_amount',
     ];
 
     public function seller()
@@ -25,4 +26,6 @@ class Commission extends Model
     {
         return $this->belongsTo(Order::class, 'order_id');
     }
+
+    public function paidBy() { return $this->belongsTo(User::class, 'paid_by'); }
 }

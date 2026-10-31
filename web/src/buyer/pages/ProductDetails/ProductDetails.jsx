@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     ArrowLeft,
+    ArrowUpRight,
     Heart,
     MessageCircle,
     Minus,
@@ -176,6 +177,9 @@ function ProductDetails() {
     }, [id]);
 
     const shopName = getProductShopName(product?.seller);
+    const sellerProfile = product?.seller?.seller_profile || product?.seller?.sellerProfile || {};
+    const storeSlug = sellerProfile.store_slug || product?.seller?.store_slug || "";
+    const storeLogo = sellerProfile.store_logo_url || product?.seller?.store_logo_url || "";
     const sellerOnVacation = product?.seller?.is_on_vacation === true || product?.seller_on_vacation === true;
 
     const variants = Array.isArray(product?.variants) ? product.variants : [];
@@ -291,7 +295,7 @@ function ProductDetails() {
             if (!conversationId) {
                 throw new Error("Could not open a conversation with this seller.");
             }
-            navigate(`/buyer/chat?conversation=${conversationId}`);
+            window.dispatchEvent(new CustomEvent("cryma-open-seller-chat", { detail: { conversationId } }));
         } catch (requestError) {
             showBuyerToast(
                 requestError.response?.data?.message || requestError.message || "Unable to contact this seller right now.",
@@ -453,7 +457,7 @@ function ProductDetails() {
                 </div>
 
                 <section className="product-details-card">
-                    <div className="product-gallery">
+                    <div className="product-gallery" data-product-id={String(product.id).padStart(4, "0")}>
                         <div className="product-thumbnails">
                             {mediaItems.map((media, index) => (
                                 <button
@@ -723,21 +727,18 @@ function ProductDetails() {
                         )}
 
                         <div className="product-seller-card">
-                            <div className="seller-avatar">
-                                {shopName
-                                    .slice(0, 2)
-                                    .toUpperCase()}
-                            </div>
-
-                            <div>
-                                <span>
-                                    Shop
-                                </span>
-
-                                <strong>
-                                    {shopName}
-                                </strong>
-                            </div>
+                            {storeSlug ? (
+                                <Link to={`/stores/${encodeURIComponent(storeSlug)}`} className="product-seller-identity" aria-label={`Visit ${shopName} storefront`}>
+                                    <span className="seller-avatar">{storeLogo ? <img src={storeLogo} alt="" /> : shopName.slice(0, 2).toUpperCase()}</span>
+                                    <span className="product-seller-copy"><span>SELLER STOREFRONT</span><strong>{shopName}</strong></span>
+                                    <span className="product-store-visit">Visit shop <ArrowUpRight size={14} aria-hidden="true" /></span>
+                                </Link>
+                            ) : (
+                                <div className="product-seller-identity">
+                                    <span className="seller-avatar">{storeLogo ? <img src={storeLogo} alt="" /> : shopName.slice(0, 2).toUpperCase()}</span>
+                                    <span className="product-seller-copy"><span>SELLER STOREFRONT</span><strong>{shopName}</strong></span>
+                                </div>
+                            )}
                             <button type="button" className="product-contact-seller" onClick={contactSeller}>
                                 <MessageCircle size={14} /> Contact seller
                             </button>

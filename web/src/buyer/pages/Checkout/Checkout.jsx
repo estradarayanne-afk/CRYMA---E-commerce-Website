@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowLeft,
     Check,
+    LockKeyhole,
     MapPin,
     PackageCheck,
     Plus,
@@ -91,9 +92,7 @@ function Checkout() {
     const submissionLock = useRef(false);
     const checkoutIdempotencyKey = useRef(null);
 
-    const [paymentMethod, setPaymentMethod] =
-        useState("cash_on_delivery");
-    const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
+    const paymentMethod = "cash_on_delivery";
 
     const [showConfirmModal, setShowConfirmModal] =
         useState(false);
@@ -103,6 +102,7 @@ function Checkout() {
     const [appliedVoucherCode, setAppliedVoucherCode] = useState("");
     const [voucherPreview, setVoucherPreview] = useState(null);
     const [voucherLoading, setVoucherLoading] = useState(false);
+    const [claimingVoucherId, setClaimingVoucherId] = useState(null);
     const [voucherError, setVoucherError] = useState("");
     const voucherValidationSequence = useRef(0);
     const voucherCartFingerprint = useRef("");
@@ -454,6 +454,36 @@ function Checkout() {
         ];
     }, [selectedCartItems]);
 
+    const eligibleVouchers = useMemo(() => vouchers.filter((voucher) => {
+        if (voucher.buyer_status !== "available") return false;
+        if (voucher.voucher_seller_id && (sellerIds.length !== 1 || String(voucher.voucher_seller_id) !== sellerIds[0])) return false;
+        const productIds = (voucher.product_ids || []).map(String);
+        const categories = (voucher.categories || []).map((category) => String(category).trim().toLocaleLowerCase());
+        const hasRestrictions = productIds.length > 0 || categories.length > 0;
+        const eligibleItems = selectedCartItems.filter((item) => {
+            if (!hasRestrictions) return true;
+            const matchesProduct = productIds.includes(String(item.product_id ?? item.id));
+            const matchesCategory = categories.includes(String(item.category || "").trim().toLocaleLowerCase());
+            return matchesProduct || matchesCategory;
+        });
+        const eligibleSubtotal = eligibleItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0);
+        return eligibleItems.length > 0 && eligibleSubtotal >= Number(voucher.minimum_spend || 0);
+    }), [vouchers, selectedCartItems, sellerIds]);
+
+    const claimVoucher = async (voucher) => {
+        if (claimingVoucherId || voucher.is_claimed) return;
+        setClaimingVoucherId(voucher.id);
+        setVoucherError("");
+        try {
+            await api.post(`/buyer/vouchers/${voucher.id}/claim`);
+            setVouchers((current) => current.map((item) => item.id === voucher.id ? { ...item, is_claimed: true } : item));
+        } catch (requestError) {
+            setVoucherError(requestError.response?.data?.errors?.voucher?.[0] || requestError.response?.data?.message || "Unable to claim this voucher.");
+        } finally {
+            setClaimingVoucherId(null);
+        }
+    };
+
     const hasMultipleSellers =
         sellerIds.length > 1;
 
@@ -497,7 +527,7 @@ function Checkout() {
             return false;
         }
 
-        if (!["cash_on_delivery", "gcash"].includes(paymentMethod)) {
+        if (paymentMethod !== "cash_on_delivery") {
             setError("Please select one of the available payment methods.");
             return false;
         }
@@ -764,6 +794,7 @@ function Checkout() {
             <header className="checkout-header">
                 <div>
                     <p className="checkout-eyebrow">
+                        <LockKeyhole size={13} aria-hidden="true" />
                         SECURE CHECKOUT
                     </p>
 
@@ -850,7 +881,7 @@ function Checkout() {
                                             {saved.is_default && <small>Default</small>}
                                         </span>
                                         <strong>{saved.recipient_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(" ")}</strong>
-                                        <span>{saved.phone || profile?.phone || "No contact number"}</span>
+                                        <span className="checkout-address-contact"><small>CONTACT</small><strong>{saved.phone || profile?.phone || "No contact number"}</strong></span>
                                         <span>{[saved.house_number, saved.building_name, saved.unit_number, saved.street, saved.barangay, saved.municipality, saved.province, saved.region, saved.postal_code].filter(Boolean).join(", ")}</span>
                                     </span>
                                 </label>
@@ -872,18 +903,19 @@ function Checkout() {
                             onClose={() => setShowAddressForm(false)}
                             ariaLabelledBy="checkout-address-modal-title"
                             className="checkout-address-modal"
+                            overlayClassName="checkout-address-overlay"
                             busy={addressSaving}
                         >
                                 <header>
                                     <div>
-                                        <p className="checkout-eyebrow">DELIVERY DETAILS</p>
+                                        <p className="checkout-eyebrow"><MapPin size={13} aria-hidden="true" /> DELIVERY DETAILS</p>
                                         <h2 id="checkout-address-modal-title">Add an address</h2>
                                         <p>Your current cart, selected items, and payment choice will stay unchanged.</p>
                                     </div>
                                     <button type="button" aria-label="Close address form" disabled={addressSaving} onClick={() => setShowAddressForm(false)}><X size={18} /></button>
                                 </header>
                                 <form onSubmit={saveAddressDuringCheckout} noValidate>
-                                    <BuyerAddressForm address={addressDraft} errors={addressErrors} onChange={setAddressDraft} disabled={addressSaving} showDefault />
+                                    <BuyerAddressForm address={addressDraft} errors={addressErrors} onChange={setAddressDraft} disabled={addressSaving} showDefault grouped lockRecipientDetails />
                                     {addressSaveError && <p className="checkout-error" role="alert">{addressSaveError}</p>}
                                     <div className="checkout-address-modal-actions">
                                         <button type="button" className="checkout-address-cancel" disabled={addressSaving} onClick={() => setShowAddressForm(false)}>Cancel</button>
@@ -969,7 +1001,7 @@ function Checkout() {
 
                                             {item.variant_name && <span className="checkout-item-category">{item.variant_name}</span>}
 
-                                            <span>
+                                            <span className="checkout-item-quantity">
                                                 Qty{" "}
                                                 {
                                                     item.quantity
@@ -1061,23 +1093,24 @@ function Checkout() {
                         {voucherError && <p className="checkout-voucher-error" role="alert">{voucherError}</p>}
                         {voucherLoading && <p className="checkout-voucher-status" role="status">Checking voucher eligibility…</p>}
                         {loadingVouchers && <p className="checkout-voucher-status" role="status">Loading available vouchers…</p>}
-                        {!appliedVoucherCode && vouchers.filter((voucher) => voucher.buyer_status === "available").length > 0 && (
+                        {!appliedVoucherCode && eligibleVouchers.length > 0 && (
                             <div className="checkout-voucher-available">
-                                {vouchers.filter((voucher) => voucher.buyer_status === "available").map((voucher) => (
+                                <p className="checkout-voucher-status">Available for your selected items</p>
+                                {eligibleVouchers.map((voucher) => (
                                     <button
                                         type="button"
                                         key={voucher.id}
-                                        onClick={() => applyVoucherCode(voucher.code)}
-                                        disabled={voucherLoading || submitting}
+                                        onClick={() => voucher.is_claimed ? applyVoucherCode(voucher.code) : void claimVoucher(voucher)}
+                                        disabled={voucherLoading || submitting || claimingVoucherId !== null}
                                     >
-                                        <span><strong>{voucher.code}</strong><small>{formatVoucherDiscount(voucher)}</small></span>
-                                        <small>{Number(voucher.minimum_spend) > 0 ? `Min. ₱${Number(voucher.minimum_spend).toLocaleString()}` : "Use voucher"}</small>
+                                        <span><strong>{voucher.code}</strong><small>{formatVoucherDiscount(voucher)}{voucher.seller_name ? ` · ${voucher.seller_name}` : ""}</small></span>
+                                        <small>{claimingVoucherId === voucher.id ? "Claiming…" : voucher.is_claimed ? "Apply voucher" : "Claim voucher"}{Number(voucher.minimum_spend) > 0 ? ` · Min. ₱${Number(voucher.minimum_spend).toLocaleString()}` : ""}</small>
                                     </button>
                                 ))}
                             </div>
                         )}
-                        {!loadingVouchers && vouchers.length > 0 && vouchers.every((voucher) => voucher.buyer_status !== "available") && (
-                            <p className="checkout-voucher-status">There are no currently available vouchers for this account.</p>
+                        {!loadingVouchers && !appliedVoucherCode && selectedCartItems.length > 0 && eligibleVouchers.length === 0 && (
+                            <p className="checkout-voucher-status">No available vouchers apply to the items in this order.</p>
                         )}
                     </section>
 
@@ -1085,76 +1118,12 @@ function Checkout() {
                     <div className="checkout-summary-payment">
                         <div className="checkout-summary-payment-heading">
                             <div>
-                                <span>Payment Method</span>
-                                {!paymentOptionsOpen && (
-                                    <small className="checkout-payment-current">
-                                        {paymentMethod === "gcash" ? "GCash" : "Cash on Delivery"}
-                                    </small>
-                                )}
+                                <span>Payment method</span>
+                                <strong className="checkout-payment-current">Cash on Delivery</strong>
                             </div>
-                            <button
-                                type="button"
-                                className="checkout-summary-change"
-                                aria-expanded={paymentOptionsOpen}
-                                onClick={() => setPaymentOptionsOpen((open) => !open)}
-                            >
-                                {paymentOptionsOpen ? "Done" : "Change"}
-                            </button>
+                            <span className="checkout-payment-method-badge"><Check size={13} aria-hidden="true" /> Selected</span>
                         </div>
-
-                        {paymentOptionsOpen && <div className="checkout-payment-options checkout-payment-options-summary">
-                            <label
-                                className={`checkout-payment-option ${
-                                    paymentMethod === "cash_on_delivery"
-                                        ? "selected"
-                                        : ""
-                                }`}
-                            >
-                                <input
-                                    type="radio"
-                                    name="payment"
-                                    value="cash_on_delivery"
-                                    checked={paymentMethod === "cash_on_delivery"}
-                                    onChange={(event) => {
-                                        setPaymentMethod(event.target.value);
-                                        setPaymentOptionsOpen(false);
-                                    }}
-                                />
-
-                                <span className="checkout-payment-radio">
-                                    <strong>Cash on Delivery</strong>
-                                    <small>
-                                        Pay when your order arrives
-                                    </small>
-                                </span>
-                            </label>
-
-                            <label
-                                className={`checkout-payment-option ${
-                                    paymentMethod === "gcash"
-                                        ? "selected"
-                                        : ""
-                                }`}
-                            >
-                                <input
-                                    type="radio"
-                                    name="payment"
-                                    value="gcash"
-                                    checked={paymentMethod === "gcash"}
-                                    onChange={(event) => {
-                                        setPaymentMethod(event.target.value);
-                                        setPaymentOptionsOpen(false);
-                                    }}
-                                />
-
-                                <span className="checkout-payment-radio">
-                                    <strong>GCash</strong>
-                                    <small>
-                                        GCash selected for this order
-                                    </small>
-                                </span>
-                            </label>
-                        </div>}
+                        <p className="checkout-payment-hint">Pay when your order arrives at the delivery address.</p>
                     </div>
 
                     <div className="checkout-summary-total">
@@ -1247,10 +1216,7 @@ function Checkout() {
                                 </span>
 
                                 <strong>
-                                    {paymentMethod ===
-                                    "gcash"
-                                        ? "GCash"
-                                        : "Cash on Delivery"}
+                                    Cash on Delivery
                                 </strong>
                             </div>
 

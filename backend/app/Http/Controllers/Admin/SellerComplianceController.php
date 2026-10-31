@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\SellerComplianceAction;
 use App\Models\Product;
+use App\Notifications\SellerActivityNotification;
 use App\Support\SellerProductCompliance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +49,10 @@ class SellerComplianceController extends Controller
                     ->orWhere('middle_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhereHas('sellerProfile', fn ($profile) => $profile
+                        ->where('business_name', 'like', "%{$search}%")
+                        ->orWhere('line_of_business', 'like', "%{$search}%"));
             });
         }
 
@@ -331,6 +335,17 @@ class SellerComplianceController extends Controller
             'reviewed_at' => now(),
             'status' => $approved ? $product->status : 'inactive',
         ])->save();
+
+        $seller = User::query()->where('role', 'seller')->find($product->seller_id);
+        $seller?->notify(new SellerActivityNotification(
+            $approved ? 'Product approved' : 'Product needs changes',
+            $approved
+                ? "{$product->name} was approved and is now eligible to appear in your storefront."
+                : "{$product->name} was not approved. Reason: ".trim($validated['reason']),
+            $approved ? 'product_approved' : 'product_rejected',
+            '/seller/inventory',
+            ['product_id' => $product->id, 'review_status' => $approved ? 'approved' : 'rejected'],
+        ));
 
         return response()->json([
             'success' => true,

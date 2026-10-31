@@ -58,7 +58,9 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
     (response) => {
-        response.data = resolveStorageUrls(response.data);
+        if (typeof Blob === "undefined" || !(response.data instanceof Blob)) {
+            response.data = resolveStorageUrls(response.data);
+        }
         return response;
     },
     (error) => {

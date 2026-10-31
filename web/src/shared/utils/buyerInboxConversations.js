@@ -5,7 +5,10 @@ export function getBuyerInboxConversations(conversations, supportOnly = false) {
         return rows.filter((conversation) => Boolean(conversation.seller_id));
     }
 
-    const supportRows = rows.filter((conversation) => Boolean(conversation.admin_id || conversation.admin));
+    // A CRYMA support conversation belongs to the buyer even before an admin
+    // is assigned. This lets the assistant respond immediately and keeps the
+    // same thread available for a human to pick up later.
+    const supportRows = rows.filter((conversation) => !conversation.seller_id);
     const conversationsWithMessages = supportRows.filter((conversation) => conversation.messages?.length);
     if (conversationsWithMessages.length > 0) {
         return conversationsWithMessages;

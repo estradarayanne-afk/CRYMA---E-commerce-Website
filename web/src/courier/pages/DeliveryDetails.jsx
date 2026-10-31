@@ -6,6 +6,16 @@ import CourierConfirmModal from "../components/CourierConfirmModal";
 import { validateDeliveryProof } from "../utils/deliveryProof";
 import "../layouts/CourierPages.css";
 
+const formatWeight = (item) => {
+    const weight = Number(item.unit_weight_kg ?? item.product?.weight_kg ?? 0);
+    return weight > 0 ? `${weight.toLocaleString("en-PH")} kg each` : "Weight unavailable";
+};
+
+const parcelWeight = (items) => {
+    const total = items.reduce((sum, item) => sum + Number(item.unit_weight_kg ?? item.product?.weight_kg ?? 0) * Number(item.quantity || 0), 0);
+    return total > 0 ? `${total.toLocaleString("en-PH")} kg` : "Unavailable";
+};
+
 function DeliveryDetails() {
     const { id } = useParams();
     const [delivery, setDelivery] = useState(null);
@@ -15,6 +25,7 @@ function DeliveryDetails() {
     const [notice, setNotice] = useState("");
     const [reason, setReason] = useState("");
     const [recipientName, setRecipientName] = useState("");
+    const [codAmount, setCodAmount] = useState("");
     const [photo, setPhoto] = useState(null);
     const [photoError, setPhotoError] = useState("");
     const [validationError, setValidationError] = useState("");
@@ -77,6 +88,7 @@ function DeliveryDetails() {
         body.append("expected_status", delivery.status);
         body.append("recipient_full_name", recipientName.trim());
         body.append("photo", photo);
+        if (delivery.order?.payment_method === "cash_on_delivery") body.append("cod_amount_collected", codAmount);
         setSaving(true);
         submittingProof.current = true;
         setError("");
@@ -120,6 +132,7 @@ function DeliveryDetails() {
     const isComplete = ["DELIVERED", "COMPLETED"].includes(delivery.status);
     const statusLabel = delivery.status.replaceAll("_", " ").toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
     const items = delivery.order?.items || [];
+    const isCod = delivery.order?.payment_method === "cash_on_delivery";
 
     return <section className="cw-page">
         <Link className="cw-back-link" to="/courier/deliveries">← Assigned deliveries</Link>
@@ -131,6 +144,7 @@ function DeliveryDetails() {
                 {canFail && <form className="cw-proof-form" onSubmit={(event) => void submitProof(event)}>
                     <h3>Complete delivery with proof</h3>
                     <p className="cw-proof-help">Both fields are required. Proof is stored securely and visible to authorized staff.</p>
+                    {isCod && <label>Cash collected from buyer (₱{Number(delivery.order?.total_amount || 0).toFixed(2)})<input type="number" min="0" step="0.01" required value={codAmount} onChange={(event) => setCodAmount(event.target.value)} /><span className="cw-proof-help">Enter the exact amount received before completing delivery.</span></label>}
                     <label>Recipient’s full name<input required maxLength={150} autoComplete="name" value={recipientName} aria-invalid={!!validationError && !recipientName.trim()} aria-describedby="recipient-proof-help proof-validation-error" onChange={(event) => { setRecipientName(event.target.value); setValidationError(""); }} /></label>
                     <span id="recipient-proof-help" className="cw-proof-help">Enter the name of the person who received the parcel.</span>
                     <label htmlFor="delivery-proof-photo">Delivery photo <span className="cw-proof-required">Required</span></label>

@@ -4,10 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Conversation;
+use App\Models\Commission;
+use App\Models\CodCollection;
+use App\Models\Message;
 use App\Models\Product;
+use App\Models\RefundRequest;
 use App\Models\SellerProfile;
 use App\Models\Voucher;
 use App\Models\VoucherRedemption;
+use App\Models\User;
+use App\Notifications\SellerActivityNotification;
 use App\Support\VoucherDiscount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -166,7 +173,7 @@ class BuyerOrderController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $order = Order::with(['items.product', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea'])
+        $order = Order::with(['items.product', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea', 'delivery.currentHub', 'latestRefundRequest.returnShipment.currentHub'])
             ->where('buyer_id', $request->user()->id)
             ->find($id);
 
@@ -183,6 +190,125 @@ class BuyerOrderController extends Controller
             'success' => true,
             'data' => $order,
         ]);
+    }
+
+    public function cancel(Request $request, int $id)
+    {
+        $order = DB::transaction(function () use ($request, $id) {
+            $order = Order::with('items')
+                ->where('buyer_id', $request->user()->id)
+                ->whereKey($id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_unless(in_array(strtoupper((string) $order->status), ['PENDING', 'PLACED'], true), 409, 'This order can no longer be cancelled. Contact the seller if you need help.');
+            abort_if($order->delivery()->exists(), 409, 'This order already has shipment activity and can no longer be cancelled here. Contact the seller for help.');
+
+            foreach ($order->items as $item) {
+                $product = Product::whereKey($item->product_id)->lockForUpdate()->first();
+                if (!$product) continue;
+
+                $variants = $product->variants ?? [];
+                if ($variants) {
+                    $variantIndex = collect($variants)->search(function (array $variant) use ($item): bool {
+                        if (filled($item->variant_id)) return (string) ($variant['id'] ?? '') === (string) $item->variant_id;
+                        return filled($item->variant_label) && collect([
+                            filled($variant['color'] ?? null) ? 'Color: '.$variant['color'] : null,
+                            filled($variant['size'] ?? null) ? 'Size: '.$variant['size'] : null,
+                        ])->filter()->implode(' · ') === $item->variant_label;
+                    });
+                    abort_if($variantIndex === false, 409, "This order's product option changed, so it cannot be safely cancelled. Contact the seller for help.");
+                    $variants[$variantIndex]['stock'] = (int) ($variants[$variantIndex]['stock'] ?? 0) + (int) $item->quantity;
+                    $product->variants = $variants;
+                }
+
+                $product->stock = (int) $product->stock + (int) $item->quantity;
+                $product->save();
+            }
+
+            $order->status = 'CANCELLED';
+            $order->save();
+            Commission::where('order_id', $order->id)->whereIn('status', ['pending', 'available'])->update(['status' => 'cancelled']);
+            CodCollection::where('order_id', $order->id)->where('status', 'awaiting_collection')->update(['status' => 'cancelled']);
+
+            return $order->load('items.product');
+        });
+
+        return response()->json(['success' => true, 'message' => 'Order cancelled and stock restored.', 'data' => $order]);
+    }
+
+    public function requestRefund(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:2000', 'not_regex:/^\\s*$/u'],
+            'requested_amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
+        ]);
+
+        $buyer = $request->user();
+        abort_unless($buyer->role === 'buyer', 403, 'Only buyers can request a refund.');
+
+        $refundRequest = DB::transaction(function () use ($buyer, $id, $validated) {
+            $order = Order::where('buyer_id', $buyer->id)->whereKey($id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array(strtoupper((string) $order->status), ['DELIVERED', 'COMPLETED'], true), 422, 'A refund request can be submitted after the order is delivered.');
+            abort_if((float) $validated['requested_amount'] > (float) $order->total_amount, 422, 'The requested amount cannot exceed the order total.');
+
+            $openRequest = RefundRequest::where('order_id', $order->id)
+                ->whereIn('status', ['pending', 'under_review', 'approved'])
+                ->exists();
+            abort_if($openRequest, 409, 'This order already has an active refund request.');
+            abort_if(RefundRequest::where('order_id', $order->id)->where('status', 'refunded')->exists(), 409, 'This order has already been refunded.');
+
+            User::whereKey($buyer->id)->lockForUpdate()->firstOrFail();
+            $admin = User::where('role', 'admin')->where('status', 'active')->first();
+            $conversation = Conversation::where('buyer_id', $buyer->id)
+                ->whereNull('seller_id')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->first();
+            if (!$conversation) {
+                $conversation = Conversation::create(['buyer_id' => $buyer->id, 'admin_id' => $admin?->id]);
+            } elseif (
+                $admin
+                && !$conversation->admin()->where('role', 'admin')->where('status', 'active')->exists()
+            ) {
+                $conversation->update(['admin_id' => $admin->id]);
+            }
+
+            $refundRequest = RefundRequest::create([
+                'order_id' => $order->id,
+                'buyer_id' => $buyer->id,
+                'conversation_id' => $conversation->id,
+                'requested_amount' => $validated['requested_amount'],
+                'reason' => trim($validated['reason']),
+                'status' => 'pending',
+            ]);
+
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'sender_id' => $buyer->id,
+                'sender_type' => 'user',
+                'order_id' => $order->id,
+                'message' => "Refund request #{$refundRequest->id} submitted for Order #{$order->id} (₱".number_format((float) $refundRequest->requested_amount, 2).'). Reason: '.trim($validated['reason']),
+                'is_read' => false,
+            ]);
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'sender_id' => $buyer->id,
+                'sender_type' => 'assistant',
+                'order_id' => $order->id,
+                'message' => "Refund request #{$refundRequest->id} is now pending Customer Service review. You can track its status on Order #{$order->id}. Approval and repayment are not automatic.",
+                'is_read' => true,
+            ]);
+            $conversation->touch();
+
+            return $refundRequest;
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Refund request submitted for review.',
+            'data' => $refundRequest->fresh(),
+        ], 201);
     }
 
     public function confirmReceived(Request $request, int $id)
@@ -202,6 +328,11 @@ class BuyerOrderController extends Controller
                 'buyer_confirmed_by' => $request->user()->id,
             ]);
             $order->update(['status' => 'COMPLETED']);
+            $cod = \App\Models\CodCollection::where('order_id', $order->id)->first();
+            $hasOpenRefund = RefundRequest::where('order_id', $order->id)->whereIn('status', ['pending', 'under_review', 'approved'])->exists();
+            if ($cod?->status === 'remitted' && !$hasOpenRefund) {
+                Commission::where('order_id', $order->id)->where('status', 'pending')->update(['status' => 'available']);
+            }
             \App\Support\OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $request->user()->id,
                 'event_type' => 'buyer_receipt_confirmed',
@@ -210,6 +341,17 @@ class BuyerOrderController extends Controller
                 'previous_courier_profile_id' => $delivery->courier_profile_id,
                 'courier_profile_id' => $delivery->courier_profile_id,
             ]);
+
+            $sellerIds = $order->items()->distinct()->pluck('seller_id');
+            User::whereIn('id', $sellerIds)->where('role', 'seller')->get()->each(function (User $seller) use ($order) {
+                $seller->notify(new SellerActivityNotification(
+                    'Customer confirmed delivery',
+                    "The customer confirmed receipt of order #{$order->id}.",
+                    'order_received',
+                    '/seller/orders',
+                    ['order_id' => $order->id, 'status' => 'COMPLETED'],
+                ));
+            });
 
             return \App\Support\OrderDeliveryProjection::apply($order->load('delivery.events', 'delivery.deliveryArea', 'delivery.pickupAssignment'));
         });
@@ -235,7 +377,7 @@ class BuyerOrderController extends Controller
 
             'payment_method' => [
                 'required',
-                'in:cash_on_delivery,gcash',
+                'in:cash_on_delivery',
             ],
 
             'items' => [
@@ -511,6 +653,24 @@ class BuyerOrderController extends Controller
                     'voucher_discount' => $this->formatCents($discountCents),
                 ]);
 
+                $earningsBasisCents = max(0, $subtotalCents - $discountCents);
+                $commissionCents = (int) round($earningsBasisCents * 0.10);
+                $sellerId = $order->items()->value('seller_id');
+                Commission::create([
+                    'order_id' => $order->id,
+                    'seller_id' => $sellerId,
+                    'order_amount' => $this->formatCents($earningsBasisCents),
+                    'commission_rate' => 10.00,
+                    'commission_amount' => $this->formatCents($commissionCents),
+                    'seller_earnings' => $this->formatCents($earningsBasisCents - $commissionCents),
+                    'status' => 'pending',
+                ]);
+                CodCollection::create([
+                    'order_id' => $order->id,
+                    'expected_amount' => $this->formatCents($subtotalCents - $discountCents),
+                    'status' => 'awaiting_collection',
+                ]);
+
                 if ($voucher) {
                     VoucherRedemption::create([
                         'voucher_id' => $voucher->id,
@@ -533,6 +693,19 @@ class BuyerOrderController extends Controller
             }
 
             return $this->idempotentOrderResponse($existingOrder, $requestHash);
+        }
+
+        $order->loadMissing('items');
+        $buyerName = trim(implode(' ', array_filter([$request->user()->first_name, $request->user()->last_name]))) ?: 'A buyer';
+        foreach ($order->items->groupBy('seller_id') as $sellerId => $sellerItems) {
+            $seller = User::query()->where('role', 'seller')->find($sellerId);
+            $seller?->notify(new SellerActivityNotification(
+                'New order received',
+                "{$buyerName} placed order #{$order->id} with {$sellerItems->count()} product item".($sellerItems->count() === 1 ? '.' : 's.'),
+                'new_order',
+                '/seller/orders',
+                ['order_id' => $order->id],
+            ));
         }
 
         return response()->json([

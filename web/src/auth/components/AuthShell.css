@@ -43,7 +43,7 @@
 .cryma-auth-visual-rings { z-index: -1; inset: auto -160px -260px auto; width: 520px; height: 520px; border: 1px solid rgba(249,220,228,.22); border-radius: 50%; box-shadow: 0 0 0 38px rgba(249,220,228,.035), 0 0 100px rgba(239,167,184,.17); }
 .cryma-auth-visual-rings::before { content: ""; position: absolute; inset: 76px; border: 1px solid rgba(249,220,228,.18); border-radius: inherit; }
 .cryma-auth-logo { position: relative; display: inline-flex; align-items: center; gap: 11px; width: fit-content; color: var(--white); text-decoration: none; font-size: 20px; font-weight: 800; letter-spacing: .13em; }
-.cryma-auth-logo-mark { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(255,255,255,.55); border-radius: 11px; background: rgba(255,255,255,.12); color: var(--white); font-size: 17px; letter-spacing: 0; backdrop-filter: blur(8px); }
+.cryma-auth-logo-mark { display: block; width: 38px; height: 38px; object-fit: contain; }
 .cryma-auth-visual-copy { max-width: 520px; margin: auto 0; padding: 38px 0; animation: auth-copy-enter .45s .06s ease-out both; }
 .cryma-auth-eyebrow { display: block; margin-bottom: 18px; color: var(--blush); font-size: 12px; font-weight: 700; letter-spacing: .19em; }
 .cryma-auth-visual-copy h2 { margin: 0; color: var(--white); font-size: clamp(42px, 4.3vw, 64px); font-weight: 600; line-height: 1.08; letter-spacing: -.045em; }

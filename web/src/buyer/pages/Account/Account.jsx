@@ -450,7 +450,7 @@ function Account() {
     return (
         <main className="account-page">
             <section className="account-container">
-                <header className="account-hero">
+                <header className="account-hero buyer-page-masthead">
                     <div className="account-avatar-large">
                         {profileImagePreview || profileImageUrl ? (
                             <img src={profileImagePreview || profileImageUrl} alt="Your profile" />

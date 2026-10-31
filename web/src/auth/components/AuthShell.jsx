@@ -13,7 +13,7 @@ export function AuthVisualPanel({
             <img className="cryma-auth-visual-photo" src={visual.src} alt={visual.alt} fetchPriority="high" />
             <div className="cryma-auth-visual-shade" aria-hidden="true" />
             <div className="cryma-auth-visual-rings" aria-hidden="true" />
-            <Link to="/" className="cryma-auth-logo"><span className="cryma-auth-logo-mark">C</span><span>CRYMA</span></Link>
+            <Link to="/" className="cryma-auth-logo"><img className="cryma-auth-logo-mark" src="/cryma-favicon.png" alt="" /><span>CRYMA</span></Link>
             <div className="cryma-auth-visual-copy">
                 <span className="cryma-auth-eyebrow">YOUR EVERYDAY MARKETPLACE</span>
                 <h2>{headline}</h2>

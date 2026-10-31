@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\PickupAssignment;
+use App\Models\LogisticsHub;
 use App\Support\OrderDeliveryProjection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +38,7 @@ class ParcelOperationsController extends Controller
                 'status' => PickupAssignment::RECEIVED,
                 'received_at' => now(),
             ]);
-            $delivery->update(['status' => Delivery::AT_SORTING_CENTER]);
+            $delivery->update(['status' => Delivery::AT_SORTING_CENTER, 'current_hub_id' => LogisticsHub::where('code', 'CRYMA-CENTRAL')->value('id')]);
             $order->update(['status' => Delivery::AT_SORTING_CENTER]);
 
             OrderDeliveryProjection::event($delivery, [

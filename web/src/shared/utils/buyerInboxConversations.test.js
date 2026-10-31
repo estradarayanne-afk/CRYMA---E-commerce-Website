@@ -32,3 +32,12 @@ test("support inbox prefers conversations with history over duplicate empty thre
         [olderEmpty],
     );
 });
+
+test("support inbox includes an unassigned assistant conversation", () => {
+    const assistantThread = { id: 14, seller_id: null, admin_id: null, messages: [] };
+
+    assert.deepEqual(
+        getBuyerInboxConversations([assistantThread], true),
+        [assistantThread],
+    );
+});

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DeliveryArea extends Model
 {
-    protected $fillable = ['name', 'is_active'];
+    protected $fillable = ['name', 'is_active', 'hub_id'];
 
     protected function casts(): array
     {
@@ -26,4 +26,6 @@ class DeliveryArea extends Model
     {
         return $this->hasMany(Delivery::class);
     }
+
+    public function hub() { return $this->belongsTo(LogisticsHub::class); }
 }

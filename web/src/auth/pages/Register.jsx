@@ -134,6 +134,7 @@ function Register({
     embedded = false,
     selectedRole,
     onSwitchToLogin,
+    onReturnToCryma,
 }) {
     const location = useLocation();
     const { role: routeRole } = useParams();
@@ -722,7 +723,7 @@ const handleResendVerification = async () => {
                                     : "the administrator's"}{" "}
                                 approval before accessing your account.
                             </p>
-                            <Link to="/" className="primary-action">Return to CRYMA</Link>
+                            <Link to="/" className="primary-action" onClick={() => { if (embedded) onReturnToCryma?.(); }}>Back to CRYMA</Link>
                         </section>
 
                     ) : submitted ? (

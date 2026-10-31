@@ -31,6 +31,7 @@ class DeliveryController extends Controller
             'deliveryArea:id,name',
             'proof',
             'events',
+            'order.codCollection',
         ]);
     }
 
@@ -53,6 +54,9 @@ class DeliveryController extends Controller
             'order' => $order ? [
                 'id' => $order->id,
                 'status' => $order->status,
+                'payment_method' => $order->payment_method,
+                'total_amount' => $order->total_amount,
+                'cod_collection_status' => $order->codCollection?->status,
                 'delivery_address' => $order->delivery_address,
                 'items' => $order->items->map(fn ($item) => [
                     'id' => $item->id,

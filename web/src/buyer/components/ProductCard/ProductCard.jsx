@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Heart, ShoppingCart, Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Heart, PackageOpen, ShoppingCart, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     getBuyerWishlist,
@@ -17,6 +17,7 @@ function ProductCard({
     saved,
     onSave,
     onAddToCart,
+    tiltOnHover = false,
 }) {
     const navigate = useNavigate();
     const [wishlist, setWishlist] = useState(getBuyerWishlist);
@@ -28,6 +29,7 @@ function ProductCard({
         .filter((image) => typeof image === "string" && image.trim()))];
     const [failedImage, setFailedImage] = useState("");
     const productImage = productImages.find((image) => image !== failedImage) || "";
+    const imageFrameRef = useRef(null);
 
     const localSaved = wishlist.some((id) => String(id) === String(product?.id));
 
@@ -45,6 +47,24 @@ function ProductCard({
             window.removeEventListener("storage", syncWishlist);
         };
     }, []);
+
+    useEffect(() => {
+        imageFrameRef.current?.classList.remove("has-loaded-image");
+    }, [productImage]);
+
+    const handleCardPointerMove = (event) => {
+        if (event.pointerType === "touch" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+        const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+        event.currentTarget.style.setProperty("--card-tilt-x", `${-y * 6}deg`);
+        event.currentTarget.style.setProperty("--card-tilt-y", `${x * 7}deg`);
+    };
+
+    const resetCardTilt = (event) => {
+        event.currentTarget.style.setProperty("--card-tilt-x", "0deg");
+        event.currentTarget.style.setProperty("--card-tilt-y", "0deg");
+    };
 
     const price = Number(product?.price || 0);
     const stock = Number(product?.stock || 0);
@@ -106,7 +126,11 @@ function ProductCard({
     };
 
     return (
-        <article className="buyer-product-card">
+        <article
+            className={`buyer-product-card ${tiltOnHover ? "is-tiltable" : ""}`}
+            onPointerMove={tiltOnHover ? handleCardPointerMove : undefined}
+            onPointerLeave={tiltOnHover ? resetCardTilt : undefined}
+        >
 
             <Link
                 to={getProductDetailPath(product?.id)}
@@ -115,7 +139,7 @@ function ProductCard({
                     product?.name || "product"
                 }`}
             >
-                <div className="buyer-product-image">
+                <div ref={imageFrameRef} className={`buyer-product-image ${productImage ? "has-image" : ""}`}>
                     {sellerOnVacation && <span className="buyer-product-vacation-badge">On vacation</span>}
                     {productImage && failedImage !== productImage ? (
                         <img
@@ -123,12 +147,14 @@ function ProductCard({
                             alt={product?.name || "Product"}
                             loading="lazy"
                             decoding="async"
+                            onLoad={(event) => event.currentTarget.parentElement?.classList.add("has-loaded-image")}
                             onError={() => setFailedImage(productImage)}
                         />
                     ) : (
-                        <span className="buyer-product-image-fallback" aria-label="Product photo unavailable">
-                            <span aria-hidden="true">{product?.name?.charAt(0)?.toUpperCase() || "C"}</span>
-                            <small>Photo unavailable</small>
+                        <span className="buyer-product-image-fallback" role="img" aria-label={`Illustrated placeholder for ${product?.name || "product"}`}>
+                            <span className="buyer-product-fallback-orbit" aria-hidden="true" />
+                            <span className="buyer-product-fallback-mark" aria-hidden="true"><PackageOpen size={32} strokeWidth={1.4} /></span>
+                            <small>CRYMA SELECT</small>
                         </span>
                     )}
                 </div>

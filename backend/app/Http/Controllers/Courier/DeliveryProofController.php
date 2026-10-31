@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Courier;
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\DeliveryProof;
+use App\Models\CodCollection;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\CourierEligibility;
@@ -24,6 +25,7 @@ class DeliveryProofController extends Controller
             'expected_status' => ['required', 'in:OUT_FOR_DELIVERY'],
             'recipient_full_name' => ['required', 'string', 'max:150'],
             'photo' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'cod_amount_collected' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
         ]);
         $recipientName = trim($values['recipient_full_name']);
         if ($recipientName === '') {
@@ -46,7 +48,7 @@ class DeliveryProofController extends Controller
 
         $storedPaths = [];
         try {
-            $delivery = DB::transaction(function () use ($request, $id, $profile, $eligibility, $recipientName, &$storedPaths) {
+            $delivery = DB::transaction(function () use ($request, $id, $profile, $eligibility, $recipientName, $values, &$storedPaths) {
                 $initial = Delivery::where('courier_profile_id', $profile->id)->find($id);
                 abort_unless($initial, 404, 'Assigned delivery not found.');
 
@@ -57,6 +59,16 @@ class DeliveryProofController extends Controller
                 abort_unless($delivery->status === Delivery::OUT_FOR_DELIVERY, 409, 'Only an active delivery can be completed with proof.');
                 abort_unless($order->status === Delivery::OUT_FOR_DELIVERY, 409, 'Order and delivery status are out of sync. Contact an administrator.');
                 abort_unless(!$delivery->proof()->exists(), 409, 'Proof of delivery has already been recorded.');
+
+                $codCollection = CodCollection::where('order_id', $order->id)->lockForUpdate()->first();
+                if (!$codCollection && $order->payment_method === 'cash_on_delivery') {
+                    $codCollection = CodCollection::create(['order_id' => $order->id, 'expected_amount' => $order->total_amount]);
+                }
+                if ($order->payment_method === 'cash_on_delivery') {
+                    abort_unless($codCollection, 409, 'COD collection record is missing. Contact an administrator.');
+                    abort_unless(array_key_exists('cod_amount_collected', $values), 422, 'Confirm the cash collected from the buyer.');
+                    abort_unless((int) round(((float) $values['cod_amount_collected']) * 100) === (int) round(((float) $order->total_amount) * 100), 422, 'The collected cash must match the exact order total.');
+                }
 
                 $capturedAt = now();
                 $directory = "delivery-proofs/{$delivery->id}";
@@ -83,6 +95,14 @@ class DeliveryProofController extends Controller
                 ]);
                 $delivery->update(['status' => Delivery::DELIVERED, 'delivered_at' => $capturedAt, 'failure_reason' => null]);
                 $order->update(['status' => Delivery::DELIVERED]);
+                if ($order->payment_method === 'cash_on_delivery' && $codCollection) {
+                    $codCollection->update([
+                        'courier_profile_id' => $profile->id,
+                        'collected_amount' => $values['cod_amount_collected'],
+                        'collected_at' => $capturedAt,
+                        'status' => 'collected',
+                    ]);
+                }
                 OrderDeliveryProjection::event($delivery, [
                     'actor_id' => $request->user()->id,
                     'event_type' => 'delivered_with_proof',

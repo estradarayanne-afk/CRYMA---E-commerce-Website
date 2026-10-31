@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Voucher;
+use App\Models\VoucherClaim;
 use App\Support\VoucherDiscount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,11 +19,14 @@ class BuyerVoucherController extends Controller
         $vouchers = Voucher::query()
             ->where(function ($query) use ($buyerId) {
                 $query->where('is_active', true)
-                    ->orWhereHas('redemptions', fn ($redemptions) => $redemptions->where('buyer_id', $buyerId));
+                    ->orWhereHas('redemptions', fn ($redemptions) => $redemptions->where('buyer_id', $buyerId))
+                    ->orWhereHas('claims', fn ($claims) => $claims->where('buyer_id', $buyerId));
             })
+            ->with(['seller:id,first_name,last_name', 'seller.sellerProfile:user_id,business_name'])
             ->withCount([
                 'redemptions',
                 'redemptions as buyer_redemptions_count' => fn ($query) => $query->where('buyer_id', $buyerId),
+                'claims as buyer_claims_count' => fn ($query) => $query->where('buyer_id', $buyerId),
             ])
             ->orderByDesc('is_active')
             ->orderBy('expires_at')
@@ -37,14 +41,75 @@ class BuyerVoucherController extends Controller
                 [$status, $reason] = $this->statusDetails($voucher);
                 $voucher->setAttribute('buyer_status', $status);
                 $voucher->setAttribute('buyer_status_reason', $reason);
+                $voucher->setAttribute('is_claimed', $voucher->buyer_claims_count > 0);
                 $voucher->setAttribute('eligible_product_names', collect($voucher->product_ids ?? [])
                     ->map(fn ($id) => $eligibleProductNames->get($id))
                     ->filter()
                     ->values());
+                if ($voucher->seller) {
+                    $voucher->setAttribute('seller_name', $voucher->seller->sellerProfile?->business_name
+                        ?: trim($voucher->seller->first_name.' '.$voucher->seller->last_name));
+                }
+                $voucher->setAttribute('voucher_seller_id', $voucher->seller_id);
+                $voucher->makeHidden(['seller', 'seller_id']);
                 return $voucher;
             });
 
         return response()->json(['success' => true, 'data' => $vouchers]);
+    }
+
+    public function claim(Request $request, int $id)
+    {
+        $buyerId = $request->user()->id;
+        $voucher = DB::transaction(function () use ($id, $buyerId) {
+            $voucher = Voucher::query()->lockForUpdate()->findOrFail($id);
+            if ($voucher->claims()->where('buyer_id', $buyerId)->exists()) {
+                return $voucher;
+            }
+            if (!$voucher->is_active) {
+                throw ValidationException::withMessages(['voucher' => ['This voucher is not available to claim.']]);
+            }
+            if ($voucher->starts_at?->isFuture()) {
+                throw ValidationException::withMessages(['voucher' => ['This voucher is not available yet.']]);
+            }
+            if ($voucher->expires_at?->isPast()) {
+                throw ValidationException::withMessages(['voucher' => ['This voucher has expired.']]);
+            }
+            if ($voucher->usage_limit !== null && $voucher->redemptions()->count() >= $voucher->usage_limit) {
+                throw ValidationException::withMessages(['voucher' => ['This voucher has reached its usage limit.']]);
+            }
+            if ($voucher->redemptions()->where('buyer_id', $buyerId)->count() >= $voucher->per_buyer_limit) {
+                throw ValidationException::withMessages(['voucher' => ['You have already used this voucher the maximum number of times.']]);
+            }
+
+            $products = Product::query()
+                ->where('status', 'active')
+                ->where('review_status', 'approved')
+                ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'));
+            if ($voucher->seller_id !== null) $products->where('seller_id', $voucher->seller_id);
+            $productIds = $voucher->product_ids ?? [];
+            $categories = $voucher->categories ?? [];
+            if ($productIds || $categories) {
+                $products->where(function ($query) use ($productIds, $categories) {
+                    if ($productIds) $query->whereIn('id', $productIds);
+                    if ($categories) {
+                        $productIds ? $query->orWhereIn('category', $categories) : $query->whereIn('category', $categories);
+                    }
+                });
+            }
+            if (!$products->exists()) {
+                throw ValidationException::withMessages(['voucher' => ['This voucher has no eligible products available right now.']]);
+            }
+
+            VoucherClaim::create(['voucher_id' => $voucher->id, 'buyer_id' => $buyerId]);
+            return $voucher;
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Voucher added to your account.',
+            'data' => ['voucher_id' => $voucher->id, 'is_claimed' => true],
+        ], 201);
     }
 
     public function validateCode(Request $request, VoucherDiscount $discounts)

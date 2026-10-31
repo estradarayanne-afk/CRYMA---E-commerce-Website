@@ -40,7 +40,9 @@ class PickupController extends Controller
             'id' => $assignment->id,
             'order_id' => $assignment->order_id,
             'status' => $assignment->status,
+            'pickup_address' => $assignment->pickup_address,
             'assigned_at' => $assignment->assigned_at,
+            'scheduled_at' => $assignment->scheduled_at,
             'picked_up_at' => $assignment->picked_up_at,
             'received_at' => $assignment->received_at,
             'order' => $order ? [
@@ -104,8 +106,8 @@ class PickupController extends Controller
     public function updateStatus(Request $request, int $id, CourierEligibility $eligibility)
     {
         $values = $request->validate([
-            'status' => ['required', 'in:ACCEPTED_BY_PICKUP_RIDER,PICKED_UP,AT_SORTING_CENTER'],
-            'expected_status' => ['required', 'in:ASSIGNED_TO_PICKUP_RIDER,ACCEPTED_BY_PICKUP_RIDER,PICKED_UP'],
+            'status' => ['required', 'in:ACCEPTED_BY_PICKUP_RIDER,PICKED_UP'],
+            'expected_status' => ['required', 'in:ASSIGNED_TO_PICKUP_RIDER,ACCEPTED_BY_PICKUP_RIDER'],
         ]);
         $profile = $this->profile($request->user(), $eligibility);
         $initial = PickupAssignment::where('courier_profile_id', $profile->id)->find($id);
@@ -116,9 +118,7 @@ class PickupController extends Controller
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             $assignment = PickupAssignment::where('courier_profile_id', $profile->id)->whereKey($id)->lockForUpdate()->firstOrFail();
             abort_unless($eligibility->isEligible($profile), 403, 'Courier eligibility changed. Contact an administrator.');
-            $expectedOrderStatus = $values['expected_status'] === PickupAssignment::PICKED_UP
-                ? Delivery::PICKED_UP
-                : 'READY_FOR_PICKUP';
+            $expectedOrderStatus = 'READY_FOR_PICKUP';
             if ($assignment->status !== $values['expected_status'] || $order->status !== $expectedOrderStatus || $delivery->status !== $expectedOrderStatus) {
                 abort(409, 'Pickup status changed or is inconsistent. Refresh and try again.');
             }
@@ -128,26 +128,19 @@ class PickupController extends Controller
                 abort_unless($next === PickupAssignment::ACCEPTED, 422, 'Accept the pickup assignment before collecting the parcel.');
                 $orderPrevious = PickupAssignment::ASSIGNED;
                 $assignment->update(['status' => PickupAssignment::ACCEPTED]);
-            } elseif ($values['expected_status'] === PickupAssignment::ACCEPTED) {
+            } else {
                 abort_unless($next === PickupAssignment::PICKED_UP, 422, 'Accept the pickup assignment before collecting the parcel.');
                 $orderPrevious = PickupAssignment::ACCEPTED;
                 $assignment->update(['status' => PickupAssignment::PICKED_UP, 'picked_up_at' => now()]);
                 $delivery->update(['status' => Delivery::PICKED_UP, 'picked_up_at' => now()]);
                 $order->update(['status' => Delivery::PICKED_UP]);
-            } else {
-                abort_unless($next === PickupAssignment::RECEIVED, 422, 'Pickup rider must collect the parcel before confirming receipt at the sorting center.');
-                $orderPrevious = PickupAssignment::PICKED_UP;
-                $assignment->update(['status' => PickupAssignment::RECEIVED, 'received_at' => now()]);
-                $delivery->update(['status' => Delivery::AT_SORTING_CENTER]);
-                $order->update(['status' => Delivery::AT_SORTING_CENTER]);
             }
 
             OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $request->user()->id,
                 'event_type' => match ($next) {
                     PickupAssignment::ACCEPTED => 'pickup_accepted',
-                    PickupAssignment::PICKED_UP => 'pickup_collected',
-                    default => 'sorting_center_received',
+                    default => 'pickup_collected',
                 },
                 'previous_status' => $orderPrevious,
                 'new_status' => $next,

@@ -397,7 +397,7 @@ function Cart() {
 
     return (
         <main className="cart-page">
-            <header className="cart-page-header">
+            <header className="cart-page-header buyer-page-masthead">
                 <div>
                     <p className="cart-eyebrow">
                         YOUR CART

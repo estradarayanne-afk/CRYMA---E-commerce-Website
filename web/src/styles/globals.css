@@ -57,8 +57,28 @@ button,
     cursor: pointer;
 }
 
+button {
+    transition-property: background-color, border-color, color, box-shadow, transform, filter;
+    transition-duration: var(--transition-fast);
+}
+
+button:not(:disabled):hover {
+    filter: brightness(1.035);
+}
+
+button:not(:disabled):active {
+    transform: scale(.985);
+}
+
 button:disabled {
     cursor: not-allowed;
+    filter: saturate(.72);
+}
+
+button:focus-visible {
+    outline-color: rgba(126, 24, 48, .72);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px rgba(255, 247, 248, .92);
 }
 
 :focus-visible {

@@ -218,6 +218,25 @@ function Chat() {
         return () => clearTimeout(timeoutId);
     }, [loadConversations]);
 
+    const downloadAttachment = async (item) => {
+        try {
+            const response = await api.get(
+                `/admin/chat/conversations/${selectedConversation.id}/messages/${item.id}/attachment`,
+                { responseType: "blob" }
+            );
+            const url = URL.createObjectURL(response.data);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = item.attachment_name || "support-attachment";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch {
+            setError("Unable to download this attachment.");
+        }
+    };
+
     const handleSendMessage = async (e) => {
         e.preventDefault();
 
@@ -401,9 +420,8 @@ function Chat() {
                                             <small className={`chat-conversation-context ${isSellerChat ? "seller" : "buyer"}`}>{context}</small>
 
                                             <span>
-                                                {conversation.messages?.[0]
-                                                    ?.message ||
-                                                    "No messages yet"}
+                                                {conversation.messages?.[0]?.sender_type === "assistant" ? "CRYMA Assistant: " : ""}
+                                                {conversation.messages?.[0]?.message || "No messages yet"}
                                             </span>
                                             {Number(conversation.unread_messages_count || 0) > 0 && (
                                                 <span className="chat-unread-indicator">Unread messages</span>
@@ -482,7 +500,8 @@ function Chat() {
                                 ) : (
                                     selectedConversation.messages.map(
                                         (item) => {
-                                            const isAdmin =
+                                            const isAssistant = item.sender_type === "assistant";
+                                            const isAdmin = !isAssistant &&
                                                 Number(item.sender_id) !==
                                                 Number(selectedConversation.buyer_id);
 
@@ -490,15 +509,30 @@ function Chat() {
                                                 <div
                                                     key={item.id}
                                                     className={
-                                                        isAdmin
+                                                        isAssistant
+                                                            ? "message-row assistant"
+                                                            : isAdmin
                                                             ? "message-row admin"
                                                             : "message-row buyer"
                                                     }
                                                 >
                                                     <div className="message-bubble">
+                                                        {isAssistant && <strong className="chat-assistant-label">CRYMA Assistant · Automated</strong>}
                                                         <p>{item.message}</p>
+                                                        {item.order && (
+                                                            <div className="chat-order-card">
+                                                                <strong>Order #{item.order.id}</strong>
+                                                                <span>{item.order.items?.[0]?.product?.name || "CRYMA order"} · {item.order.status} · ₱{Number(item.order.total_amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        )}
+                                                        {item.attachment_name && (
+                                                            <button type="button" className="chat-attachment-card" onClick={() => downloadAttachment(item)}>
+                                                                <span>{item.attachment_name || "Support attachment"}</span>
+                                                                <span>Download image</span>
+                                                            </button>
+                                                        )}
                                                         {formatMessageTime(item.created_at) && (
-                                                            <time>{isAdmin ? "You · " : ""}{formatMessageTime(item.created_at)}</time>
+                                                            <time>{isAssistant ? "Automated · " : isAdmin ? "You · " : ""}{formatMessageTime(item.created_at)}</time>
                                                         )}
                                                     </div>
                                                 </div>

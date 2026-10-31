@@ -1,11 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     AlertCircle,
-    ArrowRight,
     Check,
-    ChevronLeft,
     ChevronDown,
-    ChevronRight,
     Filter,
     RefreshCw,
     RotateCcw,
@@ -17,7 +14,6 @@ import { useSearchParams } from "react-router-dom";
 import api from "../../../shared/services/api";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import { CATEGORY_FILTERS } from "../../../shared/constants/categories";
-import { HERO_DISCOVERY_CATEGORIES, LANDING_VISUALS, getLandingCategoryVisual } from "../../../shared/constants/landingVisuals";
 import { isBuyerSession } from "../../../shared/utils/buyerAccess";
 import {
     matchesProductCategory,
@@ -25,10 +21,12 @@ import {
 } from "../../../shared/utils/productDiscovery";
 import "./Categories.css";
 
-const SHOP_HERO_SLIDES = HERO_DISCOVERY_CATEGORIES.map((category) => ({
-    category,
-    ...getLandingCategoryVisual(category),
-})).filter((slide) => slide.src);
+const SORT_OPTIONS = [
+    { value: "featured", label: "Recommended" },
+    { value: "newest", label: "Newest arrivals" },
+    { value: "price-low", label: "Price: low to high" },
+    { value: "price-high", label: "Price: high to low" },
+];
 
 function getBuyerGreetingName() {
     try {
@@ -47,13 +45,37 @@ function Categories() {
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [loadError, setLoadError] = useState(false);
+    const [loadMoreError, setLoadMoreError] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
     const [reloadKey, setReloadKey] = useState(0);
 
     const [filterOpen, setFilterOpen] = useState(false);
-    const [activeHeroSlide, setActiveHeroSlide] = useState(0);
-    const [heroPaused, setHeroPaused] = useState(false);
+    const [sortOpen, setSortOpen] = useState(false);
+    const loadMoreRef = useRef(null);
+    const sortControlRef = useRef(null);
+    const resultsRef = useRef(null);
+    const loadMoreInFlightRef = useRef(false);
+    const requestVersionRef = useRef(0);
+    const readyQueryRef = useRef("");
 
+    const category = searchParams.get("category") || "All";
+    const search = searchParams.get("search") || "";
+    const sort = searchParams.get("sort") || "featured";
+    const minPrice = searchParams.get("minPrice") || "";
+    const maxPrice = searchParams.get("maxPrice") || "";
+    const stockOnly = searchParams.get("stock") === "1";
+    const requestKey = useMemo(() => JSON.stringify({
+        per_page: 20,
+        category: category === "All" ? undefined : category,
+        search: search.trim() || undefined,
+        min_price: minPrice || undefined,
+        max_price: maxPrice || undefined,
+        stock: stockOnly ? 1 : undefined,
+        sort,
+    }), [category, search, sort, minPrice, maxPrice, stockOnly]);
     const [draftFilters, setDraftFilters] = useState({
         category: searchParams.get("category") || "All",
         minPrice: searchParams.get("minPrice") || "",
@@ -62,83 +84,113 @@ function Categories() {
     });
 
     useEffect(() => {
-        const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        if (heroPaused || prefersReducedMotion || SHOP_HERO_SLIDES.length < 2) return undefined;
-
-        const interval = window.setInterval(() => {
-            setActiveHeroSlide((current) => (current + 1) % SHOP_HERO_SLIDES.length);
-        }, 5000);
-
-        return () => window.clearInterval(interval);
-    }, [heroPaused]);
-
-    useEffect(() => {
         let cancelled = false;
+        const requestVersion = ++requestVersionRef.current;
+        readyQueryRef.current = "";
+        loadMoreInFlightRef.current = false;
+        setLoading(true);
+        setLoadingMore(false);
+        setLoadError(false);
+        setLoadMoreError(false);
+        setHasMore(false);
+        setCurrentPage(1);
+        setProducts([]);
 
-        const loadProducts = async () => {
-            setLoading(true);
-            setLoadError(false);
-
-            try {
-                const response = await api.get("/products", {
-                    params: {
-                        per_page: 100,
-                        page: 1,
-                    },
-                });
-
-                const payload = response.data;
-                const pageData = payload?.data;
-                const getItems = (value) => Array.isArray(value)
-                    ? value
-                    : Array.isArray(value?.data?.data)
-                        ? value.data.data
-                        : Array.isArray(value?.data)
-                            ? value.data
-                            : Array.isArray(value?.products)
-                                ? value.products
-                                : [];
-                const items = getItems(payload);
-                const pages = Math.max(1, Number(pageData?.last_page) || 1);
-
-                for (let page = 2; page <= pages; page += 1) {
-                    if (cancelled) break;
-                    const nextResponse = await api.get("/products", {
-                        params: { per_page: 100, page },
-                    });
-                    items.push(...getItems(nextResponse.data));
-                }
-
-                if (!cancelled) {
-                    setProducts(items);
-                }
-            } catch (error) {
+        api.get("/products", { params: { ...JSON.parse(requestKey), page: 1 } })
+            .then(({ data }) => {
+                if (cancelled || requestVersion !== requestVersionRef.current) return;
+                const pageData = data?.data;
+                const items = Array.isArray(pageData?.data)
+                    ? pageData.data
+                    : Array.isArray(data?.data)
+                        ? data.data
+                        : Array.isArray(data?.products)
+                            ? data.products
+                            : [];
+                const loadedPage = Math.max(1, Number(pageData?.current_page) || 1);
+                const lastPage = Math.max(1, Number(pageData?.last_page) || 1);
+                setProducts(items);
+                setCurrentPage(loadedPage);
+                setHasMore(loadedPage < lastPage);
+                readyQueryRef.current = requestKey;
+            })
+            .catch((error) => {
                 console.error("Unable to load products:", error);
-
-                if (!cancelled) {
+                if (!cancelled && requestVersion === requestVersionRef.current) {
                     setProducts([]);
                     setLoadError(true);
                 }
-            } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
-            }
+            })
+            .finally(() => {
+                if (!cancelled && requestVersion === requestVersionRef.current) setLoading(false);
+            });
+
+        return () => { cancelled = true; };
+    }, [reloadKey, requestKey]);
+
+    useEffect(() => {
+        if (!sortOpen) return undefined;
+        const closeOnOutsidePointer = (event) => {
+            if (!sortControlRef.current?.contains(event.target)) setSortOpen(false);
         };
-
-        loadProducts();
-
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") setSortOpen(false);
+        };
+        document.addEventListener("pointerdown", closeOnOutsidePointer);
+        document.addEventListener("keydown", closeOnEscape);
         return () => {
-            cancelled = true;
+            document.removeEventListener("pointerdown", closeOnOutsidePointer);
+            document.removeEventListener("keydown", closeOnEscape);
         };
-    }, [reloadKey]);
+    }, [sortOpen]);
 
-    const category = searchParams.get("category") || "All";
-    const search = searchParams.get("search") || "";
-    const sort = searchParams.get("sort") || "featured";
-    const minPrice = searchParams.get("minPrice") || "";
-    const maxPrice = searchParams.get("maxPrice") || "";
-    const stockOnly = searchParams.get("stock") === "1";
+    useEffect(() => {
+        const sentinel = loadMoreRef.current;
+        if (!sentinel || !hasMore || loading || loadingMore || loadError || loadMoreError || readyQueryRef.current !== requestKey) return undefined;
+
+        const observer = new IntersectionObserver(([entry]) => {
+            if (!entry.isIntersecting || loadMoreInFlightRef.current) return;
+            const requestVersion = requestVersionRef.current;
+            const nextPage = currentPage + 1;
+            loadMoreInFlightRef.current = true;
+            setLoadingMore(true);
+
+            api.get("/products", { params: { ...JSON.parse(requestKey), page: nextPage } })
+                .then(({ data }) => {
+                    if (requestVersion !== requestVersionRef.current) return;
+                    const pageData = data?.data;
+                    const items = Array.isArray(pageData?.data)
+                        ? pageData.data
+                        : Array.isArray(data?.data)
+                            ? data.data
+                            : Array.isArray(data?.products)
+                                ? data.products
+                                : [];
+                    const loadedPage = Math.max(nextPage, Number(pageData?.current_page) || nextPage);
+                    const lastPage = Math.max(loadedPage, Number(pageData?.last_page) || loadedPage);
+                    setProducts((current) => {
+                        const existingIds = new Set(current.map((product) => String(product.id)));
+                        return [...current, ...items.filter((product) => !existingIds.has(String(product.id)))];
+                    });
+                    setCurrentPage(loadedPage);
+                    setHasMore(loadedPage < lastPage);
+                    setLoadMoreError(false);
+                })
+                .catch((error) => {
+                    console.error("Unable to load more products:", error);
+                    if (requestVersion === requestVersionRef.current) setLoadMoreError(true);
+                })
+                .finally(() => {
+                    if (requestVersion === requestVersionRef.current) {
+                        loadMoreInFlightRef.current = false;
+                        setLoadingMore(false);
+                    }
+                });
+        }, { rootMargin: "640px 0px" });
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [requestKey, currentPage, hasMore, loading, loadingMore, loadError, loadMoreError, reloadKey]);
 
     const updateParams = (updates = {}) => {
         const params = new URLSearchParams(searchParams);
@@ -162,10 +214,14 @@ function Categories() {
         setSearchParams(params);
     };
 
-    const handleSort = (event) => {
-        updateParams({
-            sort: event.target.value,
-        });
+    const handleSort = (value) => {
+        updateParams({ sort: value });
+        setSortOpen(false);
+    };
+
+    const handleRefreshProducts = () => {
+        setReloadKey((value) => value + 1);
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
     const handleApplyFilters = () => {
@@ -325,48 +381,17 @@ function Categories() {
                         CRYMA MARKETPLACE
                     </span>
 
-                    {buyerSession && <span className="shop-welcome-badge"><span aria-hidden="true">👋</span> Welcome back{greetingName ? `, ${greetingName}` : ""}!</span>}
-
-                    <h1>Explore Products</h1>
-                    <p>Find what you need from trusted sellers on CRYMA.</p>
-                    <div className="shop-header-actions">
-                        <button type="button" className="shop-header-primary" onClick={() => updateParams({ category: SHOP_HERO_SLIDES[activeHeroSlide]?.category || "All" })}>
-                            Explore {SHOP_HERO_SLIDES[activeHeroSlide]?.category || "products"}
-                            <ArrowRight size={16} aria-hidden="true" />
-                        </button>
-                        <button type="button" className="shop-header-secondary" onClick={() => updateParams({ category: "All" })}>View all products</button>
-                    </div>
-                </div>
-                <div className="shop-header-visual"
-                    onMouseEnter={() => setHeroPaused(true)}
-                    onMouseLeave={() => setHeroPaused(false)}
-                    onFocusCapture={() => setHeroPaused(true)}
-                    onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setHeroPaused(false); }}
-                >
-                    <img
-                        key={SHOP_HERO_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
-                        src={SHOP_HERO_SLIDES[activeHeroSlide]?.src || LANDING_VISUALS.hero.src}
-                        alt={SHOP_HERO_SLIDES[activeHeroSlide]?.alt || LANDING_VISUALS.hero.alt}
-                        decoding="async"
-                    />
-                    <div className="shop-header-visual-caption">
-                        <span>FEATURED CATEGORY</span>
-                        <strong>{SHOP_HERO_SLIDES[activeHeroSlide]?.category || "Find your next favorite"}</strong>
-                        <button type="button" onClick={() => updateParams({ category: SHOP_HERO_SLIDES[activeHeroSlide]?.category || "All" })}>
-                            Shop this category <ArrowRight size={14} aria-hidden="true" />
-                        </button>
-                    </div>
-                    {SHOP_HERO_SLIDES.length > 1 && <>
-                        <button type="button" className="shop-hero-arrow shop-hero-prev" aria-label="Show previous category" onClick={() => setActiveHeroSlide((current) => (current - 1 + SHOP_HERO_SLIDES.length) % SHOP_HERO_SLIDES.length)}><ChevronLeft size={18} aria-hidden="true" /></button>
-                        <button type="button" className="shop-hero-arrow shop-hero-next" aria-label="Show next category" onClick={() => setActiveHeroSlide((current) => (current + 1) % SHOP_HERO_SLIDES.length)}><ChevronRight size={18} aria-hidden="true" /></button>
-                        <div className="shop-hero-dots" aria-label="Featured categories">
-                            {SHOP_HERO_SLIDES.map((slide, index) => <button key={slide.category} type="button" className={index === activeHeroSlide ? "active" : ""} aria-label={`Show ${slide.category}`} aria-current={index === activeHeroSlide ? "true" : undefined} onClick={() => setActiveHeroSlide(index)} />)}
-                        </div>
-                    </>}
+                    <span className="shop-welcome-badge"><span aria-hidden="true">👋</span> {buyerSession ? `Welcome back${greetingName ? `, ${greetingName}` : ""}!` : "Welcome to CRYMA"}</span>
+                    <h1>{buyerSession ? "Good finds start here." : "Welcome to the marketplace."}</h1>
+                    <p>Discover independent sellers, everyday favorites, and new finds across CRYMA.</p>
                 </div>
             </section>
 
             <div className="shop-category-nav-shell">
+                <div className="shop-category-heading">
+                    <span>MAKE IT YOURS</span>
+                    <strong>Browse by category</strong>
+                </div>
                 <nav className="shop-category-nav" aria-label="Shop by category">
                     {CATEGORY_FILTERS.map((item) => (
                         <button
@@ -388,13 +413,10 @@ function Categories() {
 
                 <div className="shop-filter-group">
 
-                    <button
-                        type="button"
-                        className={`shop-filter-button ${
-                            activeFilterCount > 0
-                                ? "has-filters"
-                                : ""
-                        }`}
+                            <button
+                                type="button"
+                                className={`shop-filter-button ${activeFilterCount > 0 ? "has-filters" : ""}`}
+                                aria-label={activeFilterCount ? `Filters, ${activeFilterCount} active` : "Open filters"}
                         onClick={() => {
                             setDraftFilters({
                                 category,
@@ -405,17 +427,25 @@ function Categories() {
                             setFilterOpen(true);
                         }}
                     >
-                        <Filter size={16} />
-
-                        <span>
-                            Filters
-                        </span>
+                        <span className="shop-filter-symbol"><Filter size={16} aria-hidden="true" /></span>
+                        <span className="shop-filter-copy"><b>Filters</b><small>Shape your feed</small></span>
 
                         {activeFilterCount > 0 && (
                             <b>
                                 {activeFilterCount}
                             </b>
                         )}
+                    </button>
+
+                    <button
+                        type="button"
+                        className="shop-refresh-button"
+                        onClick={handleRefreshProducts}
+                        disabled={loading}
+                        aria-label="Refresh products"
+                        title="Refresh products"
+                    >
+                        <RefreshCw size={15} className={loading ? "is-spinning" : ""} aria-hidden="true" />
                     </button>
 
                     <div className="shop-active-filters">
@@ -479,40 +509,41 @@ function Categories() {
                     </div>
                 </div>
 
-                <p className="shop-result-count" aria-live="polite">
-                    {loading ? "Loading products" : loadError ? "Products unavailable" : `${filteredProducts.length} products`}
-                </p>
-
-                <div className="shop-sort-control">
+                <div className="shop-sort-control" ref={sortControlRef}>
                     <span>
                         Sort by
                     </span>
 
                     <div className="shop-sort-select">
-                        <SlidersHorizontal size={15} />
-
-                        <select
-                            value={sort}
-                            onChange={handleSort}
+                        <button
+                            type="button"
+                            className="shop-sort-trigger"
+                            aria-haspopup="menu"
+                            aria-expanded={sortOpen}
+                            aria-label={`Sort products, currently ${SORT_OPTIONS.find((option) => option.value === sort)?.label || "Recommended"}`}
+                            onClick={() => setSortOpen((open) => !open)}
                         >
-                            <option value="featured">
-                                Featured
-                            </option>
-
-                            <option value="newest">
-                                Newest
-                            </option>
-
-                            <option value="price-low">
-                                Price: Low to High
-                            </option>
-
-                            <option value="price-high">
-                                Price: High to Low
-                            </option>
-                        </select>
-
-                        <ChevronDown size={14} />
+                            <SlidersHorizontal size={15} aria-hidden="true" />
+                            <span>{SORT_OPTIONS.find((option) => option.value === sort)?.label || "Recommended"}</span>
+                            <ChevronDown size={14} className={sortOpen ? "is-open" : ""} aria-hidden="true" />
+                        </button>
+                        {sortOpen && (
+                            <div className="shop-sort-menu" role="menu" aria-label="Sort products">
+                                {SORT_OPTIONS.map((option) => (
+                                    <button
+                                        type="button"
+                                        role="menuitemradio"
+                                        aria-checked={sort === option.value}
+                                        className={sort === option.value ? "active" : ""}
+                                        key={option.value}
+                                        onClick={() => handleSort(option.value)}
+                                    >
+                                        <span>{option.label}</span>
+                                        {sort === option.value && <Check size={15} aria-hidden="true" />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -520,7 +551,7 @@ function Categories() {
 
             {/* RESULTS */}
 
-            <section className="shop-results">
+            <section className="shop-results" ref={resultsRef}>
 
                 <div className="shop-results-heading">
 
@@ -560,26 +591,38 @@ function Categories() {
                         </button>
                     </div>
                 ) : filteredProducts.length > 0 ? (
-                    <div className="shop-product-grid">
-
-                        {filteredProducts.map(
-                            (product) => (
+                    <>
+                        <div className="shop-product-grid">
+                            {filteredProducts.map((product) => (
                                 <ProductCard
                                     key={product.id}
                                     product={product}
                                     onAddToCart={(item) => {
-                                        const event = new CustomEvent(
-                                                "cryma-add-to-cart",
-                                                { detail: item, cancelable: true }
-                                            );
+                                        const event = new CustomEvent("cryma-add-to-cart", { detail: item, cancelable: true });
                                         window.dispatchEvent(event);
                                         return !event.defaultPrevented;
                                     }}
                                 />
-                            )
+                            ))}
+                        </div>
+                        {loadingMore && (
+                            <div className="shop-product-grid shop-skeleton-grid shop-load-more-skeletons" aria-label="Loading more products" aria-busy="true">
+                                {Array.from({ length: 5 }, (_, index) => (
+                                    <div className="shop-skeleton-card" key={index}>
+                                        <div className="shop-skeleton-image" />
+                                        <div className="shop-skeleton-copy"><span /><span /><span /></div>
+                                    </div>
+                                ))}
+                            </div>
                         )}
-
-                    </div>
+                        {loadMoreError && (
+                            <div className="shop-load-more-error" role="alert">
+                                <span>We couldn’t load the next set of finds.</span>
+                                <button type="button" onClick={() => setLoadMoreError(false)}>Try again</button>
+                            </div>
+                        )}
+                        <div className="shop-scroll-sentinel" ref={loadMoreRef} aria-hidden="true" />
+                    </>
                 ) : (
                     <div className="shop-empty">
 
@@ -851,11 +894,7 @@ function Categories() {
                                     handleApplyFilters
                                 }
                             >
-                                Show{" "}
-                                {
-                                    filteredProducts.length
-                                }{" "}
-                                Products
+                                Apply filters
                             </button>
 
                         </div>

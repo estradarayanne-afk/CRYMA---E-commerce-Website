@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Grid2X2, House, Search, ShoppingCart, UserRound } from "lucide-react";
+import { Grid2X2, House, Package, Search, ShoppingCart, UserRound } from "lucide-react";
 import BuyerNavbar from "../components/BuyerNavbar/BuyerNavbar";
 import AuthModal from "../../shared/components/AuthModal";
 import Toast from "../../shared/components/Toast";
@@ -17,6 +17,7 @@ function BuyerLayout() {
     const [toast, setToast] = useState(null);
     const toastIdRef = useRef(0);
     const location = useLocation();
+    const buyerSession = isBuyerSession();
 
     useEffect(() => {
         const notify = (detail) => {
@@ -67,9 +68,15 @@ function BuyerLayout() {
             </main>
 
             <nav className="buyer-mobile-tab-bar" aria-label="Mobile shopping navigation">
-                <NavLink to="/" end className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
-                    <House size={20} aria-hidden="true" /><span>Home</span>
-                </NavLink>
+                {buyerSession ? (
+                    <NavLink to="/orders" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                        <Package size={20} aria-hidden="true" /><span>Orders</span>
+                    </NavLink>
+                ) : (
+                    <NavLink to="/" end className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                        <House size={20} aria-hidden="true" /><span>Home</span>
+                    </NavLink>
+                )}
                 <NavLink to="/shop" className={({ isActive }) => `buyer-mobile-tab${isActive && location.pathname === "/shop" ? " active" : ""}`}>
                     <Grid2X2 size={20} aria-hidden="true" /><span>Categories</span>
                 </NavLink>

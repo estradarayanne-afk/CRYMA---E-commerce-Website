@@ -27,6 +27,8 @@ function Logistics() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [notice, setNotice] = useState("");
+    const [schedulingOrderId, setSchedulingOrderId] = useState(null);
 
     const fetchOrders = useCallback(async () => {
         const { data } = await api.get("/seller/orders");
@@ -45,6 +47,22 @@ function Logistics() {
         }
     };
 
+    const schedulePickup = async (order) => {
+        if (schedulingOrderId) return;
+        setSchedulingOrderId(order.id);
+        setError("");
+        setNotice("");
+        try {
+            const { data } = await api.post(`/seller/orders/${order.id}/pickup-request`);
+            await loadOrders();
+            setNotice(data?.message || `Pickup requested for order #${order.id}.`);
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Unable to schedule courier pickup.");
+        } finally {
+            setSchedulingOrderId(null);
+        }
+    };
+
     useEffect(() => {
         let current = true;
         fetchOrders()
@@ -53,7 +71,10 @@ function Logistics() {
                 if (current) setError(requestError.response?.data?.message || "Unable to load your orders.");
             })
             .finally(() => { if (current) setLoading(false); });
-        return () => { current = false; };
+        const refreshTimer = window.setInterval(() => {
+            fetchOrders().then((data) => { if (current) setOrders(data); }).catch(() => {});
+        }, 30_000);
+        return () => { current = false; window.clearInterval(refreshTimer); };
     }, [fetchOrders]);
 
     return (
@@ -70,8 +91,10 @@ function Logistics() {
             </section>
 
             <aside className="sl-logistics-note" role="note">
-                Carrier assignment, pickup scheduling, and shipment tracking are not connected to this workspace. Update order preparation in Orders; the order status remains the authoritative record.
+                Pickups use your default saved seller address. Logistics sets the pickup date and time when assigning a courier; shipment updates will appear here as the parcel moves.
             </aside>
+
+            {notice && <div className="sl-order-notice" role="status">{notice}</div>}
 
             {error && (
                 <div className="sl-dashboard-error" role="alert">
@@ -84,17 +107,19 @@ function Logistics() {
                 <div className="sl-table-wrap">
                     <table className="sl-table">
                         <thead>
-                            <tr><th>Order</th><th>Buyer</th><th>Items</th><th>Order date</th><th>Status</th></tr>
+                            <tr><th>Order</th><th>Buyer</th><th>Items</th><th>Order date</th><th>Order status</th><th>Shipment</th><th>Action</th></tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan="5" className="sl-empty" role="status">Loading orders…</td></tr>
+                                <tr><td colSpan="7" className="sl-empty" role="status">Loading orders…</td></tr>
                             ) : error ? (
-                                <tr><td colSpan="5" className="sl-empty">Order data is unavailable.</td></tr>
+                                <tr><td colSpan="7" className="sl-empty">Order data is unavailable.</td></tr>
                             ) : orders.length === 0 ? (
-                                <tr><td colSpan="5" className="sl-empty">No orders are available for fulfillment yet.</td></tr>
+                                <tr><td colSpan="7" className="sl-empty">No orders are available for fulfillment yet.</td></tr>
                             ) : orders.map((order) => {
                                 const status = String(order.status || "PENDING").toUpperCase();
+                                const pickupStatus = order.delivery_progress?.pickup?.status;
+                                const shipmentLabel = pickupStatus ? pickupStatus.replaceAll("_", " ").toLowerCase().replace(/^./, (letter) => letter.toUpperCase()) : (status === "READY_FOR_PICKUP" ? "Pickup not scheduled" : "Not ready");
                                 const buyerName = [order.buyer?.first_name, order.buyer?.middle_name, order.buyer?.last_name]
                                     .filter(Boolean).join(" ").trim() || "Buyer";
                                 const itemCount = (order.items || []).reduce((total, item) => total + Number(item.quantity || 0), 0);
@@ -106,6 +131,8 @@ function Logistics() {
                                         <td>{itemSummary || `${itemCount} item${itemCount === 1 ? "" : "s"}`}</td>
                                         <td>{formatDate(order.created_at)}</td>
                                         <td><span className="sl-badge sl-badge--muted">{ORDER_STATUS[status] || formatStatusLabel(status)}</span></td>
+                                        <td><span className="sl-badge sl-badge--muted">{shipmentLabel}</span>{order.delivery_progress?.pickup?.courier?.name && <small> · {order.delivery_progress.pickup.courier.name}</small>}{order.delivery_progress?.pickup?.scheduled_at && <small> · {new Date(order.delivery_progress.pickup.scheduled_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</small>}</td>
+                                        <td><button type="button" className="sl-logistics-pickup-button" disabled={Boolean(schedulingOrderId)} onClick={() => status === "READY_FOR_PICKUP" && !pickupStatus ? void schedulePickup(order) : navigate("/seller/orders", { state: { sellerNotification: { order_id: order.id } } })}>{schedulingOrderId === order.id ? "Scheduling…" : status === "READY_FOR_PICKUP" && !pickupStatus ? "Schedule pickup" : "View tracking"}</button></td>
                                     </tr>
                                 );
                             })}

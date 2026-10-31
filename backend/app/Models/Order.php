@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
@@ -42,6 +43,8 @@ class Order extends Model
         return $this->hasOne(Commission::class);
     }
 
+    public function codCollection(): HasOne { return $this->hasOne(CodCollection::class); }
+
     public function voucherRedemption()
     {
         return $this->hasOne(VoucherRedemption::class);
@@ -55,5 +58,15 @@ class Order extends Model
     public function pickupAssignment(): HasOne
     {
         return $this->hasOne(PickupAssignment::class);
+    }
+
+    public function refundRequests(): HasMany
+    {
+        return $this->hasMany(RefundRequest::class);
+    }
+
+    public function latestRefundRequest(): HasOne
+    {
+        return $this->hasOne(RefundRequest::class)->latestOfMany();
     }
 }

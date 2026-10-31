@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import ProtectedRoute from "./shared/components/ProtectedRoute";
+import { isBuyerSession } from "./shared/utils/buyerAccess";
 
 // â”€â”€ AUTH â”€â”€
 import Login from "./auth/pages/BuyerLogin";
 import AdminLogin from "./auth/pages/AdminLogin";
 import Register from "./auth/pages/Register";
+import DocumentCorrection from "./auth/pages/DocumentCorrection";
 import RegistrationChoice from "./auth/pages/RegistrationChoice";
 import PasswordRecovery from "./auth/pages/PasswordRecovery";
 import PolicyPage from "./shared/pages/PolicyPage";
@@ -16,19 +18,21 @@ import AdminDashboard from "./admin/pages/Dashboard/Dashboard";
 import Registrations from "./admin/pages/registrations/Registrations";
 import AdminUsers from "./admin/pages/Users/Users";
 import AdminComplaints from "./admin/pages/Complaints/Complaints";
-import AdminCommission from "./admin/pages/Commission/Commission";
 import AdminReports from "./admin/pages/Reports/Reports";
 import AdminSettings from "./admin/pages/Settings/Settings";
 import AccountSettings from "./admin/pages/AccountSettings/AccountSettings";
 import AdminChat from "./admin/pages/Chat/Chat";
+import AdminRefundRequests from "./admin/pages/RefundRequests/RefundRequests";
+import AdminFinance from "./admin/pages/Finance/Finance";
+import AdminParcelFlow from "./admin/pages/ParcelFlow/ParcelFlow";
 import SellerCompliance from "./admin/pages/SellerCompliance/SellerCompliance";
-import StoreNameRequests from "./admin/pages/StoreNameRequests";
 
 // â”€â”€ BUYER â”€â”€
 import BuyerHome from "./buyer/pages/Home/Home";
 import BuyerCart from "./buyer/pages/Cart/Cart";
 import BuyerCategories from "./buyer/pages/Categories/Categories";
 import BuyerChat from "./buyer/pages/Chat/Chat";
+import SellerChatRedirect from "./buyer/pages/Chat/SellerChatRedirect";
 import BuyerCheckout from "./buyer/pages/Checkout/Checkout";
 import BuyerOrderDetails from "./buyer/pages/OrderDetails/OrderDetails";
 import BuyerOrders from "./buyer/pages/Orders/Orders";
@@ -45,10 +49,12 @@ import SellerLayout from "./seller/layouts/SellerLayout";
 import SellerDashboard from "./seller/pages/Dashboard";
 import SellerStorefront from "./seller/pages/Storefront";
 import SellerInventory from "./seller/pages/Inventory";
+import SellerVouchers from "./seller/pages/Vouchers";
 import SellerOrders from "./seller/pages/Orders";
 import SellerLogistics from "./seller/pages/Logistics";
 import SellerFeedback from "./seller/pages/Feedback";
 import SellerReports from "./seller/pages/Reports";
+import SellerReturns from "./seller/pages/Returns";
 import SellerChat from "./seller/pages/Chat";
 import SellerAccountSettings from "./seller/pages/AccountSettings";
 import CourierLayout from "./courier/layouts/CourierLayout";
@@ -72,6 +78,7 @@ import CourierEarnings from "./courier/pages/Earnings";
 import CourierHistory from "./courier/pages/History";
 import CourierProfile from "./courier/pages/Profile";
 import CourierAccountSettings from "./courier/pages/AccountSettings";
+import CourierParcelFlow from "./courier/pages/ParcelFlow";
 
 function App() {
     return (
@@ -89,6 +96,7 @@ function App() {
 
                 <Route path="/register" element={<RegistrationChoice />} />
                 <Route path="/register/:role" element={<Register />} />
+                <Route path="/application/document-correction" element={<DocumentCorrection />} />
 
                 <Route
                     path="/seller-register"
@@ -114,7 +122,7 @@ function App() {
 
                     <Route
                         path="/"
-                        element={<BuyerHome />}
+                        element={isBuyerSession() ? <Navigate to="/shop" replace /> : <BuyerHome />}
                     />
 
                     <Route
@@ -182,7 +190,7 @@ function App() {
 
                         <Route
                             path="/buyer/chat"
-                            element={<BuyerChat key="seller-messages" />}
+                            element={<SellerChatRedirect />}
                         />
 
                         <Route
@@ -233,17 +241,18 @@ function App() {
                             path="seller-compliance"
                             element={<SellerCompliance />}
                         />
-                        <Route path="store-name-requests" element={<StoreNameRequests />} />
 
                         <Route
                             path="complaints"
                             element={<AdminComplaints />}
                         />
 
-                        <Route
-                            path="commission"
-                            element={<AdminCommission />}
-                        />
+                        <Route path="refund-requests" element={<AdminRefundRequests />} />
+                        <Route path="settlements" element={<Navigate to="/admin/finance?view=settlements" replace />} />
+                        <Route path="parcel-flow" element={<AdminParcelFlow />} />
+
+                        <Route path="commission" element={<Navigate to="/admin/finance?view=commission" replace />} />
+                        <Route path="finance" element={<AdminFinance />} />
 
                         <Route
                             path="reports"
@@ -300,6 +309,8 @@ function App() {
                             element={<SellerInventory />}
                         />
 
+                        <Route path="vouchers" element={<SellerVouchers />} />
+
                         <Route
                             path="storefront"
                             element={<SellerStorefront />}
@@ -324,6 +335,9 @@ function App() {
                             path="reports"
                             element={<SellerReports />}
                         />
+
+                        <Route path="earnings" element={<Navigate to="/seller/reports?view=earnings" replace />} />
+                        <Route path="returns" element={<SellerReturns />} />
 
                         <Route
                             path="chat"
@@ -351,6 +365,7 @@ function App() {
                         <Route path="pickups/:id" element={<CourierPickupDetails />} />
                         <Route path="deliveries" element={<CourierDeliveries />} />
                         <Route path="deliveries/:id" element={<CourierDeliveryDetails />} />
+                        <Route path="parcel-flow" element={<CourierParcelFlow />} />
                         <Route path="history" element={<CourierHistory />} />
                         <Route path="earnings" element={<CourierEarnings />} />
                         <Route path="chat" element={<CourierChat />} />
@@ -368,6 +383,7 @@ function App() {
                         <Route path="pickups" element={<ParcelOperations section="pickups" />} />
                         <Route path="incoming-parcels" element={<ParcelOperations section="incoming" />} />
                         <Route path="sorting" element={<ParcelOperations section="sorting" />} />
+                        <Route path="parcel-flow" element={<AdminParcelFlow base="/logistics" />} />
                         <Route path="delivery-assignment" element={<ParcelOperations section="assignment" />} />
                         <Route path="delivery-monitoring" element={<ParcelOperations section="monitoring" />} />
                         <Route path="reports" element={<ParcelOperations section="reports" />} />

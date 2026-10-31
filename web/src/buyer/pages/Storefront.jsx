@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Heart, Store } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, Store, Search } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../shared/services/api";
 import { getBuyerWishlist, isBuyerSession, requestBuyerSignIn, saveBuyerWishlist, showBuyerToast } from "../../shared/utils/buyerAccess";
@@ -44,7 +44,7 @@ function StoreProductCard({ product }) {
         <article className="public-store-product">
             <Link className="public-store-product-link" to={`/products/${product.id}`}>
                 <div className="public-store-product-image">{product.seller?.is_on_vacation && <span className="public-store-vacation-badge">On vacation</span>}{image ? <img src={image} alt={product.name} loading="lazy" /> : <span className="public-store-product-fallback">{product.name?.charAt(0)?.toUpperCase() || "C"}</span>}</div>
-                <div className="public-store-product-copy"><span>{product.category}</span><h3>{product.name}</h3><strong>{String.fromCharCode(8369)}{price.toLocaleString()}</strong>{originalPrice > price && <del>{String.fromCharCode(8369)}{originalPrice.toLocaleString()}</del>}</div>
+                <div className="public-store-product-copy"><span>{product.store_category || product.category}</span><h3>{product.name}</h3><strong>{String.fromCharCode(8369)}{price.toLocaleString()}</strong>{originalPrice > price && <del>{String.fromCharCode(8369)}{originalPrice.toLocaleString()}</del>}</div>
             </Link>
             <button type="button" className={`public-store-product-save${isSaved ? " saved" : ""}`} onClick={saveFavorite} aria-pressed={isSaved} aria-label={isSaved ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}><Heart size={16} fill={isSaved ? "currentColor" : "none"} /></button>
         </article>
@@ -56,6 +56,7 @@ function PublicStorefront() {
     const [store, setStore] = useState(null);
     const [products, setProducts] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState("all");
+    const [productQuery, setProductQuery] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -76,16 +77,33 @@ function PublicStorefront() {
     }, [slug]);
 
     const settings = store?.settings || {};
-    const availableCategories = useMemo(() => [...new Set(products.map((product) => product.category).filter(Boolean))], [products]);
-    const categoryOrder = Array.isArray(settings.categories) ? settings.categories : availableCategories;
-    const visibleCategories = categoryOrder.filter((category) => availableCategories.includes(category));
-    const selectedProducts = selectedCategory === "all" ? products : products.filter((product) => product.category === selectedCategory);
+    const visibleCategories = Array.isArray(settings.store_categories) ? settings.store_categories : [];
+    const selectedProducts = (selectedCategory === "all" ? products : products.filter((product) => product.store_category === selectedCategory))
+        .filter((product) => `${product.name || ""} ${product.store_category || ""} ${product.category || ""}`.toLowerCase().includes(productQuery.trim().toLowerCase()));
     const featuredProducts = (settings.show_featured && Array.isArray(settings.featured_product_ids))
         ? settings.featured_product_ids.map((id) => products.find((product) => String(product.id) === String(id))).filter(Boolean)
         : [];
-    const sections = settings.show_categories
-        ? (selectedCategory === "all" ? (visibleCategories.length ? visibleCategories : ["All products"]) : [selectedCategory])
-        : (selectedCategory === "all" ? ["All products"] : [selectedCategory]);
+
+    const contactStore = () => {
+        if (!isBuyerSession()) {
+            requestBuyerSignIn({
+                title: "Sign in to message this store",
+                message: "Create an account or sign in to contact this seller.",
+                from: window.location.pathname,
+            });
+            return;
+        }
+
+        const sellerId = store?.seller_id || products[0]?.seller?.id;
+        if (!sellerId) {
+            showBuyerToast("This store cannot receive messages right now.", "error");
+            return;
+        }
+
+        window.dispatchEvent(new CustomEvent("cryma-open-seller-chat", {
+            detail: { sellerId },
+        }));
+    };
 
     if (loading) return <main className="public-store-page"><p className="public-store-state">Loading storefront…</p></main>;
     if (error || !store) return <main className="public-store-page"><p className="public-store-state">{error || "Store not found."}</p><Link to="/shop"><ArrowLeft size={15} /> Back to shopping</Link></main>;
@@ -97,10 +115,13 @@ function PublicStorefront() {
             <section className="public-store-profile">
                 <div className="public-store-logo">{store.logo_url ? <img src={store.logo_url} alt={`${store.name} logo`} /> : <span>{store.name?.charAt(0)?.toUpperCase() || <Store />}</span>}</div>
                 <div className="public-store-copy"><span className="public-store-kicker">OFFICIAL STORE</span><h1>{store.name}</h1>{store.tagline && <p>{store.tagline}</p>}</div>
-                <Link to="/shop" className="public-store-back"><ArrowLeft size={15} /> Browse CRYMA</Link>
+                <div className="public-store-profile-actions">
+                    <button type="button" className="public-store-message" onClick={contactStore}><MessageCircle size={16} /> Message seller</button>
+                    <Link to="/shop" className="public-store-back"><ArrowLeft size={15} /> Browse CRYMA</Link>
+                </div>
             </section>
 
-            <section className="public-store-hero">
+            <section className="public-store-hero" id="store-landing">
                 <span>WELCOME TO {store.name?.toLocaleUpperCase()}</span>
                 <h2>{settings.hero_title || store.name}</h2>
                 <p>{settings.hero_subtitle || store.tagline || store.description || "Discover products selected for you."}</p>
@@ -108,27 +129,30 @@ function PublicStorefront() {
 
             {store.description && <p className="public-store-description">{store.description}</p>}
 
-            {settings.show_categories && visibleCategories.length > 0 && <nav className="public-store-categories" aria-label="Shop store categories">
-                <button type="button" className={selectedCategory === "all" ? "is-active" : ""} onClick={() => setSelectedCategory("all")}>All products</button>
-                {visibleCategories.map((category) => <button type="button" key={category} className={selectedCategory === category ? "is-active" : ""} onClick={() => setSelectedCategory(category)}>{category}</button>)}
-            </nav>}
+            <nav className="public-store-shop-nav" aria-label="Store sections">
+                <a href="#store-landing" className="is-active">Home</a>
+                <a href="#store-categories">Categories</a>
+                <a href="#store-products">Products <span>{products.length}</span></a>
+            </nav>
+
+            {settings.show_categories && visibleCategories.length > 0 && <section className="public-store-category-section" id="store-categories">
+                <div className="public-store-section-heading"><div><span>FIND YOUR FAVORITES</span><h2>Shop by category</h2></div><p>{visibleCategories.length} categories</p></div>
+                <nav className="public-store-categories" aria-label="Shop store categories">
+                    <button type="button" className={selectedCategory === "all" ? "is-active" : ""} onClick={() => setSelectedCategory("all")}>All products</button>
+                    {visibleCategories.map((category) => <button type="button" key={category} className={selectedCategory === category ? "is-active" : ""} onClick={() => { setSelectedCategory(category); document.getElementById("store-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{category}<span>{products.filter((product) => product.store_category === category).length}</span></button>)}
+                </nav>
+            </section>}
 
             {selectedCategory === "all" && featuredProducts.length > 0 && <section className="public-store-products public-store-featured">
                 <div className="public-store-section-heading"><div><span>SELLER PICKS</span><h2>Featured products</h2></div><p>{featuredProducts.length} featured</p></div>
                 <div className="public-store-grid">{featuredProducts.map((product) => <StoreProductCard product={product} key={`featured-${product.id}`} />)}</div>
             </section>}
 
-            <div className="public-store-collections">
-                {sections.map((category) => {
-                    const categoryProducts = category === "All products" ? products : selectedProducts.filter((product) => product.category === category);
-                    if (!categoryProducts.length) return null;
-                    return <section className="public-store-products" key={category}>
-                        <div className="public-store-section-heading"><div><span>SHOP BY CATEGORY</span><h2>{category}</h2></div><p>{categoryProducts.length} {categoryProducts.length === 1 ? "product" : "products"}</p></div>
-                        <div className="public-store-grid">{categoryProducts.map((product) => <StoreProductCard product={product} key={`${category}-${product.id}`} />)}</div>
-                    </section>;
-                })}
-            </div>
-            {!products.length && <div className="public-store-empty">This store is getting ready. Check back soon for new products.</div>}
+            <section className="public-store-products public-store-all-products" id="store-products">
+                <div className="public-store-section-heading"><div><span>THE STORE COLLECTION</span><h2>{selectedCategory === "all" ? "All products" : selectedCategory}</h2></div><p>{selectedProducts.length} {selectedProducts.length === 1 ? "product" : "products"}</p></div>
+                <label className="public-store-search"><Search size={17} /><input type="search" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Search this store" aria-label="Search products in this store" /></label>
+                {selectedProducts.length ? <div className="public-store-grid">{selectedProducts.map((product) => <StoreProductCard product={product} key={product.id} />)}</div> : <div className="public-store-empty">{products.length ? "No products match your search." : "This store is getting ready. Check back soon for new products."}</div>}
+            </section>
         </main>
     );
 }

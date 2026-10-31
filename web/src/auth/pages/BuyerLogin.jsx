@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import api from "../../shared/services/api";
+import { closeAuthModal } from "../../shared/components/authModalEvents";
 import AuthShell from "../components/AuthShell";
 import "./BuyerLogin.css";
 
@@ -16,6 +17,11 @@ function Login({
     authOptions.from ||
     location.state?.from ||
     "/";
+
+    const openPasswordRecovery = () => {
+        if (embedded) closeAuthModal();
+        navigate("/forgot-password");
+    };
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -206,7 +212,7 @@ function Login({
                                 <button
                                     type="button"
                                     className="buyer-login-forgot"
-                                    onClick={() => navigate("/forgot-password")}
+                                    onClick={openPasswordRecovery}
                                     disabled={loading}
                                 >
                                     Forgot password?

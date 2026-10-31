@@ -14,23 +14,27 @@ class ConversationMessageSender
         Conversation $conversation,
         User $sender,
         string $message,
-        ?string $clientMessageId
+        ?string $clientMessageId,
+        ?int $orderId = null,
+        ?int $productId = null
     ): Message {
         if ($clientMessageId !== null) {
             $existing = Message::where('sender_id', $sender->id)
                 ->where('client_message_id', $clientMessageId)
                 ->first();
             if ($existing) {
-                $this->assertMatchingRetry($existing, $conversation, $message);
+                $this->assertMatchingRetry($existing, $conversation, $message, $productId);
                 return $existing;
             }
         }
 
         try {
-            return DB::transaction(function () use ($conversation, $sender, $message, $clientMessageId) {
+            return DB::transaction(function () use ($conversation, $sender, $message, $clientMessageId, $orderId, $productId) {
                 $created = Message::create([
                     'conversation_id' => $conversation->id,
                     'sender_id' => $sender->id,
+                    'order_id' => $orderId,
+                    'product_id' => $productId,
                     'message' => trim($message),
                     'is_read' => false,
                     'client_message_id' => $clientMessageId,
@@ -51,16 +55,17 @@ class ConversationMessageSender
                 throw $exception;
             }
 
-            $this->assertMatchingRetry($existing, $conversation, $message);
+            $this->assertMatchingRetry($existing, $conversation, $message, $productId);
             return $existing;
         }
     }
 
-    private function assertMatchingRetry(Message $existing, Conversation $conversation, string $message): void
+    private function assertMatchingRetry(Message $existing, Conversation $conversation, string $message, ?int $productId = null): void
     {
         abort_unless(
             (int) $existing->conversation_id === (int) $conversation->id
-                && $existing->message === trim($message),
+                && $existing->message === trim($message)
+                && (int) ($existing->product_id ?? 0) === (int) ($productId ?? 0),
             409,
             'This message request identifier has already been used for different content.'
         );

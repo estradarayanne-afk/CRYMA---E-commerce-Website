@@ -42,6 +42,9 @@ class RegistrationController extends Controller
         if (is_string($request->input('plate_number'))) {
             $request->merge(['plate_number' => mb_strtoupper(trim($request->input('plate_number')))]);
         }
+        if (is_string($request->input('business_name'))) {
+            $request->merge(['business_name' => preg_replace('/\s+/u', ' ', trim($request->input('business_name')))]);
+        }
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:30', "regex:/^[\\p{L}\\p{M}]+(?:[ \\x27\\x2D][\\p{L}\\p{M}]+)*$/u"],
@@ -105,6 +108,13 @@ class RegistrationController extends Controller
                 'nullable',
                 'string',
                 'max:100',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+                    if ($request->input('role') !== 'seller' || !is_string($value)) return;
+                    $taken = SellerProfile::query()
+                        ->whereRaw('LOWER(TRIM(business_name)) = ?', [mb_strtolower(trim($value))])
+                        ->exists();
+                    if ($taken) $fail('That store name is already in use. Choose another name.');
+                },
             ],
             'tin' => [
                 'exclude_unless:role,seller',

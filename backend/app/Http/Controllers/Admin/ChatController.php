@@ -25,11 +25,13 @@ class ChatController extends Controller
             'seller:id,first_name,last_name,email,role',
             'product:id,name',
             'messages' => function ($query) {
+                $query->with('order:id,status,total_amount,created_at', 'order.items.product:id,name');
                 $query->latest()->limit(1);
             }
         ])
         ->withCount(['messages as unread_messages_count' => function ($query) use ($admin) {
             $query->where('sender_id', '!=', $admin->id)
+                ->where('sender_type', '!=', 'assistant')
                 ->where('is_read', false);
         }])
         ->latest()
@@ -56,6 +58,8 @@ class ChatController extends Controller
                 'admin:id,first_name,last_name,role',
                 'product:id,name',
                 'messages.sender:id,first_name,last_name,role',
+                'messages.order:id,status,total_amount,created_at',
+                'messages.order.items.product:id,name',
             ])
             ->findOrFail($id);
 
