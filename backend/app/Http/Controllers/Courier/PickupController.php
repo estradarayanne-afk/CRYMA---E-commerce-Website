@@ -39,6 +39,7 @@ class PickupController extends Controller
         return [
             'id' => $assignment->id,
             'order_id' => $assignment->order_id,
+            'parcel_code' => $assignment->delivery?->parcel_code,
             'status' => $assignment->status,
             'pickup_address' => $assignment->pickup_address,
             'assigned_at' => $assignment->assigned_at,
@@ -108,6 +109,7 @@ class PickupController extends Controller
         $values = $request->validate([
             'status' => ['required', 'in:ACCEPTED_BY_PICKUP_RIDER,PICKED_UP'],
             'expected_status' => ['required', 'in:ASSIGNED_TO_PICKUP_RIDER,ACCEPTED_BY_PICKUP_RIDER'],
+            'parcel_code' => ['sometimes', 'required', 'string', 'max:32'],
         ]);
         $profile = $this->profile($request->user(), $eligibility);
         $initial = PickupAssignment::where('courier_profile_id', $profile->id)->find($id);
@@ -118,6 +120,9 @@ class PickupController extends Controller
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             $assignment = PickupAssignment::where('courier_profile_id', $profile->id)->whereKey($id)->lockForUpdate()->firstOrFail();
             abort_unless($eligibility->isEligible($profile), 403, 'Courier eligibility changed. Contact an administrator.');
+            if (isset($values['parcel_code'])) {
+                abort_unless(hash_equals((string) $delivery->parcel_code, $values['parcel_code']), 422, 'The scanned parcel does not match this pickup assignment.');
+            }
             $expectedOrderStatus = 'READY_FOR_PICKUP';
             if ($assignment->status !== $values['expected_status'] || $order->status !== $expectedOrderStatus || $delivery->status !== $expectedOrderStatus) {
                 abort(409, 'Pickup status changed or is inconsistent. Refresh and try again.');

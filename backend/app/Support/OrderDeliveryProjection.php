@@ -13,6 +13,7 @@ class OrderDeliveryProjection
         $pickup = $delivery?->pickupAssignment;
         $order->unsetRelation('delivery');
         $order->setAttribute('delivery_progress', $delivery ? [
+            'parcel_code' => $delivery->parcel_code,
             'status' => $delivery->status,
             'assigned_at' => $delivery->assigned_at,
             'picked_up_at' => $delivery->picked_up_at,
@@ -40,7 +41,6 @@ class OrderDeliveryProjection
                 'previous_status' => $event->previous_status,
                 'new_status' => $event->new_status,
                 'created_at' => $event->created_at,
-                'reason' => $event->reason,
             ])->values(),
         ] : null);
 

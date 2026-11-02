@@ -4,6 +4,7 @@ import api from "../../shared/services/api";
 import PrivateDeliveryProof from "../../shared/components/PrivateDeliveryProof";
 import CourierConfirmModal from "../components/CourierConfirmModal";
 import { validateDeliveryProof } from "../utils/deliveryProof";
+import ParcelQrScanner from "../../shared/components/ParcelQrScanner";
 import "../layouts/CourierPages.css";
 
 const formatWeight = (item) => {
@@ -32,6 +33,7 @@ function DeliveryDetails() {
     const [photoPreview, setPhotoPreview] = useState(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [pendingStatus, setPendingStatus] = useState(null);
+    const [scannedParcelCode, setScannedParcelCode] = useState(null);
     const [confirmProof, setConfirmProof] = useState(false);
     const photoInput = useRef(null);
     const submittingProof = useRef(false);
@@ -59,10 +61,10 @@ function DeliveryDetails() {
     }, [id]);
     useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
-    const updateStatus = async (status) => {
+    const updateStatus = async (status, parcelCode = null) => {
         setSaving(true); setError(""); setNotice("");
         try {
-            const { data } = await api.patch(`/courier/deliveries/${id}/status`, { status, expected_status: delivery.status, ...(status === "DELIVERY_FAILED" ? { reason } : {}) });
+            const { data } = await api.patch(`/courier/deliveries/${id}/status`, { status, expected_status: delivery.status, ...(status === "DELIVERY_FAILED" ? { reason } : {}), ...(parcelCode ? { parcel_code: parcelCode } : {}) });
             setDelivery(data?.data || delivery); setNotice(data?.message || "Delivery updated."); setReason("");
         } catch (err) { setError(err.response?.data?.message || "Unable to update delivery status."); }
         finally { setSaving(false); }
@@ -133,6 +135,12 @@ function DeliveryDetails() {
     const statusLabel = delivery.status.replaceAll("_", " ").toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
     const items = delivery.order?.items || [];
     const isCod = delivery.order?.payment_method === "cash_on_delivery";
+    const confirmScannedParcel = (parcelCode) => {
+        if (parcelCode !== delivery.parcel_code) { setError("This QR code does not match your assigned parcel."); return; }
+        setScannedParcelCode(parcelCode);
+        setPendingStatus("OUT_FOR_DELIVERY");
+        setNotice("Parcel QR matched. Confirm that you collected it from the sorting center.");
+    };
 
     return <section className="cw-page">
         <Link className="cw-back-link" to="/courier/deliveries">← Assigned deliveries</Link>
@@ -140,7 +148,8 @@ function DeliveryDetails() {
         {error && <div className="cw-alert" role="alert">{error}</div>}{notice && <div className="cw-notice" role="status">{notice}</div>}
         <div className="cw-detail-grid"><article className="cw-panel"><h2>Delivery address</h2><p className="cw-address">{delivery.order?.delivery_address || "Delivery address unavailable"}</p><h2>Items</h2><p className="cw-subtle">Total parcel weight: {parcelWeight(items)}</p><ul className="cw-items">{items.map((item) => <li key={item.id}><span>{item.product?.name || "Product"}</span><strong>× {item.quantity} · {formatWeight(item)}</strong></li>)}</ul></article>
             <aside className="cw-panel"><h2>Update status</h2><p>Record only actions you have completed. Successful delivery requires the recipient’s full name and a delivery photo.</p>{canFail && <label className="cw-reason-label">If delivery cannot be completed, enter a reason<textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={1000} rows={3} required /></label>}
-                <div className="cw-actions">{nextAction.map((status) => <button className="cw-primary" key={status} type="button" disabled={saving} onClick={() => setPendingStatus(status)}>{saving ? "Saving…" : "Confirm parcel is out for delivery"}</button>)}{canFail && <button className="cw-danger" type="button" disabled={saving || !reason.trim()} onClick={() => setPendingStatus("DELIVERY_FAILED")}>{saving ? "Saving…" : "Report failed delivery"}</button>}</div>
+                <div className="cw-actions">{nextAction.map((status) => <button className="cw-primary" key={status} type="button" disabled={saving} onClick={() => { setScannedParcelCode(null); setPendingStatus(status); }}>{saving ? "Saving…" : "Confirm parcel is out for delivery"}</button>)}{canFail && <button className="cw-danger" type="button" disabled={saving || !reason.trim()} onClick={() => setPendingStatus("DELIVERY_FAILED")}>{saving ? "Saving…" : "Report failed delivery"}</button>}</div>
+                {delivery.status === "ASSIGNED_TO_RIDER" && <ParcelQrScanner title="Scan before collecting from the sorting center" onScan={confirmScannedParcel} />}
                 {canFail && <form className="cw-proof-form" onSubmit={(event) => void submitProof(event)}>
                     <h3>Complete delivery with proof</h3>
                     <p className="cw-proof-help">Both fields are required. Proof is stored securely and visible to authorized staff.</p>
@@ -171,7 +180,7 @@ function DeliveryDetails() {
         </div>
         <PrivateDeliveryProof proof={delivery.proof} basePath={`/courier/deliveries/${delivery.id}/proof`} />
         <article className="cw-panel cw-history"><h2>Delivery history</h2>{delivery.events?.length ? delivery.events.map((event) => <div className="cw-event" key={event.id}><span>{event.new_status.replaceAll("_", " ")}</span><time>{event.created_at ? new Date(event.created_at).toLocaleString("en-PH") : "Recorded"}</time>{event.reason && <p>{event.reason}</p>}</div>) : <p>No delivery events are recorded yet.</p>}</article>
-        {pendingStatus && <CourierConfirmModal title={pendingStatus === "DELIVERY_FAILED" ? "Report failed delivery?" : "Mark parcel out for delivery?"} message={pendingStatus === "DELIVERY_FAILED" ? `This will record the delivery attempt as failed${reason.trim() ? `: ${reason.trim()}` : ""}.` : "Confirm the parcel is with you and you are starting the delivery attempt."} confirmLabel={pendingStatus === "DELIVERY_FAILED" ? "Report failed delivery" : "Start delivery"} danger={pendingStatus === "DELIVERY_FAILED"} loading={saving} onCancel={() => setPendingStatus(null)} onConfirm={() => { const status = pendingStatus; setPendingStatus(null); void updateStatus(status); }} />}
+        {pendingStatus && <CourierConfirmModal title={pendingStatus === "DELIVERY_FAILED" ? "Report failed delivery?" : "Mark parcel out for delivery?"} message={pendingStatus === "DELIVERY_FAILED" ? `This will record the delivery attempt as failed${reason.trim() ? `: ${reason.trim()}` : ""}.` : "Confirm the parcel is with you and you are starting the delivery attempt."} confirmLabel={pendingStatus === "DELIVERY_FAILED" ? "Report failed delivery" : "Start delivery"} danger={pendingStatus === "DELIVERY_FAILED"} loading={saving} onCancel={() => { setPendingStatus(null); setScannedParcelCode(null); }} onConfirm={() => { const status = pendingStatus; setPendingStatus(null); void updateStatus(status, status === "OUT_FOR_DELIVERY" ? scannedParcelCode : null); }} />}
         {confirmProof && <CourierConfirmModal title="Complete this delivery?" message="The recipient name and delivery photo will be submitted as proof, and the delivery will be marked complete." confirmLabel="Submit proof and complete" loading={saving} onCancel={() => setConfirmProof(false)} onConfirm={() => void uploadProof()} />}
     </section>;
 }

@@ -932,6 +932,7 @@ function OrderDetails() {
                                     {order.delivery_address ||
                                         "Delivery address not available."}
                                 </p>
+                                {order.delivery_progress?.parcel_code && <small>Parcel ID: {order.delivery_progress.parcel_code}</small>}
                                 {order.delivery_progress?.delivery_area?.name && <small>Delivery area: {order.delivery_progress.delivery_area.name}</small>}
                                 {order.delivery_progress?.pickup?.status && <small>Seller pickup: {formatStatusLabel(order.delivery_progress.pickup.status)}</small>}
                             </div>

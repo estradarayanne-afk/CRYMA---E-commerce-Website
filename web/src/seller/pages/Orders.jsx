@@ -10,6 +10,7 @@ import {
 import api from "../../shared/services/api";
 import { parseDeliveryAddress } from "../../shared/utils/deliveryAddress";
 import ParcelSlip from "../components/ParcelSlip";
+import ParcelQrCode from "../../shared/components/ParcelQrCode";
 
 const STATUS_FLOW = [
     "PLACED",
@@ -524,6 +525,7 @@ function Orders() {
 
                 {selected && (
                     <div className="sl-card sl-order-detail">
+                        <section className="sl-order-parcel-qr"><div><h3>Parcel QR label</h3><p>This permanent parcel ID contains no buyer details.</p></div><ParcelQrCode value={selected.delivery_progress?.parcel_code || selected.delivery?.parcel_code} size={150} /></section>
                         <ParcelSlip order={selected} />
                         <div className="sl-detail-head">
                             <div className="sl-order-detail-heading">

@@ -20,7 +20,7 @@ class DeliveryWorkflowTest extends TestCase
     public function test_admin_assigns_pickup_only_to_eligible_riders_and_only_for_ready_orders(): void
     {
         $admin = $this->admin();
-        $order = $this->order('READY_FOR_PICKUP');
+        $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
         [, $profile] = $this->eligibleCourier();
         $inactive = $this->eligibleCourier(status: 'suspended')[1];
         $unverified = $this->eligibleCourier(verified: false)[1];
@@ -32,7 +32,7 @@ class DeliveryWorkflowTest extends TestCase
         $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $missingDocs->id])->assertUnprocessable();
         $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $noVehicle->id])->assertUnprocessable();
 
-        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id])
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id, 'scheduled_at' => now()->addDay()->toISOString()])
             ->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'READY_FOR_PICKUP']);
         $this->assertDatabaseHas('deliveries', ['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
@@ -48,7 +48,7 @@ class DeliveryWorkflowTest extends TestCase
         $admin = $this->admin();
         [$rider, $profile] = $this->eligibleCourier();
         [$otherRider] = $this->eligibleCourier();
-        $order = $this->order('READY_FOR_PICKUP');
+        $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
         $assignment = $this->assignPickup($admin, $order, $profile);
 
         $this->actingAs($otherRider, 'sanctum')->getJson("/api/courier/pickups/{$assignment->id}")->assertNotFound();
@@ -62,18 +62,61 @@ class DeliveryWorkflowTest extends TestCase
         $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
             'status' => PickupAssignment::ACCEPTED, 'expected_status' => PickupAssignment::ASSIGNED,
         ])->assertOk();
+        $parcelCode = $assignment->delivery->parcel_code;
         $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
-            'status' => PickupAssignment::PICKED_UP, 'expected_status' => PickupAssignment::ACCEPTED,
+            'status' => PickupAssignment::PICKED_UP, 'expected_status' => PickupAssignment::ACCEPTED, 'parcel_code' => 'CRYMA-PCL-WRONGCODE00000000',
+        ])->assertUnprocessable();
+        $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
+            'status' => PickupAssignment::PICKED_UP, 'expected_status' => PickupAssignment::ACCEPTED, 'parcel_code' => $parcelCode,
         ])->assertOk();
         $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
             'status' => PickupAssignment::RECEIVED, 'expected_status' => PickupAssignment::PICKED_UP,
+        ])->assertUnprocessable();
+
+        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
+        $this->actingAs($logistics, 'sanctum')->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
+            'expected_status' => Delivery::PICKED_UP,
         ])->assertOk();
 
         $this->assertSame(Delivery::AT_SORTING_CENTER, $order->fresh()->status);
         $this->assertNotNull($assignment->fresh()->received_at);
-        $this->assertDatabaseHas('delivery_events', ['event_type' => 'sorting_center_received', 'actor_id' => $rider->id, 'new_status' => Delivery::AT_SORTING_CENTER]);
+        $this->assertDatabaseHas('delivery_events', ['event_type' => 'sorting_center_received', 'actor_id' => $logistics->id, 'new_status' => Delivery::AT_SORTING_CENTER]);
+        $this->actingAs($rider, 'sanctum');
         $this->getJson('/api/courier/pickups')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/api/courier/pickup-history')->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_pickup_qr_scan_must_match_the_riders_assigned_parcel_and_cannot_be_replayed(): void
+    {
+        [$rider, $profile] = $this->eligibleCourier();
+        $order = $this->order('READY_FOR_PICKUP');
+        $delivery = Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP']);
+        $assignment = PickupAssignment::create([
+            'order_id' => $order->id,
+            'delivery_id' => $delivery->id,
+            'courier_profile_id' => $profile->id,
+            'status' => PickupAssignment::ACCEPTED,
+            'pickup_address' => 'Synthetic seller pickup point',
+        ]);
+
+        $this->actingAs($rider, 'sanctum')->patchJson("/api/courier/pickups/{$assignment->id}/status", [
+            'status' => PickupAssignment::PICKED_UP,
+            'expected_status' => PickupAssignment::ACCEPTED,
+            'parcel_code' => 'CRYMA-PCL-WRONGCODE00000000',
+        ])->assertUnprocessable();
+
+        $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
+            'status' => PickupAssignment::PICKED_UP,
+            'expected_status' => PickupAssignment::ACCEPTED,
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertOk()->assertJsonPath('data.parcel_code', $delivery->parcel_code);
+
+        $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
+            'status' => PickupAssignment::PICKED_UP,
+            'expected_status' => PickupAssignment::ACCEPTED,
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertStatus(409);
+        $this->assertSame(Delivery::PICKED_UP, $delivery->fresh()->status);
     }
 
     public function test_admin_sorts_parcel_and_assigns_only_a_courier_configured_for_the_area(): void
@@ -118,7 +161,8 @@ class DeliveryWorkflowTest extends TestCase
         $delivery = Delivery::create(['order_id' => $order->id, 'courier_profile_id' => $profile->id, 'delivery_area_id' => $area->id, 'status' => Delivery::ASSIGNED]);
         $this->actingAs($courier, 'sanctum')->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::DELIVERED, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::COMPLETED, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable();
-        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED])->assertOk();
+        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED, 'parcel_code' => 'CRYMA-PCL-WRONGCODE00000000'])->assertUnprocessable();
+        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED, 'parcel_code' => $delivery->parcel_code])->assertOk();
         $this->assertNotNull($delivery->fresh()->delivery_picked_up_at);
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::FAILED, 'expected_status' => Delivery::OUT_FOR_DELIVERY, 'reason' => '  '])->assertUnprocessable();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::FAILED, 'expected_status' => Delivery::OUT_FOR_DELIVERY, 'reason' => 'Recipient unavailable'])->assertOk();
@@ -199,11 +243,11 @@ class DeliveryWorkflowTest extends TestCase
         $this->assertDatabaseHas('courier_delivery_areas', ['delivery_area_id' => $areaId, 'courier_profile_id' => $profileOne->id, 'assigned_by' => $admin->id]);
         $this->deleteJson("/api/admin/delivery-areas/{$areaId}/couriers/{$profileOne->id}")->assertOk();
         $this->assertDatabaseMissing('courier_delivery_areas', ['delivery_area_id' => $areaId, 'courier_profile_id' => $profileOne->id]);
-        $order = $this->order('READY_FOR_PICKUP');
+        $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
         $assignment = $this->assignPickup($admin, $order, $profileOne);
 
-        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'expected_courier_profile_id' => 999, 'reason' => 'Changes'])->assertStatus(409);
-        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'expected_courier_profile_id' => $profileOne->id, 'reason' => 'Coverage change'])->assertOk();
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'scheduled_at' => now()->addDays(2)->toISOString(), 'expected_courier_profile_id' => 999, 'reason' => 'Changes'])->assertStatus(409);
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'scheduled_at' => now()->addDays(2)->toISOString(), 'expected_courier_profile_id' => $profileOne->id, 'reason' => 'Coverage change'])->assertOk();
         $this->assertSame($profileTwo->id, $assignment->fresh()->courier_profile_id);
         $this->actingAs($riderOne, 'sanctum')->getJson('/api/admin/delivery-areas')->assertForbidden();
 
@@ -285,10 +329,10 @@ class DeliveryWorkflowTest extends TestCase
     public function test_generic_admin_status_cannot_bypass_the_logistics_workflow(): void
     {
         $admin = $this->admin();
-        $order = $this->order('READY_FOR_PICKUP');
+        $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
         [, $profile] = $this->eligibleCourier();
         $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/status", ['status' => Delivery::DELIVERED])->assertUnprocessable();
-        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id])->assertOk();
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id, 'scheduled_at' => now()->addDay()->toISOString()])->assertOk();
         $this->patchJson("/api/admin/orders/{$order->id}/status", ['status' => 'CANCELLED'])->assertStatus(409);
         $this->assertSame('READY_FOR_PICKUP', $order->fresh()->status);
     }
@@ -327,7 +371,7 @@ class DeliveryWorkflowTest extends TestCase
 
     private function assignPickup(User $admin, Order $order, CourierProfile $profile): PickupAssignment
     {
-        $this->actingAs($admin, 'sanctum')->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id])->assertOk();
+        $this->actingAs($admin, 'sanctum')->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id, 'scheduled_at' => now()->addDay()->toISOString()])->assertOk();
         return PickupAssignment::where('order_id', $order->id)->firstOrFail();
     }
 
@@ -351,6 +395,24 @@ class DeliveryWorkflowTest extends TestCase
     {
         $buyer ??= User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         return Order::create(['buyer_id' => $buyer->id, 'delivery_address' => 'Test delivery address', 'payment_method' => 'cash_on_delivery', 'subtotal' => 10, 'shipping_fee' => 0, 'total_amount' => 10, 'status' => $status]);
+    }
+
+    private function orderWithPickupAddress(string $status): Order
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        \App\Models\Address::create([
+            'user_id' => $seller->id, 'recipient_name' => 'Synthetic Seller', 'phone' => '+639171234567',
+            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
+        ]);
+        $order = $this->order($status);
+        $product = $this->product($seller);
+        \App\Models\OrderItem::create([
+            'order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
+            'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+        ]);
+
+        return $order;
     }
 
     private function product(User $seller): \App\Models\Product
