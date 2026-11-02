@@ -202,9 +202,12 @@
 
     .sl-parcel-barcode {
         display: block !important;
-        width: 75mm !important;
+        width: 65mm !important;
         height: 14mm !important;
     }
+
+    .sl-parcel-slip-code .parcel-qr-code svg { width: 25mm !important; height: 25mm !important; }
+    .sl-parcel-slip-code .parcel-qr-code strong { font-size: 6.5pt !important; }
 
     .sl-parcel-slip-code > strong {
         font-size: 8pt !important;

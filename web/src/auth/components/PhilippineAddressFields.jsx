@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { getPhilPostPostalCode } from "../utils/postalCode";
+import { normalizePsgcPlaceName } from "../utils/normalizePsgcPlaceName";
 
 const API_BASE = "https://psgc.cloud/api/v2";
+
+const normalizePsgcPlaces = (places) =>
+    places.map((place) => ({
+        ...place,
+        name: normalizePsgcPlaceName(place.name),
+    }));
 
 function PhilippineAddressFields({
     region,
@@ -55,9 +62,9 @@ function PhilippineAddressFields({
                 const result = await response.json();
 
                 if (!cancelled) {
-                    const loadedRegions = Array.isArray(result?.data) ? result.data : [];
+                    const loadedRegions = normalizePsgcPlaces(Array.isArray(result?.data) ? result.data : []);
                     setRegions(loadedRegions);
-                    const savedRegion = hydrateExisting && loadedRegions.find((item) => item.name === region);
+                    const savedRegion = hydrateExisting && loadedRegions.find((item) => item.name === normalizePsgcPlaceName(region));
                     if (savedRegion) setRegionCode(String(savedRegion.code));
                 }
             } catch (error) {
@@ -116,9 +123,9 @@ function PhilippineAddressFields({
                 const result = await response.json();
 
                 if (!cancelled) {
-                    const loadedProvinces = Array.isArray(result?.data) ? result.data : [];
+                    const loadedProvinces = normalizePsgcPlaces(Array.isArray(result?.data) ? result.data : []);
                     setProvinces(loadedProvinces);
-                    const savedProvince = hydrateExisting && loadedProvinces.find((item) => item.name === province);
+                    const savedProvince = hydrateExisting && loadedProvinces.find((item) => item.name === normalizePsgcPlaceName(province));
                     if (savedProvince) setProvinceCode(String(savedProvince.code));
                 }
             } catch (error) {
@@ -179,9 +186,9 @@ function PhilippineAddressFields({
                 const result = await response.json();
 
                 if (!cancelled) {
-                    const loadedCities = Array.isArray(result?.data) ? result.data : [];
+                    const loadedCities = normalizePsgcPlaces(Array.isArray(result?.data) ? result.data : []);
                     setCities(loadedCities);
-                    const savedCity = hydrateExisting && loadedCities.find((item) => item.name === city);
+                    const savedCity = hydrateExisting && loadedCities.find((item) => item.name === normalizePsgcPlaceName(city));
                     if (savedCity) setCityCode(String(savedCity.code));
                 }
             } catch (error) {
@@ -249,9 +256,7 @@ function PhilippineAddressFields({
 
                 if (!cancelled) {
                     setBarangays(
-                        Array.isArray(result?.data)
-                            ? result.data
-                            : []
+                        normalizePsgcPlaces(Array.isArray(result?.data) ? result.data : [])
                     );
                 }
             } catch (error) {

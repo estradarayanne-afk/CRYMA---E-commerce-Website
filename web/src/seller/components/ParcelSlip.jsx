@@ -1,5 +1,6 @@
 import { getCode39Barcode } from "../utils/code39";
 import { parseDeliveryAddress } from "../../shared/utils/deliveryAddress";
+import ParcelQrCode from "../../shared/components/ParcelQrCode";
 import "./ParcelSlip.css";
 
 function Code39({ value }) {
@@ -21,6 +22,7 @@ function Code39({ value }) {
 }
 
 function ParcelSlip({ order }) {
+    const parcelCode = order.delivery_progress?.parcel_code || order.delivery?.parcel_code;
     const buyerName = [
         order.buyer?.first_name,
         order.buyer?.middle_name,
@@ -71,8 +73,9 @@ function ParcelSlip({ order }) {
             </div>
 
             <div className="sl-parcel-slip-code">
+                {parcelCode && <ParcelQrCode value={parcelCode} label={`QR code for parcel ${parcelCode}`} size={112} />}
                 <Code39 value={order.id} />
-                <strong>CRYMA ORDER #{order.id}</strong>
+                <strong>{parcelCode || `CRYMA ORDER #${order.id}`}</strong>
             </div>
             <footer>Internal CRYMA order reference only. Not a carrier-issued waybill.</footer>
         </section>

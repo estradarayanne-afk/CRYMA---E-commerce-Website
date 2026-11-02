@@ -51,7 +51,15 @@ class RegistrationController extends Controller
             'middle_name' => ['nullable', 'string', 'max:2', 'regex:/^\\p{L}\\p{M}*\\.?$/u'],
             'last_name' => ['required', 'string', 'max:30', "regex:/^[\\p{L}\\p{M}]+(?:[ \\x27\\x2D][\\p{L}\\p{M}]+)*$/u"],
 
-            'email' => ['required', 'email', 'min:3', 'max:254', 'unique:users,email'],
+            'email' => [
+                'required', 'email', 'min:3', 'max:254',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $normalizedEmail = mb_strtolower(trim((string) $value));
+                    if (User::query()->whereRaw('LOWER(email) = ?', [$normalizedEmail])->exists()) {
+                        $fail('An account with this email already exists.');
+                    }
+                },
+            ],
             'phone' => ['required', 'max:13', 'regex:/^\\+639[0-9]{9}$/'],
 
             'password' => ['required', 'string', 'min:8', 'max:128', 'confirmed'],

@@ -3,10 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\AccountEmailReleaseController;
+use App\Mail\AccountReactivationMail;
+use App\Mail\AccountSuspensionMail;
 use App\Models\User;
 use App\Models\UserDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class RegistrationController extends Controller
 {
@@ -60,39 +65,47 @@ class RegistrationController extends Controller
  */
 public function approve(int $id)
 {
-    $user = User::where('id', $id)
-        ->where('status', 'pending')
-        ->whereIn('role', ['seller', 'buyer', 'rider', 'logistics'])
-        ->first();
+    $result = DB::transaction(function () use ($id): array {
+        $user = User::query()->lockForUpdate()->whereKey($id)
+            ->where('status', 'pending')
+            ->whereIn('role', ['seller', 'buyer', 'rider', 'logistics'])
+            ->first();
 
-    if (!$user) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Pending registration not found.',
-        ], 404);
+        if (!$user) {
+            return ['error' => ['success' => false, 'message' => 'Pending registration not found.'], 'status' => 404];
+        }
+
+        if ($user->account_archived_at !== null) {
+            return ['error' => ['success' => false, 'message' => 'Archived accounts cannot be activated.'], 'status' => 409];
+        }
+        if (!$user->email_verified_at) {
+            return ['error' => ['success' => false, 'message' => 'Email verification is required before approval.'], 'status' => 422];
+        }
+
+        $requiredDocuments = match ($user->role) {
+            'seller' => ['valid_id', 'business_permit'],
+            'rider' => ['valid_id', 'or_cr', 'drivers_license'],
+            'logistics' => ['valid_id', 'business_permit'],
+            default => ['valid_id'],
+        };
+        $approvedTypes = UserDocument::where('user_id', $user->id)
+            ->where('status', 'approved')->whereIn('document_type', $requiredDocuments)
+            ->pluck('document_type')->unique()->all();
+        if (array_diff($requiredDocuments, $approvedTypes)) {
+            return ['error' => ['success' => false, 'message' => 'All required registration documents must be approved first.'], 'status' => 422];
+        }
+
+        // `status` is intentionally not mass assignable on User.
+        $user->forceFill(['status' => 'active'])->save();
+
+        return ['user' => $user->refresh()];
+    });
+
+    if (isset($result['error'])) {
+        return response()->json($result['error'], $result['status']);
     }
 
-    if (!$user->email_verified_at) {
-        return response()->json(['success' => false, 'message' => 'Email verification is required before approval.'], 422);
-    }
-    $requiredDocuments = match ($user->role) {
-        'seller' => ['valid_id', 'business_permit'],
-        'rider' => ['valid_id', 'or_cr', 'drivers_license'],
-        'logistics' => ['valid_id', 'business_permit'],
-        default => ['valid_id'],
-    };
-    $approvedTypes = UserDocument::where('user_id', $user->id)
-        ->where('status', 'approved')->whereIn('document_type', $requiredDocuments)
-        ->pluck('document_type')->unique()->all();
-    if (array_diff($requiredDocuments, $approvedTypes)) {
-        return response()->json(['success' => false, 'message' => 'All required registration documents must be approved first.'], 422);
-    }
-
-    // `status` is intentionally not mass assignable on User. Set this
-    // admin-authorized field explicitly so it is actually persisted.
-    $user->forceFill(['status' => 'active'])->save();
-    $user->refresh();
-
+    $user = $result['user'];
     return response()->json([
         'success' => true,
         'message' => 'Registration approved successfully.',
@@ -219,8 +232,12 @@ public function approve(int $id)
             ], 422);
         }
 
-        $user->update($data);
-        $user->refresh();
+        $user = DB::transaction(function () use ($id, $data): User {
+            $user = User::query()->lockForUpdate()->findOrFail($id);
+            abort_if($user->account_archived_at !== null, 409, 'Archived accounts cannot be edited.');
+            $user->update($data);
+            return $user->refresh();
+        });
 
         return response()->json([
             'success' => true,
@@ -249,7 +266,7 @@ public function approve(int $id)
 
         $data = $request->validate([
             'status' => ['required', 'in:active,suspended,rejected,pending'],
-            'suspension_reason' => ['required_if:status,suspended', 'nullable', 'string', 'max:1000'],
+            'suspension_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
         if ($data['status'] === 'active') {
@@ -270,20 +287,77 @@ public function approve(int $id)
             }
         }
 
-        // Status is intentionally excluded from User's mass-assignable fields.
-        // Persist it explicitly after the admin authorization and eligibility checks.
-        DB::transaction(function () use ($user, $data): void {
+        // Persist the status and revoke tokens atomically. Only a transition into
+        // suspended triggers a notification, so retries do not send duplicates.
+        $statusNotification = DB::transaction(function () use ($id, $data): ?array {
+            $user = User::query()->lockForUpdate()->findOrFail($id);
+
+            if ($user->role === 'admin') {
+                abort(403, 'Unauthorized.');
+            }
+            abort_if($user->account_archived_at !== null, 409, 'Archived accounts cannot change status.');
+
+            $wasSuspended = $user->status === 'suspended';
+            $suspendedAt = now();
+
+            // Status is intentionally excluded from User's mass-assignable fields.
             $user->forceFill([
                 'status' => $data['status'],
                 'suspension_reason' => $data['status'] === 'suspended'
-                    ? trim($data['suspension_reason'])
+                    ? (trim((string) ($data['suspension_reason'] ?? '')) ?: null)
                     : null,
             ])->save();
+
             if ($data['status'] !== 'active') {
                 $user->tokens()->delete();
             }
+
+            $notificationKind = match (true) {
+                $data['status'] === 'suspended' && !$wasSuspended => 'suspended',
+                $data['status'] === 'active' && $wasSuspended => 'reactivated',
+                default => null,
+            };
+
+            if ($notificationKind === null) {
+                return null;
+            }
+
+            return [
+                'kind' => $notificationKind,
+                'user' => $user,
+                'occurred_at' => $suspendedAt,
+            ];
         });
-        $user->refresh();
+
+        if ($statusNotification !== null) {
+            /** @var User $notifiedUser */
+            $notifiedUser = $statusNotification['user'];
+            $userName = trim($notifiedUser->first_name.' '.$notifiedUser->last_name) ?: 'there';
+
+            try {
+                $mail = $statusNotification['kind'] === 'suspended'
+                    ? new AccountSuspensionMail(
+                        userName: $userName,
+                        reason: $notifiedUser->suspension_reason,
+                        suspendedAt: $statusNotification['occurred_at'],
+                    )
+                    : new AccountReactivationMail(
+                        userName: $userName,
+                        reactivatedAt: $statusNotification['occurred_at'],
+                    );
+
+                Mail::to($notifiedUser->email)->send($mail);
+            } catch (\Throwable $exception) {
+                // Delivery failures must never undo a committed status change.
+                $event = $statusNotification['kind'] === 'suspended' ? 'suspension' : 'reactivation';
+                Log::warning("Account {$event} notification email delivery failed.", [
+                    'user_id' => $notifiedUser->id,
+                    'exception_class' => $exception::class,
+                ]);
+            }
+        }
+
+        $user = User::findOrFail($id);
 
         return response()->json([
             'success' => true,
