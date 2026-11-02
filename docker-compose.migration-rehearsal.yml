@@ -1,0 +1,69 @@
+﻿name: cryma-migration-rehearsal-20261102
+services:
+  backend:
+    container_name: cryma-migration-rehearsal-api-20261102
+    image: cryma-backend-migration-candidate:20261102
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      mailpit:
+        condition: service_started
+    environment:
+      APP_NAME: CRYMA-Rehearsal
+      APP_ENV: testing
+      APP_DEBUG: "true"
+      APP_KEY: ""
+      APP_URL: http://localhost
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /data/rehearsal.sqlite
+      DB_URL: ""
+      DB_FOREIGN_KEYS: "true"
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      FILESYSTEM_DISK: local
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MAIL_SCHEME: smtp
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MAIL_FROM_ADDRESS: rehearsal@example.invalid
+      MAIL_FROM_NAME: CRYMA-Rehearsal
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: debug
+    volumes:
+      - cryma-migration-rehearsal-db-20261102:/data
+      - cryma-migration-rehearsal-storage-20261102:/var/www/storage
+    networks:
+      - rehearsal
+    user: www-data
+    command: ["sh", "-c", "sleep infinity"]
+
+  mailpit:
+    container_name: cryma-migration-rehearsal-mailpit-20261102
+    image: axllent/mailpit:v1.27
+    restart: "no"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - cryma-migration-rehearsal-mailpit-20261102:/data
+    ports:
+      - "127.0.0.1:8026:8025"
+    networks:
+      - rehearsal
+
+volumes:
+  cryma-migration-rehearsal-db-20261102:
+    name: cryma-migration-rehearsal-db-20261102
+  cryma-migration-rehearsal-storage-20261102:
+    name: cryma-migration-rehearsal-storage-20261102
+  cryma-migration-rehearsal-mailpit-20261102:
+    name: cryma-migration-rehearsal-mailpit-20261102
+
+networks:
+  rehearsal:
+    name: cryma-migration-rehearsal-net-20261102
+    internal: true
