@@ -2266,6 +2266,50 @@
     html:has(.buyer-home) { scroll-behavior: smooth; }
 }
 
+@media (max-width: 700px) {
+    .buyer-global-shell--home .cryma-navbar-inner {
+        width: calc(100% - 32px);
+        justify-content: space-between;
+    }
+
+    .buyer-global-shell--home .cryma-mobile-toggle,
+    .buyer-global-shell--home .cryma-main-navigation,
+    .buyer-global-shell--home .cryma-navbar-actions > .cryma-icon-action,
+    .buyer-global-shell--home .cryma-navbar-actions > .cryma-action-container:nth-of-type(3),
+    .buyer-global-shell--home .cryma-navbar-actions > .cryma-account-container,
+    .buyer-global-shell--home .cryma-navbar-actions > .cryma-guest-actions {
+        display: none;
+    }
+
+    .buyer-global-shell--home .cryma-navbar-logo {
+        min-width: 0;
+        margin: 0;
+        gap: 0;
+    }
+
+    .buyer-global-shell--home .cryma-navbar-logo .cryma-logo-mark {
+        display: none;
+    }
+
+    .buyer-global-shell--home .cryma-navbar-logo .cryma-logo-word {
+        color: var(--crimson);
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0;
+    }
+
+    .buyer-global-shell--home .cryma-navbar-actions {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .buyer-global-shell--home .cryma-navbar-actions .cryma-action-container > .cryma-icon-action {
+        display: inline-flex;
+    }
+}
+
 /* Keep the account identity grouped on the maroon cover. */
 .cryma-account-hero {
     background: linear-gradient(115deg, var(--deep-crimson), var(--wine));

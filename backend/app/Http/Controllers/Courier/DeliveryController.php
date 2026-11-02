@@ -41,6 +41,7 @@ class DeliveryController extends Controller
         return [
             'id' => $delivery->id,
             'order_id' => $delivery->order_id,
+            'parcel_code' => $delivery->parcel_code,
             'status' => $delivery->status,
             'assigned_at' => $delivery->assigned_at,
             'delivery_picked_up_at' => $delivery->delivery_picked_up_at,
@@ -111,6 +112,7 @@ class DeliveryController extends Controller
             'status' => ['required', 'in:OUT_FOR_DELIVERY,DELIVERY_FAILED'],
             'expected_status' => ['required', 'in:ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY'],
             'reason' => ['nullable', 'string', 'max:1000'],
+            'parcel_code' => ['sometimes', 'required', 'string', 'max:32'],
         ]);
         $reason = isset($validated['reason']) ? trim($validated['reason']) : null;
         if ($validated['status'] === Delivery::FAILED && !$reason) {
@@ -125,6 +127,9 @@ class DeliveryController extends Controller
             $delivery = Delivery::where('courier_profile_id', $profile->id)->whereKey($id)->lockForUpdate()->first();
             if (!$delivery) abort(404, 'Assigned delivery not found.');
             abort_unless($eligibility->isEligible($profile), 403, 'Courier eligibility changed. Contact an administrator.');
+            if (isset($validated['parcel_code'])) {
+                abort_unless(hash_equals((string) $delivery->parcel_code, $validated['parcel_code']), 422, 'The scanned parcel does not match this delivery assignment.');
+            }
 
             $next = $validated['status'];
             if ($delivery->status === $next) {

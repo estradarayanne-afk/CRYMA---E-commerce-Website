@@ -4,6 +4,7 @@ import {
     CheckCircle2,
     MessageCircle,
     PackageOpen,
+    Search,
     ShieldCheck,
     Truck,
     Users,
@@ -26,6 +27,14 @@ import {
 } from "../../../shared/utils/buyerAccess";
 
 import "./Home.css";
+
+const MOBILE_HOME_CATEGORIES = [
+    { name: "Women's Apparel", image: "/mobile-home/fashion.jpg" },
+    { name: "Health & Beauty", image: "/mobile-home/beauty.jpg" },
+    { name: "Electronics & Gadgets", image: "/mobile-home/electronics.jpg" },
+    { name: "Home & Garden", image: "/mobile-home/homes.jpg" },
+    { name: "Sports & Outdoors", image: "/mobile-home/sports.jpg" },
+];
 
 function getBuyerGreetingName() {
     try {
@@ -95,6 +104,7 @@ function Home() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [mobileSearch, setMobileSearch] = useState("");
 
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [cartModalOpen, setCartModalOpen] = useState(false);
@@ -220,6 +230,12 @@ function Home() {
         navigate("/shop");
     };
 
+    const handleMobileSearch = (event) => {
+        event.preventDefault();
+        const query = mobileSearch.trim();
+        navigate(query ? `/shop?search=${encodeURIComponent(query)}` : "/shop");
+    };
+
     const handleCategoryClick = (category) => {
         navigate(
             `/shop?category=${encodeURIComponent(category)}`
@@ -275,6 +291,17 @@ function Home() {
     return (
         <div className="buyer-home">
             <main className="buyer-home-main">
+
+                <form className="buyer-mobile-home-search" onSubmit={handleMobileSearch}>
+                    <Search size={20} aria-hidden="true" />
+                    <input
+                        type="search"
+                        value={mobileSearch}
+                        onChange={(event) => setMobileSearch(event.target.value)}
+                        placeholder="Search products, brands..."
+                        aria-label="Search products, brands"
+                    />
+                </form>
 
                 {/* HERO */}
                 <section className="buyer-landing-hero" ref={heroRef}>
@@ -358,6 +385,21 @@ function Home() {
                     <div className="buyer-landing-hero-visual buyer-hero-three-visual">
                         <HomeHeroScene />
                     </div>
+                    <div className="buyer-mobile-home-hero">
+                        <img
+                            src="/mobile-home/welcome_page.jpg"
+                            alt="Discover more of CRYMA"
+                            fetchPriority="high"
+                            decoding="async"
+                        />
+                        <div className="buyer-mobile-hero-copy">
+                            <span>DISCOVER MORE</span>
+                            <strong>Everything You Need,<br />All in One Place.</strong>
+                            <button type="button" onClick={handleStartShopping}>
+                                Shop Now <ArrowRight size={15} aria-hidden="true" />
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
 
@@ -367,11 +409,13 @@ function Home() {
                     <div className="buyer-landing-section-heading">
 
                         <div>
+                            <span className="buyer-mobile-featured-eyebrow">Featured Products</span>
                             <span>CURATED FOR YOU</span>
 
                             <h2>
                                 A few things worth discovering.
                             </h2>
+                            <h2 className="buyer-mobile-featured-title">Featured Products</h2>
 
                             <p>
                                 Start with what's catching attention,
@@ -456,7 +500,14 @@ function Home() {
                 {/* CATEGORY DISCOVERY */}
                 <section id="categories" className="buyer-landing-section buyer-landing-category-section">
 
-                    <div className="buyer-landing-section-heading">
+                    <div className="buyer-mobile-section-heading">
+                        <h2>Categories</h2>
+                        <button type="button" onClick={handleStartShopping}>
+                            See All <ArrowRight size={15} aria-hidden="true" />
+                        </button>
+                    </div>
+
+                    <div className="buyer-landing-section-heading buyer-desktop-category-heading">
 
                         <div>
                             <span>EXPLORE</span>
@@ -479,6 +530,22 @@ function Home() {
                             <ArrowRight size={15} aria-hidden="true" />
                         </button>
 
+                    </div>
+
+                    <div className="buyer-mobile-category-grid">
+                        {MOBILE_HOME_CATEGORIES.map((category) => (
+                            <button
+                                key={category.name}
+                                type="button"
+                                className="buyer-mobile-category"
+                                onClick={() => handleCategoryClick(category.name)}
+                            >
+                                <span className="buyer-mobile-category-image">
+                                    <img src={category.image} alt="" loading="lazy" decoding="async" />
+                                </span>
+                                <span>{category.name}</span>
+                            </button>
+                        ))}
                     </div>
 
                     <div className="buyer-landing-category-grid">

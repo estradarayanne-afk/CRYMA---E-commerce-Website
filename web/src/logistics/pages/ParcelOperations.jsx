@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../shared/services/api";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PrivateDeliveryProof from "../../shared/components/PrivateDeliveryProof";
+import ParcelQrScanner from "../../shared/components/ParcelQrScanner";
 import "./ParcelOperations.css";
 
 const DEFAULT_QUEUE = {
@@ -64,6 +65,7 @@ export default function ParcelOperations({ section }) {
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [pendingAction, setPendingAction] = useState(null);
+    const [sortingScannerOpen, setSortingScannerOpen] = useState(false);
 
     const load = useCallback(async ({ quiet = false } = {}) => {
         if (!quiet) {
@@ -182,16 +184,24 @@ export default function ParcelOperations({ section }) {
         );
     };
 
-    const scanParcel = (order) => {
+    const scanParcel = (order, parcelCode = null) => {
         requestConfirmation(
             "Scan parcel at sorting center?",
             `Confirm that parcel #${order.id} has been physically received and scanned. You can then read the address and route it to an area rider.`,
             () => void mutate(
                 `scan-${order.id}`,
-                () => api.patch(`/logistics/orders/${order.id}/scan`, { expected_status: order.status }),
+                () => api.patch(`/logistics/orders/${order.id}/scan`, { expected_status: order.status, ...(parcelCode ? { parcel_code: parcelCode } : {}) }),
                 `Parcel #${order.id} scanned. Continue with its destination area and rider.`,
             ),
         );
+    };
+
+    const receiveSortingQr = (parcelCode) => {
+        const order = (queue.sorting_orders || []).find((item) => item.delivery?.parcel_code === parcelCode);
+        if (!order) { setError("No parcel in the current sorting queue matches that parcel ID."); return; }
+        if (!['AT_SORTING_CENTER', 'SORTED'].includes(order.status)) { setError("This parcel is not at the sorting center stage."); return; }
+        setSortingScannerOpen(false);
+        scanParcel(order, parcelCode);
     };
 
     const sortAndAssign = (order) => {
@@ -306,7 +316,7 @@ export default function ParcelOperations({ section }) {
                             <p className="lo-note">Confirm the seller pickup address, choose a future pickup date and time, then assign an eligible courier. The current order workflow has no separate reject/cancel state for a pickup request.</p>
                             {queue.pickup_orders.length === 0 && pickupRows.length === 0 ? <p className="lw-empty">No pickups are waiting for assignment or collection.</p> : <>
                                 {queue.pickup_orders.map((order) => <article className="lo-row" key={`ready-${order.id}`}>
-                                    <div><strong>Order #{order.id}</strong><span>{(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</span><small>Buyer: {[order.buyer?.first_name, order.buyer?.last_name].filter(Boolean).join(" ") || "Buyer"}</small><small>Pickup from seller: {formatPickupAddress(order.items?.[0]?.seller?.addresses?.find((address) => address.is_default) || order.items?.[0]?.seller?.addresses?.[0])}</small><label className="lo-field-label">Pickup date and time<input type="datetime-local" min={localDateTimeValue(new Date(Date.now() + 60_000))} value={pickupSchedules[order.id] || ""} onChange={(event) => setPickupSchedules((current) => ({ ...current, [order.id]: event.target.value }))} /></label><small>Parcel weight: {parcelWeight(order.items)}</small></div>
+                                    <div><strong>Order #{order.id}</strong><span>{(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</span><small>Buyer: {[order.buyer?.first_name, order.buyer?.last_name].filter(Boolean).join(" ") || "Buyer"}</small><small>Pickup from seller: {formatPickupAddress(order.items?.[0]?.seller?.addresses?.find((address) => address.is_default) || order.items?.[0]?.seller?.addresses?.[0])}</small><label className="lo-field-label">Pickup date and time<input type="datetime-local" value={pickupSchedules[order.id] || ""} onChange={(event) => setPickupSchedules((current) => ({ ...current, [order.id]: event.target.value }))} /></label><small>Parcel weight: {parcelWeight(order.items)}</small></div>
                                     <div className="lo-actions">{courierSelect(eligiblePickup, pickupChoices[order.id], (value) => setPickupChoices((current) => ({ ...current, [order.id]: value })), `Pickup courier for order ${order.id}`)}<button type="button" disabled={!!saving || !eligiblePickup.length} onClick={() => assignPickup(order.id)}>{saving === `pickup-${order.id}` ? "Saving…" : "Assign courier"}</button></div>
                                 </article>)}
                                 {pickupRows.filter((item) => item.status !== "PICKED_UP").map((assignment) => <article className="lo-row" key={`assigned-${assignment.id}`}>
@@ -314,7 +324,7 @@ export default function ParcelOperations({ section }) {
                                     {assignment.pickup_address && <p className="lo-pickup-schedule-summary">Pickup address: {assignment.pickup_address}</p>}
                                     {assignment.scheduled_at && <p className="lo-pickup-schedule-summary">Pickup scheduled: {new Date(assignment.scheduled_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</p>}
                                     {["PICKUP_REQUESTED", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(assignment.status) && <div className="lo-actions">
-                                        <label className="lo-field-label">Pickup date and time<input type="datetime-local" min={localDateTimeValue(new Date(Date.now() + 60_000))} value={pickupSchedules[assignment.order_id] ?? localDateTimeValue(assignment.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [assignment.order_id]: event.target.value }))} /></label>
+                                        <label className="lo-field-label">Pickup date and time<input type="datetime-local" value={pickupSchedules[assignment.order_id] ?? localDateTimeValue(assignment.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [assignment.order_id]: event.target.value }))} /></label>
                                         {courierSelect(eligiblePickup, pickupChoices[assignment.order_id] ?? assignment.courier_profile_id, (value) => setPickupChoices((current) => ({ ...current, [assignment.order_id]: value })), `Reassign pickup for order ${assignment.order_id}`)}
                                         {assignment.status !== "PICKUP_REQUESTED" && <input aria-label={`Pickup reassignment reason for order ${assignment.order_id}`} placeholder="Reason to change courier" maxLength={1000} value={getReason(`pickup-${assignment.order_id}`)} onChange={(event) => setReason(`pickup-${assignment.order_id}`, event.target.value)} />}
                                         <button type="button" disabled={!!saving || !eligiblePickup.length} onClick={() => assignPickup(assignment.order_id, assignment)}>{assignment.status === "PICKUP_REQUESTED" ? "Assign courier" : "Save assignment"}</button>
@@ -330,7 +340,7 @@ export default function ParcelOperations({ section }) {
                             <button type="button" disabled={!!saving} onClick={() => confirmReceipt(assignment)}>{saving === `receipt-${assignment.id}` ? "Receiving…" : "Receive parcel"}</button>
                         </article>)}</section>}
 
-                    {section === "sorting" && <section className="lo-panel"><h2>Receive · Scan · Read address · Sort · Assign</h2>
+                    {section === "sorting" && <section className="lo-panel"><h2>Receive · Scan · Read address · Sort · Assign</h2><button type="button" disabled={!!saving} onClick={() => setSortingScannerOpen((open) => !open)}>{sortingScannerOpen ? "Close parcel scanner" : "Scan or look up parcel ID"}</button>{sortingScannerOpen && <ParcelQrScanner title="Sorting-center parcel scan" onScan={receiveSortingQr} onClose={() => setSortingScannerOpen(false)} />}
                         {(queue.sorting_orders || []).filter((order) => ["AT_SORTING_CENTER", "SORTED"].includes(order.status)).length === 0 ? <p className="lw-empty">No received parcels are waiting to be sorted.</p> : queue.sorting_orders.filter((order) => ["AT_SORTING_CENTER", "SORTED"].includes(order.status)).map((order) => {
                             const scanned = order.delivery?.events?.some((event) => event.event_type === "parcel_scanned");
                             const areaId = areaChoices[order.id] || order.delivery?.delivery_area_id || "";
@@ -340,7 +350,7 @@ export default function ParcelOperations({ section }) {
                                 <div className="lo-parcel-details"><strong>Parcel #{order.id} <span className="lo-stage-pill">{scanned ? "Scanned · ready to route" : "Received · scan required"}</span></strong>
                                     <span className="lo-destination"><b>Delivery address</b>{order.delivery_address || "Address unavailable"}</span>
                                     <small>Items: {(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</small><small>Parcel weight: {parcelWeight(order.items)}</small>
-                                    {scanned && <small>Scan recorded: {new Date(order.delivery.events.find((event) => event.event_type === "parcel_scanned")?.created_at || Date.now()).toLocaleString("en-PH")}</small>}
+                                    {scanned && <small>Scan recorded: {order.delivery.events.find((event) => event.event_type === "parcel_scanned")?.created_at ? new Date(order.delivery.events.find((event) => event.event_type === "parcel_scanned").created_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small>}
                                 </div>
                                 <div className="lo-routing-fields">
                                     {!scanned && <button type="button" disabled={!!saving} onClick={() => scanParcel(order)}>{saving === `scan-${order.id}` ? "Scanning…" : "Scan parcel"}</button>}

@@ -10,6 +10,7 @@ import {
 import api from "../../shared/services/api";
 import { parseDeliveryAddress } from "../../shared/utils/deliveryAddress";
 import ParcelSlip from "../components/ParcelSlip";
+import ParcelQrCode from "../../shared/components/ParcelQrCode";
 
 const STATUS_FLOW = [
     "PLACED",
@@ -183,17 +184,22 @@ function Orders() {
         if (!notificationOrderId || orders.length === 0 || handledNotificationKey.current === location.key) return;
         const notifiedOrder = orders.find((order) => Number(order.id) === notificationOrderId);
         if (!notifiedOrder) return;
-        handledNotificationKey.current = location.key;
-        setFilter("all");
-        setCurrentPage(Math.floor(orders.findIndex((order) => Number(order.id) === notificationOrderId) / ORDERS_PER_PAGE) + 1);
-        setSelected(notifiedOrder);
+        const timeout = window.setTimeout(() => {
+            handledNotificationKey.current = location.key;
+            setFilter("all");
+            setCurrentPage(Math.floor(orders.findIndex((order) => Number(order.id) === notificationOrderId) / ORDERS_PER_PAGE) + 1);
+            setSelected(notifiedOrder);
+        }, 0);
+        return () => window.clearTimeout(timeout);
     }, [location.key, notificationOrderId, orders]);
 
+    const selectedOrderId = selected?.id;
+    const selectedOrderStatus = selected?.status;
     useEffect(() => {
-        if (!selected || !["READY_FOR_PICKUP", "PICKED_UP", "AT_SORTING_CENTER", "SORTED", "ASSIGNED_TO_RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED"].includes(normalizeStatus(selected.status))) return undefined;
+        if (!selectedOrderId || !["READY_FOR_PICKUP", "PICKED_UP", "AT_SORTING_CENTER", "SORTED", "ASSIGNED_TO_RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED"].includes(normalizeStatus(selectedOrderStatus))) return undefined;
         const timer = window.setInterval(() => { void loadOrders({ quiet: true }); }, 30_000);
         return () => window.clearInterval(timer);
-    }, [loadOrders, selected?.id, selected?.status]);
+    }, [loadOrders, selectedOrderId, selectedOrderStatus]);
 
     const normalizedOrders = useMemo(() => {
         return orders.map((order) => ({
@@ -213,11 +219,8 @@ function Orders() {
     }, [normalizedOrders, filter]);
 
     const pageCount = Math.max(1, Math.ceil(visible.length / ORDERS_PER_PAGE));
-    const pageOrders = visible.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE);
-
-    useEffect(() => {
-        if (currentPage > pageCount) setCurrentPage(pageCount);
-    }, [currentPage, pageCount]);
+    const visiblePage = Math.min(currentPage, pageCount);
+    const pageOrders = visible.slice((visiblePage - 1) * ORDERS_PER_PAGE, visiblePage * ORDERS_PER_PAGE);
 
     const needsActionCount = useMemo(
         () => normalizedOrders.filter((order) => ["PLACED", "CONFIRMED", "PREPARING"].includes(order.displayStatus)).length,
@@ -514,16 +517,17 @@ function Orders() {
                         </div>
                     )}
                     {!loading && visible.length > ORDERS_PER_PAGE && <nav className="sl-orders-pagination" aria-label="Order list pages">
-                        <span>Page {currentPage} of {pageCount}</span>
+                        <span>Page {visiblePage} of {pageCount}</span>
                         <div>
-                            <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage <= 1}>Previous</button>
-                            <button type="button" onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))} disabled={currentPage >= pageCount}>Next</button>
+                            <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, Math.min(pageCount, page) - 1))} disabled={visiblePage <= 1}>Previous</button>
+                            <button type="button" onClick={() => setCurrentPage((page) => Math.min(pageCount, Math.min(pageCount, page) + 1))} disabled={visiblePage >= pageCount}>Next</button>
                         </div>
                     </nav>}
                 </div>
 
                 {selected && (
                     <div className="sl-card sl-order-detail">
+                        <section className="sl-order-parcel-qr"><div><h3>Parcel QR label</h3><p>This permanent parcel ID contains no buyer details.</p></div><ParcelQrCode value={selected.delivery_progress?.parcel_code || selected.delivery?.parcel_code} size={150} /></section>
                         <ParcelSlip order={selected} />
                         <div className="sl-detail-head">
                             <div className="sl-order-detail-heading">
