@@ -4321,3 +4321,11 @@ min-height: 100vh;
     .buyer-home .buyer-footer,
     .buyer-home .buyer-logistics-section { display: none; }
 }
+
+/* Keep featured products visible if the responsive scroll container is missed by IntersectionObserver. */
+@media (max-width: 1050px) {
+    .buyer-landing-featured.buyer-scroll-reveal {
+        opacity: 1;
+        transform: none;
+    }
+}
