@@ -124,6 +124,42 @@ class RegistrationApprovalPersistenceTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $buyer->id, 'status' => 'active']);
     }
 
+    public function test_admin_can_return_rejected_seller_to_review_before_approval(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $seller = $this->pendingUser('seller', 'rejected-seller@example.test');
+        $seller->forceFill(['status' => 'rejected'])->save();
+        SellerProfile::create([
+            'user_id' => $seller->id,
+            'sex' => 'prefer_not_to_say',
+            'birthday' => '1990-01-01',
+            'business_name' => 'Review Test Shop',
+            'line_of_business' => 'Test goods',
+        ]);
+        $this->approvedDocument($seller, 'valid_id');
+        $this->approvedDocument($seller, 'business_permit');
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/admin/users/{$seller->id}/status", ['status' => 'pending'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending');
+
+        $this->getJson('/api/admin/registrations?role=seller')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.data.0.id', $seller->id);
+
+        $this->patchJson("/api/admin/registrations/{$seller->id}/approve")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $seller->id,
+            'role' => 'seller',
+            'status' => 'active',
+        ]);
+    }
+
     private function pendingUser(string $role, string $email, bool $verified = true): User
     {
         return User::forceCreate([

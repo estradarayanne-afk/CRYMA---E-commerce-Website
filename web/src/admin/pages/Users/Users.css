@@ -520,7 +520,9 @@
 }
 
 .user-suspend-button,
-.user-activate-button {
+.user-activate-button,
+.user-review-button,
+.user-release-email-button {
     padding: 0.55rem 0.9rem;
     border-radius: 8px;
     font-size: 0.78rem;
@@ -557,21 +559,22 @@
     transform: translateY(-1px);
 }
 
-.user-suspend-button:active,
-.user-activate-button:active {
-    transform: translateY(0);
+.user-review-button {
+    border: 1px solid #D8C9A5;
+    background: #FFFCF4;
+    color: #70541A;
+}
+
+.user-review-button:hover {
+    background: #FFF6DE;
+    border-color: #D8C9A5;
+    transform: translateY(-1px);
 }
 
 .user-release-email-button {
-    padding: 0.55rem 0.9rem;
     border: 1px solid #F0C8CE;
-    border-radius: 8px;
     background: #FFF5F6;
     color: #8B2335;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .user-release-email-button:hover {
@@ -580,12 +583,18 @@
     transform: translateY(-1px);
 }
 
-.user-release-email-button:active { transform: translateY(0); }
-
 .user-archive-note {
     flex-basis: 100%;
     color: #70541A !important;
 }
+
+.user-suspend-button:active,
+.user-activate-button:active,
+.user-review-button:active {
+    transform: translateY(0);
+}
+
+.user-release-email-button:active { transform: translateY(0); }
 
 .user-release-email-blocked {
     flex-basis: 100%;

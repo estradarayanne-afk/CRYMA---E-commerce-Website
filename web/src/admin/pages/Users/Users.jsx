@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Users.css";
 
 function Users() {
     const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [users, setUsers] = useState([]);
     const [pagination, setPagination] = useState({
         current_page: 1,
@@ -16,7 +17,7 @@ function Users() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
-    const [roleFilter, setRoleFilter] = useState(() => new URLSearchParams(window.location.search).get("role") || "all");
+    const roleFilter = searchParams.get("role") || "all";
 
     const [selectedUser, setSelectedUser] = useState(null);
 
@@ -35,10 +36,12 @@ function Users() {
     // Success modal
     const [successModal, setSuccessModal] = useState("");
 
-    useEffect(() => {
-        const params = new URLSearchParams(location.search);
-        setRoleFilter(params.get("role") || "all");
-    }, [location.search]);
+    const handleRoleFilterChange = (role) => {
+        const nextSearchParams = new URLSearchParams(searchParams);
+        if (role === "all") nextSearchParams.delete("role");
+        else nextSearchParams.set("role", role);
+        setSearchParams(nextSearchParams);
+    };
 
     const [editForm, setEditForm] = useState({
         first_name: "",
@@ -63,7 +66,8 @@ function Users() {
             const response = await api.get("/admin/users", { params: { page, search: searchTerm || undefined, role: roleFilter === "all" ? undefined : roleFilter } });
             const data = response.data.data;
 
-            setUsers(data?.data || []);
+            const rows = data?.data || [];
+            setUsers(rows);
             setPagination({
                 current_page: data?.current_page || 1,
                 last_page: data?.last_page || 1,
@@ -319,6 +323,7 @@ function Users() {
 
     const handleStatusChange = (user, newStatus) => {
         const isSuspending = newStatus === "suspended";
+        const isReturningToReview = newStatus === "pending";
         if (isSuspending) {
             setSuspensionReason("");
             setSuspensionReasonDetails("");
@@ -329,10 +334,14 @@ function Users() {
             status: newStatus,
             title: isSuspending
                 ? "Suspend User?"
-                : "Activate User?",
+                : isReturningToReview
+                    ? "Return Account to Review?"
+                    : "Activate User?",
             message: isSuspending
                 ? `Are you sure you want to suspend ${getFullName(user)}?`
-                : `Are you sure you want to activate ${getFullName(user)}?`,
+                : isReturningToReview
+                    ? `Return ${getFullName(user)} to pending registration review? The account will not be able to sign in until it is approved.`
+                    : `Are you sure you want to activate ${getFullName(user)}?`,
         });
     };
 
@@ -416,20 +425,17 @@ function Users() {
                 )
             );
 
-            setSelectedUser((current) => ({
-                ...current,
-                ...updatedUser,
-            }));
-
             setConfirmationModal(null);
+            setSelectedUser(null);
+            await loadUsers(pagination.current_page);
 
             setSuccessModal(
                 response.data.message ||
-                `User ${
-                    newStatus === "suspended"
-                        ? "suspended"
-                        : "activated"
-                } successfully.`
+                (newStatus === "suspended"
+                    ? "User suspended successfully."
+                    : newStatus === "pending"
+                        ? "Account returned to registration review."
+                        : "User activated successfully.")
             );
         } catch (error) {
             console.error(
@@ -525,7 +531,7 @@ function Users() {
                                 type="button"
                                 className={roleFilter === role ? "active" : ""}
                                 aria-pressed={roleFilter === role}
-                                onClick={() => setRoleFilter(role)}
+                                onClick={() => handleRoleFilterChange(role)}
                             >
                                 {label}
                             </button>
@@ -909,6 +915,15 @@ function Users() {
                                     >
                                         Suspend User
                                     </button>
+                                ) : selectedUser.status === "rejected" ? (
+                                    <button
+                                        type="button"
+                                        className="user-review-button"
+                                        onClick={() => handleStatusChange(selectedUser, "pending")}
+                                        disabled={actionLoading || saving}
+                                    >
+                                        Return to Review
+                                    </button>
                                 ) : (
                                     <button
                                         type="button"
@@ -1285,6 +1300,8 @@ function Users() {
                                 {confirmationModal.status ===
                                 "suspended"
                                     ? "The user will no longer be able to access their account until it is activated again."
+                                    : confirmationModal.status === "pending"
+                                        ? "The account will return to pending registrations for review. Email verification and required document approvals are still required before activation."
                                     : "The user will regain access to their CRYMA account."}
                             </span>
                         )}
@@ -1381,8 +1398,7 @@ function Users() {
                                 Cancel
                             </button>
 
-                            {confirmationModal.type ===
-                            "status" ? (
+                            {confirmationModal.type === "status" ? (
                                 <button
                                     type="button"
                                     className={`user-confirmation-confirm ${
@@ -1400,11 +1416,15 @@ function Users() {
                                         ? confirmationModal.status ===
                                           "suspended"
                                             ? "Suspending..."
-                                            : "Activating..."
+                                            : confirmationModal.status === "pending"
+                                                ? "Returning..."
+                                                : "Activating..."
                                         : confirmationModal.status ===
                                           "suspended"
                                             ? "Yes, Suspend"
-                                            : "Yes, Activate"}
+                                            : confirmationModal.status === "pending"
+                                                ? "Yes, Return to Review"
+                                                : "Yes, Activate"}
                                 </button>
                             ) : confirmationModal.type === "save" ? (
                                 <button
