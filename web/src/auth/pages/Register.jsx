@@ -163,6 +163,7 @@ function Register({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [existingEmailConflict, setExistingEmailConflict] = useState(false);
     const [emailDeliveryFailed, setEmailDeliveryFailed] = useState(false);
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
@@ -399,6 +400,7 @@ function Register({
         if (step !== reviewStep || loading || registrationSubmissionLocked.current) return;
 
         setError("");
+        setExistingEmailConflict(false);
 
         const stepsToValidate = [1, 2, 3, ...(registrationRole !== "buyer" ? [4] : []), verificationStep];
         const firstInvalidStep = stepsToValidate.find((stepToValidate) => !validateStep(stepToValidate));
@@ -606,6 +608,10 @@ function Register({
                 err.response?.data?.errors;
 
             if (validationErrors) {
+                const emailErrors = validationErrors.email;
+                if (emailErrors?.length) {
+                    setExistingEmailConflict(emailErrors.some((message) => /already exists|already been taken|has already been taken/i.test(message)));
+                }
                 const firstError =
                     Object.values(
                         validationErrors
@@ -678,9 +684,11 @@ const handleResendVerification = async () => {
     try {
         const response = await api.post("/resend-verification", { email: email.trim().toLowerCase() });
         setEmailDeliveryFailed(false);
+        setSubmitted(true);
         setError(response.data?.message || "If this address has a pending registration, a new verification code has been sent.");
     } catch (err) {
         setEmailDeliveryFailed(true);
+        setSubmitted(true);
         setError(err.response?.data?.message || "Unable to request a new code right now. Please try again shortly.");
     } finally {
         setLoading(false);
@@ -739,7 +747,11 @@ const handleResendVerification = async () => {
                             <h2 id="otp-verification-title">Confirm your email address</h2>
                             <p className="otp-verification-copy">
                                 {emailDeliveryFailed
-                                    ? "Your account is saved, but we could not deliver the verification email. Try resending the code below."
+                                    ? existingEmailConflict
+                                        ? "We could not send a verification code right now. You can retry below, sign in, or reset your password."
+                                        : "Your account is saved, but we could not deliver the verification email. Try resending the code below."
+                                    : existingEmailConflict
+                                        ? "If this address has a pending, unverified registration, a verification code can be sent. If it is already verified, sign in or reset your password below."
                                     : "Enter the six-digit code we sent to this address to verify your CRYMA account."}
                             </p>
                             <div className="otp-email-callout">
@@ -782,6 +794,7 @@ const handleResendVerification = async () => {
                                 <button type="button" className="secondary-action otp-resend-action" onClick={handleResendVerification} disabled={loading} aria-busy={loading}>
                                 {loading ? "Please wait..." : "Resend verification code"}
                                 </button>
+                                <p>Already verified or unable to continue? <Link to="/login">Sign in</Link> or <Link to="/forgot-password">reset your password</Link>.</p>
                             </div>
                         </section>
                     ) : (
@@ -1313,6 +1326,18 @@ const handleResendVerification = async () => {
                                         placeholder="you@example.com"
                                     />
                                     {currentStepErrors.email && <small className="registration-field-error">{currentStepErrors.email}</small>}
+                                    {existingEmailConflict && (
+                                        <div className="register-existing-account" role="status">
+                                            <p>This email may already have a CRYMA account. Sign in or reset the password. If you have a pending, unverified registration, request a verification code.</p>
+                                            <div>
+                                                <Link to="/login">Sign in</Link>{" · "}
+                                                <Link to="/forgot-password">Reset password</Link>
+                                            </div>
+                                            <button type="button" className="secondary-action" onClick={handleResendVerification} disabled={loading}>
+                                                {loading ? "Please wait..." : "Request verification code"}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="auth-field">
