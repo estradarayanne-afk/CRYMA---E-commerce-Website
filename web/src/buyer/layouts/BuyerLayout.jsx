@@ -18,6 +18,7 @@ function BuyerLayout() {
     const toastIdRef = useRef(0);
     const location = useLocation();
     const buyerSession = isBuyerSession();
+    const isHomePage = location.pathname === "/";
 
     useEffect(() => {
         const notify = (detail) => {
@@ -58,7 +59,7 @@ function BuyerLayout() {
     }, []);
 
     return (
-        <div className="buyer-global-shell">
+        <div className={`buyer-global-shell${isHomePage ? " buyer-global-shell--home" : ""}`}>
             <BuyerNavbar />
 
             <AuthModal />
@@ -67,25 +68,38 @@ function BuyerLayout() {
                 <Outlet />
             </main>
 
-            <nav className="buyer-mobile-tab-bar" aria-label="Mobile shopping navigation">
-                {buyerSession ? (
-                    <NavLink to="/orders" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
-                        <Package size={20} aria-hidden="true" /><span>Orders</span>
-                    </NavLink>
-                ) : (
+            <nav className={`buyer-mobile-tab-bar${isHomePage ? " buyer-mobile-tab-bar--home" : ""}`} aria-label="Mobile shopping navigation">
+                {isHomePage || !buyerSession ? (
                     <NavLink to="/" end className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
                         <House size={20} aria-hidden="true" /><span>Home</span>
+                    </NavLink>
+                ) : (
+                    <NavLink to="/orders" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                        <Package size={20} aria-hidden="true" /><span>Orders</span>
                     </NavLink>
                 )}
                 <NavLink to="/shop" className={({ isActive }) => `buyer-mobile-tab${isActive && location.pathname === "/shop" ? " active" : ""}`}>
                     <Grid2X2 size={20} aria-hidden="true" /><span>Categories</span>
                 </NavLink>
-                <button type="button" className="buyer-mobile-tab" onClick={() => window.dispatchEvent(new Event("cryma-open-mobile-search"))}>
-                    <Search size={20} aria-hidden="true" /><span>Search</span>
-                </button>
-                <NavLink to="/cart" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
-                    <ShoppingCart size={20} aria-hidden="true" /><span>Cart</span>
-                </NavLink>
+                {isHomePage ? (
+                    <>
+                        <NavLink to="/cart" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                            <ShoppingCart size={20} aria-hidden="true" /><span>Cart</span>
+                        </NavLink>
+                        <NavLink to="/orders" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                            <Package size={20} aria-hidden="true" /><span>Orders</span>
+                        </NavLink>
+                    </>
+                ) : (
+                    <>
+                        <button type="button" className="buyer-mobile-tab" onClick={() => window.dispatchEvent(new Event("cryma-open-mobile-search"))}>
+                            <Search size={20} aria-hidden="true" /><span>Search</span>
+                        </button>
+                        <NavLink to="/cart" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                            <ShoppingCart size={20} aria-hidden="true" /><span>Cart</span>
+                        </NavLink>
+                    </>
+                )}
                 <NavLink to="/account" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
                     <UserRound size={20} aria-hidden="true" /><span>Account</span>
                 </NavLink>
