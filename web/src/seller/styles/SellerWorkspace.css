@@ -448,6 +448,11 @@
 .sl-orders-list .sl-table td:first-child strong { color:var(--deep-crimson); font-weight:750; }
 .sl-orders-list .sl-badge { display:inline-flex; align-items:center; min-height:25px; padding:0 10px; border:1px solid currentColor; border-color:color-mix(in srgb,currentColor 18%,transparent); border-radius:999px; font-size:10px; font-weight:750; white-space:nowrap; }
 .sl-order-detail { margin-bottom: 0; overflow:hidden; }
+.sl-order-parcel-qr { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:12px 14px; padding:12px 14px; border:1px solid #efe4e7; border-radius:11px; background:#fff; }
+.sl-order-parcel-qr h3 { margin:0 0 4px; color:#541327; font-size:14px; }
+.sl-order-parcel-qr p { margin:0; color:#72545e; font-size:11px; }
+.parcel-qr-download { border:1px solid #9d344f; border-radius:7px; padding:.45rem .7rem; color:#741a33; background:#fff; font-size:.75rem; font-weight:700; cursor:pointer; }
+@media print { .parcel-qr-download { display:none !important; } }
 .sl-orders-layout.has-detail .sl-order-detail { position:sticky; top:14px; max-height:calc(100vh - 150px); overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-color:#c98a9b #f8edf0; scrollbar-width:thin; }
 .sl-orders-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-top:1px solid #f0e5e8; color:#765d65; font-size:11px; }
 .sl-orders-pagination > div { display:flex; gap:7px; }

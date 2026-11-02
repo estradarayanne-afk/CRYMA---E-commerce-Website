@@ -259,10 +259,16 @@ class LogisticsController extends Controller
 
     public function scanParcel(Request $request, int $orderId)
     {
-        $values = $request->validate(['expected_status' => ['required', 'in:AT_SORTING_CENTER,SORTED']]);
+        $values = $request->validate([
+            'expected_status' => ['required', 'in:AT_SORTING_CENTER,SORTED'],
+            'parcel_code' => ['sometimes', 'required', 'string', 'max:32'],
+        ]);
         $delivery = DB::transaction(function () use ($request, $orderId, $values) {
             $order = Order::whereKey($orderId)->lockForUpdate()->firstOrFail();
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
+            if (isset($values['parcel_code'])) {
+                abort_unless(hash_equals((string) $delivery->parcel_code, $values['parcel_code']), 422, 'The scanned parcel does not match this order.');
+            }
             abort_unless($order->status === $values['expected_status'] && $delivery->status === $values['expected_status'], 409, 'Parcel status changed. Refresh the queue before scanning.');
 
             if (!$delivery->events()->where('event_type', 'parcel_scanned')->exists()) {

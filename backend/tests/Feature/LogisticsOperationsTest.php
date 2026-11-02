@@ -22,7 +22,7 @@ class LogisticsOperationsTest extends TestCase
     {
         $logistics = $this->logisticsUser();
         [, $courierProfile] = $this->eligibleCourier();
-        $order = $this->order('READY_FOR_PICKUP');
+        $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
 
         $this->actingAs($logistics, 'sanctum')
             ->getJson('/api/logistics/operations')
@@ -31,6 +31,7 @@ class LogisticsOperationsTest extends TestCase
 
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $courierProfile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
         ])->assertOk();
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
         $this->assertSame($logistics->id, $assignment->assigned_by);
@@ -79,7 +80,17 @@ class LogisticsOperationsTest extends TestCase
 
         $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
             'expected_status' => Delivery::AT_SORTING_CENTER,
+            'parcel_code' => 'CRYMA-PCL-WRONGCODE00000000',
+        ])->assertUnprocessable();
+        $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+            'parcel_code' => $delivery->parcel_code,
         ])->assertOk()->assertJsonPath('message', 'Parcel scanned. Read its delivery address, choose the destination area, then assign a rider for that area.');
+        $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertOk();
+        $this->assertSame(1, $delivery->events()->where('event_type', 'parcel_scanned')->count());
         $this->assertDatabaseHas('delivery_events', [
             'delivery_id' => $delivery->id,
             'actor_id' => $logistics->id,
@@ -242,5 +253,26 @@ class LogisticsOperationsTest extends TestCase
             'total_amount' => 100,
             'status' => $status,
         ]);
+    }
+
+    private function orderWithPickupAddress(string $status): Order
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        \App\Models\Address::create([
+            'user_id' => $seller->id, 'recipient_name' => 'Synthetic Seller', 'phone' => '+639171234567',
+            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
+        ]);
+        $order = $this->order($status);
+        $product = \App\Models\Product::create([
+            'seller_id' => $seller->id, 'name' => 'Pickup workflow product', 'description' => 'Synthetic fixture',
+            'price' => 10, 'stock' => 2, 'category' => 'Other', 'status' => 'active',
+        ]);
+        \App\Models\OrderItem::create([
+            'order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
+            'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+        ]);
+
+        return $order;
     }
 }

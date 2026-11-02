@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class Delivery extends Model
 {
@@ -19,10 +20,23 @@ class Delivery extends Model
     public const FAILED = 'DELIVERY_FAILED';
 
     protected $fillable = [
-        'order_id', 'courier_profile_id', 'assigned_by', 'status', 'legacy_imported',
+        'order_id', 'parcel_code', 'courier_profile_id', 'assigned_by', 'status', 'legacy_imported',
         'assigned_at', 'picked_up_at', 'delivered_at', 'failure_reason', 'delivery_area_id',
         'sorted_at', 'delivery_picked_up_at', 'buyer_confirmed_at', 'buyer_confirmed_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Delivery $delivery): void {
+            if (!$delivery->parcel_code) {
+                do {
+                    $code = 'CRYMA-PCL-'.Str::upper(Str::random(20));
+                } while (static::where('parcel_code', $code)->exists());
+
+                $delivery->parcel_code = $code;
+            }
+        });
+    }
 
     protected function casts(): array
     {

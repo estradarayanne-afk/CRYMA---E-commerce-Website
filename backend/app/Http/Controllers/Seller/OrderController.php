@@ -109,9 +109,16 @@ class OrderController extends Controller
                 abort(422, "Invalid status transition from {$currentStatus} to {$requestedStatus}.");
             }
             $order->update(['status' => $requestedStatus]);
+            if ($requestedStatus === 'READY_FOR_PICKUP') {
+                Delivery::firstOrCreate(
+                    ['order_id' => $order->id],
+                    ['status' => 'READY_FOR_PICKUP', 'legacy_imported' => false],
+                );
+            }
             return $order->fresh()->load([
                 'buyer:id,first_name,middle_name,last_name,email,phone',
                 'items.product:id,name,price,category',
+                'delivery',
             ]);
         });
         $order->setAttribute('seller', $this->sellerContact($user));
@@ -180,6 +187,7 @@ class OrderController extends Controller
     {
         return Order::with([
             'delivery.events',
+            'delivery',
             'delivery.pickupAssignment.courierProfile.user:id,first_name,last_name,phone',
             'delivery.deliveryArea',
             'buyer:id,first_name,middle_name,last_name,email,phone',

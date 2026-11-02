@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../shared/services/api";
 import CourierConfirmModal from "../components/CourierConfirmModal";
+import ParcelQrScanner from "../../shared/components/ParcelQrScanner";
 import "../layouts/CourierPages.css";
 
     const addressText = (address) => [address?.house_number, address?.street, address?.building_name, address?.unit_number, address?.barangay, address?.municipality, address?.province, address?.region, address?.postal_code].filter(Boolean).join(", ");
@@ -25,10 +26,10 @@ export default function PickupDetails() {
     }, [id]);
     useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
-    const update = async (status) => {
+    const update = async (status, parcelCode = null) => {
         setSaving(true); setError(""); setNotice("");
         try {
-            const { data } = await api.patch(`/courier/pickups/${id}/status`, { status, expected_status: assignment.status });
+            const { data } = await api.patch(`/courier/pickups/${id}/status`, { status, expected_status: assignment.status, ...(parcelCode ? { parcel_code: parcelCode } : {}) });
             setAssignment(data?.data || assignment); setNotice(data?.message || "Pickup update recorded.");
         } catch (err) { setError(err.response?.data?.message || "Unable to record the pickup update."); }
         finally { setSaving(false); }
@@ -44,13 +45,18 @@ export default function PickupDetails() {
     const next = assignment.status === "ASSIGNED_TO_PICKUP_RIDER" ? "ACCEPTED_BY_PICKUP_RIDER" : assignment.status === "ACCEPTED_BY_PICKUP_RIDER" ? "PICKED_UP" : null;
 
     const actionLabel = next === "ACCEPTED_BY_PICKUP_RIDER" ? "Accept pickup assignment" : "Confirm parcel collected";
+    const confirmScannedParcel = (parcelCode) => {
+        if (parcelCode !== assignment.parcel_code) { setError("This QR code does not match your assigned parcel."); return; }
+        setPendingStatus(next);
+        setNotice("Parcel QR matched. Confirm collection to record the pickup.");
+    };
     return <section className="cw-page"><Link className="cw-back-link" to="/courier/pickups">← Seller pickups</Link>
         <header className="cw-page-heading"><div><span className="cw-eyebrow">ORDER #{order?.id}</span><h1>Pickup details</h1><p>Current stage: <strong>{assignment.status.replaceAll("_", " ")}</strong></p><p>Pickup scheduled: <strong>{formatTimestamp(assignment.scheduled_at)}</strong></p></div><button type="button" onClick={() => void load()} disabled={loading}>Refresh</button></header>
         {error && <div className="cw-alert" role="alert">{error}</div>}{notice && <div className="cw-notice" role="status">{notice}</div>}
         <div className="cw-detail-grid"><article className="cw-panel"><h2>Seller pickup address</h2><p className="cw-address">{addressText(pickupAddress) || (sellerAddresses.length > 1 ? "More than one seller address is saved, and no pickup address is designated." : "Seller address is not available in the account record.")}</p><h2>Parcel items</h2><p className="cw-subtle">Total parcel weight: {parcelWeight(order?.items || [])}</p><ul className="cw-items">{(order?.items || []).map((item) => <li key={item.id}><span>{item.product?.name || "Product"}</span><strong>× {item.quantity} · {formatWeight(item)}</strong></li>)}</ul></article>
-            <aside className="cw-panel"><h2>Pickup progress</h2><p>Accept the assignment and confirm collection from the seller. Logistics will record receipt at the sorting center.</p><div className="cw-task-timestamps"><span>Assigned: {formatTimestamp(assignment.assigned_at)}</span><span>Collected: {formatTimestamp(assignment.picked_up_at)}</span><span>Received at sorting center: {formatTimestamp(assignment.received_at)}</span></div>{next ? <button className="cw-primary" type="button" disabled={saving} onClick={() => setPendingStatus(next)}>{saving ? "Saving…" : actionLabel}</button> : assignment.status === "PICKED_UP" ? <p className="cw-muted">Collection recorded. Waiting for logistics to confirm sorting-center receipt.</p> : <p className="cw-muted">This pickup is complete. Delivery routing is managed by the logistics workspace.</p>}</aside>
+            <aside className="cw-panel"><h2>Pickup progress</h2><p>Accept the assignment and confirm collection from the seller. Logistics will record receipt at the sorting center.</p><div className="cw-task-timestamps"><span>Assigned: {formatTimestamp(assignment.assigned_at)}</span><span>Collected: {formatTimestamp(assignment.picked_up_at)}</span><span>Received at sorting center: {formatTimestamp(assignment.received_at)}</span></div>{next ? <button className="cw-primary" type="button" disabled={saving} onClick={() => setPendingStatus(next)}>{saving ? "Saving…" : actionLabel}</button> : assignment.status === "PICKED_UP" ? <p className="cw-muted">Collection recorded. Waiting for logistics to confirm sorting-center receipt.</p> : <p className="cw-muted">This pickup is complete. Delivery routing is managed by the logistics workspace.</p>}{assignment.status === "ACCEPTED_BY_PICKUP_RIDER" && <ParcelQrScanner title="Scan before confirming pickup" onScan={confirmScannedParcel} />}</aside>
         </div>
         <article className="cw-panel cw-history"><h2>Parcel event history</h2>{assignment.events?.length ? assignment.events.map((event) => <div className="cw-event" key={event.id}><span>{event.new_status.replaceAll("_", " ")}</span><time>{event.created_at ? new Date(event.created_at).toLocaleString("en-PH") : "Recorded"}</time></div>) : <p>No parcel events are recorded yet.</p>}</article>
-        {pendingStatus && <CourierConfirmModal title={`${actionLabel}?`} message="This will update the pickup stage shown in your courier task history." confirmLabel={actionLabel} loading={saving} onCancel={() => setPendingStatus(null)} onConfirm={() => { const status = pendingStatus; setPendingStatus(null); void update(status); }} />}
+        {pendingStatus && <CourierConfirmModal title={`${actionLabel}?`} message="This will update the pickup stage shown in your courier task history." confirmLabel={actionLabel} loading={saving} onCancel={() => setPendingStatus(null)} onConfirm={() => { const status = pendingStatus; setPendingStatus(null); void update(status, status === "PICKED_UP" ? assignment.parcel_code : null); }} />}
     </section>;
 }
