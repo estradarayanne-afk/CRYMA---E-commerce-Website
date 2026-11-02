@@ -562,6 +562,75 @@
     transform: translateY(0);
 }
 
+.user-release-email-button {
+    padding: 0.55rem 0.9rem;
+    border: 1px solid #F0C8CE;
+    border-radius: 8px;
+    background: #FFF5F6;
+    color: #8B2335;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.user-release-email-button:hover {
+    background: #FFECEF;
+    border-color: #E6AAB4;
+    transform: translateY(-1px);
+}
+
+.user-release-email-button:active { transform: translateY(0); }
+
+.user-archive-note {
+    flex-basis: 100%;
+    color: #70541A !important;
+}
+
+.user-release-email-blocked {
+    flex-basis: 100%;
+    margin: 4px 0 0;
+    color: #8a3b16;
+    font-size: 0.82rem;
+}
+
+.email-release-confirmation-fields {
+    display: grid;
+    gap: 0.65rem;
+    margin: 1rem 0;
+}
+
+.email-release-confirmation-fields p,
+.email-release-confirmation-fields small {
+    margin: 0;
+    color: #6F6265;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.email-release-confirmation-fields .email-release-error {
+    color: #B42318;
+    font-weight: 600;
+}
+
+.email-release-confirmation-fields label {
+    color: #4B3038;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.email-release-confirmation-fields input,
+.email-release-confirmation-fields select {
+    width: 100%;
+    min-height: 42px;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #D8CDD0;
+    border-radius: 8px;
+    background: #fff;
+    color: #34242A;
+    font: inherit;
+}
+
 
 /* ============================= */
 /* EDIT USER FORM */

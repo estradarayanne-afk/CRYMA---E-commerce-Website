@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ApplicantDocumentCorrectionController;
 use App\Http\Controllers\Api\BuyerOrderController;
 use App\Http\Controllers\Api\BuyerVoucherController;
 use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
+use App\Http\Controllers\Admin\AccountEmailReleaseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\DashboardController;
@@ -252,6 +253,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/admin/users', [AdminRegistrationController::class, 'users'])->middleware('role:admin');
     Route::patch('/admin/users/{id}', [AdminRegistrationController::class,'updateUser'])->middleware('role:admin');
     Route::patch('/admin/users/{id}/status', [AdminRegistrationController::class,'updateStatus'])->middleware('role:admin');
+    Route::post('/admin/users/{id}/release-email', [AccountEmailReleaseController::class, 'store'])->middleware('role:admin');
 
     Route::middleware('role:seller')->group(function () {
     Route::get('/seller/parcel-returns', [ParcelFlowController::class, 'sellerReturns']);
