@@ -15,3 +15,6 @@ storage/framework/views/**
 storage/app/private/**
 storage/app/public/registration-documents/**
 bootstrap/cache/*.php
+
+storage/app/public/**
+public/storage
