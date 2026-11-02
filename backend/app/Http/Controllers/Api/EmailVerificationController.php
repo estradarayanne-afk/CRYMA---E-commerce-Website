@@ -22,7 +22,7 @@ class EmailVerificationController extends Controller
         $otp = (string) random_int(100000, 999999);
 
         $user = DB::transaction(function () use ($email, $otp) {
-            $user = User::where('email', $email)->lockForUpdate()->first();
+            $user = User::whereRaw('LOWER(email) = ?', [$email])->whereNull('account_archived_at')->lockForUpdate()->first();
             if (!$user || $user->email_verified_at || $user->status !== 'pending') return null;
             $user->email_otp_hash = Hash::make($otp);
             $user->email_otp_expires_at = now()->addMinutes(10);
@@ -65,7 +65,7 @@ class EmailVerificationController extends Controller
         ]);
 
         $result = DB::transaction(function () use ($validated): array {
-            $user = User::where('email', $validated['email'])->lockForUpdate()->first();
+            $user = User::whereRaw('LOWER(email) = ?', [$validated['email']])->whereNull('account_archived_at')->lockForUpdate()->first();
 
             if (!$user || $user->email_verified_at !== null) {
                 return [

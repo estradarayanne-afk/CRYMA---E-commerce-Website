@@ -26,6 +26,8 @@ function Users() {
     const [actionLoading, setActionLoading] = useState(false);
     const [suspensionReason, setSuspensionReason] = useState("");
     const [suspensionReasonDetails, setSuspensionReasonDetails] = useState("");
+    const [emailReleaseConfirmation, setEmailReleaseConfirmation] = useState("");
+    const [emailReleaseReason, setEmailReleaseReason] = useState("incorrect_rejection");
 
     // Confirmation modal
     const [confirmationModal, setConfirmationModal] = useState(null);
@@ -334,6 +336,51 @@ function Users() {
         });
     };
 
+    const handleStartEmailRelease = (user) => {
+        if (user.can_release_email !== true) return;
+        setEmailReleaseConfirmation("");
+        setEmailReleaseReason("");
+        setError("");
+        setConfirmationModal({
+            type: "email-release",
+            title: "Archive Account and Release Email?",
+            message: `This keeps ${getFullName(user)}'s existing CRYMA records attached to the original account, while making the email available for a new registration.`,
+        });
+    };
+
+    const confirmEmailRelease = async () => {
+        if (!selectedUser || !confirmationModal || confirmationModal.type !== "email-release") return;
+
+        setActionLoading(true);
+        setError("");
+        try {
+            const response = await api.post(`/admin/users/${selectedUser.id}/release-email`, {
+                email_confirmation: emailReleaseConfirmation,
+                reason_code: emailReleaseReason,
+            });
+            const releasedAt = response.data.data.archived_at;
+            const updateArchivedUser = (user) => user.id === selectedUser.id
+                ? { ...user, email: "[released]", status: "rejected", account_archived_at: releasedAt, can_release_email: false, email_release_block_reason: "This account has already been archived." }
+                : user;
+
+            setUsers((currentUsers) => currentUsers.map(updateArchivedUser));
+            setSelectedUser((current) => ({
+                ...current,
+                email: "[released]",
+                status: "rejected",
+                account_archived_at: releasedAt,
+                can_release_email: false,
+                email_release_block_reason: "This account has already been archived.",
+            }));
+            setConfirmationModal(null);
+            setSuccessModal(response.data.message || "Account archived and email released.");
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Unable to archive this account and release its email.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     /* =========================================
        CONFIRM STATUS CHANGE
     ========================================= */
@@ -599,7 +646,7 @@ function Users() {
                                                 <span className={`user-status ${getStatusClass(
                                                     user.status
                                                 )}`}>
-                                                    {formatStatusLabel(user.status)}
+                                                {formatStatusLabel(user.account_archived_at ? "archived" : user.status)}
                                                 </span>
                                             </td>
 
@@ -756,7 +803,7 @@ function Users() {
                                         {getRoleLabel(selectedUser.role)}
                                     </span>
                                     <span className={`user-status ${getStatusClass(selectedUser.status)}`}>
-                                        {formatStatusLabel(selectedUser.status)}
+                                        {formatStatusLabel(selectedUser.account_archived_at ? "archived" : selectedUser.status)}
                                         {selectedUser.status || "Unknown"}
                                     </span>
                                 </div>
@@ -798,7 +845,7 @@ function Users() {
                                     <span>Status</span>
 
                                     <strong>
-                                        {formatStatusLabel(selectedUser.status)}
+                                        {formatStatusLabel(selectedUser.account_archived_at ? "archived" : selectedUser.status)}
                                     </strong>
                                 </div>
 
@@ -832,18 +879,20 @@ function Users() {
                                     Current status:
                                     <strong>
                                         {" "}
-                                        {formatStatusLabel(selectedUser.status)}
+                                        {formatStatusLabel(selectedUser.account_archived_at ? "archived" : selectedUser.status)}
                                     </strong>
                                 </p>
 
-                                {selectedUser.status === "suspended" && selectedUser.suspension_reason && (
+                                {selectedUser.account_archived_at ? (
+                                    <p className="user-archive-note">Archived account. Its email has been released; historical records and files remain attached to this account.</p>
+                                ) : selectedUser.status === "suspended" && selectedUser.suspension_reason && (
                                     <div className="user-suspension-reason">
                                         <span>Suspension reason</span>
                                         <p>{selectedUser.suspension_reason}</p>
                                     </div>
                                 )}
 
-                                {selectedUser.status === "active" ? (
+                                {selectedUser.account_archived_at ? null : selectedUser.status === "active" ? (
                                     <button
                                         type="button"
                                         className="user-suspend-button"
@@ -877,6 +926,20 @@ function Users() {
                                     >
                                         Activate User
                                     </button>
+                                )}
+
+                                {selectedUser.can_release_email === true && (
+                                    <button
+                                        type="button"
+                                        className="user-release-email-button"
+                                        onClick={() => handleStartEmailRelease(selectedUser)}
+                                        disabled={actionLoading || saving}
+                                    >
+                                        Archive Account and Release Email
+                                    </button>
+                                )}
+                                {!selectedUser.account_archived_at && ["pending", "rejected"].includes(selectedUser.status) && selectedUser.can_release_email !== true && selectedUser.email_release_block_reason && (
+                                    <p className="user-release-email-blocked" role="status">Email release unavailable: {selectedUser.email_release_block_reason}</p>
                                 )}
 
                             </div>
@@ -1268,6 +1331,30 @@ function Users() {
                             </div>
                         )}
 
+                        {confirmationModal.type === "email-release" && (
+                            <div className="email-release-confirmation-fields">
+                                <p>This operation does not delete the user, orders, financial history, documents, or files. It revokes access, removes existing reset/OTP credentials, and sends no email.</p>
+                                <label htmlFor="email-release-confirmation">Type the account email to confirm</label>
+                                <input
+                                    id="email-release-confirmation"
+                                    type="email"
+                                    autoComplete="off"
+                                    value={emailReleaseConfirmation}
+                                    onChange={(event) => setEmailReleaseConfirmation(event.target.value)}
+                                />
+                                <label htmlFor="email-release-reason">Reason for release</label>
+                                <select id="email-release-reason" value={emailReleaseReason} onChange={(event) => setEmailReleaseReason(event.target.value)}>
+                                    <option value="" disabled>Select a reason</option>
+                                    <option value="incorrect_rejection">Registration was rejected in error</option>
+                                    <option value="applicant_requested">Applicant requested a fresh registration</option>
+                                    <option value="duplicate_registration">Duplicate registration record</option>
+                                    <option value="other_approved_reason">Other approved reason</option>
+                                </select>
+                                <small>The archived account stays disabled. Any new account must complete email OTP and the normal admin approval process.</small>
+                                {error && <p className="email-release-error" role="alert">{error}</p>}
+                            </div>
+                        )}
+
                         {confirmationModal.type ===
                             "save" && (
                             <span className="user-confirmation-note">
@@ -1319,7 +1406,7 @@ function Users() {
                                             ? "Yes, Suspend"
                                             : "Yes, Activate"}
                                 </button>
-                            ) : (
+                            ) : confirmationModal.type === "save" ? (
                                 <button
                                     type="button"
                                     className="user-confirmation-confirm approve"
@@ -1331,6 +1418,20 @@ function Users() {
                                     {saving
                                         ? "Saving..."
                                         : "Yes, Save Changes"}
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="user-confirmation-confirm danger"
+                                    onClick={confirmEmailRelease}
+                                    disabled={
+                                        actionLoading ||
+                                        !selectedUser?.email ||
+                                        !emailReleaseReason ||
+                                        emailReleaseConfirmation !== selectedUser.email
+                                    }
+                                >
+                                    {actionLoading ? "Archiving..." : "Archive and Release Email"}
                                 </button>
                             )}
 

@@ -152,9 +152,23 @@ public function approve(int $id)
             $query->where('status', $request->status);
         }
 
+        $users = $query->latest()->paginate(15);
+        $eligibilityController = app(AccountEmailReleaseController::class);
+        $users->getCollection()->transform(function (User $user) use ($eligibilityController): User {
+            if ($user->account_archived_at !== null) {
+                $user->setAttribute('email', '[released]');
+            }
+
+            $eligibility = $eligibilityController->eligibility($user);
+            $user->setAttribute('can_release_email', $eligibility['eligible']);
+            $user->setAttribute('email_release_block_reason', $eligibility['reason']);
+
+            return $user;
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $query->latest()->paginate(15),
+            'data' => $users,
         ]);
     }
 
@@ -170,6 +184,10 @@ public function approve(int $id)
                 'success' => false,
                 'message' => 'Unauthorized.',
             ], 403);
+        }
+
+        if ($user->account_archived_at !== null) {
+            return response()->json(['success' => false, 'message' => 'Archived accounts cannot be edited.'], 409);
         }
 
         $data = $request->validate([
@@ -223,6 +241,10 @@ public function approve(int $id)
                 'success' => false,
                 'message' => 'Unauthorized.',
             ], 403);
+        }
+
+        if ($user->account_archived_at !== null) {
+            return response()->json(['success' => false, 'message' => 'Archived accounts cannot change status.'], 409);
         }
 
         $data = $request->validate([
