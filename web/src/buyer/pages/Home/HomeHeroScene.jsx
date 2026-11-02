@@ -114,6 +114,8 @@ export default function HomeHeroScene() {
     const [failed, setFailed] = useState(false);
 
     useEffect(() => {
+        if (window.matchMedia?.("(max-width: 700px)").matches) return undefined;
+
         const container = containerRef.current;
         const canvasHost = canvasRef.current;
         if (!container || !canvasHost) return undefined;
@@ -134,7 +136,7 @@ export default function HomeHeroScene() {
 
         const mountScene = async () => {
             try {
-                const [{ default: THREE }, { RoomEnvironment }] = await Promise.all([
+                const [THREE, { RoomEnvironment }] = await Promise.all([
                     import("three"),
                     import("three/addons/environments/RoomEnvironment.js"),
                 ]);
