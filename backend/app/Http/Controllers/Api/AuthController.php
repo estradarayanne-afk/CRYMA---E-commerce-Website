@@ -18,14 +18,16 @@ class AuthController extends Controller
 
         $user = User::whereRaw('LOWER(email) = ?', [strtolower($credentials['email'])])->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (!$user || $user->account_archived_at !== null || !Hash::check($credentials['password'], $user->password)) {
             return response()->json([
                 'message' => 'Invalid email or password.'
             ], 401);
         }
 
 
-        if ($user->email_verified_at === null) {
+        // Legacy approved accounts predate the OTP fields and have no OTP hash.
+        // New registrations always persist an OTP hash until verification succeeds.
+        if ($user->email_verified_at === null && $user->email_otp_hash !== null) {
             return response()->json([
                 'message' => 'Please verify your email address before signing in.',
                 'email_verified' => false,
