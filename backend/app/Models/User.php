@@ -52,6 +52,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'account_archived_at' => 'immutable_datetime',
             'password' => 'hashed',
         ];
     }
@@ -117,5 +118,10 @@ class User extends Authenticatable
     public function sellerComplianceActions(): HasMany
     {
         return $this->hasMany(SellerComplianceAction::class, 'seller_id');
+    }
+
+    public function emailRelease(): HasOne
+    {
+        return $this->hasOne(AccountEmailRelease::class);
     }
 }
