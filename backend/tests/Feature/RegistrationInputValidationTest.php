@@ -55,7 +55,7 @@ class RegistrationInputValidationTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
 
         $user = User::factory()->create([
-            'email' => 'verify-case@example.com',
+            'email' => 'Verify-Case@example.com',
             'status' => 'pending',
             'email_verified_at' => null,
         ]);
@@ -320,6 +320,37 @@ class RegistrationInputValidationTest extends TestCase
         ]);
     }
 
+    public function test_registration_rejects_case_insensitive_existing_email_without_changing_account(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+        Storage::fake('local');
+        Mail::fake();
+
+        $existing = User::forceCreate([
+            'first_name' => 'Existing',
+            'last_name' => 'Buyer',
+            'email' => 'MixedCase-Existing@example.com',
+            'phone' => '+639171234567',
+            'password' => Hash::make('preserved-password'),
+            'role' => 'buyer',
+            'status' => 'pending',
+        ]);
+        $originalHash = $existing->password;
+        $payload = array_merge($this->buyerPayload('1990-01-01'), [
+            'email' => 'mixedcase-existing@example.com',
+            'valid_id' => UploadedFile::fake()->createWithContent('id.pdf', "%PDF-1.4\nsynthetic fixture"),
+        ]);
+
+        $this->post('/api/register', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertDatabaseCount('users', 1);
+        $this->assertSame($originalHash, $existing->fresh()->password);
+        $this->assertDatabaseCount('policy_acceptances', 0);
+        Mail::assertNothingOutgoing();
+    }
+
     public function test_registration_requires_current_policy_acceptance_and_records_it_once(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
@@ -436,6 +467,38 @@ class RegistrationInputValidationTest extends TestCase
         $this->postJson('/api/resend-verification', ['email' => $user->email])
             ->assertStatus(503)
             ->assertJsonPath('success', false);
+    }
+
+    public function test_resend_and_verification_find_legacy_mixed_case_email(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+        Mail::fake();
+        $user = User::forceCreate([
+            'first_name' => 'Pending',
+            'last_name' => 'Buyer',
+            'email' => 'Legacy-Pending@example.com',
+            'phone' => '+639171234567',
+            'password' => Hash::make('synthetic-password'),
+            'role' => 'buyer',
+            'status' => 'pending',
+        ]);
+
+        $this->postJson('/api/resend-verification', ['email' => 'legacy-pending@example.com'])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $otp = null;
+        Mail::assertSent(RegistrationOtpMail::class, function (RegistrationOtpMail $mail) use ($user, &$otp): bool {
+            $otp = $mail->otp;
+            return $mail->hasTo($user->email);
+        });
+
+        $this->postJson('/api/verify-email', [
+            'email' => 'legacy-pending@example.com',
+            'otp' => $otp,
+        ])->assertOk()->assertJsonPath('data.email_verified', true);
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
     }
 
     public function test_password_recovery_reports_mail_delivery_failure(): void
