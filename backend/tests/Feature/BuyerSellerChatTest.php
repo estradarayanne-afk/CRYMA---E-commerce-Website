@@ -155,14 +155,16 @@ class BuyerSellerChatTest extends TestCase
             ]);
         }
 
-        $this->actingAs($seller, 'sanctum')
+        $sellerInbox = $this->actingAs($seller, 'sanctum')
             ->getJson('/api/seller/chat/conversations')
-            ->assertOk()
-            ->assertJsonPath('data.0.unread_messages_count', 2);
+            ->assertOk();
+        $sellerThread = collect($sellerInbox->json('data'))->firstWhere('id', $conversation->id);
+        $this->assertSame(2, $sellerThread['unread_messages_count']);
         $this->patchJson("/api/seller/chat/conversations/{$conversation->id}/read")
             ->assertOk();
-        $this->getJson('/api/seller/chat/conversations')
-            ->assertJsonPath('data.0.unread_messages_count', 0);
+        $sellerThread = collect($this->getJson('/api/seller/chat/conversations')->json('data'))
+            ->firstWhere('id', $conversation->id);
+        $this->assertSame(0, $sellerThread['unread_messages_count']);
 
         $reply = Message::create([
             'conversation_id' => $conversation->id,
@@ -170,13 +172,15 @@ class BuyerSellerChatTest extends TestCase
             'message' => 'I will help.',
             'is_read' => false,
         ]);
-        $this->actingAs($buyer, 'sanctum')
-            ->getJson('/api/buyer/chat/conversations')
-            ->assertJsonPath('data.0.unread_messages_count', 1);
+        $buyerInbox = $this->actingAs($buyer, 'sanctum')
+            ->getJson('/api/buyer/chat/conversations');
+        $buyerThread = collect($buyerInbox->json('data'))->firstWhere('id', $conversation->id);
+        $this->assertSame(1, $buyerThread['unread_messages_count']);
         $this->patchJson("/api/buyer/chat/conversations/{$conversation->id}/read")
             ->assertOk();
-        $this->getJson('/api/buyer/chat/conversations')
-            ->assertJsonPath('data.0.unread_messages_count', 0);
+        $buyerThread = collect($this->getJson('/api/buyer/chat/conversations')->json('data'))
+            ->firstWhere('id', $conversation->id);
+        $this->assertSame(0, $buyerThread['unread_messages_count']);
 
         $this->assertTrue($reply->fresh()->is_read);
     }
@@ -199,7 +203,7 @@ class BuyerSellerChatTest extends TestCase
         ]);
     }
 
-    public function test_buyer_cannot_send_to_an_unavailable_support_assignment(): void
+    public function test_buyer_can_use_support_assistant_without_an_active_admin(): void
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $inactiveAdmin = User::factory()->create(['role' => 'admin', 'status' => 'suspended']);
@@ -214,26 +218,37 @@ class BuyerSellerChatTest extends TestCase
             ->assertJsonPath('support_available', false)
             ->assertJsonPath('data.0.id', $conversation->id);
 
-        $this->postJson("/api/buyer/chat/conversations/{$conversation->id}/messages", [
+        $response = $this->postJson("/api/buyer/chat/conversations/{$conversation->id}/messages", [
             'message' => 'Hello',
-        ])->assertStatus(422)
-            ->assertJsonPath('message', 'CRYMA Customer Service is currently unavailable.');
+        ])->assertCreated()
+            ->assertJsonPath('data.sender_id', $buyer->id)
+            ->assertJsonPath('assistant_message.sender_type', 'assistant');
+        $this->assertSame(2, Message::where('conversation_id', $conversation->id)->count());
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'sender_type' => 'assistant',
+            'message' => $response->json('assistant_message.message'),
+        ]);
     }
 
     public function test_seller_conversations_are_returned_without_an_available_admin(): void
     {
         [$buyer, $seller] = $this->buyerSellerAndProduct();
-        Conversation::create([
+        $sellerConversation = Conversation::create([
             'buyer_id' => $buyer->id,
             'seller_id' => $seller->id,
         ]);
 
-        $this->actingAs($buyer, 'sanctum')
+        $response = $this->actingAs($buyer, 'sanctum')
             ->getJson('/api/buyer/chat/conversations')
             ->assertOk()
             ->assertJsonPath('support_available', false)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.seller.id', $seller->id);
+            ->assertJsonCount(2, 'data');
+        $conversations = collect($response->json('data'));
+        $sellerRow = $conversations->firstWhere('id', $sellerConversation->id);
+        $supportRow = $conversations->first(fn (array $row) => ($row['seller'] ?? null) === null);
+        $this->assertSame($seller->id, $sellerRow['seller']['id']);
+        $this->assertNotNull($supportRow);
     }
 
     private function buyerSellerAndProduct(): array

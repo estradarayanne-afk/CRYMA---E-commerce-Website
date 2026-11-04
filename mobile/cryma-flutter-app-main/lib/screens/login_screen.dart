@@ -20,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _showPassword = false;
   bool _isSubmitting = false;
+  bool _checkingConnection = false;
 
   @override
   void dispose() {
@@ -56,6 +57,34 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _checkServerConnection() async {
+    if (_checkingConnection) return;
+    setState(() => _checkingConnection = true);
+    try {
+      await ApiService.instance.verifyApiConnection();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Connected to the CRYMA API.')),
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not check the CRYMA server connection.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _checkingConnection = false);
     }
   }
 
@@ -259,6 +288,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                TextButton(
+                  onPressed: _checkingConnection || _isSubmitting
+                      ? null
+                      : _checkServerConnection,
+                  child: _checkingConnection
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Check server connection'),
+                ),
+
                 // Create Account Link
                 Wrap(
                   alignment: WrapAlignment.center,
@@ -288,54 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-
-                // Divider
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(height: 1, color: AppColors.lightGray),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'or continue with',
-                        style: TextStyle(
-                          fontSize: labelFontSize,
-                          color: AppColors.gray,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(height: 1, color: AppColors.lightGray),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Social Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildSocialButton(
-                      icon: Icons.g_mobiledata,
-                      label: 'Google',
-                      color: '#DB4437',
-                      size: screenWidth * 0.05,
-                      buttonSize: screenHeight * 0.065,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildSocialButton(
-                      icon: Icons.facebook,
-                      label: 'Facebook',
-                      color: '#1877F2',
-                      size: screenWidth * 0.05,
-                      buttonSize: screenHeight * 0.065,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 8),
               ],
             ),
           ),
@@ -414,38 +409,6 @@ class _LoginScreenState extends State<LoginScreen> {
           else
             const SizedBox(width: 14),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    required IconData icon,
-    required String label,
-    required String color,
-    required double size,
-    required double buttonSize,
-  }) {
-    return Container(
-      width: buttonSize,
-      height: buttonSize,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: AppColors.lightGray),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Icon(
-          icon,
-          color: Color(int.parse('0xFF${color.substring(1)}')),
-          size: size,
-        ),
       ),
     );
   }

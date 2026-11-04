@@ -1,545 +1,448 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../models/buyer_address.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
 class AddAddressScreen extends StatefulWidget {
-  const AddAddressScreen({super.key});
+  const AddAddressScreen({super.key, this.address});
+
+  final BuyerAddress? address;
 
   @override
   State<AddAddressScreen> createState() => _AddAddressScreenState();
 }
 
 class _AddAddressScreenState extends State<AddAddressScreen> {
-  final TextEditingController _fullNameController = TextEditingController();
-  final TextEditingController _contactController = TextEditingController();
-  final TextEditingController _houseController = TextEditingController();
-  final TextEditingController _streetController = TextEditingController();
-  final TextEditingController _landmarkController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _house = TextEditingController();
+  final _building = TextEditingController();
+  final _unit = TextEditingController();
+  final _street = TextEditingController();
+  final _postal = TextEditingController();
+  static const _psgcRoot = 'https://psgc.cloud/api/v2';
 
-  String _selectedProvince = '';
-  String _selectedMunicipality = '';
-  String _selectedBarangay = '';
+  List<Map<String, dynamic>> _regions = [];
+  List<Map<String, dynamic>> _provinces = [];
+  List<Map<String, dynamic>> _cities = [];
+  List<Map<String, dynamic>> _barangays = [];
+  String? _regionCode;
+  String? _provinceCode;
+  String? _cityCode;
+  String _label = 'home';
   bool _isDefault = false;
+  bool _loadingLocations = true;
+  bool _locationLoadFailed = false;
+  bool _saving = false;
+  String? _error;
+  Map<String, String> _fieldErrors = {};
 
-  bool _showProvince = false;
-  bool _showMunicipality = false;
-  bool _showBarangay = false;
+  bool get _editing => widget.address != null;
 
-  // ============================================================
-  // PHILIPPINES DATA
-  // ============================================================
-  final List<String> _provinces = const [
-    'Laguna',
-    'Metro Manila',
-    'Cebu',
-    'Davao',
-    'Pampanga',
-    'Batangas',
-    'Cavite',
-    'Rizal',
-    'Bulacan',
-  ];
-
-  final Map<String, List<String>> _municipalities = const {
-    'Laguna': [
-      'Santa Cruz',
-      'Calamba',
-      'San Pablo',
-      'Santa Rosa',
-      'Biñan',
-      'Cabuyao',
-      'San Pedro',
-    ],
-    'Metro Manila': [
-      'Manila',
-      'Quezon City',
-      'Makati',
-      'Pasig',
-      'Taguig',
-      'Mandaluyong',
-    ],
-    'Cebu': ['Cebu City', 'Mandaue', 'Lapu-Lapu', 'Talisay'],
-    'Davao': ['Davao City', 'Digos', 'Tagum'],
-    'Pampanga': ['Angeles City', 'San Fernando', 'Mabalacat'],
-    'Batangas': ['Batangas City', 'Lipa', 'Tanauan'],
-    'Cavite': ['Dasmariñas', 'Bacoor', 'Imus'],
-    'Rizal': ['Antipolo', 'Cainta', 'Taytay'],
-    'Bulacan': ['Malolos', 'Meycauayan', 'San Jose del Monte'],
-  };
-
-  final Map<String, List<String>> _barangays = const {
-    'Santa Cruz': [
-      'Poblacion I',
-      'Poblacion II',
-      'Poblacion III',
-      'Poblacion IV'
-    ],
-    'Calamba': ['Barandal', 'Canlubang', 'Makiling', 'Pansol'],
-    'San Pablo': ['Bayan', 'San Jose', 'San Miguel', 'Santa Ana'],
-    'Santa Rosa': ['Tagapo', 'Dita', 'Malusak', 'Balibago'],
-    'Biñan': ['Poblacion', 'San Antonio', 'San Francisco', 'San Jose'],
-    'Cabuyao': ['Poblacion', 'Baclaran', 'Bigaa', 'Butong'],
-    'San Pedro': ['Poblacion', 'San Antonio', 'San Francisco', 'San Jose'],
-    'Manila': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Quezon City': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Makati': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Pasig': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Taguig': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Mandaluyong': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Cebu City': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Mandaue': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Lapu-Lapu': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Talisay': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Davao City': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Digos': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Tagum': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Angeles City': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'San Fernando': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Mabalacat': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Batangas City': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Lipa': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Tanauan': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Dasmariñas': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Bacoor': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Imus': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Antipolo': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Cainta': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Taytay': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Malolos': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Meycauayan': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'San Jose del Monte': [
-      'Barangay 1',
-      'Barangay 2',
-      'Barangay 3',
-      'Barangay 4'
-    ],
-  };
-
-  List<String> _getMunicipalities() {
-    return _municipalities[_selectedProvince] ?? [];
+  @override
+  void initState() {
+    super.initState();
+    final address = widget.address;
+    if (address != null) {
+      _name.text = address.recipientName;
+      _phone.text = address.phone;
+      _house.text = address.houseNumber;
+      _building.text = address.buildingName;
+      _unit.text = address.unitNumber;
+      _street.text = address.street;
+      _postal.text = address.postalCode;
+      _label = address.label;
+      _isDefault = address.isDefault;
+    }
+    _loadLocationOptions();
   }
 
-  List<String> _getBarangays() {
-    return _barangays[_selectedMunicipality] ?? [];
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _house.dispose();
+    _building.dispose();
+    _unit.dispose();
+    _street.dispose();
+    _postal.dispose();
+    super.dispose();
   }
 
-  void _showAlert(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
+  Future<List<Map<String, dynamic>>> _fetchOptions(String path) async {
+    final response = await http.get(Uri.parse('$_psgcRoot/$path'),
+        headers: const {
+          'Accept': 'application/json'
+        }).timeout(const Duration(seconds: 12));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw const FormatException(
+          'Philippine address options are unavailable. Please try again.');
+    }
+    final decoded = jsonDecode(response.body);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! List) {
+      throw const FormatException(
+          'The location service returned an invalid response.');
+    }
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  String _codeFor(List<Map<String, dynamic>> rows, String name) {
+    for (final row in rows) {
+      if (row['name']?.toString().trim().toLowerCase() ==
+          name.trim().toLowerCase()) {
+        return row['code'].toString();
+      }
+    }
+    return '';
+  }
+
+  Future<void> _loadLocationOptions() async {
+    if (mounted) {
+      setState(() {
+        _loadingLocations = true;
+        _error = null;
+        _locationLoadFailed = false;
+      });
+    }
+    try {
+      final regions = await _fetchOptions('regions');
+      if (!mounted) return;
+      setState(() => _regions = regions);
+      final address = widget.address;
+      if (address != null) {
+        final regionCode = _codeFor(regions, address.region);
+        if (regionCode.isNotEmpty) {
+          final provinces =
+              await _fetchOptions('regions/$regionCode/provinces');
+          final provinceCode = _codeFor(provinces, address.province);
+          final cities = provinceCode.isEmpty
+              ? <Map<String, dynamic>>[]
+              : await _fetchOptions(
+                  'regions/$regionCode/provinces/$provinceCode/cities-municipalities');
+          final cityCode = _codeFor(cities, address.municipality);
+          final barangays = cityCode.isEmpty
+              ? <Map<String, dynamic>>[]
+              : await _fetchOptions(
+                  'regions/$regionCode/provinces/$provinceCode/cities-municipalities/$cityCode/barangays');
+          if (!mounted) return;
+          setState(() {
+            _regionCode = regionCode;
+            _provinces = provinces;
+            _provinceCode = provinceCode.isEmpty ? null : provinceCode;
+            _cities = cities;
+            _cityCode = cityCode.isEmpty ? null : cityCode;
+            _barangays = barangays;
+            _selectedBarangayCode = _codeFor(barangays, address.barangay);
+          });
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _locationLoadFailed = true;
+          _error = error is FormatException
+              ? error.message
+              : 'Unable to load Philippine address options.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loadingLocations = false);
+    }
+  }
+
+  Future<void> _selectRegion(String? code) async {
+    if (code == null) return;
+    setState(() {
+      _regionCode = code;
+      _provinceCode = null;
+      _cityCode = null;
+      _selectedBarangayCode = null;
+      _provinces = [];
+      _cities = [];
+      _barangays = [];
+      _postal.clear();
+      _error = null;
+    });
+    try {
+      final rows = await _fetchOptions('regions/$code/provinces');
+      if (mounted && _regionCode == code) setState(() => _provinces = rows);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _selectProvince(String? code) async {
+    if (code == null || _regionCode == null) return;
+    setState(() {
+      _provinceCode = code;
+      _cityCode = null;
+      _selectedBarangayCode = null;
+      _cities = [];
+      _barangays = [];
+      _postal.clear();
+      _error = null;
+    });
+    try {
+      final rows = await _fetchOptions(
+          'regions/$_regionCode/provinces/$code/cities-municipalities');
+      if (mounted && _provinceCode == code) setState(() => _cities = rows);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _selectCity(String? code) async {
+    if (code == null || _regionCode == null || _provinceCode == null) return;
+    setState(() {
+      _cityCode = code;
+      _selectedBarangayCode = null;
+      _barangays = [];
+      _postal.clear();
+      _error = null;
+    });
+    try {
+      final rows = await _fetchOptions(
+          'regions/$_regionCode/provinces/$_provinceCode/cities-municipalities/$code/barangays');
+      if (mounted && _cityCode == code) setState(() => _barangays = rows);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  String? _selectedName(List<Map<String, dynamic>> rows, String? code) {
+    for (final row in rows) {
+      if (row['code']?.toString() == code) return row['name']?.toString();
+    }
+    return null;
+  }
+
+  Widget _locationDropdown(
+      String label,
+      String field,
+      List<Map<String, dynamic>> rows,
+      String? value,
+      ValueChanged<String?>? onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            errorText: _fieldErrors[field]),
+        items: rows
+            .map((row) => DropdownMenuItem(
+                value: row['code'].toString(),
+                child: Text(row['name'].toString(),
+                    overflow: TextOverflow.ellipsis)))
+            .toList(),
+        onChanged: onChanged,
+        validator: (value) => value == null ? 'Select $label.' : null,
       ),
     );
   }
 
-  void _handleSave() {
-    if (_fullNameController.text.isEmpty ||
-        _contactController.text.isEmpty ||
-        _selectedProvince.isEmpty ||
-        _selectedMunicipality.isEmpty ||
-        _selectedBarangay.isEmpty) {
-      _showAlert('Please fill in all required fields.');
+  Widget _textField(String label, TextEditingController controller,
+      {String? backendField,
+      int maxLength = 100,
+      TextInputType? keyboardType,
+      bool required = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextFormField(
+        controller: controller,
+        maxLength: maxLength,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            errorText:
+                backendField == null ? null : _fieldErrors[backendField]),
+        validator: required
+            ? (value) => (value == null || value.trim().isEmpty)
+                ? 'This field is required.'
+                : null
+            : null,
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (_saving || !_formKey.currentState!.validate()) return;
+    final region = _selectedName(_regions, _regionCode);
+    final province = _selectedName(_provinces, _provinceCode);
+    final municipality = _selectedName(_cities, _cityCode);
+    final barangay = _selectedName(_barangays, _selectedBarangayCode);
+    if (region == null ||
+        province == null ||
+        municipality == null ||
+        barangay == null) {
+      setState(() => _error =
+          'Choose a region, province, city or municipality, and barangay.');
       return;
     }
-
-    final addressData = {
-      'fullName': _fullNameController.text,
-      'contact': _contactController.text,
-      'province': _selectedProvince,
-      'municipality': _selectedMunicipality,
-      'barangay': _selectedBarangay,
-      'houseNumber': _houseController.text,
-      'street': _streetController.text,
-      'landmark': _landmarkController.text,
-      'isDefault': _isDefault,
-    };
-
-    // ignore: avoid_print
-    print('Address saved: $addressData');
-    Navigator.pop(context);
+    final address = BuyerAddress(
+      id: widget.address?.id ?? 0,
+      label: _label,
+      recipientName: _name.text,
+      phone: _phone.text,
+      region: region,
+      province: province,
+      municipality: municipality,
+      barangay: barangay,
+      houseNumber: _house.text,
+      buildingName: _building.text,
+      unitNumber: _unit.text,
+      street: _street.text,
+      postalCode: _postal.text,
+    );
+    setState(() {
+      _saving = true;
+      _error = null;
+      _fieldErrors = {};
+    });
+    try {
+      final payload = address.toPayload(makeDefault: _isDefault);
+      final response = _editing
+          ? await ApiService.instance
+              .updateBuyerAddress(widget.address!.id, payload)
+          : await ApiService.instance.createBuyerAddress(payload);
+      if (response['success'] != true ||
+          response['data'] is! Map<String, dynamic>) {
+        throw const ApiException(
+            'The server did not confirm the address change.');
+      }
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.message;
+        _fieldErrors = error.fieldErrors;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error =
+            'Unable to save this address. Check your connection and try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
+
+  String? _selectedBarangayCode;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // HEADER
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+          title: Text(_editing ? 'Edit Address' : 'Add New Address'),
+          foregroundColor: AppColors.primary,
+          backgroundColor: Colors.white),
+      body: _loadingLocations
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 24, color: AppColors.primary),
-                    onPressed: () => Navigator.pop(context),
+                  DropdownButtonFormField<String>(
+                    initialValue: _label,
+                    decoration: InputDecoration(
+                        labelText: 'Address label',
+                        border: const OutlineInputBorder(),
+                        errorText: _fieldErrors['label']),
+                    items: const [
+                      DropdownMenuItem(value: 'home', child: Text('Home')),
+                      DropdownMenuItem(value: 'work', child: Text('Work')),
+                      DropdownMenuItem(value: 'other', child: Text('Other'))
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (value) {
+                            if (value != null) setState(() => _label = value);
+                          },
                   ),
-                  const Expanded(
-                    child: Text(
-                      'Add New Address',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
+                  const SizedBox(height: 14),
+                  _textField('Recipient name', _name,
+                      backendField: 'recipient_name',
+                      maxLength: 100,
+                      required: true),
+                  _textField('Philippine mobile number', _phone,
+                      backendField: 'phone',
+                      maxLength: 20,
+                      keyboardType: TextInputType.phone,
+                      required: true),
+                  _textField('House / lot number (optional)', _house,
+                      backendField: 'house_number', maxLength: 20),
+                  _textField('Building name (optional)', _building,
+                      backendField: 'building_name', maxLength: 80),
+                  _textField('Unit / floor (optional)', _unit,
+                      backendField: 'unit_number', maxLength: 30),
+                  _textField('Street (optional)', _street,
+                      backendField: 'street', maxLength: 100),
+                  _locationDropdown('Region', 'region', _regions, _regionCode,
+                      _saving ? null : _selectRegion),
+                  _locationDropdown('Province', 'province', _provinces,
+                      _provinceCode, _saving ? null : _selectProvince),
+                  _locationDropdown('City / Municipality', 'municipality',
+                      _cities, _cityCode, _saving ? null : _selectCity),
+                  _locationDropdown(
+                      'Barangay',
+                      'barangay',
+                      _barangays,
+                      _selectedBarangayCode,
+                      _saving
+                          ? null
+                          : (value) =>
+                              setState(() => _selectedBarangayCode = value)),
+                  _textField('Postal code (optional)', _postal,
+                      backendField: 'postal_code',
+                      maxLength: 4,
+                      keyboardType: TextInputType.number),
+                  if (!_editing)
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _isDefault,
+                      onChanged: _saving
+                          ? null
+                          : (value) =>
+                              setState(() => _isDefault = value ?? false),
+                      title: const Text('Set as default address'),
                     ),
+                  if (_error != null) ...[
+                    Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(_error!,
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center)),
+                    if (_locationLoadFailed)
+                      TextButton(
+                          onPressed: _saving ? null : _loadLocationOptions,
+                          child: const Text('Retry loading locations')),
+                  ],
+                  FilledButton(
+                    onPressed: _saving ? null : _save,
+                    style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 15)),
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : Text(_editing ? 'Save Changes' : 'Save Address'),
                   ),
-                  const SizedBox(width: 48),
                 ],
               ),
             ),
-
-            // BODY
-            Expanded(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // FULL NAME
-                    _buildLabel('FULL NAME *'),
-                    _buildTextField(
-                      controller: _fullNameController,
-                      hintText: 'Juan Dela Cruz',
-                    ),
-                    const SizedBox(height: 12),
-
-                    // CONTACT NUMBER
-                    _buildLabel('CONTACT NUMBER *'),
-                    _buildTextField(
-                      controller: _contactController,
-                      hintText: '+63 9XX XXX XXXX',
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // DIVIDER
-                    const Divider(color: AppColors.lightGray),
-
-                    // PROVINCE
-                    _buildLabel('PROVINCE *'),
-                    _buildDropdown(
-                      value: _selectedProvince,
-                      hint: 'Select province',
-                      isOpen: _showProvince,
-                      items: _provinces,
-                      onToggle: () =>
-                          setState(() => _showProvince = !_showProvince),
-                      onSelect: (value) {
-                        setState(() {
-                          _selectedProvince = value;
-                          _selectedMunicipality = '';
-                          _selectedBarangay = '';
-                          _showProvince = false;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // MUNICIPALITY
-                    _buildLabel('MUNICIPALITY / CITY *'),
-                    _buildDropdown(
-                      value: _selectedMunicipality,
-                      hint: 'Select municipality',
-                      isOpen: _showMunicipality,
-                      items: _getMunicipalities(),
-                      isDisabled: _selectedProvince.isEmpty,
-                      onToggle: () {
-                        if (_selectedProvince.isEmpty) {
-                          _showAlert('Please select a province first.');
-                        } else {
-                          setState(
-                              () => _showMunicipality = !_showMunicipality);
-                        }
-                      },
-                      onSelect: (value) {
-                        setState(() {
-                          _selectedMunicipality = value;
-                          _selectedBarangay = '';
-                          _showMunicipality = false;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // BARANGAY
-                    _buildLabel('BARANGAY *'),
-                    _buildDropdown(
-                      value: _selectedBarangay,
-                      hint: 'Select barangay',
-                      isOpen: _showBarangay,
-                      items: _getBarangays(),
-                      isDisabled: _selectedMunicipality.isEmpty,
-                      onToggle: () {
-                        if (_selectedMunicipality.isEmpty) {
-                          _showAlert('Please select a municipality first.');
-                        } else {
-                          setState(() => _showBarangay = !_showBarangay);
-                        }
-                      },
-                      onSelect: (value) {
-                        setState(() {
-                          _selectedBarangay = value;
-                          _showBarangay = false;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // DIVIDER
-                    const Divider(color: AppColors.lightGray),
-
-                    // HOUSE / UNIT NO.
-                    _buildLabel('HOUSE / UNIT NO.'),
-                    _buildTextField(
-                      controller: _houseController,
-                      hintText: '123',
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // STREET
-                    _buildLabel('STREET'),
-                    _buildTextField(
-                      controller: _streetController,
-                      hintText: 'Sampaguita Street',
-                    ),
-                    const SizedBox(height: 12),
-
-                    // LANDMARK / OTHER DETAILS
-                    _buildLabel('LANDMARK / OTHER DETAILS'),
-                    _buildTextField(
-                      controller: _landmarkController,
-                      hintText: 'Near the church...',
-                    ),
-                    const SizedBox(height: 16),
-
-                    // SET AS DEFAULT ADDRESS - CHECKBOX
-                    GestureDetector(
-                      onTap: () => setState(() => _isDefault = !_isDefault),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color:
-                                  _isDefault ? AppColors.primary : Colors.white,
-                              border: Border.all(
-                                color: _isDefault
-                                    ? AppColors.primary
-                                    : AppColors.gray,
-                                width: 2,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: _isDefault
-                                ? const Icon(Icons.check,
-                                    size: 14, color: Colors.white)
-                                : null,
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Set as default address',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.darkGray,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
-                    // SAVE ADDRESS BUTTON
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _handleSave,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Save Address',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // LABEL
-  // ============================================================
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
-          fontFamily: 'Poppins',
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // TEXT FIELD
-  // ============================================================
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hintText,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.lightGray),
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        style: const TextStyle(
-          fontSize: 14,
-          color: AppColors.darkGray,
-          fontFamily: 'Poppins',
-        ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(
-            fontSize: 14,
-            color: AppColors.gray,
-            fontFamily: 'Poppins',
-          ),
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // DROPDOWN
-  // ============================================================
-  Widget _buildDropdown({
-    required String value,
-    required String hint,
-    required bool isOpen,
-    required List<String> items,
-    required VoidCallback onToggle,
-    required Function(String) onSelect,
-    bool isDisabled = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: isDisabled ? null : onToggle,
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDisabled ? AppColors.lightGray : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isDisabled ? AppColors.lightGray : AppColors.lightGray,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  value.isEmpty ? hint : value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: value.isEmpty ? AppColors.gray : AppColors.darkGray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                Icon(
-                  isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                  color: AppColors.gray,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (isOpen && items.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            constraints: const BoxConstraints(maxHeight: 150),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.lightGray),
-            ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return GestureDetector(
-                  onTap: () => onSelect(item),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 14),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: index == items.length - 1
-                              ? Colors.transparent
-                              : AppColors.lightGray,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.darkGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
     );
   }
 }

@@ -107,6 +107,11 @@ class User extends Authenticatable
         return $this->hasOne(LogisticsProfile::class);
     }
 
+    public function hubStaffProfile(): HasOne
+    {
+        return $this->hasOne(HubStaffProfile::class);
+    }
+
     /**
      * Get the products owned by this seller.
      */

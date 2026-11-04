@@ -24,6 +24,12 @@ function Commission() {
     const [selectedCommission, setSelectedCommission] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
 
+    const changeOverviewPeriod = (period) => {
+        setOverviewLoading(true);
+        setOverviewError("");
+        setOverviewPeriod(period);
+    };
+
     const fetchCommissions = useCallback(async (page = 1) => {
         setLoading(true);
         setError("");
@@ -80,9 +86,6 @@ function Commission() {
 
     useEffect(() => {
         let active = true;
-        setOverviewLoading(true);
-        setOverviewError("");
-
         api.get("/admin/commissions/overview", { params: { period: overviewPeriod } })
             .then((response) => {
                 if (active) setOverview(response.data?.data || { total_commission: 0, record_count: 0, points: [] });
@@ -213,7 +216,7 @@ function Commission() {
                 loading={overviewLoading}
                 error={overviewError}
                 period={overviewPeriod}
-                onPeriodChange={setOverviewPeriod}
+                onPeriodChange={changeOverviewPeriod}
                 formatCurrency={formatCurrency}
             />
 
@@ -779,8 +782,10 @@ function Commission() {
 
 function CommissionTrend({ data, loading, error, period, onPeriodChange, formatCurrency }) {
     const [activePoint, setActivePoint] = useState(null);
-    useEffect(() => setActivePoint(null), [period, data]);
     const points = Array.isArray(data?.points) ? data.points : [];
+    const currentActivePoint = activePoint?.period === period && activePoint?.data === data
+        ? activePoint.point
+        : null;
     const width = 900;
     const height = 190;
     const plot = { left: 74, right: 20, top: 12, bottom: 34 };
@@ -861,10 +866,10 @@ function CommissionTrend({ data, loading, error, period, onPeriodChange, formatC
                             );
                         })}
                         {areaPath && <path d={areaPath} fill="url(#commission-area-gradient)" />}
-                        {activePoint && <line x1={activePoint.x} x2={activePoint.x} y1={plot.top} y2={plot.top + plotHeight} className="commission-chart-crosshair" />}
+                        {currentActivePoint && <line x1={currentActivePoint.x} x2={currentActivePoint.x} y1={plot.top} y2={plot.top + plotHeight} className="commission-chart-crosshair" />}
                         {linePath && <path d={linePath} className="commission-chart-line" />}
                         {coordinates.map((point) => (
-                            <circle key={point.date} cx={point.x} cy={point.y} r={activePoint?.date === point.date ? "5" : "3.2"} className="commission-chart-point" tabIndex="0" role="img" aria-label={`${point.label}: ${formatCurrency(point.amount)}`} onMouseEnter={() => setActivePoint(point)} onMouseLeave={() => setActivePoint(null)} onFocus={() => setActivePoint(point)} onBlur={() => setActivePoint(null)}>
+                            <circle key={point.date} cx={point.x} cy={point.y} r={currentActivePoint?.date === point.date ? "5" : "3.2"} className="commission-chart-point" tabIndex="0" role="img" aria-label={`${point.label}: ${formatCurrency(point.amount)}`} onMouseEnter={() => setActivePoint({ point, period, data })} onMouseLeave={() => setActivePoint(null)} onFocus={() => setActivePoint({ point, period, data })} onBlur={() => setActivePoint(null)}>
                                 <title>{point.label}: {formatCurrency(point.amount)}</title>
                             </circle>
                         ))}
@@ -873,7 +878,7 @@ function CommissionTrend({ data, loading, error, period, onPeriodChange, formatC
                             return point ? <text key={`${point.date}-label`} x={point.x} y={height - 12} textAnchor="middle" className="commission-chart-x-label">{point.label}</text> : null;
                         })}
                     </svg>
-                    {activePoint && <div className="commission-chart-tooltip" style={{ left: `${(activePoint.x / width) * 100}%`, top: `${(activePoint.y / height) * 100}%` }} role="status"><span>{activePoint.label}</span><strong>{formatCurrency(activePoint.amount)}</strong></div>}
+                    {currentActivePoint && <div className="commission-chart-tooltip" style={{ left: `${(currentActivePoint.x / width) * 100}%`, top: `${(currentActivePoint.y / height) * 100}%` }} role="status"><span>{currentActivePoint.label}</span><strong>{formatCurrency(currentActivePoint.amount)}</strong></div>}
                     {loading && <span className="commission-chart-loading">Updating graph…</span>}
                     {!loading && !error && Number(data?.record_count || 0) === 0 && <span className="commission-chart-empty">No commission records in this period yet.</span>}
                 </div>

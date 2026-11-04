@@ -1,304 +1,278 @@
 import 'package:flutter/material.dart';
+
+import '../models/buyer_address.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
-// ============================================================
-// ADDRESS MODEL
-// ============================================================
-class Address {
-  final String id;
-  final String label;
-  final IconData icon;
-  final String name;
-  final String phone;
-  final String address;
-  final bool isDefault;
-
-  const Address({
-    required this.id,
-    required this.label,
-    required this.icon,
-    required this.name,
-    required this.phone,
-    required this.address,
-    this.isDefault = false,
-  });
-}
-
-// ============================================================
-// ADDRESS BOOK SCREEN
-// ============================================================
-class AddressBookScreen extends StatelessWidget {
+class AddressBookScreen extends StatefulWidget {
   const AddressBookScreen({super.key});
 
-  final List<Address> _addresses = const [
-    Address(
-      id: '1',
-      label: 'Home',
-      icon: Icons.home_outlined,
-      name: 'Juan Dela Cruz',
-      phone: '0917 123 4567',
-      address:
-          '123 Sampaguita St., Brgy. Maliwanag,\nSan Juan, Metro Manila 1500',
-      isDefault: true,
-    ),
-    Address(
-      id: '2',
-      label: 'Work',
-      icon: Icons.work_outlined,
-      name: 'Juan Dela Cruz',
-      phone: '0917 123 4567',
-      address: '456 Rosal Ave., Brgy. Kabayanan,\nSan Juan, Metro Manila 1500',
-      isDefault: false,
-    ),
-  ];
+  @override
+  State<AddressBookScreen> createState() => _AddressBookScreenState();
+}
+
+class _AddressBookScreenState extends State<AddressBookScreen> {
+  List<BuyerAddress> _addresses = [];
+  bool _loading = true;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  Future<void> _loadAddresses() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await ApiService.instance.getBuyerAddresses();
+      final addresses = rows.map(BuyerAddress.fromJson).toList();
+      if (!mounted) return;
+      setState(() => _addresses = addresses);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Unable to load your saved addresses.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openForm([BuyerAddress? address]) async {
+    final saved = await Navigator.pushNamed<bool>(
+      context,
+      '/add_address',
+      arguments: address,
+    );
+    if (saved == true) {
+      await _loadAddresses();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  address == null ? 'Address saved.' : 'Address updated.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _setDefault(BuyerAddress address) async {
+    if (_busy || address.isDefault) return;
+    setState(() => _busy = true);
+    try {
+      await ApiService.instance.setDefaultBuyerAddress(address.id);
+      await _loadAddresses();
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } catch (_) {
+      if (mounted) _showMessage('Unable to update the default address.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _delete(BuyerAddress address) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete address?'),
+        content:
+            const Text('This address will be removed from your address book.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep address')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await ApiService.instance.deleteBuyerAddress(address.id);
+      await _loadAddresses();
+      if (mounted) _showMessage('Address deleted.');
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } catch (_) {
+      if (mounted) _showMessage('Unable to delete this address.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ============================================================
-            // HEADER - back arrow + "Address Book"
-            // ============================================================
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 24, color: AppColors.primary),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Address Book',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // ============================================================
-            // ADDRESS CARDS (scrollable)
-            // ============================================================
-            Expanded(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
-                  children: _addresses
-                      .map((address) => _buildAddressCard(address))
-                      .toList(),
-                ),
-              ),
-            ),
-
-            // ============================================================
-            // FIXED "ADD NEW ADDRESS" BUTTON - HINDI PUTOL
-            // ============================================================
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF5F6F8),
-                border: Border(
-                  top: BorderSide(color: Color(0xFFE8E8E8), width: 1),
-                ),
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.pushNamed(context, '/add_address');
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: AppColors.primary,
-                      width: 2,
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_circle_outline,
-                          size: 20, color: AppColors.primary),
-                      SizedBox(width: 8),
-                      Text(
-                        'Add New Address',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Address Book'),
+        foregroundColor: AppColors.primary,
+        backgroundColor: Colors.white,
       ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _LoadError(message: _error!, onRetry: _loadAddresses)
+              : _addresses.isEmpty
+                  ? _EmptyAddresses(onAdd: () => _openForm())
+                  : RefreshIndicator(
+                      onRefresh: _loadAddresses,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          for (final address in _addresses)
+                            _AddressCard(
+                              address: address,
+                              busy: _busy,
+                              onEdit: () => _openForm(address),
+                              onDefault: () => _setDefault(address),
+                              onDelete: () => _delete(address),
+                            ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: _busy ? null : () => _openForm(),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add New Address'),
+                            style: OutlinedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 15)),
+                          ),
+                        ],
+                      ),
+                    ),
+      floatingActionButton: !_loading && _error == null && _addresses.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: _busy ? null : () => _openForm(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add address'),
+            )
+          : null,
     );
   }
+}
 
-  // ============================================================
-  // ADDRESS CARD - may edit at delete icons sa kanan
-  // ============================================================
-  Widget _buildAddressCard(Address address) {
-    return Container(
+class _AddressCard extends StatelessWidget {
+  const _AddressCard({
+    required this.address,
+    required this.busy,
+    required this.onEdit,
+    required this.onDefault,
+    required this.onDelete,
+  });
+
+  final BuyerAddress address;
+  final bool busy;
+  final VoidCallback onEdit;
+  final VoidCallback onDefault;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: address.isDefault ? AppColors.primary : AppColors.lightGray,
-          width: address.isDefault ? 2 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+            color: address.isDefault ? AppColors.primary : Colors.transparent,
+            width: 1.5),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ============================================================
-          // HEADER: Icon + Label + Default Badge + Edit/Delete Icons
-          // ============================================================
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: AppColors.lightGray,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      address.icon,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    address.label,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(address.icon, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(address.displayLabel,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  if (address.isDefault) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.lightGray,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Default',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              // ✅ EDIT AT DELETE ICONS SA KANAN
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined,
-                        size: 18, color: AppColors.primary),
-                    onPressed: () {},
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline,
-                        size: 18, color: AppColors.danger),
-                    onPressed: () {},
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                        fontWeight: FontWeight.w700, fontSize: 16))),
+            if (address.isDefault)
+              const Chip(
+                  label: Text('Default'), visualDensity: VisualDensity.compact),
+            PopupMenuButton<String>(
+              enabled: !busy,
+              onSelected: (value) {
+                if (value == 'edit') onEdit();
+                if (value == 'delete') onDelete();
+                if (value == 'default') onDefault();
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                if (!address.isDefault)
+                  const PopupMenuItem(
+                      value: 'default', child: Text('Set as default')),
+                const PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+            ),
+          ]),
           const SizedBox(height: 8),
-
-          // ============================================================
-          // NAME
-          // ============================================================
-          Text(
-            address.name,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 2),
-
-          // ============================================================
-          // PHONE NUMBER
-          // ============================================================
-          Text(
-            address.phone,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.gray,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 2),
-
-          // ============================================================
-          // ADDRESS
-          // ============================================================
-          Text(
-            address.address,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.gray,
-              fontFamily: 'Poppins',
-              height: 1.4,
-            ),
-          ),
-        ],
+          Text(address.recipientName,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(address.phone),
+          const SizedBox(height: 4),
+          Text(address.formattedAddress),
+        ]),
       ),
     );
   }
+}
+
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.wifi_off, size: 42),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ]),
+        ),
+      );
+}
+
+class _EmptyAddresses extends StatelessWidget {
+  const _EmptyAddresses({required this.onAdd});
+  final VoidCallback onAdd;
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.location_on_outlined, size: 48),
+            const SizedBox(height: 12),
+            const Text('No saved addresses yet',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+            const SizedBox(height: 6),
+            const Text('Add an address to make checkout faster.',
+                textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                label: const Text('Add address')),
+          ]),
+        ),
+      );
 }

@@ -88,7 +88,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         ? delivery['events'] as List
         : const [];
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Order Details'),
         foregroundColor: AppColors.primary,

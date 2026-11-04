@@ -118,10 +118,21 @@ function AdminDashboard() {
     const [drilldown, setDrilldown] = useState({ date: "", orders: [], loading: false, error: "" });
     const [refreshKey, setRefreshKey] = useState(0);
 
-    useEffect(() => {
-        let cancelled = false;
+    const changeAnalyticsPeriod = (period) => {
+        setActivePoint(null);
         setAnalyticsLoading(true);
         setAnalyticsError("");
+        setAnalyticsPeriod(period);
+    };
+
+    const refreshDashboard = () => {
+        setAnalyticsLoading(true);
+        setAnalyticsError("");
+        setRefreshKey((key) => key + 1);
+    };
+
+    useEffect(() => {
+        let cancelled = false;
         api.get("/admin/reports", { params: { period: analyticsPeriod } })
             .then(({ data }) => { if (!cancelled) setAnalytics(data.data); })
             .catch((error) => {
@@ -192,14 +203,6 @@ function AdminDashboard() {
     const getStatusLabel = (status) => {
         if (status?.toLowerCase() === "pending") return "Pending Approval";
         return formatStatusLabel(status);
-        if (!status) return "Unknown";
-
-        if (status.toLowerCase() === "pending") return "Pending Approval";
-
-        return (
-            status.charAt(0).toUpperCase() +
-            status.slice(1)
-        );
     };
 
     const roleDistribution = useMemo(() => [
@@ -407,11 +410,11 @@ function AdminDashboard() {
                         <div className="analytics-controls">
                             <label className="analytics-period-label">
                                 <span className="sr-only">Analytics timeframe</span>
-                                <select value={analyticsPeriod} onChange={(event) => { setActivePoint(null); setAnalyticsPeriod(event.target.value); }}>
+                                <select value={analyticsPeriod} onChange={(event) => changeAnalyticsPeriod(event.target.value)}>
                                     <option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="year">This year</option>
                                 </select>
                             </label>
-                            <button className={`analytics-icon-button${dashboardLoading || analyticsLoading ? " is-loading" : ""}`} type="button" onClick={() => setRefreshKey((key) => key + 1)} aria-label="Refresh dashboard data" title="Refresh"><span aria-hidden="true">↻</span></button>
+                            <button className={`analytics-icon-button${dashboardLoading || analyticsLoading ? " is-loading" : ""}`} type="button" onClick={refreshDashboard} aria-label="Refresh dashboard data" title="Refresh"><span aria-hidden="true">↻</span></button>
                         </div>
                     </div>
                     <div className="analytics-chart-wrap">

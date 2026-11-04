@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../../shared/services/api";
+import HubAreaManagement from "./HubAreaManagement";
+import { canDispatchReturnTransfer } from "../../../hubStaff/utils/hubStaffWorkspace";
 
 const human = (s = "") => s.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 const person = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(" ") || "Courier";
@@ -22,14 +24,20 @@ export default function ParcelFlow({ base = "/admin" }) {
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [busy, setBusy] = useState(false);
-    const [hubForm, setHubForm] = useState({ name: "", code: "", address: "" });
     const [choices, setChoices] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [loaded, setLoaded] = useState(false);
     const load = useCallback(async () => {
+        setLoading(true);
+        setError("");
         try {
             const { data: result } = await api.get(`${base}/parcel-flow`);
             setData(result.data);
+            setLoaded(true);
         } catch (e) {
             setError(e.response?.data?.message || "Parcel operations could not be loaded.");
+        } finally {
+            setLoading(false);
         }
     }, [base]);
     useEffect(() => {
@@ -37,7 +45,7 @@ export default function ParcelFlow({ base = "/admin" }) {
         return () => window.clearTimeout(t);
     }, [load]);
     const run = async (action, success) => {
-        if (busy) return;
+        if (busy) return false;
         setBusy(true);
         setError("");
         setNotice("");
@@ -45,8 +53,11 @@ export default function ParcelFlow({ base = "/admin" }) {
             await action();
             setNotice(success);
             await load();
+            return true;
         } catch (e) {
-            setError(e.response?.data?.message || "Unable to update parcel operations.");
+            const firstValidationError = Object.values(e.response?.data?.errors || {}).flat()[0];
+            setError(firstValidationError || e.response?.data?.message || "Unable to update parcel operations.");
+            return false;
         } finally {
             setBusy(false);
         }
@@ -72,124 +83,39 @@ export default function ParcelFlow({ base = "/admin" }) {
         );
     const receive = (shipment) =>
         run(
-            () =>
-                api.patch(`${base}/parcel-returns/${shipment.id}/receive-at-hub`, {
-                    hub_id: choices[`hub-${shipment.id}`] || data.hubs[0]?.id,
-                }),
+            () => {
+                const hubId = choices[`hub-${shipment.id}`];
+                if (!hubId) throw new Error("Choose an active hub before receiving this return.");
+                return api.patch(`${base}/parcel-returns/${shipment.id}/receive-at-hub`, {
+                    hub_id: hubId,
+                });
+            },
             `Return #${shipment.id} received at hub.`
         );
+    const activeHubs = data.hubs.filter((hub) => hub.is_active);
     const transfer = (type, id) =>
         run(
-            () =>
-                api.post(`${base}/hub-transfers`, {
+            () => {
+                const payload = {
                     shipment_type: type,
                     shipment_id: id,
                     to_hub_id: choices[`to-${type}-${id}`],
                     courier_profile_id: choices[`transfer-${type}-${id}`],
-                }),
+                };
+                if (type === "delivery") payload.delivery_area_id = choices[`area-delivery-${id}`];
+                return api.post(`${base}/hub-transfers`, payload);
+            },
             `Hub transfer created for ${type} #${id}.`
         );
     return (
-        <main style={{ maxWidth: 1180, margin: "0 auto", padding: 28, color: "#351626" }}>
-            <header style={{ marginBottom: 22 }}>
-                <p style={{ color: "#982442", fontWeight: 800, letterSpacing: ".12em" }}>
-                    LOGISTICS CONTROL
-                </p>
-                <h1>Parcel flow & hubs</h1>
-                <p>
-                    Logistics assigns each handoff; couriers confirm collection, departure, and
-                    arrival. A parcel changes hub only when its transfer arrives.
-                </p>
+        <main className="lo-page lo-parcel-flow">
+            <header className="lw-page-heading">
+                <div><span className="lw-eyebrow">LOGISTICS CONTROL</span><h1>Hub and delivery area management</h1><p>Manage the operating network, delivery-area coverage, and hub transfers.</p></div>
+                <button type="button" onClick={() => void load()} disabled={loading}>Refresh</button>
             </header>
-            {error && (
-                <p role="alert" style={{ color: "#a01435" }}>
-                    {error}
-                </p>
-            )}
-            {notice && <p role="status">{notice}</p>}
-            <section style={card}>
-                <h2>Hubs</h2>
-                <p>
-                    Start with CRYMA Central Hub. Add regional hubs, then map delivery areas to
-                    their final-mile hub.
-                </p>
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        void run(async () => {
-                            await api.post(`${base}/hubs`, hubForm);
-                            setHubForm({ name: "", code: "", address: "" });
-                        }, "Hub added.");
-                    }}
-                    style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}
-                >
-                    <input
-                        required
-                        placeholder="Hub name"
-                        value={hubForm.name}
-                        onChange={(e) => setHubForm({ ...hubForm, name: e.target.value })}
-                    />
-                    <input
-                        required
-                        placeholder="Code"
-                        value={hubForm.code}
-                        onChange={(e) =>
-                            setHubForm({ ...hubForm, code: e.target.value.toUpperCase() })
-                        }
-                    />
-                    <input
-                        placeholder="Address"
-                        value={hubForm.address}
-                        onChange={(e) => setHubForm({ ...hubForm, address: e.target.value })}
-                    />
-                    <button disabled={busy}>Add hub</button>
-                </form>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                    {data.hubs.map((hub) => (
-                        <strong
-                            key={hub.id}
-                            style={{ background: "#faedf1", padding: 10, borderRadius: 9 }}
-                        >
-                            {hub.name} · {hub.code}
-                        </strong>
-                    ))}
-                </div>
-                {data.areas.map((area) => (
-                    <div
-                        key={area.id}
-                        style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}
-                    >
-                        <span>{area.name}</span>
-                        <select
-                            aria-label={`Destination hub for ${area.name}`}
-                            value={choices[`area-${area.id}`] || area.hub_id || ""}
-                            onChange={(e) =>
-                                setChoices({ ...choices, [`area-${area.id}`]: e.target.value })
-                            }
-                        >
-                            {data.hubs.map((hub) => (
-                                <option key={hub.id} value={hub.id}>
-                                    {hub.name}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            disabled={busy}
-                            onClick={() =>
-                                void run(
-                                    () =>
-                                        api.patch(`${base}/delivery-areas/${area.id}/hub`, {
-                                            hub_id: choices[`area-${area.id}`] || area.hub_id,
-                                        }),
-                                    `Delivery area ${area.name} mapped.`
-                                )
-                            }
-                        >
-                            Save area hub
-                        </button>
-                    </div>
-                ))}
-            </section>
+            {error && <div className="lw-alert" role="alert">{error}</div>}
+            {notice && <div className="lo-success" role="status">{notice}</div>}
+            {!loaded && loading ? <p className="lw-empty" role="status">Loading hub and delivery area records…</p> : loaded ? <HubAreaManagement base={base} data={data} busy={busy} run={run} /> : <p className="lw-empty">Hub and delivery area records are unavailable. Use Refresh to try again.</p>}
             <section style={card}>
                 <h2>Return parcels</h2>
                 <p>
@@ -234,7 +160,7 @@ export default function ParcelFlow({ base = "/admin" }) {
                             {r.status === "picked_up" && (
                                 <div>
                                     <select
-                                        value={choices[`hub-${r.id}`] || data.hubs[0]?.id || ""}
+                                        value={choices[`hub-${r.id}`] || ""}
                                         onChange={(e) =>
                                             setChoices({
                                                 ...choices,
@@ -242,7 +168,8 @@ export default function ParcelFlow({ base = "/admin" }) {
                                             })
                                         }
                                     >
-                                        {data.hubs.map((h) => (
+                                        <option value="">Choose an active hub</option>
+                                        {activeHubs.map((h) => (
                                             <option key={h.id} value={h.id}>
                                                 {h.name}
                                             </option>
@@ -285,27 +212,36 @@ export default function ParcelFlow({ base = "/admin" }) {
             </section>
             <section style={card}>
                 <h2>Hub-to-hub transfers</h2>
-                <p>
-                    Assign a courier between a parcel’s current hub and its next hub. The courier
-                    records departure and arrival in the courier workspace.
-                </p>
+                <p>Prepare delivery transfers using an explicit area-to-hub mapping. Logistics confirms departure; destination receipt remains pending until the existing QR flow succeeds.</p>
                 {data.deliveries.map((d) => (
                     <div
                         key={`d${d.id}`}
                         style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 0" }}
                     >
                         <span>
-                            Order #{d.order_id} from {d.current_hub?.name}
+                            <strong>Order #{d.order_id} · {human(d.status)}</strong><br />
+                            Current hub: {d.current_hub?.name || "Unknown hub"} · Area: {d.delivery_area?.name || "Choose intended area"}
                         </span>
                         <select
+                            aria-label={`Destination delivery area for order ${d.order_id}`}
+                            value={choices[`area-delivery-${d.id}`] || ""}
+                            onChange={(e) => setChoices({ ...choices, [`area-delivery-${d.id}`]: e.target.value, [`to-delivery-${d.id}`]: "" })}
+                        >
+                            <option value="">Choose active destination area</option>
+                            {data.areas.filter((area) => area.is_active && area.hub_id && Number(area.hub_id) !== Number(d.current_hub_id)).map((area) => (
+                                <option key={area.id} value={area.id}>{area.name} · {area.hub?.name || "Mapped hub unavailable"}</option>
+                            ))}
+                        </select>
+                        <select
+                            aria-label={`Destination hub for order ${d.order_id}`}
                             value={choices[`to-delivery-${d.id}`] || ""}
                             onChange={(e) =>
                                 setChoices({ ...choices, [`to-delivery-${d.id}`]: e.target.value })
                             }
                         >
                             <option value="">To hub</option>
-                            {data.hubs
-                                .filter((h) => h.id !== d.current_hub_id)
+                            {activeHubs
+                                .filter((h) => Number(h.id) !== Number(d.current_hub_id) && Number(h.id) === Number(data.areas.find((area) => Number(area.id) === Number(choices[`area-delivery-${d.id}`]))?.hub_id))
                                 .map((h) => (
                                     <option key={h.id} value={h.id}>
                                         {h.name}
@@ -326,6 +262,7 @@ export default function ParcelFlow({ base = "/admin" }) {
                         <button
                             disabled={
                                 busy ||
+                                !choices[`area-delivery-${d.id}`] ||
                                 !choices[`to-delivery-${d.id}`] ||
                                 !choices[`transfer-delivery-${d.id}`]
                             }
@@ -355,8 +292,8 @@ export default function ParcelFlow({ base = "/admin" }) {
                                 }
                             >
                                 <option value="">To hub</option>
-                                {data.hubs
-                                    .filter((h) => h.id !== r.current_hub_id)
+                                {activeHubs
+                                    .filter((h) => Number(h.id) !== Number(r.current_hub_id))
                                     .map((h) => (
                                         <option key={h.id} value={h.id}>
                                             {h.name}
@@ -386,15 +323,34 @@ export default function ParcelFlow({ base = "/admin" }) {
                             </button>
                         </div>
                     ))}
-                {data.transfers.slice(0, 30).map((t) => (
-                    <p key={t.id}>
+                <div className="lo-transfer-stage-summary" role="list" aria-label="Hub transfer stages">
+                    {[
+                        ['Awaiting Hub Staff release', data.transfers.filter((item) => item.delivery_id && !item.return_shipment_id && item.status === 'assigned' && !item.hub_released_at).length],
+                        ['Awaiting Rider collection', data.transfers.filter((item) => item.delivery_id && !item.return_shipment_id && item.status === 'assigned' && item.hub_released_at).length],
+                        ['In transit', data.transfers.filter((item) => item.status === 'in_transit').length],
+                        ['Arrived', data.transfers.filter((item) => item.status === 'arrived').length],
+                    ].map(([label, count]) => <article key={label} role="listitem"><span>{label}</span><strong>{count}</strong></article>)}
+                </div>
+                {data.transfers.slice(0, 100).map((t) => (
+                    <article className="lo-transfer-card" key={t.id}>
                         Transfer #{t.id}:{" "}
                         {t.delivery_id
                             ? `Order #${t.delivery?.order_id}`
                             : `Return #${t.return_shipment_id}`}{" "}
                         · {t.from_hub?.name} → {t.to_hub?.name} · {human(t.status)} ·{" "}
                         {person(t.courier?.user)}
-                    </p>
+                        <small>Current custody: {t.delivery?.current_hub?.name || t.return_shipment?.current_hub?.name || (t.status === 'arrived' ? t.to_hub?.name : t.from_hub?.name) || 'Hub unavailable'}</small>
+                        {t.delivery_id && !t.return_shipment_id && t.status === 'assigned' && <small>{t.hub_released_at ? 'Awaiting Rider collection confirmation' : 'Awaiting Hub Staff release'}</small>}
+                        {t.return_shipment_id && t.status === 'assigned' && <small>Return transfer prepared; existing return dispatch flow applies.</small>}
+                        {t.status === 'in_transit' && <small>In transit - awaiting QR receipt at destination</small>}
+                        {t.status === 'arrived' && <small>Arrived - destination receipt confirmed</small>}
+                        {t.hub_released_at && <small>Hub Staff release{t.hub_release_actor ? ": " + person(t.hub_release_actor) + " - " : " - "}{new Date(t.hub_released_at).toLocaleString('en-PH')}</small>}
+                        {t.rider_collected_at && <small>Rider collection{t.rider_collection_actor ? ": " + person(t.rider_collection_actor) + " - " : " - "}{new Date(t.rider_collected_at).toLocaleString('en-PH')}</small>}
+                        {t.departed_at && <small>Departed: {new Date(t.departed_at).toLocaleString('en-PH')}</small>}
+                        {t.arrived_at && <small>Received: {new Date(t.arrived_at).toLocaleString('en-PH')}</small>}
+                        {(() => { const event = [...(t.delivery?.events || [])].reverse().find((item) => ['hub_transfer_departed', 'hub_transfer_arrived'].includes(item.event_type) && String(item.reason || '').includes(`transfer #${t.id}`)); return event ? <small>Latest custody event: {human(event.event_type)} · {person(event.actor)} · {new Date(event.created_at).toLocaleString('en-PH')}</small> : null; })()}
+                        {canDispatchReturnTransfer(t, base) && <button type="button" disabled={busy} onClick={() => void run(() => api.patch(`${base}/hub-transfers/${t.id}/dispatch`), `Return transfer #${t.id} departure recorded.`)}>Dispatch return transfer</button>}
+                    </article>
                 ))}
             </section>
         </main>

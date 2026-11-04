@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Heart, MessageCircle, Store, Search } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import api from "../../shared/services/api";
 import { getBuyerWishlist, isBuyerSession, requestBuyerSignIn, saveBuyerWishlist, showBuyerToast } from "../../shared/utils/buyerAccess";
 import { toggleWishlistProduct } from "../../shared/utils/buyerProductActions";
@@ -53,26 +53,28 @@ function StoreProductCard({ product }) {
 
 function PublicStorefront() {
     const { slug } = useParams();
-    const [store, setStore] = useState(null);
-    const [products, setProducts] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState("all");
+    const location = useLocation();
+    const [storeResult, setStoreResult] = useState({ slug: null, store: null, products: [], error: "" });
+    const [categorySelection, setCategorySelection] = useState({ locationKey: null, value: "all" });
     const [productQuery, setProductQuery] = useState("");
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const requestMatches = storeResult.slug === slug;
+    const store = requestMatches ? storeResult.store : null;
+    const products = requestMatches ? storeResult.products : [];
+    const loading = !requestMatches;
+    const error = requestMatches ? storeResult.error : "";
+    const selectedCategory = categorySelection.locationKey === location.key ? categorySelection.value : "all";
+    const setSelectedCategory = (value) => setCategorySelection({ locationKey: location.key, value });
 
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        setError("");
-        setSelectedCategory("all");
         api.get(`/stores/${encodeURIComponent(slug)}`)
             .then(({ data }) => {
                 if (cancelled) return;
-                setStore(data.data.store);
-                setProducts(data.data.products || []);
+                setStoreResult({ slug, store: data.data.store, products: data.data.products || [], error: "" });
             })
-            .catch(() => { if (!cancelled) setError("This storefront is unavailable right now."); })
-            .finally(() => { if (!cancelled) setLoading(false); });
+            .catch(() => {
+                if (!cancelled) setStoreResult({ slug, store: null, products: [], error: "This storefront is unavailable right now." });
+            });
         return () => { cancelled = true; };
     }, [slug]);
 

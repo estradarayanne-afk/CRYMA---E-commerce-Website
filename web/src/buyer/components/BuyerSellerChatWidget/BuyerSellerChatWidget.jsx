@@ -47,8 +47,7 @@ function BuyerSellerChatWidget() {
     const navigate = useNavigate();
     const [buyerSession, setBuyerSession] = useState(isBuyerSession);
     const [conversations, setConversations] = useState([]);
-    const [buyerOrders, setBuyerOrders] = useState([]);
-    const [ordersLoading, setOrdersLoading] = useState(false);
+    const [buyerOrdersResult, setBuyerOrdersResult] = useState({ sellerId: null, orders: [], loading: false });
     const [selectedId, setSelectedId] = useState(null);
     const [activeConversation, setActiveConversation] = useState(null);
     const [drafts, setDrafts] = useState({});
@@ -83,6 +82,14 @@ function BuyerSellerChatWidget() {
     const selectedConversation = String(activeConversation?.id) === String(selectedId)
         ? activeConversation
         : null;
+    const shouldLoadBuyerOrders = eligible && panelOpen && Boolean(selectedConversation?.seller_id);
+    const selectedSellerId = shouldLoadBuyerOrders ? String(selectedConversation.seller_id) : null;
+    const buyerOrders = useMemo(() => (
+        buyerOrdersResult.sellerId === selectedSellerId ? buyerOrdersResult.orders : []
+    ), [buyerOrdersResult, selectedSellerId]);
+    const ordersLoading = shouldLoadBuyerOrders && (
+        buyerOrdersResult.sellerId !== selectedSellerId || buyerOrdersResult.loading
+    );
     const conversationReady = Boolean(selectedConversation);
     const unreadCount = useMemo(() => getSellerUnreadCount(conversations), [conversations]);
     const shareableOrders = useMemo(() => buyerOrders.filter((order) => (
@@ -177,23 +184,23 @@ function BuyerSellerChatWidget() {
     }, [eligible, loadConversations]);
 
     useEffect(() => {
-        if (!eligible || !panelOpen || !selectedConversation?.seller_id) {
-            setBuyerOrders([]);
-            setOrdersLoading(false);
-            return undefined;
-        }
+        if (!shouldLoadBuyerOrders) return undefined;
         let cancelled = false;
-        setOrdersLoading(true);
         api.get("/orders")
             .then(({ data }) => {
                 if (cancelled) return;
                 const rows = data?.data?.data ?? data?.data ?? [];
-                setBuyerOrders(Array.isArray(rows) ? rows : []);
+                setBuyerOrdersResult({
+                    sellerId: selectedSellerId,
+                    orders: Array.isArray(rows) ? rows : [],
+                    loading: false,
+                });
             })
-            .catch(() => { if (!cancelled) setBuyerOrders([]); })
-            .finally(() => { if (!cancelled) setOrdersLoading(false); });
+            .catch(() => {
+                if (!cancelled) setBuyerOrdersResult({ sellerId: selectedSellerId, orders: [], loading: false });
+            });
         return () => { cancelled = true; };
-    }, [eligible, panelOpen, selectedConversation?.seller_id]);
+    }, [selectedSellerId, shouldLoadBuyerOrders]);
 
     const selectConversation = useCallback((id) => {
         if (String(id) === String(selectedIdRef.current)) return;
@@ -323,18 +330,6 @@ function BuyerSellerChatWidget() {
     }, [eligible, loadConversation, selectConversation, userId]);
 
     useEffect(() => {
-        const requestKey = location.state?.openSellerChatRequest;
-        if (!eligible || !requestKey || handledRouteChatRequestRef.current === requestKey) return;
-        handledRouteChatRequestRef.current = requestKey;
-        const conversationId = location.state?.openSellerChatConversationId;
-        setPanelOpen(true);
-        setMinimized(false);
-        if (conversationId) void openConversationById(conversationId);
-        else if (!conversations.length) void loadConversations();
-        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-    }, [eligible, location.key, location.pathname, location.search, location.state, navigate, conversations.length, loadConversations, openConversationById]);
-
-    useEffect(() => {
         const handleOpenSellerChat = (event) => {
             if (event.detail?.conversationId) {
                 void openConversationById(event.detail.conversationId);
@@ -349,6 +344,17 @@ function BuyerSellerChatWidget() {
         window.addEventListener("cryma-open-seller-chat", handleOpenSellerChat);
         return () => window.removeEventListener("cryma-open-seller-chat", handleOpenSellerChat);
     }, [conversations.length, loadConversations, openConversationById, openStoreConversation]);
+
+    useEffect(() => {
+        const requestKey = location.state?.openSellerChatRequest;
+        if (!eligible || !requestKey || handledRouteChatRequestRef.current === requestKey) return;
+        handledRouteChatRequestRef.current = requestKey;
+        const conversationId = location.state?.openSellerChatConversationId;
+        window.dispatchEvent(new CustomEvent("cryma-open-seller-chat", {
+            detail: conversationId ? { conversationId } : {},
+        }));
+        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }, [eligible, location.key, location.pathname, location.search, location.state, navigate]);
 
     useEffect(() => {
         if (!eligible || !panelOpen || selectedId === null) return undefined;

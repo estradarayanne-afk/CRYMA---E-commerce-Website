@@ -124,7 +124,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final filtered = _filteredNotifications;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [

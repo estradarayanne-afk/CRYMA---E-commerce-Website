@@ -112,7 +112,7 @@ class DeliveryController extends Controller
             'status' => ['required', 'in:OUT_FOR_DELIVERY,DELIVERY_FAILED'],
             'expected_status' => ['required', 'in:ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY'],
             'reason' => ['nullable', 'string', 'max:1000'],
-            'parcel_code' => ['sometimes', 'required', 'string', 'max:32'],
+            'parcel_code' => ['required_if:status,'.Delivery::OUT_FOR_DELIVERY, 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
         ]);
         $reason = isset($validated['reason']) ? trim($validated['reason']) : null;
         if ($validated['status'] === Delivery::FAILED && !$reason) {

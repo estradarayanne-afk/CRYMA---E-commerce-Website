@@ -51,10 +51,23 @@ class DeliveryProofTest extends TestCase
             'photo' => UploadedFile::fake()->create('document.pdf', 100, 'application/pdf'),
         ])->assertUnprocessable();
 
+        $validRecipientAndPhoto = [
+            'expected_status' => Delivery::OUT_FOR_DELIVERY,
+            'recipient_full_name' => 'Maria Santos',
+            'photo' => UploadedFile::fake()->image('delivery.jpg', 400, 300),
+        ];
+        $this->postProof($delivery, $validRecipientAndPhoto)
+            ->assertStatus(422)->assertJsonPath('message', 'Confirm the cash collected from the buyer.');
+        $this->postProof($delivery, [...$validRecipientAndPhoto, 'cod_amount_collected' => '9.99'])
+            ->assertStatus(422)->assertJsonPath('message', 'The collected cash must match the exact order total.');
+        $this->postProof($delivery, [...$validRecipientAndPhoto, 'cod_amount_collected' => '10.01'])
+            ->assertStatus(422)->assertJsonPath('message', 'The collected cash must match the exact order total.');
+
         $response = $this->postProof($delivery, [
             'expected_status' => Delivery::OUT_FOR_DELIVERY,
             'recipient_full_name' => '  Maria Santos  ',
             'photo' => UploadedFile::fake()->image('delivery.jpg', 400, 300),
+            'cod_amount_collected' => '10.00',
         ])->assertOk()
             ->assertJsonPath('data.status', Delivery::DELIVERED)
             ->assertJsonPath('data.proof.recipient_full_name', 'Maria Santos')
@@ -173,6 +186,7 @@ class DeliveryProofTest extends TestCase
             'expected_status' => Delivery::OUT_FOR_DELIVERY,
             'recipient_full_name' => 'Recipient Example',
             'photo' => UploadedFile::fake()->image('delivery.jpg', 400, 300),
+            'cod_amount_collected' => '10.00',
             ...$override,
         ];
     }

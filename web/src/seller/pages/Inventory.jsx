@@ -319,7 +319,10 @@ function Inventory() {
                 : form.stock);
             payload.append("status", form.status);
             payload.append("is_draft", saveAsDraft ? "1" : "0");
-            payload.append("variants", JSON.stringify(form.variants.map(({ image, media_path, media_type, media_url, color_image_url, ...variant }) => variant)));
+            const localMediaFields = new Set(["image", "media_path", "media_type", "media_url", "color_image_url"]);
+            payload.append("variants", JSON.stringify(form.variants.map((variant) => (
+                Object.fromEntries(Object.entries(variant).filter(([key]) => !localMediaFields.has(key)))
+            ))));
             form.variants.forEach((variant) => {
                 const media = variantMedia[String(variant.id)];
                 if (media?.file) {

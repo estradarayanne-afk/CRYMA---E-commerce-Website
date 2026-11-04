@@ -17,7 +17,7 @@ class SellerProductInventoryTest extends TestCase
     public function test_seller_can_create_a_complete_product_with_photos_video_and_discounted_price(): void
     {
         Storage::fake('public');
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
 
         $response = $this->actingAs($seller, 'sanctum')->post('/api/seller/products', [
             'name' => 'Linen Summer Dress',
@@ -27,6 +27,7 @@ class SellerProductInventoryTest extends TestCase
             'price' => '1200.00',
             'discounted_price' => '999.00',
             'stock' => '8',
+            'weight_kg' => '0.500',
             'status' => 'active',
             'images' => [
                 $this->fakeImage('front.png'),
@@ -64,7 +65,7 @@ class SellerProductInventoryTest extends TestCase
 
     public function test_seller_cannot_save_a_discount_equal_to_or_above_regular_price(): void
     {
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
 
         $this->actingAs($seller, 'sanctum')
             ->postJson('/api/seller/products', [
@@ -74,6 +75,7 @@ class SellerProductInventoryTest extends TestCase
                 'price' => '20.00',
                 'discounted_price' => '20.00',
                 'stock' => 1,
+                'weight_kg' => '0.500',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['discounted_price']);
@@ -83,14 +85,7 @@ class SellerProductInventoryTest extends TestCase
 
     public function test_seller_can_create_color_size_variants_with_individual_prices_and_stock(): void
     {
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        SellerProfile::create([
-            'user_id' => $seller->id,
-            'sex' => 'prefer_not_to_say',
-            'birthday' => '1990-01-01',
-            'business_name' => 'The Variant Shop',
-            'line_of_business' => 'Apparel',
-        ]);
+        $seller = $this->seller(['business_name' => 'The Variant Shop', 'line_of_business' => "Men's Apparel"]);
         $redMediumId = 'c4dece55-a7a5-4c44-a5e5-55504c469067';
         $blueLargeId = '9b82222b-5d8c-412a-851f-02318cb7bde8';
 
@@ -101,6 +96,7 @@ class SellerProductInventoryTest extends TestCase
                 'category' => "Men's Apparel",
                 'price' => '100.00',
                 'stock' => 5,
+                'weight_kg' => '0.500',
                 'variants' => json_encode([
                     [
                         'id' => $redMediumId,
@@ -153,7 +149,7 @@ class SellerProductInventoryTest extends TestCase
 
     public function test_color_variants_require_a_photo_for_every_color(): void
     {
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
 
         $this->actingAs($seller, 'sanctum')
             ->postJson('/api/seller/products', [
@@ -161,6 +157,7 @@ class SellerProductInventoryTest extends TestCase
                 'category' => "Men's Apparel",
                 'price' => '100.00',
                 'stock' => 2,
+                'weight_kg' => '0.500',
                 'variants' => [
                     ['color' => 'Red', 'size' => 'M', 'price' => '100.00', 'stock' => 2],
                 ],
@@ -174,7 +171,7 @@ class SellerProductInventoryTest extends TestCase
     public function test_seller_can_keep_or_replace_color_photos_when_updating_variants(): void
     {
         Storage::fake('public');
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
         $product = $this->createProduct($seller);
         $redPhoto = $this->fakeImage('red.png')->storePublicly(
             "products/{$product->id}/variants",
@@ -213,7 +210,7 @@ class SellerProductInventoryTest extends TestCase
 
     public function test_seller_cannot_create_duplicate_variant_combinations(): void
     {
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
         $variants = [
             ['color' => 'Navy', 'size' => 'M', 'price' => '20.00', 'stock' => 2],
             ['color' => ' navy ', 'size' => 'm', 'price' => '21.00', 'stock' => 1],
@@ -225,6 +222,7 @@ class SellerProductInventoryTest extends TestCase
                 'category' => 'Pet Supplies',
                 'price' => '20.00',
                 'stock' => 3,
+                'weight_kg' => '0.500',
                 'variants' => $variants,
             ])
             ->assertUnprocessable()
@@ -236,7 +234,7 @@ class SellerProductInventoryTest extends TestCase
     public function test_seller_can_replace_selected_media_without_removing_retained_media(): void
     {
         Storage::fake('public');
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
         $product = $this->createProduct($seller);
         $kept = $product->media()->create([
             'type' => 'image',
@@ -272,7 +270,7 @@ class SellerProductInventoryTest extends TestCase
 
     public function test_media_upload_size_is_limited_to_1536_kilobytes_per_file(): void
     {
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
 
         $this->actingAs($seller, 'sanctum')
             ->post('/api/seller/products', [
@@ -290,7 +288,7 @@ class SellerProductInventoryTest extends TestCase
 
     public function test_edit_cannot_exceed_the_photo_limit_when_adding_more_media(): void
     {
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
         $product = $this->createProduct($seller);
         $media = collect(range(1, 8))->map(fn ($position) => $product->media()->create([
             'type' => 'image',
@@ -317,8 +315,8 @@ class SellerProductInventoryTest extends TestCase
 
     public function test_sku_must_be_unique_within_the_sellers_store(): void
     {
-        $firstSeller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        $secondSeller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $firstSeller = $this->seller();
+        $secondSeller = $this->seller();
         $this->createProduct($firstSeller, ['sku' => 'SHARED-SKU']);
 
         $this->actingAs($firstSeller, 'sanctum')
@@ -328,6 +326,7 @@ class SellerProductInventoryTest extends TestCase
                 'category' => 'Pet Supplies',
                 'price' => '10.00',
                 'stock' => 1,
+                'weight_kg' => '0.500',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['sku']);
@@ -339,13 +338,14 @@ class SellerProductInventoryTest extends TestCase
                 'category' => 'Pet Supplies',
                 'price' => '10.00',
                 'stock' => 1,
+                'weight_kg' => '0.500',
             ])
             ->assertCreated();
     }
 
     public function test_seller_product_list_honors_the_requested_page_size(): void
     {
-        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $seller = $this->seller();
         for ($index = 0; $index < 12; $index++) {
             $this->createProduct($seller, ['name' => "Product {$index}"]);
         }
@@ -370,6 +370,20 @@ class SellerProductInventoryTest extends TestCase
             'category' => 'Pet Supplies',
             'status' => 'active',
         ], $overrides));
+    }
+
+    private function seller(array $profileOverrides = []): User
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        SellerProfile::create(array_merge([
+            'user_id' => $seller->id,
+            'sex' => 'prefer_not_to_say',
+            'birthday' => '1990-01-01',
+            'business_name' => 'Test Seller',
+            'line_of_business' => 'Pet Supplies',
+        ], $profileOverrides));
+
+        return $seller;
     }
 
     private function fakeImage(string $name): UploadedFile

@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { requestBuyerSignIn } from "../utils/buyerAccess";
+import { hasRoleAccess } from "../utils/roleAccess";
 
 const ROLE_HOME = {
     admin: "/admin/dashboard",
     seller: "/seller/dashboard",
     rider: "/courier/dashboard",
     logistics: "/logistics/dashboard",
+    hub_staff: "/hub-staff/overview",
     buyer: "/",
 };
 
@@ -63,7 +65,7 @@ function ProtectedRoute({ allowedRoles = [] }) {
      * User is authenticated but does not have
      * permission to access this section.
      */
-    if (!allowedRoles.includes(user.role)) {
+    if (!hasRoleAccess(user, allowedRoles)) {
         const destination = ROLE_HOME[user.role] || "/";
 
         return (

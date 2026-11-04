@@ -55,17 +55,24 @@ export default function ParcelOperations({ section }) {
     const config = PAGE_CONFIG[section];
     const [queue, setQueue] = useState(DEFAULT_QUEUE);
     const [areas, setAreas] = useState([]);
+    const [hubs, setHubs] = useState([]);
     const [pickupChoices, setPickupChoices] = useState({});
     const [pickupSchedules, setPickupSchedules] = useState({});
     const [deliveryChoices, setDeliveryChoices] = useState({});
     const [areaChoices, setAreaChoices] = useState({});
+    const [hubChoices, setHubChoices] = useState({});
     const [reasons, setReasons] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState("");
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    const [receiptResult, setReceiptResult] = useState(null);
     const [pendingAction, setPendingAction] = useState(null);
     const [sortingScannerOpen, setSortingScannerOpen] = useState(false);
+    const [receiptScannerAssignment, setReceiptScannerAssignment] = useState(null);
+    const [transferScannerId, setTransferScannerId] = useState(null);
+    const [transfers, setTransfers] = useState([]);
+    const [transferHubChoices, setTransferHubChoices] = useState({});
 
     const load = useCallback(async ({ quiet = false } = {}) => {
         if (!quiet) {
@@ -73,15 +80,19 @@ export default function ParcelOperations({ section }) {
             setError("");
         }
         try {
-            const [queueResponse, areasResponse] = await Promise.all([
+            const [queueResponse, areasResponse, hubsResponse, flowResponse] = await Promise.all([
                 api.get("/logistics/operations"),
                 api.get("/logistics/delivery-areas"),
+                api.get("/logistics/hubs"),
+                api.get("/logistics/parcel-flow"),
             ]);
             if (queueResponse.data?.success !== true || !queueResponse.data?.data) {
                 throw new Error("The logistics operations response is invalid.");
             }
             setQueue({ ...DEFAULT_QUEUE, ...queueResponse.data.data });
             setAreas(Array.isArray(areasResponse.data?.data) ? areasResponse.data.data : []);
+            setHubs(Array.isArray(hubsResponse.data?.data) ? hubsResponse.data.data : []);
+            setTransfers(Array.isArray(flowResponse.data?.data?.transfers) ? flowResponse.data.data.transfers : []);
         } catch (err) {
             if (!quiet) setError(err.response?.data?.message || err.message || "Logistics operations are unavailable.");
         } finally {
@@ -103,6 +114,7 @@ export default function ParcelOperations({ section }) {
             const { data } = await task();
             setNotice(data?.message || message);
             await load();
+            return data;
         } catch (err) {
             setError(err.response?.data?.message || "Unable to save the logistics update.");
         } finally {
@@ -172,36 +184,30 @@ export default function ParcelOperations({ section }) {
         );
     };
 
-    const confirmReceipt = (assignment) => {
-        requestConfirmation(
-            "Receive parcel at the sorting center?",
-            `This records order #${assignment.order_id} as received at the sorting center.`,
-            () => void mutate(
-                `receipt-${assignment.id}`,
-                () => api.patch(`/logistics/orders/${assignment.order_id}/sorting-receipt`, { expected_status: "PICKED_UP" }),
-                        "Parcel received at the sorting center.",
-            ),
-        );
+    const confirmReceipt = (assignment, parcelCode) => {
+        const hubId = hubChoices[assignment.id];
+        if (!hubId || !parcelCode) { setError("Select the receiving hub and scan the parcel QR code."); return; }
+        setReceiptScannerAssignment(null);
+        setReceiptResult(null);
+        void mutate(`receipt-${assignment.id}`, () => api.patch(`/logistics/orders/${assignment.order_id}/sorting-receipt`, { expected_status: "PICKED_UP", hub_id: Number(hubId), parcel_code: parcelCode }), "Parcel QR verified and received at the sorting center.").then((data) => { if (data) setReceiptResult({ parcelCode, orderId: assignment.order_id, hubName: hubs.find((hub) => Number(hub.id) === Number(hubId))?.name || "selected hub" }); });
     };
 
-    const scanParcel = (order, parcelCode = null) => {
-        requestConfirmation(
-            "Scan parcel at sorting center?",
-            `Confirm that parcel #${order.id} has been physically received and scanned. You can then read the address and route it to an area rider.`,
-            () => void mutate(
-                `scan-${order.id}`,
-                () => api.patch(`/logistics/orders/${order.id}/scan`, { expected_status: order.status, ...(parcelCode ? { parcel_code: parcelCode } : {}) }),
-                `Parcel #${order.id} scanned. Continue with its destination area and rider.`,
-            ),
-        );
-    };
-
-    const receiveSortingQr = (parcelCode) => {
-        const order = (queue.sorting_orders || []).find((item) => item.delivery?.parcel_code === parcelCode);
-        if (!order) { setError("No parcel in the current sorting queue matches that parcel ID."); return; }
-        if (!['AT_SORTING_CENTER', 'SORTED'].includes(order.status)) { setError("This parcel is not at the sorting center stage."); return; }
+    const scanParcel = (parcelCode) => {
+        if (!parcelCode) { setError("Scan the parcel QR code before recording it."); return; }
         setSortingScannerOpen(false);
-        scanParcel(order, parcelCode);
+        setReceiptResult(null);
+        void mutate("scan-qr", () => api.post("/logistics/parcels/scan", { parcel_code: parcelCode }), "Parcel QR verified. Continue with its destination area and rider.").then((data) => { if (data) setReceiptResult({ parcelCode, orderId: data.data?.data?.order_id }); });
+    };
+    const receiveSortingQr = (parcelCode) => {
+        scanParcel(parcelCode);
+    };
+
+    const receiveTransferQr = (transfer, parcelCode) => {
+        const hubId = transferHubChoices[transfer.id];
+        if (!hubId) { setError("Select the assigned destination hub before scanning this transfer."); return; }
+        setTransferScannerId(null);
+        setReceiptResult(null);
+        void mutate(`transfer-receipt-${transfer.id}`, () => api.patch(`/logistics/hub-transfers/${transfer.id}/receive`, { hub_id: Number(hubId), parcel_code: parcelCode }), "Transfer QR verified and received at its destination hub.").then((data) => { if (data) setReceiptResult({ parcelCode, transferId: transfer.id, hubName: transfer.to_hub?.name || "destination hub" }); });
     };
 
     const sortAndAssign = (order) => {
@@ -306,6 +312,7 @@ export default function ParcelOperations({ section }) {
             </header>
             {error && <div className="lw-alert" role="alert"><span>{error}</span><button type="button" onClick={() => void load()} disabled={loading}>Retry</button></div>}
             {notice && <div className="lr-notice" role="status">{notice}</div>}
+            {receiptResult && <div className="lr-notice" role="status">Backend verified parcel {receiptResult.parcelCode}{receiptResult.orderId ? ` · Order #${receiptResult.orderId}` : ""}{receiptResult.transferId ? ` · Transfer #${receiptResult.transferId}` : ""} at {receiptResult.hubName || "the selected hub"}.</div>}
             {loading ? <div className="lw-empty" role="status">Loading parcel records…</div> : (
                 <>
                     {section === "reports" && <div className="lo-report-grid">{counts.map(([label, count]) => <article key={label}><span>{label}</span><strong>{count}</strong></article>)}</div>}
@@ -337,8 +344,9 @@ export default function ParcelOperations({ section }) {
                     {section === "incoming" && <section className="lo-panel"><h2>Parcels awaiting sorting-center receipt</h2>
                         {awaitingReceipt.length === 0 ? <p className="lw-empty">No collected parcels are awaiting sorting-center receipt.</p> : awaitingReceipt.map((assignment) => <article className="lo-row" key={assignment.id}>
                             <div><strong>Order #{assignment.order_id} · Collected</strong><span>Pickup courier: {courierName(assignment.courierProfile)}</span><small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small><small>Collection recorded: {assignment.picked_up_at ? new Date(assignment.picked_up_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small></div>
-                            <button type="button" disabled={!!saving} onClick={() => confirmReceipt(assignment)}>{saving === `receipt-${assignment.id}` ? "Receiving…" : "Receive parcel"}</button>
+                            <div className="lo-actions"><label className="lo-field-label">Receiving hub<select aria-label={`Receiving hub for order ${assignment.order_id}`} value={hubChoices[assignment.id] || ""} onChange={(event) => setHubChoices((current) => ({ ...current, [assignment.id]: event.target.value }))}><option value="">Select active hub</option>{hubs.filter((hub) => hub.is_active).map((hub) => <option key={hub.id} value={hub.id}>{hub.name} · {hub.code}</option>)}</select></label><button type="button" disabled={!!saving || !hubChoices[assignment.id]} onClick={() => setReceiptScannerAssignment(assignment)}>{saving === `receipt-${assignment.id}` ? "Receiving…" : "Scan QR and receive"}</button>{receiptScannerAssignment?.id === assignment.id && <ParcelQrScanner title={`Receive parcel for order ${assignment.order_id}`} onScan={(code) => confirmReceipt(assignment, code)} onClose={() => setReceiptScannerAssignment(null)} />}</div>
                         </article>)}</section>}
+                    {section === "incoming" && <section className="lo-panel"><h2>Hub transfer arrivals</h2><p className="lo-note">A rider can mark a transfer in transit. Logistics must select its assigned destination and verify the parcel QR before custody moves.</p>{transfers.filter((transfer) => transfer.status === "in_transit").length === 0 ? <p className="lw-empty">No hub transfers are awaiting receipt.</p> : transfers.filter((transfer) => transfer.status === "in_transit").map((transfer) => <article className="lo-row" key={`transfer-${transfer.id}`}><div><strong>Transfer #{transfer.id} · {transfer.delivery ? `Order #${transfer.delivery.order_id}` : `Return #${transfer.return_shipment?.id}`}</strong><span>{transfer.from_hub?.name} → {transfer.to_hub?.name}</span><small>Parcel: {transfer.delivery?.parcel_code || "Scan the parcel QR to verify"}</small></div><div className="lo-actions"><label>Receiving hub<select aria-label={`Receiving hub for transfer ${transfer.id}`} value={transferHubChoices[transfer.id] || ""} onChange={(event) => setTransferHubChoices((current) => ({ ...current, [transfer.id]: event.target.value }))}><option value="">Select assigned destination</option>{transfer.to_hub && <option value={transfer.to_hub.id}>{transfer.to_hub.name} · {transfer.to_hub.code}{transfer.to_hub.is_active ? "" : " · inactive, existing transfer"}</option>}</select></label><button type="button" disabled={!!saving || !transferHubChoices[transfer.id]} onClick={() => setTransferScannerId(transfer.id)}>Scan QR and receive</button>{transferScannerId === transfer.id && <ParcelQrScanner title={`Receive transfer ${transfer.id}`} onScan={(code) => receiveTransferQr(transfer, code)} onClose={() => setTransferScannerId(null)} />}</div></article>)}</section>}
 
                     {section === "sorting" && <section className="lo-panel"><h2>Receive · Scan · Read address · Sort · Assign</h2><button type="button" disabled={!!saving} onClick={() => setSortingScannerOpen((open) => !open)}>{sortingScannerOpen ? "Close parcel scanner" : "Scan or look up parcel ID"}</button>{sortingScannerOpen && <ParcelQrScanner title="Sorting-center parcel scan" onScan={receiveSortingQr} onClose={() => setSortingScannerOpen(false)} />}
                         {(queue.sorting_orders || []).filter((order) => ["AT_SORTING_CENTER", "SORTED"].includes(order.status)).length === 0 ? <p className="lw-empty">No received parcels are waiting to be sorted.</p> : queue.sorting_orders.filter((order) => ["AT_SORTING_CENTER", "SORTED"].includes(order.status)).map((order) => {
@@ -346,17 +354,22 @@ export default function ParcelOperations({ section }) {
                             const areaId = areaChoices[order.id] || order.delivery?.delivery_area_id || "";
                             const eligible = eligibleForArea(areaId);
                             const courierId = deliveryChoices[order.id] || (order.status === "SORTED" ? order.delivery?.courier_profile_id : "");
+                            const selectedArea = activeAreas.find((area) => Number(area.id) === Number(areaId));
+                            const currentHubId = Number(order.delivery?.current_hub_id || 0);
+                            const requiresTransfer = !!selectedArea && Number(selectedArea.hub_id || 0) !== currentHubId;
                             return <article className="lo-row lo-sort-row" key={order.id}>
                                 <div className="lo-parcel-details"><strong>Parcel #{order.id} <span className="lo-stage-pill">{scanned ? "Scanned · ready to route" : "Received · scan required"}</span></strong>
+                                    <small>Current hub: {order.delivery?.currentHub?.name || "Hub unavailable"}</small>
                                     <span className="lo-destination"><b>Delivery address</b>{order.delivery_address || "Address unavailable"}</span>
                                     <small>Items: {(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</small><small>Parcel weight: {parcelWeight(order.items)}</small>
                                     {scanned && <small>Scan recorded: {order.delivery.events.find((event) => event.event_type === "parcel_scanned")?.created_at ? new Date(order.delivery.events.find((event) => event.event_type === "parcel_scanned").created_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small>}
                                 </div>
                                 <div className="lo-routing-fields">
-                                    {!scanned && <button type="button" disabled={!!saving} onClick={() => scanParcel(order)}>{saving === `scan-${order.id}` ? "Scanning…" : "Scan parcel"}</button>}
-                                    <label>Destination area<select aria-label={`Destination area for parcel ${order.id}`} value={areaChoices[order.id] || order.delivery?.delivery_area_id || ""} disabled={!scanned || !!saving} onChange={(event) => { setAreaChoices((current) => ({ ...current, [order.id]: event.target.value })); setDeliveryChoices((current) => ({ ...current, [order.id]: "" })); }}><option value="">Read address and select area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></label>
+                                    {!scanned && <button type="button" disabled={!!saving} onClick={() => setSortingScannerOpen(true)}>{saving === `scan-${order.id}` ? "Scanning…" : "Scan parcel QR"}</button>}
+                                    <label>Destination area<select aria-label={`Destination area for parcel ${order.id}`} value={areaChoices[order.id] || order.delivery?.delivery_area_id || ""} disabled={!scanned || !!saving} onChange={(event) => { setAreaChoices((current) => ({ ...current, [order.id]: event.target.value })); setDeliveryChoices((current) => ({ ...current, [order.id]: "" })); }}><option value="">Read address and select area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name} · {area.hub?.name || "Unmapped hub"}</option>)}</select></label>
+                                    {selectedArea && <small>Destination hub: {selectedArea.hub?.name || "Unmapped"}{requiresTransfer ? " · Transfer required before final-mile assignment" : " · Matches current custody"}</small>}
                                     <label>Rider assigned to this area{courierSelect(eligible, courierId, (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Rider for parcel ${order.id}`, !scanned || !!saving)}</label>
-                                    <button type="button" disabled={!scanned || !!saving || !areaId || !courierId} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : "Sort and assign to rider"}</button>
+                                    <button type="button" disabled={!scanned || !!saving || !areaId || !courierId || requiresTransfer} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : requiresTransfer ? "Hub transfer required" : "Sort and assign to rider"}</button>
                                 </div>
                             </article>;
                         })}</section>}

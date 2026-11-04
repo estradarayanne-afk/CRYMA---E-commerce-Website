@@ -23,6 +23,7 @@ class BuyerVoucherCheckoutTest extends TestCase
             'discount_value' => '20.00',
             'minimum_spend' => '100.00',
         ]);
+        $this->claim($buyer, $voucher);
 
         $response = $this->checkout($buyer, $product, [
             'voucher_code' => ' save20 ',
@@ -54,13 +55,14 @@ class BuyerVoucherCheckoutTest extends TestCase
     public function test_percentage_discount_honors_maximum_discount_and_minimum_spend(): void
     {
         [$buyer, $product] = $this->buyerAndProduct('250.00', 2);
-        $this->voucher([
+        $voucher = $this->voucher([
             'code' => 'PERCENT',
             'discount_type' => 'percentage',
             'discount_value' => '20.00',
             'minimum_spend' => '200.00',
             'maximum_discount' => '30.00',
         ]);
+        $this->claim($buyer, $voucher);
 
         $this->checkout($buyer, $product, ['voucher_code' => 'PERCENT'])
             ->assertCreated()
@@ -68,6 +70,7 @@ class BuyerVoucherCheckoutTest extends TestCase
             ->assertJsonPath('data.total_amount', '220.00');
 
         [$buyerBelow, $productBelow] = $this->buyerAndProduct('199.99', 2);
+        $this->claim($buyerBelow, $voucher);
         $this->checkout($buyerBelow, $productBelow, ['voucher_code' => 'PERCENT'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['voucher_code']);
@@ -98,16 +101,19 @@ class BuyerVoucherCheckoutTest extends TestCase
             'usage_limit' => 2,
             'per_buyer_limit' => 1,
         ]);
+        $this->claim($firstBuyer, $voucher);
+        $secondBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $thirdBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->claim($secondBuyer, $voucher);
+        $this->claim($thirdBuyer, $voucher);
 
         $this->checkout($firstBuyer, $product, ['voucher_code' => 'LIMITED'])->assertCreated();
         $this->checkout($firstBuyer, $product, ['voucher_code' => 'LIMITED'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['voucher_code']);
 
-        $secondBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $this->checkout($secondBuyer, $product, ['voucher_code' => 'LIMITED'])->assertCreated();
 
-        $thirdBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $this->checkout($thirdBuyer, $product, ['voucher_code' => 'LIMITED'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['voucher_code']);
@@ -128,13 +134,14 @@ class BuyerVoucherCheckoutTest extends TestCase
             'category' => 'Home',
             'status' => 'active',
         ]);
-        $this->voucher([
+        $voucher = $this->voucher([
             'code' => 'PETONLY',
             'discount_type' => 'percentage',
             'discount_value' => '50.00',
             'product_ids' => [$eligible->id],
             'minimum_spend' => '20.00',
         ]);
+        $this->claim($buyer, $voucher);
 
         $response = $this->actingAs($buyer, 'sanctum')
             ->withHeader('Idempotency-Key', (string) Str::uuid())
@@ -157,7 +164,7 @@ class BuyerVoucherCheckoutTest extends TestCase
     {
         [, $product] = $this->buyerAndProduct('45.00', 2);
         $product->update(['discounted_price' => '35.00']);
-        $this->voucher(['code' => 'PREVIEW']);
+        $voucher = $this->voucher(['code' => 'PREVIEW']);
 
         $this->postJson('/api/buyer/vouchers/validate', [
             'code' => 'PREVIEW',
@@ -165,6 +172,7 @@ class BuyerVoucherCheckoutTest extends TestCase
         ])->assertUnauthorized();
 
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->claim($buyer, $voucher);
         $this->actingAs($buyer, 'sanctum')
             ->postJson('/api/buyer/vouchers/validate', [
                 'code' => 'PREVIEW',
@@ -180,6 +188,7 @@ class BuyerVoucherCheckoutTest extends TestCase
     {
         [$buyer, $product] = $this->buyerAndProduct('20.00', 4);
         $voucher = $this->voucher(['code' => 'ONEUSE', 'per_buyer_limit' => 1]);
+        $this->claim($buyer, $voucher);
         $key = '6ac35fa7-081c-4cd8-9f5b-202610210001';
         $payload = [...$this->checkoutPayload($product, 1), 'voucher_code' => 'ONEUSE'];
 
@@ -211,7 +220,8 @@ class BuyerVoucherCheckoutTest extends TestCase
         $this->voucher(['code' => 'EXPIREDLIST', 'expires_at' => now()->subMinute()]);
         $this->voucher(['code' => 'UPCOMING', 'starts_at' => now()->addDay()]);
         $this->voucher(['code' => 'DRAFT', 'is_active' => false]);
-        $this->voucher(['code' => 'USEDLIST']);
+        $used = $this->voucher(['code' => 'USEDLIST']);
+        $this->claim($buyer, $used);
         $this->checkout($buyer, $product, ['voucher_code' => 'USEDLIST'])->assertCreated();
 
         $response = $this->actingAs($buyer, 'sanctum')->getJson('/api/buyer/vouchers')->assertOk();
@@ -267,6 +277,26 @@ class BuyerVoucherCheckoutTest extends TestCase
                 ...$this->checkoutPayload($product, 1),
                 ...$extra,
             ]);
+    }
+
+    private function claim(User $buyer, Voucher $voucher): void
+    {
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson("/api/buyer/vouchers/{$voucher->id}/claim")
+            ->assertCreated()
+            ->assertJsonPath('data.is_claimed', true);
+    }
+
+    public function test_unclaimed_voucher_is_rejected_at_checkout(): void
+    {
+        [$buyer, $product] = $this->buyerAndProduct('25.00', 2);
+        $this->voucher(['code' => 'UNCLAIMED']);
+
+        $this->checkout($buyer, $product, ['voucher_code' => 'UNCLAIMED'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['voucher_code']);
+        $this->assertSame(0, Order::count());
+        $this->assertSame(2, $product->fresh()->stock);
     }
 
     private function checkoutPayload(Product $product, int $quantity): array

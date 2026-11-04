@@ -12,6 +12,17 @@ class LogisticsProfile extends Model
         'sex',
         'birthday',
         'business_name',
+        'can_manage_hub_staff',
+        'hub_staff_capability_granted_by',
+        'hub_staff_capability_granted_at',
+        'hub_staff_capability_revoked_by',
+        'hub_staff_capability_revoked_at',
+    ];
+
+    protected $casts = [
+        'can_manage_hub_staff' => 'boolean',
+        'hub_staff_capability_granted_at' => 'datetime',
+        'hub_staff_capability_revoked_at' => 'datetime',
     ];
 
     protected function casts(): array

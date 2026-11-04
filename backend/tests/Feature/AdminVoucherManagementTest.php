@@ -137,6 +137,7 @@ class AdminVoucherManagementTest extends TestCase
             'usage_limit' => 2,
             'per_buyer_limit' => 2,
         ]);
+        $this->claim($buyer, $voucher);
         $this->checkout($buyer, $product, 'USED')->assertCreated();
         $this->checkout($buyer, $product, 'USED')->assertCreated();
         $payload = $this->payload([
@@ -201,13 +202,13 @@ class AdminVoucherManagementTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson('/api/admin/vouchers', $this->payload([
                 'code' => 'SCHEDULED',
-                'starts_at' => now()->addDay()->toIso8601String(),
+                'starts_at' => now()->subDay()->toIso8601String(),
                 'is_active' => true,
             ]))
             ->assertCreated();
         $this->postJson('/api/admin/vouchers', $this->payload([
             'code' => 'PAST',
-            'expires_at' => now()->subDay()->toIso8601String(),
+            'expires_at' => now()->addDays(7)->toIso8601String(),
             'is_active' => true,
         ]))->assertCreated();
         $this->postJson('/api/admin/vouchers', $this->payload([
@@ -215,6 +216,17 @@ class AdminVoucherManagementTest extends TestCase
             'usage_limit' => 1,
             'is_active' => true,
         ]))->assertCreated();
+
+        $scheduled = Voucher::where('code', 'SCHEDULED')->firstOrFail();
+        $past = Voucher::where('code', 'PAST')->firstOrFail();
+        $oneOnly = Voucher::where('code', 'ONEONLY')->firstOrFail();
+        $secondBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->claim($firstBuyer, $scheduled);
+        $this->claim($firstBuyer, $past);
+        $this->claim($firstBuyer, $oneOnly);
+        $this->claim($secondBuyer, $oneOnly);
+        $scheduled->update(['starts_at' => now()->addDay()]);
+        $past->update(['expires_at' => now()->subDay()]);
 
         $this->actingAs($firstBuyer, 'sanctum')
             ->withHeader('Idempotency-Key', (string) Str::uuid())
@@ -229,7 +241,6 @@ class AdminVoucherManagementTest extends TestCase
             ->postJson('/api/orders', [...$this->checkoutPayload($product), 'voucher_code' => 'ONEONLY'])
             ->assertCreated();
 
-        $secondBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $this->actingAs($secondBuyer, 'sanctum')
             ->withHeader('Idempotency-Key', (string) Str::uuid())
             ->postJson('/api/orders', [...$this->checkoutPayload($product), 'voucher_code' => 'ONEONLY'])
@@ -250,6 +261,7 @@ class AdminVoucherManagementTest extends TestCase
         $admin = $this->admin();
         [$buyer, $product] = $this->buyerAndProduct();
         $voucher = $this->voucher(['code' => 'SNAPSHOT', 'discount_value' => '12.00']);
+        $this->claim($buyer, $voucher);
         $orderResponse = $this->checkout($buyer, $product, 'SNAPSHOT')->assertCreated();
         $orderId = $orderResponse->json('data.id');
 
@@ -343,6 +355,14 @@ class AdminVoucherManagementTest extends TestCase
                 ...$this->checkoutPayload($product),
                 'voucher_code' => $code,
             ]);
+    }
+
+    private function claim(User $buyer, Voucher $voucher): void
+    {
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson("/api/buyer/vouchers/{$voucher->id}/claim")
+            ->assertCreated()
+            ->assertJsonPath('data.is_claimed', true);
     }
 
     private function checkoutPayload(Product $product): array

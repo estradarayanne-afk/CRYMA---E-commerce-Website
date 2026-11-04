@@ -2,6 +2,7 @@
 **/.env
 **/.env.*
 !**/.env.example
+!backend/.env.qa.example
 
 # Local databases, logs, and generated diagnostics
 **/database/*.sqlite

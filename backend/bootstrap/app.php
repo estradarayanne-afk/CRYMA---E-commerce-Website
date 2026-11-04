@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
             'active' => \App\Http\Middleware\EnsureActiveAccount::class,
+            'hub-staff-provisioner' => \App\Http\Middleware\EnsureHubStaffProvisioningCapability::class,
+            'assigned-active-hub' => \App\Http\Middleware\EnsureAssignedActiveHub::class,
         ]);
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
