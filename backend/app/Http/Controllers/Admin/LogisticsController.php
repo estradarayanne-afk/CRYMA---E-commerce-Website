@@ -7,6 +7,7 @@ use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\Order;
 use App\Models\PickupAssignment;
+use App\Models\LogisticsHub;
 use App\Services\CourierEligibility;
 use App\Support\OrderDeliveryProjection;
 use Illuminate\Database\QueryException;
@@ -31,7 +32,7 @@ class LogisticsController extends Controller
         ])->latest()->get();
         $sortingOrders = Order::with([
             ...$orderDetails, 'delivery.deliveryArea', 'delivery.proof', 'delivery.pickupAssignment.courierProfile.user:id,first_name,last_name',
-            'delivery.events.actor:id,first_name,last_name', 'delivery.courierProfile.user:id,first_name,last_name',
+            'delivery.events.actor:id,first_name,last_name', 'delivery.courierProfile.user:id,first_name,last_name', 'delivery.currentHub:id,name,code', 'delivery.deliveryArea.hub:id,name,code',
         ])->where(function ($query) {
             $query->whereIn('status', [Delivery::AT_SORTING_CENTER, Delivery::SORTED, Delivery::ASSIGNED, Delivery::FAILED])
                 ->orWhere(fn ($legacy) => $legacy->where('status', Delivery::PICKED_UP)->whereHas('delivery', fn ($delivery) => $delivery->where('legacy_imported', true)))
@@ -58,6 +59,7 @@ class LogisticsController extends Controller
     public function areas()
     {
         return response()->json(['success' => true, 'data' => DeliveryArea::with([
+            'hub:id,name,code,is_active',
             'couriers.user:id,first_name,last_name', 'couriers.vehicles:id,courier_profile_id,vehicle_type',
         ])->orderBy('name')->get()]);
     }
@@ -65,9 +67,20 @@ class LogisticsController extends Controller
     public function storeArea(Request $request)
     {
         if (is_string($request->input('name'))) $request->merge(['name' => trim($request->input('name'))]);
-        $values = $request->validate(['name' => ['required', 'string', 'max:100', 'not_regex:/^\s*$/', 'unique:delivery_areas,name']]);
-        $centralHubId = \App\Models\LogisticsHub::where('code', 'CRYMA-CENTRAL')->value('id');
-        return response()->json(['success' => true, 'data' => DeliveryArea::create(['name' => $values['name'], 'is_active' => true, 'hub_id' => $centralHubId])], 201);
+        $values = $request->validate([
+            'name' => ['required', 'string', 'max:100', 'not_regex:/^\s*$/', 'unique:delivery_areas,name'],
+            'hub_id' => ['required', 'integer', 'exists:logistics_hubs,id'],
+        ]);
+        $area = DB::transaction(function () use ($values) {
+            $hub = LogisticsHub::whereKey($values['hub_id'])->lockForUpdate()->firstOrFail();
+            abort_unless($hub->is_active, 422, 'Select an active hub.');
+            return DeliveryArea::create([
+                'name' => trim($values['name']),
+                'is_active' => true,
+                'hub_id' => $hub->id,
+            ]);
+        });
+        return response()->json(['success' => true, 'data' => $area->load('hub')], 201);
     }
 
     public function updateArea(Request $request, int $areaId)
@@ -77,11 +90,17 @@ class LogisticsController extends Controller
         $values = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:100', 'not_regex:/^\s*$/', Rule::unique('delivery_areas', 'name')->ignore($area->id)],
             'is_active' => ['sometimes', 'required', 'boolean'],
+            'hub_id' => ['sometimes', 'required', 'integer', 'exists:logistics_hubs,id'],
         ]);
+        abort_if($values === [], 422, 'Provide at least one delivery-area field to update.');
         $area = DB::transaction(function () use ($areaId, $values) {
+            if (array_key_exists('hub_id', $values)) {
+                $hub = LogisticsHub::whereKey($values['hub_id'])->lockForUpdate()->firstOrFail();
+                abort_unless($hub->is_active, 422, 'Select an active hub.');
+            }
             $area = DeliveryArea::whereKey($areaId)->lockForUpdate()->firstOrFail();
             $area->update($values);
-            return $area->fresh();
+            return $area->fresh()->load('hub');
         });
         return response()->json(['success' => true, 'data' => $area]);
     }
@@ -89,15 +108,14 @@ class LogisticsController extends Controller
     public function assignCourierToArea(Request $request, int $areaId, CourierEligibility $eligibility)
     {
         $values = $request->validate(['courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id']]);
-        $area = DeliveryArea::findOrFail($areaId);
-        abort_unless($area->is_active, 422, 'Activate the delivery area before assigning couriers.');
         $courier = $eligibility->find((int) $values['courier_profile_id']);
         abort_unless($courier, 422, 'The selected courier is not eligible.');
 
         DB::transaction(function () use ($request, $areaId, $courier) {
             $area = DeliveryArea::whereKey($areaId)->lockForUpdate()->firstOrFail();
             $eligibleCourier = app(CourierEligibility::class)->find($courier->id);
-            abort_unless($area->is_active && $eligibleCourier, 422, 'The area or courier is no longer eligible.');
+            abort_unless($area->is_active, 422, 'Activate the delivery area before assigning couriers.');
+            abort_unless($eligibleCourier, 422, 'The selected courier is no longer eligible.');
             $area->couriers()->syncWithoutDetaching([$eligibleCourier->id => ['assigned_by' => $request->user()->id]]);
         });
 
@@ -108,6 +126,7 @@ class LogisticsController extends Controller
     {
         DB::transaction(function () use ($areaId, $courierProfileId) {
             $area = DeliveryArea::whereKey($areaId)->lockForUpdate()->firstOrFail();
+            abort_unless($area->couriers()->whereKey($courierProfileId)->exists(), 404, 'Courier is not assigned to this delivery area.');
             $area->couriers()->detach($courierProfileId);
         });
         return response()->json(['success' => true, 'message' => 'Courier removed from future assignments in this area.']);
@@ -214,24 +233,21 @@ class LogisticsController extends Controller
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             $area = DeliveryArea::whereKey($values['delivery_area_id'])->lockForUpdate()->firstOrFail();
             abort_unless($area->is_active, 422, 'This delivery area is inactive.');
-            abort_unless((int) ($area->hub_id ?? 0) === (int) ($delivery->current_hub_id ?? 0), 409, 'Parcel is at a different hub. Create a hub transfer to the area’s hub before assigning the final-mile courier.');
+            abort_unless($delivery->current_hub_id && $area->hub_id && (int) $area->hub_id === (int) $delivery->current_hub_id, 409, 'Parcel is at a different or unmapped hub. Complete a hub transfer to the area’s hub before final-mile assignment.');
             abort_unless($order->status === $values['expected_status'] && $delivery->status === $order->status, 409, 'Parcel status changed. Refresh the logistics queue.');
             abort_unless(in_array($order->status, [Delivery::AT_SORTING_CENTER, Delivery::SORTED], true), 422, 'Only parcels at or processed by the sorting center can be assigned.');
             abort_unless($delivery->events()->where('event_type', 'parcel_scanned')->exists(), 422, 'Scan the parcel at the sorting center before sorting and assigning it.');
             abort_unless($eligibility->find($courier->id) && $eligibility->isEligibleForArea($courier, $area->id), 422, 'The selected courier is no longer eligible for this area.');
 
             if ($order->status === Delivery::AT_SORTING_CENTER) {
-                $delivery->update(['status' => Delivery::SORTED, 'delivery_area_id' => $area->id, 'sorted_at' => now()]);
-                $order->update(['status' => Delivery::SORTED]);
-                OrderDeliveryProjection::event($delivery, [
-                    'actor_id' => $request->user()->id, 'event_type' => 'sorted',
-                    'previous_status' => Delivery::AT_SORTING_CENTER, 'new_status' => Delivery::SORTED,
-                ]);
+                app(\App\Services\ParcelSortingService::class)->transitionToSorted($delivery, $request->user(), $area->id);
             } else {
                 $delivery->update(['delivery_area_id' => $area->id]);
             }
 
-            $previousStatus = $order->status;
+            // Sorting may have advanced both the delivery and order from
+            // AT_SORTING_CENTER to SORTED in the shared domain service.
+            $previousStatus = $delivery->status;
             $previousCourier = $delivery->courier_profile_id;
             $delivery->update([
                 'courier_profile_id' => $courier->id,
@@ -261,19 +277,19 @@ class LogisticsController extends Controller
     {
         $values = $request->validate([
             'expected_status' => ['required', 'in:AT_SORTING_CENTER,SORTED'],
-            'parcel_code' => ['sometimes', 'required', 'string', 'max:32'],
+            'parcel_code' => ['required', 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
         ]);
         $delivery = DB::transaction(function () use ($request, $orderId, $values) {
             $order = Order::whereKey($orderId)->lockForUpdate()->firstOrFail();
-            $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
-            if (isset($values['parcel_code'])) {
-                abort_unless(hash_equals((string) $delivery->parcel_code, $values['parcel_code']), 422, 'The scanned parcel does not match this order.');
-            }
+            $delivery = Delivery::where('parcel_code', $values['parcel_code'])->lockForUpdate()->firstOrFail();
+            abort_unless((int) $delivery->order_id === (int) $order->id, 422, 'The scanned parcel does not match this order.');
             abort_unless($order->status === $values['expected_status'] && $delivery->status === $values['expected_status'], 409, 'Parcel status changed. Refresh the queue before scanning.');
+            abort_unless($delivery->current_hub_id, 409, 'Parcel must be received at a hub before sorting-center scanning.');
 
-            if (!$delivery->events()->where('event_type', 'parcel_scanned')->exists()) {
+            if (!$delivery->events()->where('event_type', 'parcel_scanned')->where('hub_id', $delivery->current_hub_id)->exists()) {
                 OrderDeliveryProjection::event($delivery, [
                     'actor_id' => $request->user()->id,
+                    'hub_id' => $delivery->current_hub_id,
                     'event_type' => 'parcel_scanned',
                     'previous_status' => $values['expected_status'],
                     'new_status' => $values['expected_status'],
@@ -285,6 +301,15 @@ class LogisticsController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Parcel scanned. Read its delivery address, choose the destination area, then assign a rider for that area.', 'data' => $delivery]);
+    }
+
+    public function resolveAndScanParcel(Request $request)
+    {
+        $values = $request->validate(['parcel_code' => ['required', 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/']]);
+        $delivery = Delivery::where('parcel_code', $values['parcel_code'])->firstOrFail();
+        $request->merge(['expected_status' => $delivery->status]);
+
+        return $this->scanParcel($request, (int) $delivery->order_id);
     }
 
     public function reassignDelivery(Request $request, int $orderId, CourierEligibility $eligibility)
@@ -353,19 +378,25 @@ class LogisticsController extends Controller
 
     public function confirmLegacySortingReceipt(Request $request, int $orderId)
     {
-        $values = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+        $values = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+            'hub_id' => ['required', 'integer', 'exists:logistics_hubs,id'],
+        ]);
         $reason = trim($values['reason']);
         abort_unless($reason !== '', 422, 'A verification note is required.');
-        $delivery = DB::transaction(function () use ($request, $orderId, $reason) {
+        $delivery = DB::transaction(function () use ($request, $orderId, $reason, $values) {
+            $hub = LogisticsHub::whereKey($values['hub_id'])->lockForUpdate()->firstOrFail();
+            abort_unless($hub->is_active, 422, 'Select an active hub.');
             $order = Order::whereKey($orderId)->lockForUpdate()->firstOrFail();
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             abort_unless($delivery->legacy_imported && $delivery->status === Delivery::PICKED_UP && $order->status === Delivery::PICKED_UP, 409, 'Only legacy parcels marked picked up can be verified here.');
             abort_unless(!$order->pickupAssignment()->exists(), 409, 'This parcel has an active pickup assignment.');
 
-            $delivery->update(['status' => Delivery::AT_SORTING_CENTER, 'current_hub_id' => \App\Models\LogisticsHub::where('code', 'CRYMA-CENTRAL')->value('id')]);
+            $delivery->update(['status' => Delivery::AT_SORTING_CENTER, 'current_hub_id' => $hub->id]);
             $order->update(['status' => Delivery::AT_SORTING_CENTER]);
             OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $request->user()->id,
+                'hub_id' => $hub->id,
                 'event_type' => 'legacy_sorting_receipt_verified',
                 'previous_status' => Delivery::PICKED_UP,
                 'new_status' => Delivery::AT_SORTING_CENTER,

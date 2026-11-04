@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import ProtectedRoute from "./shared/components/ProtectedRoute";
@@ -28,7 +29,7 @@ import AdminParcelFlow from "./admin/pages/ParcelFlow/ParcelFlow";
 import SellerCompliance from "./admin/pages/SellerCompliance/SellerCompliance";
 
 // â”€â”€ BUYER â”€â”€
-import BuyerHome from "./buyer/pages/Home/Home";
+const BuyerHome = lazy(() => import("./buyer/pages/Home/Home"));
 import BuyerCart from "./buyer/pages/Cart/Cart";
 import BuyerCategories from "./buyer/pages/Categories/Categories";
 import BuyerChat from "./buyer/pages/Chat/Chat";
@@ -61,11 +62,19 @@ import CourierLayout from "./courier/layouts/CourierLayout";
 import AdminVouchers from "./admin/pages/Vouchers/Vouchers";
 import LogisticsLayout from "./logistics/layouts/LogisticsLayout";
 import LogisticsDashboard from "./logistics/pages/Dashboard";
+import LogisticsReports from "./logistics/pages/Reports";
 import LogisticsUnavailable from "./logistics/pages/LogisticsUnavailable";
 import RiderManagement from "./logistics/pages/RiderManagement";
 import ParcelOperations from "./logistics/pages/ParcelOperations";
 import LogisticsProfile from "./logistics/pages/Profile";
 import LogisticsAccountSettings from "./logistics/pages/AccountSettings";
+const HubStaffLayout = lazy(() => import("./hubStaff/HubStaffLayout"));
+const HubStaffOverview = lazy(() => import("./hubStaff/pages/Overview"));
+const HubStaffParcels = lazy(() => import("./hubStaff/pages/Parcels"));
+const HubStaffPickupReceiving = lazy(() => import("./hubStaff/pages/PickupReceiving"));
+const HubStaffIncomingTransfers = lazy(() => import("./hubStaff/pages/IncomingTransfers"));
+const HubStaffOutgoingTransfers = lazy(() => import("./hubStaff/pages/OutgoingTransfers"));
+const HubStaffActivity = lazy(() => import("./hubStaff/pages/Activity"));
 
 // â”€â”€ COURIER â”€â”€
 import CourierDashboard from "./courier/pages/Dashboard";
@@ -122,7 +131,7 @@ function App() {
 
                     <Route
                         path="/"
-                        element={isBuyerSession() ? <Navigate to="/shop" replace /> : <BuyerHome />}
+                        element={isBuyerSession() ? <Navigate to="/shop" replace /> : <Suspense fallback={null}><BuyerHome /></Suspense>}
                     />
 
                     <Route
@@ -386,11 +395,24 @@ function App() {
                         <Route path="parcel-flow" element={<AdminParcelFlow base="/logistics" />} />
                         <Route path="delivery-assignment" element={<ParcelOperations section="assignment" />} />
                         <Route path="delivery-monitoring" element={<ParcelOperations section="monitoring" />} />
-                        <Route path="reports" element={<ParcelOperations section="reports" />} />
+                        <Route path="reports" element={<LogisticsReports />} />
                         <Route path="messages" element={<LogisticsUnavailable title="Messages" />} />
                         <Route path="profile" element={<LogisticsProfile />} />
                         <Route path="settings" element={<LogisticsAccountSettings />} />
                         <Route path="account" element={<Navigate to="/logistics/profile" replace />} />
+                    </Route>
+                </Route>
+
+                {/* HUB STAFF - HUB-SCOPED OPERATIONS ONLY */}
+                <Route element={<ProtectedRoute allowedRoles={["hub_staff"]} />}>
+                    <Route path="/hub-staff" element={<Suspense fallback={<div className="hs-route-loading" role="status">Loading Hub Staff workspace…</div>}><HubStaffLayout /></Suspense>}>
+                        <Route index element={<Navigate to="/hub-staff/overview" replace />} />
+                        <Route path="overview" element={<HubStaffOverview />} />
+                        <Route path="parcels" element={<HubStaffParcels />} />
+                        <Route path="pickup-receiving" element={<HubStaffPickupReceiving />} />
+                        <Route path="incoming-transfers" element={<HubStaffIncomingTransfers />} />
+                        <Route path="outgoing-transfers" element={<HubStaffOutgoingTransfers />} />
+                        <Route path="activity" element={<HubStaffActivity />} />
                     </Route>
                 </Route>
 

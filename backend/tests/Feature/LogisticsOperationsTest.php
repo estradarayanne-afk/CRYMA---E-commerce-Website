@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
+use App\Models\LogisticsHub;
 use App\Models\Order;
 use App\Models\PickupAssignment;
 use App\Models\User;
@@ -42,14 +43,32 @@ class LogisticsOperationsTest extends TestCase
         ]);
         Delivery::where('order_id', $order->id)->update(['status' => Delivery::PICKED_UP, 'picked_up_at' => now()]);
         $order->update(['status' => Delivery::PICKED_UP]);
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $inactiveHub = LogisticsHub::create(['name' => 'Inactive Test Hub', 'code' => 'INACTIVE-TEST', 'is_active' => false]);
 
         $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
             'expected_status' => Delivery::PICKED_UP,
+        ])->assertUnprocessable();
+        $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
+            'expected_status' => Delivery::PICKED_UP,
+            'hub_id' => $inactiveHub->id,
+            'parcel_code' => Delivery::where('order_id', $order->id)->value('parcel_code'),
+        ])->assertUnprocessable();
+        $parcelCode = Delivery::where('order_id', $order->id)->value('parcel_code');
+        $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", ['expected_status' => Delivery::PICKED_UP, 'hub_id' => $hub->id, 'parcel_code' => 'CRYMA-PCL-AAAAAAAAAAAAAAAAAAAA'])->assertNotFound();
+        $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", ['expected_status' => Delivery::PICKED_UP, 'hub_id' => $hub->id])->assertUnprocessable();
+        $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", ['expected_status' => Delivery::PICKED_UP, 'hub_id' => $hub->id, 'parcel_code' => 'malformed'])->assertUnprocessable();
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
+            'expected_status' => Delivery::PICKED_UP,
+            'hub_id' => $hub->id,
+            'parcel_code' => $parcelCode,
         ])->assertOk()->assertJsonPath('message', 'Sorting-center receipt confirmed.');
 
         $this->assertSame(PickupAssignment::RECEIVED, $assignment->fresh()->status);
         $this->assertNotNull($assignment->fresh()->received_at);
         $this->assertSame(Delivery::AT_SORTING_CENTER, $order->fresh()->status);
+        $this->assertSame($hub->id, Delivery::where('order_id', $order->id)->value('current_hub_id'));
         $this->assertDatabaseHas('delivery_events', [
             'delivery_id' => $assignment->delivery_id,
             'actor_id' => $logistics->id,
@@ -58,6 +77,8 @@ class LogisticsOperationsTest extends TestCase
         ]);
         $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
             'expected_status' => Delivery::PICKED_UP,
+            'hub_id' => $hub->id,
+            'parcel_code' => $parcelCode,
         ])->assertStatus(409);
     }
 
@@ -66,10 +87,14 @@ class LogisticsOperationsTest extends TestCase
         $logistics = $this->logisticsUser();
         [$courier, $courierProfile] = $this->eligibleCourier();
         [, $otherProfile] = $this->eligibleCourier();
-        $area = DeliveryArea::create(['name' => 'Logistics delivery area', 'is_active' => true]);
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $area = DeliveryArea::create(['name' => 'Logistics delivery area', 'is_active' => true, 'hub_id' => $hub->id]);
         $area->couriers()->attach($courierProfile->id, ['assigned_by' => $logistics->id]);
+        $otherHub = LogisticsHub::create(['name' => 'Different sorting hub', 'code' => 'OTHER-SORT-HUB', 'is_active' => true]);
+        $otherArea = DeliveryArea::create(['name' => 'Other hub delivery area', 'is_active' => true, 'hub_id' => $otherHub->id]);
+        $otherArea->couriers()->attach($courierProfile->id, ['assigned_by' => $logistics->id]);
         $order = $this->order(Delivery::AT_SORTING_CENTER);
-        $delivery = Delivery::create(['order_id' => $order->id, 'status' => Delivery::AT_SORTING_CENTER]);
+        $delivery = Delivery::create(['order_id' => $order->id, 'status' => Delivery::AT_SORTING_CENTER, 'current_hub_id' => $hub->id]);
 
         $this->actingAs($logistics, 'sanctum')
             ->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", [
@@ -86,6 +111,10 @@ class LogisticsOperationsTest extends TestCase
             'expected_status' => Delivery::AT_SORTING_CENTER,
             'parcel_code' => $delivery->parcel_code,
         ])->assertOk()->assertJsonPath('message', 'Parcel scanned. Read its delivery address, choose the destination area, then assign a rider for that area.');
+        $this->postJson('/api/logistics/parcels/scan', ['parcel_code' => 'CRYMA-PCL-AAAAAAAAAAAAAAAAAAAA'])->assertNotFound();
+        $this->postJson('/api/logistics/parcels/scan', ['parcel_code' => $delivery->parcel_code])->assertOk();
+        $this->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", ['delivery_area_id' => $otherArea->id, 'courier_profile_id' => $courierProfile->id, 'expected_status' => Delivery::AT_SORTING_CENTER])->assertStatus(409);
+        $this->patchJson("/api/logistics/orders/{$order->id}/scan", ['expected_status' => Delivery::AT_SORTING_CENTER])->assertUnprocessable();
         $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
             'expected_status' => Delivery::AT_SORTING_CENTER,
             'parcel_code' => $delivery->parcel_code,

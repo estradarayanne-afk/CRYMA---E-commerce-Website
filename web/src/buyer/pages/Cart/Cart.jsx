@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     Check,
@@ -100,11 +100,21 @@ function Cart() {
     );
     const [notice, setNotice] = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
-    const [checkingSellerStatus, setCheckingSellerStatus] = useState(() => getBuyerCart().length > 0);
+    const [sellerStatusCheckedKey, setSellerStatusCheckedKey] = useState("");
     const cartProductIdsKey = [...new Set(cart.map((item) => String(item.id)).filter(Boolean))].sort().join(",");
+    const cartProductIdsKeyRef = useRef(cartProductIdsKey);
+    const checkingSellerStatus = Boolean(cartProductIdsKey) && sellerStatusCheckedKey !== cartProductIdsKey;
 
     useEffect(() => {
-        const syncCart = () => setCart(getBuyerCart());
+        const syncCart = () => {
+            const nextCart = getBuyerCart();
+            const nextKey = [...new Set(nextCart.map((item) => String(item.id)).filter(Boolean))].sort().join(",");
+            if (nextKey !== cartProductIdsKeyRef.current) {
+                cartProductIdsKeyRef.current = nextKey;
+                setSellerStatusCheckedKey("");
+            }
+            setCart(nextCart);
+        };
         window.addEventListener("cryma-cart-updated", syncCart);
         window.addEventListener("storage", syncCart);
         return () => {
@@ -115,13 +125,9 @@ function Cart() {
 
     useEffect(() => {
         const productIds = cartProductIdsKey ? cartProductIdsKey.split(",") : [];
-        if (!productIds.length) {
-            setCheckingSellerStatus(false);
-            return undefined;
-        }
+        if (!productIds.length) return undefined;
 
         let cancelled = false;
-        setCheckingSellerStatus(true);
         Promise.all(productIds.map(async (id) => {
             try {
                 const { data } = await api.get(`/products/${encodeURIComponent(id)}`);
@@ -144,7 +150,7 @@ function Cart() {
                 setCart(nextCart);
             }
         }).finally(() => {
-            if (!cancelled) setCheckingSellerStatus(false);
+            if (!cancelled) setSellerStatusCheckedKey(cartProductIdsKey);
         });
 
         return () => { cancelled = true; };

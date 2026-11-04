@@ -109,7 +109,7 @@ class PickupController extends Controller
         $values = $request->validate([
             'status' => ['required', 'in:ACCEPTED_BY_PICKUP_RIDER,PICKED_UP'],
             'expected_status' => ['required', 'in:ASSIGNED_TO_PICKUP_RIDER,ACCEPTED_BY_PICKUP_RIDER'],
-            'parcel_code' => ['sometimes', 'required', 'string', 'max:32'],
+            'parcel_code' => ['required_if:status,'.PickupAssignment::PICKED_UP, 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
         ]);
         $profile = $this->profile($request->user(), $eligibility);
         $initial = PickupAssignment::where('courier_profile_id', $profile->id)->find($id);

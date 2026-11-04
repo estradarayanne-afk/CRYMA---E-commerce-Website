@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/buyer_address.dart';
 
 // ============================================================
 // AUTH SCREENS
@@ -182,8 +183,9 @@ class AppRouter {
       case '/checkout':
         return MaterialPageRoute(builder: (_) => const CheckoutScreen());
       case '/voucher_selection':
+        final items = settings.arguments as List<Map<String, dynamic>>? ?? [];
         return MaterialPageRoute(
-            builder: (_) => const VoucherSelectionScreen());
+            builder: (_) => VoucherSelectionScreen(items: items));
       case '/payment_method':
         return MaterialPageRoute(builder: (_) => const PaymentMethodScreen());
       case '/order_success':
@@ -231,7 +233,10 @@ class AppRouter {
       case '/address_book':
         return MaterialPageRoute(builder: (_) => const AddressBookScreen());
       case '/add_address':
-        return MaterialPageRoute(builder: (_) => const AddAddressScreen());
+        final address = settings.arguments as BuyerAddress?;
+        return MaterialPageRoute(
+          builder: (_) => AddAddressScreen(address: address),
+        );
       case '/notification':
         return MaterialPageRoute(builder: (_) => const NotificationScreen());
       case '/logout_confirmation':

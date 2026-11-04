@@ -43,14 +43,15 @@ function Categories() {
     const buyerSession = isBuyerSession();
     const greetingName = buyerSession ? getBuyerGreetingName() : "";
 
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [loadError, setLoadError] = useState(false);
-    const [loadMoreError, setLoadMoreError] = useState(false);
-    const [hasMore, setHasMore] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [storedProducts, setProducts] = useState([]);
+    const [storedLoading, setLoading] = useState(true);
+    const [storedLoadingMore, setLoadingMore] = useState(false);
+    const [storedLoadError, setLoadError] = useState(false);
+    const [storedLoadMoreError, setLoadMoreError] = useState(false);
+    const [storedHasMore, setHasMore] = useState(false);
+    const [storedCurrentPage, setCurrentPage] = useState(1);
     const [reloadKey, setReloadKey] = useState(0);
+    const [loadedQueryIdentity, setLoadedQueryIdentity] = useState(null);
 
     const [filterOpen, setFilterOpen] = useState(false);
     const [sortOpen, setSortOpen] = useState(false);
@@ -76,6 +77,17 @@ function Categories() {
         stock: stockOnly ? 1 : undefined,
         sort,
     }), [category, search, sort, minPrice, maxPrice, stockOnly]);
+    const requestIdentity = JSON.stringify([requestKey, reloadKey]);
+    const isCurrentQueryLoaded = loadedQueryIdentity === requestIdentity;
+    const products = useMemo(() => (
+        isCurrentQueryLoaded ? storedProducts : []
+    ), [isCurrentQueryLoaded, storedProducts]);
+    const loading = !isCurrentQueryLoaded || storedLoading;
+    const loadingMore = isCurrentQueryLoaded && storedLoadingMore;
+    const loadError = isCurrentQueryLoaded && storedLoadError;
+    const loadMoreError = isCurrentQueryLoaded && storedLoadMoreError;
+    const hasMore = isCurrentQueryLoaded && storedHasMore;
+    const currentPage = isCurrentQueryLoaded ? storedCurrentPage : 1;
     const [draftFilters, setDraftFilters] = useState({
         category: searchParams.get("category") || "All",
         minPrice: searchParams.get("minPrice") || "",
@@ -88,13 +100,6 @@ function Categories() {
         const requestVersion = ++requestVersionRef.current;
         readyQueryRef.current = "";
         loadMoreInFlightRef.current = false;
-        setLoading(true);
-        setLoadingMore(false);
-        setLoadError(false);
-        setLoadMoreError(false);
-        setHasMore(false);
-        setCurrentPage(1);
-        setProducts([]);
 
         api.get("/products", { params: { ...JSON.parse(requestKey), page: 1 } })
             .then(({ data }) => {
@@ -112,21 +117,31 @@ function Categories() {
                 setProducts(items);
                 setCurrentPage(loadedPage);
                 setHasMore(loadedPage < lastPage);
+                setLoadingMore(false);
+                setLoadError(false);
+                setLoadMoreError(false);
                 readyQueryRef.current = requestKey;
             })
             .catch((error) => {
                 console.error("Unable to load products:", error);
                 if (!cancelled && requestVersion === requestVersionRef.current) {
                     setProducts([]);
+                    setCurrentPage(1);
+                    setHasMore(false);
+                    setLoadingMore(false);
+                    setLoadMoreError(false);
                     setLoadError(true);
                 }
             })
             .finally(() => {
-                if (!cancelled && requestVersion === requestVersionRef.current) setLoading(false);
+                if (!cancelled && requestVersion === requestVersionRef.current) {
+                    setLoading(false);
+                    setLoadedQueryIdentity(requestIdentity);
+                }
             });
 
         return () => { cancelled = true; };
-    }, [reloadKey, requestKey]);
+    }, [reloadKey, requestIdentity, requestKey]);
 
     useEffect(() => {
         if (!sortOpen) return undefined;
@@ -146,7 +161,7 @@ function Categories() {
 
     useEffect(() => {
         const sentinel = loadMoreRef.current;
-        if (!sentinel || !hasMore || loading || loadingMore || loadError || loadMoreError || readyQueryRef.current !== requestKey) return undefined;
+        if (!sentinel || !isCurrentQueryLoaded || !hasMore || loading || loadingMore || loadError || loadMoreError || readyQueryRef.current !== requestKey) return undefined;
 
         const observer = new IntersectionObserver(([entry]) => {
             if (!entry.isIntersecting || loadMoreInFlightRef.current) return;
@@ -190,7 +205,7 @@ function Categories() {
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [requestKey, currentPage, hasMore, loading, loadingMore, loadError, loadMoreError, reloadKey]);
+    }, [requestKey, requestIdentity, currentPage, hasMore, loading, loadingMore, loadError, loadMoreError, reloadKey, isCurrentQueryLoaded]);
 
     const updateParams = (updates = {}) => {
         const params = new URLSearchParams(searchParams);

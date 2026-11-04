@@ -17,7 +17,7 @@ class HelpCenterScreen extends StatelessWidget {
     },
     {
       'q': 'What payment methods do you accept?',
-      'a': 'We accept Cash on Delivery and GCash.',
+      'a': 'Cash on Delivery is currently available for eligible orders.',
     },
     {
       'q': 'How long does delivery take?',

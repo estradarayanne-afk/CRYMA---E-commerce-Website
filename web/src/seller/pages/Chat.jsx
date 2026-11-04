@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, CheckCheck, LoaderCircle, MessageCircle, PackageCheck, Search, Send, Sparkles, X } from "lucide-react";
 import api from "../../shared/services/api";
 import { getChatMessageRequestId } from "../../shared/utils/chatMessageRequest";
@@ -50,14 +50,44 @@ function Chat() {
     const [notice, setNotice] = useState("");
     const [conversationSearch, setConversationSearch] = useState("");
     const [assistantOpen, setAssistantOpen] = useState(false);
-    const [assistantDraft, setAssistantDraft] = useState("");
+    const [assistantState, setAssistantState] = useState({
+        scope: null,
+        draft: "",
+        messages: [{ role: "assistant", text: "Hi! I can help you find the right seller workflow. What do you need help with?" }],
+    });
     const [assistantTyping, setAssistantTyping] = useState(false);
-    const [assistantMessages, setAssistantMessages] = useState([{ role: "assistant", text: "Hi! I can help you find the right seller workflow. What do you need help with?" }]);
     const messagesEndRef = useRef(null);
     const assistantEndRef = useRef(null);
     const assistantScopeRef = useRef(null);
     const pendingMessageRef = useRef(null);
     const openRequestRef = useRef(0);
+    const assistantScope = selectedConversation
+        ? `${selectedConversation.id}:${selectedConversation.product_id || selectedConversation.product?.id || ""}`
+        : null;
+    const scopedAssistantState = assistantState.scope === assistantScope ? assistantState : null;
+    const assistantDraft = scopedAssistantState?.draft || "";
+    const assistantMessages = useMemo(() => scopedAssistantState?.messages || [{
+        role: "assistant",
+        text: assistantScope
+            ? `I’m ready to help with ${selectedConversation?.product?.name || "this buyer conversation"}. Ask about its live product details or this buyer’s recent order status.`
+            : "Hi! I can help you find the right seller workflow. Select a buyer chat to ask about its live product and order details.",
+    }], [assistantScope, selectedConversation?.product?.name, scopedAssistantState?.messages]);
+    const setAssistantDraft = (value) => {
+        setAssistantState((current) => {
+            const base = current.scope === assistantScope
+                ? current
+                : { scope: assistantScope, draft: "", messages: assistantMessages };
+            return { ...base, draft: typeof value === "function" ? value(base.draft) : value };
+        });
+    };
+    const setAssistantMessages = (value) => {
+        setAssistantState((current) => {
+            const base = current.scope === assistantScope
+                ? current
+                : { scope: assistantScope, draft: assistantDraft, messages: assistantMessages };
+            return { ...base, messages: typeof value === "function" ? value(base.messages) : value };
+        });
+    };
 
     const openConversation = useCallback(async (id) => {
         const requestId = ++openRequestRef.current;
@@ -68,6 +98,9 @@ function Chat() {
             const response = await api.get(`/seller/chat/conversations/${id}`);
             const conversation = response.data?.data;
             if (requestId !== openRequestRef.current) return;
+            assistantScopeRef.current = conversation
+                ? `${conversation.id}:${conversation.product_id || conversation.product?.id || ""}`
+                : null;
             setSelectedConversation(conversation || null);
             if (conversation) {
                 try {
@@ -112,6 +145,7 @@ function Chat() {
             if (items.length > 0) {
                 await openConversation(items[0].id);
             } else {
+                assistantScopeRef.current = null;
                 setSelectedConversation(null);
             }
         } catch (requestError) {
@@ -138,10 +172,6 @@ function Chat() {
         const conversationId = selectedConversation?.id || null;
         const productId = selectedConversation?.product_id || selectedConversation?.product?.id || "";
         assistantScopeRef.current = conversationId ? `${conversationId}:${productId}` : null;
-        setAssistantDraft("");
-        setAssistantMessages([{ role: "assistant", text: conversationId
-            ? `I’m ready to help with ${selectedConversation?.product?.name || "this buyer conversation"}. Ask about its live product details or this buyer’s recent order status.`
-            : "Hi! I can help you find the right seller workflow. Select a buyer chat to ask about its live product and order details." }]);
     }, [selectedConversation?.id, selectedConversation?.product_id, selectedConversation?.product?.id]);
 
     const askSellerAssistant = async (question) => {

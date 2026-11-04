@@ -1,10 +1,16 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  ApiService._();
+  ApiService({http.Client? client, String? baseUrl})
+      : _client = client ?? http.Client(),
+        _baseUrl = baseUrl ?? apiBaseUrl;
+
+  ApiService._() : this();
 
   static final ApiService instance = ApiService._();
   static const _tokenKey = 'cryma_api_token';
@@ -14,9 +20,11 @@ class ApiService {
     defaultValue: 'https://api.cryma.store',
   );
   static const _timeout = Duration(seconds: 20);
+  final http.Client _client;
+  final String _baseUrl;
 
   Uri _uri(String path, [Map<String, String>? query]) {
-    final base = Uri.parse(apiBaseUrl);
+    final base = Uri.parse(_baseUrl);
     final uri = base.resolve(path);
     return query == null ? uri : uri.replace(queryParameters: query);
   }
@@ -42,7 +50,7 @@ class ApiService {
     Map<String, String>? query,
     bool authenticated = false,
   }) async {
-    final response = await http
+    final response = await _client
         .get(
           _uri(path, query),
           headers: await _headers(authenticated: authenticated),
@@ -56,13 +64,14 @@ class ApiService {
     required Map<String, dynamic> body,
     bool authenticated = false,
     String? idempotencyKey,
+    String? unauthorizedMessage,
   }) async {
     final headers = await _headers(authenticated: authenticated);
     if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
-    final response = await http
+    final response = await _client
         .post(_uri(path), headers: headers, body: jsonEncode(body))
         .timeout(_timeout);
-    return _decode(response);
+    return _decode(response, unauthorizedMessage: unauthorizedMessage);
   }
 
   Future<Map<String, dynamic>> patch(
@@ -71,17 +80,33 @@ class ApiService {
     bool authenticated = false,
   }) async {
     final headers = await _headers(authenticated: authenticated);
-    final response = await http
+    final response = await _client
         .patch(_uri(path), headers: headers, body: jsonEncode(body))
         .timeout(_timeout);
     return _decode(response);
   }
 
   Future<Map<String, dynamic>?> login(String email, String password) async {
-    final response = await post(
-      '/api/login',
-      body: {'email': email.trim(), 'password': password},
-    );
+    late final Map<String, dynamic> response;
+    try {
+      response = await post(
+        '/api/login',
+        body: {'email': email.trim(), 'password': password},
+        unauthorizedMessage: 'Invalid email or password.',
+      );
+    } on SocketException {
+      throw const ApiException(
+        'Cannot connect to CRYMA. Check that your phone and computer are on the same Wi-Fi and that the API URL uses the computer\'s current IPv4 address.',
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        'The CRYMA server took too long to respond. Check the connection and try again.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Cannot connect to CRYMA. Check the server address and local network connection.',
+      );
+    }
     final token = response['token'];
     final user = response['user'];
     if (token is! String || token.isEmpty || user is! Map<String, dynamic>) {
@@ -163,11 +188,109 @@ class ApiService {
     return product;
   }
 
+  /// Read-only connectivity check against the existing public product API.
+  Future<void> verifyApiConnection() async {
+    late final Map<String, dynamic> response;
+    try {
+      response = await get(
+        '/api/products',
+        query: const {'per_page': '1'},
+      );
+    } on SocketException {
+      throw const ApiException(
+        'Cannot connect to CRYMA. Check that your phone and computer are on the same Wi-Fi and that the API URL uses the computer\'s current IPv4 address.',
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        'The CRYMA server took too long to respond. Check the connection and try again.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Cannot connect to CRYMA. Check the server address and local network connection.',
+      );
+    }
+    final page = response['data'];
+    if (response['success'] != true ||
+        page is! Map<String, dynamic> ||
+        page['data'] is! List) {
+      throw const ApiException(
+        'CRYMA responded, but the product API response was unexpected.',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> getCheckoutData() async {
     final response = await get('/api/buyer/checkout-data', authenticated: true);
     final data = response['data'];
     if (data is! Map<String, dynamic>) {
       throw const ApiException('The server returned invalid checkout data.');
+    }
+    return data;
+  }
+
+  Future<List<Map<String, dynamic>>> getBuyerAddresses() async {
+    final response = await get('/api/buyer/addresses', authenticated: true);
+    final rows = response['data'];
+    if (response['success'] != true || rows is! List) {
+      throw const ApiException('The server returned an invalid address list.');
+    }
+    return rows.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> createBuyerAddress(
+    Map<String, dynamic> address,
+  ) async {
+    return post('/api/buyer/addresses', body: address, authenticated: true);
+  }
+
+  Future<Map<String, dynamic>> updateBuyerAddress(
+    int id,
+    Map<String, dynamic> address,
+  ) async {
+    return patch('/api/buyer/addresses/$id',
+        body: address, authenticated: true);
+  }
+
+  Future<Map<String, dynamic>> setDefaultBuyerAddress(int id) async {
+    return patch('/api/buyer/addresses/$id/default',
+        body: const {}, authenticated: true);
+  }
+
+  Future<Map<String, dynamic>> deleteBuyerAddress(int id) async {
+    final headers = await _headers(authenticated: true);
+    final response = await _client
+        .delete(_uri('/api/buyer/addresses/$id'), headers: headers)
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getBuyerVouchers() async {
+    final response = await get('/api/buyer/vouchers', authenticated: true);
+    final rows = response['data'];
+    if (response['success'] != true || rows is! List) {
+      throw const ApiException('The server returned an invalid voucher list.');
+    }
+    return rows.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> claimBuyerVoucher(int id) async {
+    return post('/api/buyer/vouchers/$id/claim',
+        body: const {}, authenticated: true);
+  }
+
+  Future<Map<String, dynamic>> validateBuyerVoucher({
+    required String code,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    final response = await post(
+      '/api/buyer/vouchers/validate',
+      body: {'code': code.trim(), 'items': items},
+      authenticated: true,
+    );
+    final data = response['data'];
+    if (response['success'] != true || data is! Map<String, dynamic>) {
+      throw const ApiException(
+          'The server returned an invalid voucher result.');
     }
     return data;
   }
@@ -178,17 +301,22 @@ class ApiService {
     required String paymentMethod,
     required List<Map<String, dynamic>> items,
     required String idempotencyKey,
+    String? voucherCode,
   }) {
+    final body = <String, dynamic>{
+      'address_id': addressId,
+      'delivery_address': deliveryAddress,
+      'payment_method': paymentMethod,
+      'items': items,
+    };
+    if (voucherCode != null && voucherCode.trim().isNotEmpty) {
+      body['voucher_code'] = voucherCode.trim();
+    }
     return post(
       '/api/orders',
       authenticated: true,
       idempotencyKey: idempotencyKey,
-      body: {
-        'address_id': addressId,
-        'delivery_address': deliveryAddress,
-        'payment_method': paymentMethod,
-        'items': items,
-      },
+      body: body,
     );
   }
 
@@ -229,7 +357,8 @@ class ApiService {
     fields.forEach((key, value) {
       if (value != null) request.fields[key] = value.toString();
     });
-    request.files.add(await http.MultipartFile.fromPath('valid_id', validIdPath));
+    request.files
+        .add(await http.MultipartFile.fromPath('valid_id', validIdPath));
     final streamed = await request.send().timeout(_timeout);
     final response = await http.Response.fromStream(streamed);
     return _decode(response);
@@ -262,7 +391,10 @@ class ApiService {
     return Uri.parse(apiBaseUrl).resolve(path).toString();
   }
 
-  Map<String, dynamic> _decode(http.Response response) {
+  Map<String, dynamic> _decode(
+    http.Response response, {
+    String? unauthorizedMessage,
+  }) {
     Map<String, dynamic> json;
     try {
       final decoded = jsonDecode(response.body);
@@ -286,18 +418,42 @@ class ApiService {
         validationMessage = first.first.toString();
       }
     }
+    final fieldErrors = <String, String>{};
+    if (errors is Map<String, dynamic>) {
+      errors.forEach((field, messages) {
+        if (messages is List && messages.isNotEmpty) {
+          fieldErrors[field] = messages.first.toString();
+        }
+      });
+    }
+    final message = switch (response.statusCode) {
+      401 => unauthorizedMessage ??
+          'Your session is invalid or has expired. Please sign in again.',
+      403 => json['message']?.toString() ??
+          'This account is not currently allowed to sign in.',
+      422 => validationMessage ??
+          json['message']?.toString() ??
+          'Check the submitted information and try again.',
+      >= 500 => 'CRYMA is temporarily unavailable. Please try again later.',
+      _ => validationMessage ??
+          json['message']?.toString() ??
+          'The request could not be completed.',
+    };
     throw ApiException(
-      validationMessage ?? json['message']?.toString() ?? 'Request failed.',
+      message,
       statusCode: response.statusCode,
+      fieldErrors: fieldErrors,
     );
   }
 }
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message,
+      {this.statusCode, this.fieldErrors = const {}});
 
   final String message;
   final int? statusCode;
+  final Map<String, String> fieldErrors;
 
   @override
   String toString() => message;

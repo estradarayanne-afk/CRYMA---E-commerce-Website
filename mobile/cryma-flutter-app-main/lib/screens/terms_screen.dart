@@ -71,7 +71,7 @@ class TermsScreen extends StatelessWidget {
                         '3. PRODUCTS AND PRICING\n'
                         'All prices are in Philippine Peso (₱) and subject to change without notice.\n\n'
                         '4. ORDERS AND PAYMENT\n'
-                        'Orders are subject to availability. We accept Cash on Delivery and GCash.\n\n'
+                        'Orders are subject to availability. Cash on Delivery is currently the supported payment method.\n\n'
                         '5. SHIPPING AND DELIVERY\n'
                         'Delivery times may vary depending on your location.\n\n'
                         '6. RETURNS AND REFUNDS\n'

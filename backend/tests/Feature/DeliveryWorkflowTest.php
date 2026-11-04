@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
+use App\Models\LogisticsHub;
 use App\Models\Order;
 use App\Models\PickupAssignment;
 use App\Models\User;
@@ -16,6 +17,26 @@ use Tests\TestCase;
 class DeliveryWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_seller_fulfillment_creates_one_delivery_linked_to_the_ready_order(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $order = $this->order('PLACED');
+        $product = $this->product($seller);
+        \App\Models\OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id, 'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10]);
+
+        $this->actingAs($seller, 'sanctum')->patchJson("/api/seller/orders/{$order->id}/status", ['status' => 'CONFIRMED'])->assertOk();
+        $this->patchJson("/api/seller/orders/{$order->id}/status", ['status' => 'PREPARING'])->assertOk();
+        $response = $this->patchJson("/api/seller/orders/{$order->id}/status", ['status' => 'READY_FOR_PICKUP'])->assertOk();
+
+        $this->assertSame('READY_FOR_PICKUP', $order->fresh()->status);
+        $this->assertSame(1, Delivery::where('order_id', $order->id)->count());
+        $delivery = Delivery::where('order_id', $order->id)->firstOrFail();
+        $this->assertSame($order->id, $delivery->order_id);
+        $this->assertSame('READY_FOR_PICKUP', $delivery->status);
+        $this->assertFalse($delivery->legacy_imported);
+        $this->assertSame($delivery->parcel_code, $response->json('data.delivery.parcel_code'));
+    }
 
     public function test_admin_assigns_pickup_only_to_eligible_riders_and_only_for_ready_orders(): void
     {
@@ -64,6 +85,10 @@ class DeliveryWorkflowTest extends TestCase
         ])->assertOk();
         $parcelCode = $assignment->delivery->parcel_code;
         $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
+            'status' => PickupAssignment::PICKED_UP, 'expected_status' => PickupAssignment::ACCEPTED,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['parcel_code']);
+        $this->assertSame('READY_FOR_PICKUP', $order->fresh()->status);
+        $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
             'status' => PickupAssignment::PICKED_UP, 'expected_status' => PickupAssignment::ACCEPTED, 'parcel_code' => 'CRYMA-PCL-WRONGCODE00000000',
         ])->assertUnprocessable();
         $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
@@ -76,6 +101,8 @@ class DeliveryWorkflowTest extends TestCase
         $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
         $this->actingAs($logistics, 'sanctum')->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
             'expected_status' => Delivery::PICKED_UP,
+            'hub_id' => LogisticsHub::where('is_active', true)->value('id'),
+            'parcel_code' => $assignment->delivery->parcel_code,
         ])->assertOk();
 
         $this->assertSame(Delivery::AT_SORTING_CENTER, $order->fresh()->status);
@@ -124,15 +151,16 @@ class DeliveryWorkflowTest extends TestCase
         $admin = $this->admin();
         [$courier, $profile] = $this->eligibleCourier();
         [, $otherProfile] = $this->eligibleCourier();
-        $area = DeliveryArea::create(['name' => 'Admin-configured area', 'is_active' => true]);
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $area = DeliveryArea::create(['name' => 'Admin-configured area', 'is_active' => true, 'hub_id' => $hub->id]);
         $area->couriers()->attach($profile->id, ['assigned_by' => $admin->id]);
         $order = $this->order(Delivery::AT_SORTING_CENTER);
-        $delivery = Delivery::create(['order_id' => $order->id, 'status' => Delivery::AT_SORTING_CENTER, 'legacy_imported' => false]);
+        $delivery = Delivery::create(['order_id' => $order->id, 'status' => Delivery::AT_SORTING_CENTER, 'legacy_imported' => false, 'current_hub_id' => $hub->id]);
 
         $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/sort-and-assign", [
             'delivery_area_id' => $area->id, 'courier_profile_id' => $otherProfile->id, 'expected_status' => Delivery::AT_SORTING_CENTER,
         ])->assertUnprocessable();
-        $this->patchJson("/api/admin/orders/{$order->id}/scan", ['expected_status' => Delivery::AT_SORTING_CENTER])->assertOk();
+        $this->patchJson("/api/admin/orders/{$order->id}/scan", ['expected_status' => Delivery::AT_SORTING_CENTER, 'parcel_code' => $delivery->parcel_code])->assertOk();
         $this->patchJson("/api/admin/orders/{$order->id}/sort-and-assign", [
             'delivery_area_id' => $area->id, 'courier_profile_id' => $profile->id, 'expected_status' => Delivery::AT_SORTING_CENTER,
         ])->assertOk()->assertJsonPath('data.status', Delivery::ASSIGNED);
@@ -161,6 +189,8 @@ class DeliveryWorkflowTest extends TestCase
         $delivery = Delivery::create(['order_id' => $order->id, 'courier_profile_id' => $profile->id, 'delivery_area_id' => $area->id, 'status' => Delivery::ASSIGNED]);
         $this->actingAs($courier, 'sanctum')->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::DELIVERED, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::COMPLETED, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable();
+        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable()->assertJsonValidationErrors(['parcel_code']);
+        $this->assertSame(Delivery::ASSIGNED, $delivery->fresh()->status);
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED, 'parcel_code' => 'CRYMA-PCL-WRONGCODE00000000'])->assertUnprocessable();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED, 'parcel_code' => $delivery->parcel_code])->assertOk();
         $this->assertNotNull($delivery->fresh()->delivery_picked_up_at);
@@ -235,7 +265,10 @@ class DeliveryWorkflowTest extends TestCase
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $this->actingAs($buyer, 'sanctum')->postJson('/api/admin/delivery-areas', ['name' => 'Area'])->assertForbidden();
         $this->actingAs($admin, 'sanctum')->postJson('/api/admin/delivery-areas', ['name' => '   '])->assertUnprocessable();
-        $areaResponse = $this->postJson('/api/admin/delivery-areas', ['name' => 'North Hub'])->assertCreated();
+        $areaResponse = $this->postJson('/api/admin/delivery-areas', [
+            'name' => 'North Hub',
+            'hub_id' => LogisticsHub::where('is_active', true)->value('id'),
+        ])->assertCreated();
         $areaId = $areaResponse->json('data.id');
         [$riderOne, $profileOne] = $this->eligibleCourier();
         [, $profileTwo] = $this->eligibleCourier();
@@ -261,11 +294,13 @@ class DeliveryWorkflowTest extends TestCase
         [, $courier] = $this->eligibleCourier();
         $order = $this->order(Delivery::AT_SORTING_CENTER);
         $delivery = Delivery::create(['order_id' => $order->id, 'status' => Delivery::AT_SORTING_CENTER, 'legacy_imported' => true]);
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $delivery->update(['current_hub_id' => $hub->id]);
         $delivery->events()->create(['event_type' => 'legacy_import', 'new_status' => Delivery::AT_SORTING_CENTER, 'reason' => 'Imported legacy order status.', 'created_at' => now()]);
-        $area = DeliveryArea::create(['name' => 'Legacy continuation']);
+        $area = DeliveryArea::create(['name' => 'Legacy continuation', 'hub_id' => $hub->id]);
         $area->couriers()->attach($courier->id, ['assigned_by' => $admin->id]);
 
-        $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/scan", ['expected_status' => Delivery::AT_SORTING_CENTER])->assertOk();
+        $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/scan", ['expected_status' => Delivery::AT_SORTING_CENTER, 'parcel_code' => $delivery->parcel_code])->assertOk();
         $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/sort-and-assign", [
             'delivery_area_id' => $area->id, 'courier_profile_id' => $courier->id, 'expected_status' => Delivery::AT_SORTING_CENTER,
         ])->assertOk();
@@ -276,7 +311,10 @@ class DeliveryWorkflowTest extends TestCase
 
         $pickedUp = $this->order(Delivery::PICKED_UP);
         $legacyPickup = Delivery::create(['order_id' => $pickedUp->id, 'status' => Delivery::PICKED_UP, 'legacy_imported' => true]);
-        $this->patchJson("/api/admin/orders/{$pickedUp->id}/legacy-sorting-receipt", ['reason' => 'Parcel physically verified by admin at the sorting center'])->assertOk();
+        $this->patchJson("/api/admin/orders/{$pickedUp->id}/legacy-sorting-receipt", [
+            'reason' => 'Parcel physically verified by admin at the sorting center',
+            'hub_id' => LogisticsHub::where('is_active', true)->value('id'),
+        ])->assertOk();
         $this->assertSame(Delivery::AT_SORTING_CENTER, $pickedUp->fresh()->status);
         $this->assertDatabaseMissing('pickup_assignments', ['order_id' => $pickedUp->id]);
         $this->assertDatabaseHas('delivery_events', ['delivery_id' => $legacyPickup->id, 'event_type' => 'legacy_sorting_receipt_verified', 'actor_id' => $admin->id, 'previous_status' => Delivery::PICKED_UP, 'new_status' => Delivery::AT_SORTING_CENTER]);
@@ -354,7 +392,7 @@ class DeliveryWorkflowTest extends TestCase
         $this->assertSame($secondProfile->id, $delivery->fresh()->courier_profile_id);
 
         $this->actingAs($secondCourier, 'sanctum')->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
-            'status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED,
+            'status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED, 'parcel_code' => $delivery->parcel_code,
         ])->assertOk();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
             'status' => Delivery::DELIVERED, 'expected_status' => Delivery::OUT_FOR_DELIVERY,

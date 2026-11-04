@@ -156,7 +156,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     const spacing = 10.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [

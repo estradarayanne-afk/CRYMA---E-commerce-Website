@@ -146,7 +146,7 @@ public function approve(int $id)
      */
     public function users(Request $request)
     {
-        $query = User::query()->whereIn('role', ['seller', 'buyer', 'rider', 'logistics']);
+        $query = User::query()->whereIn('role', ['seller', 'buyer', 'rider', 'logistics', 'hub_staff']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -277,6 +277,7 @@ public function approve(int $id)
                 'seller' => ['valid_id', 'business_permit'],
                 'rider' => ['valid_id', 'or_cr', 'drivers_license'],
                 'logistics' => ['valid_id', 'business_permit'],
+                'hub_staff' => [],
                 default => ['valid_id'],
             };
             $approvedTypes = UserDocument::where('user_id', $user->id)

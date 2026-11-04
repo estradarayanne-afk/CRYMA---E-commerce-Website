@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import "./ParcelQrScanner.css";
 
 export default function ParcelQrScanner({ onScan, onClose, title = "Scan parcel QR code" }) {
@@ -20,17 +19,34 @@ export default function ParcelQrScanner({ onScan, onClose, title = "Scan parcel 
     }, []);
 
     useEffect(() => {
-        const scanner = new Html5QrcodeScanner(id, {
-            fps: 10,
-            qrbox: { width: 230, height: 230 },
-            rememberLastUsedCamera: true,
-            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-        }, false);
-        scannerRef.current = scanner;
-        scanner.render((decodedText) => {
-            submitDecoded(decodedText);
-        }, () => {});
-        return () => { scannerRef.current = null; void scanner.clear().catch(() => {}); };
+        let active = true;
+        let scanner = null;
+        import("html5-qrcode")
+            .then(({ Html5QrcodeScanner, Html5QrcodeSupportedFormats }) => {
+                if (!active || completed.current) return;
+                scanner = new Html5QrcodeScanner(id, {
+                    fps: 10,
+                    qrbox: { width: 230, height: 230 },
+                    rememberLastUsedCamera: true,
+                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                }, false);
+                scannerRef.current = scanner;
+                scanner.render((decodedText) => {
+                    submitDecoded(decodedText);
+                }, (scanError) => {
+                    if (active && /notallowed|permission|notfound|notreadable|overconstrained|camera/i.test(String(scanError))) {
+                        setError("Camera access is unavailable or was denied. Allow camera access, or enter the parcel ID manually.");
+                    }
+                });
+            })
+            .catch(() => {
+                if (active) setError("The camera scanner could not load. Enter the parcel ID manually.");
+            });
+        return () => {
+            active = false;
+            scannerRef.current = null;
+            if (scanner) void scanner.clear().catch(() => {});
+        };
     }, [id, submitDecoded]);
 
     const submitManual = (event) => {

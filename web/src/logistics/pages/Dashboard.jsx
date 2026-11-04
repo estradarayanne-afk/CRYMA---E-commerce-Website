@@ -3,74 +3,55 @@ import { Link } from "react-router-dom";
 import { ClipboardList, PackageCheck, Boxes, Truck, CircleCheck, TriangleAlert } from "lucide-react";
 import api from "../../shared/services/api";
 import "./LogisticsPages.css";
+import "./Reports.css";
 
 const METRICS = [
     { key: "pickups_awaiting_assignment", label: "Pickups awaiting assignment", icon: ClipboardList, to: "/logistics/pickups" },
-    { key: "incoming_parcels", label: "Incoming parcels", icon: PackageCheck, to: "/logistics/incoming-parcels" },
-    { key: "parcels_awaiting_sorting", label: "Parcels awaiting sorting", icon: Boxes, to: "/logistics/sorting" },
-    { key: "parcels_ready_for_dispatch", label: "Ready for dispatch", icon: Truck, to: "/logistics/delivery-assignment" },
-    { key: "deliveries_in_progress", label: "Deliveries in progress", icon: Truck, to: "/logistics/delivery-monitoring" },
+    { key: "incoming_parcels", label: "Parcels awaiting hub receipt", icon: PackageCheck, to: "/logistics/incoming-parcels" },
+    { key: "parcels_awaiting_sorting", label: "Received, awaiting sorting", icon: Boxes, to: "/logistics/sorting" },
+    { key: "parcels_ready_for_dispatch", label: "Ready for final-mile assignment", icon: Truck, to: "/logistics/delivery-assignment" },
+    { key: "parcels_assigned_for_final_mile", label: "Assigned for final-mile pickup", icon: Truck, to: "/logistics/delivery-monitoring" },
+    { key: "deliveries_in_progress", label: "Assigned / in final-mile", icon: Truck, to: "/logistics/delivery-monitoring" },
+    { key: "transfers_awaiting_dispatch", label: "Transfers awaiting dispatch", icon: Boxes, to: "/logistics/parcel-flow" },
+    { key: "transfers_in_transit_awaiting_receipt", label: "Transfers awaiting receipt", icon: PackageCheck, to: "/logistics/parcel-flow" },
+    { key: "completed_transfers", label: "Transfers received", icon: CircleCheck, to: "/logistics/parcel-flow" },
     { key: "completed_deliveries", label: "Completed deliveries", icon: CircleCheck, to: "/logistics/delivery-monitoring" },
     { key: "failed_deliveries", label: "Failed deliveries", icon: TriangleAlert, to: "/logistics/delivery-monitoring" },
 ];
 
-const isMetricPayload = (data) => data?.success === true
-    && data.data
-    && METRICS.every(({ key }) => Number.isSafeInteger(data.data[key]) && data.data[key] >= 0);
-
 export default function Dashboard() {
-    const [firstName] = useState(() => {
-        try { return JSON.parse(localStorage.getItem("user") || "null")?.first_name || "there"; }
-        catch { return "there"; }
-    });
-    const [counts, setCounts] = useState(null);
+    const [firstName] = useState(() => { try { return JSON.parse(localStorage.getItem("user") || "null")?.first_name || "there"; } catch { return "there"; } });
+    const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-
-    const load = useCallback(async () => {
-        setLoading(true);
-        setError("");
+    const load = useCallback(async (signal) => {
+        setLoading(true); setError(""); setData(null);
         try {
-            const { data } = await api.get("/logistics/dashboard");
-            if (!isMetricPayload(data)) throw new Error("The logistics dashboard returned an invalid response.");
-            setCounts(data.data);
+            const response = await api.get("/logistics/dashboard", { signal });
+            if (response.data?.success !== true || !response.data?.data) throw new Error("The logistics dashboard returned an invalid response.");
+            setData(response.data.data);
         } catch (err) {
-            setCounts(null);
-            setError(err.response?.data?.message || err.message || "The logistics dashboard is unavailable.");
-        } finally {
-            setLoading(false);
-        }
+            if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") setError(err.response?.data?.message || err.message || "The logistics dashboard is unavailable.");
+        } finally { if (!signal?.aborted) setLoading(false); }
     }, []);
-
-    useEffect(() => {
-        const timer = window.setTimeout(() => void load(), 0);
-        return () => window.clearTimeout(timer);
-    }, [load]);
-
-    const hasActivity = counts && METRICS.some(({ key }) => Number(counts[key]) > 0);
+    useEffect(() => { const controller = new AbortController(); const timer = window.setTimeout(() => void load(controller.signal), 0); return () => { window.clearTimeout(timer); controller.abort(); }; }, [load]);
     const hour = Number(new Intl.DateTimeFormat("en-PH", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Manila" }).format(new Date()));
     const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
     const today = new Intl.DateTimeFormat("en-PH", { dateStyle: "full", timeZone: "Asia/Manila" }).format(new Date());
-
-    return (
-        <section className="lw-page">
-            <header className="lw-page-heading">
-                <div><span className="lw-eyebrow">{today}</span><h1>{greeting}, {firstName}</h1><p>Here’s your logistics overview. Select a count to open its work queue.</p></div>
-                <button type="button" onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
-            </header>
-            {error && <div className="lw-alert" role="alert"><span>{error}</span><button type="button" onClick={() => void load()} disabled={loading}>Retry</button></div>}
-            {!error && !loading && counts && !hasActivity && <div className="lw-empty" role="status">No logistics activity is currently recorded.</div>}
-            <div className="lw-metrics" aria-busy={loading}>
-                {METRICS.map(({ key, label, icon: Icon, to }) => (
-                    <Link className="lw-metric" key={key} to={to} aria-label={`${label}: ${loading ? "loading" : counts ? counts[key] : "unavailable"}. Open ${label.toLowerCase()} queue`}>
-                        <span className="lw-metric-icon"><Icon size={19} aria-hidden="true" /></span>
-                        <span>{label}</span>
-                        <strong>{loading ? "—" : counts ? counts[key] : "Unavailable"}</strong>
-                        <span className="lw-metric-link">Open queue <span aria-hidden="true">→</span></span>
-                    </Link>
-                ))}
-            </div>
-            <p className="lw-footnote">Pickups awaiting assignment are derived from seller orders marked ready for pickup.</p>
-        </section>
-    );
+    return <section className="lw-page">
+        <header className="lw-page-heading"><div><span className="lw-eyebrow">{today}</span><h1>{greeting}, {firstName}</h1><p>Current recorded logistics workload and recent parcel activity.</p></div><button type="button" onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button></header>
+        {error && <div className="lw-alert" role="alert"><span>{error}</span><button type="button" onClick={() => void load()} disabled={loading}>Retry</button></div>}
+        <h2 className="lo-section-title">Operational workload</h2>
+        <div className="lw-metrics" aria-busy={loading}>{METRICS.map(({ key, label, icon: Icon, to }) => <Link className="lw-metric" key={key} to={to} aria-label={`${label}: ${loading ? "loading" : data ? data[key] : "unavailable"}`}>
+            <span className="lw-metric-icon"><Icon size={19} aria-hidden="true" /></span><span>{label}</span><strong>{loading ? "—" : data ? data[key] ?? "—" : "Unavailable"}</strong><span className="lw-metric-link">Open queue <span aria-hidden="true">→</span></span>
+        </Link>)}</div>
+        {data && <>
+            <section className="lo-panel"><h2>Hub overview</h2><p>Delivery counts show records currently associated with each hub in the delivery custody field; they are not a separately verified physical stock count.</p>
+                {data.hubs?.length ? <div className="lo-table-wrap"><table className="lo-table"><thead><tr><th>Hub</th><th>State</th><th>Recorded parcel associations</th><th>Incoming awaiting receipt</th><th>Outgoing awaiting dispatch</th><th>Outgoing in transit</th></tr></thead><tbody>{data.hubs.map((hub) => <tr key={hub.id}><td>{hub.name} <small>{hub.code}</small></td><td>{hub.is_active ? "Active" : "Inactive"}</td><td>{hub.deliveries_count}</td><td>{hub.incoming_transfers_awaiting_receipt}</td><td>{hub.outgoing_transfers_awaiting_dispatch}</td><td>{hub.outgoing_transfers_in_transit}</td></tr>)}</tbody></table></div> : <p className="lw-empty">No hubs are recorded.</p>}
+            </section>
+            <section className="lo-panel"><div className="lo-panel-heading"><h2>Recent transfers</h2><Link to="/logistics/parcel-flow">Open parcel flow</Link></div>{data.transfers?.length ? <div className="lo-table-wrap"><table className="lo-table"><thead><tr><th>Parcel</th><th>Origin</th><th>Destination</th><th>Status</th><th>Latest recorded activity</th></tr></thead><tbody>{data.transfers.map((transfer) => <tr key={transfer.id}><td>{transfer.parcel_reference}</td><td>{transfer.from_hub || "Unavailable"}</td><td>{transfer.to_hub || "Unavailable"}</td><td>{transfer.status}</td><td>{transfer.latest_activity_at ? new Date(transfer.latest_activity_at).toLocaleString() : "Not recorded"}</td></tr>)}</tbody></table></div> : <p className="lw-empty">No hub transfers are recorded.</p>}</section>
+            <section className="lo-panel"><div className="lo-panel-heading"><h2>Recent parcel events</h2><Link to="/logistics/reports">View reports</Link></div>{data.recent_events?.data?.length ? <div className="lo-table-wrap"><table className="lo-table"><thead><tr><th>Event</th><th>Parcel</th><th>Current recorded hub</th><th>Actor</th><th>Recorded at</th></tr></thead><tbody>{data.recent_events.data.map((event) => <tr key={event.id}><td>{event.event_type.replaceAll("_", " ")}</td><td>{event.parcel_reference || "Unavailable"}</td><td>{event.hub || "Not recorded"}</td><td>{event.actor_recorded ? event.actor : "No actor recorded"}</td><td>{event.created_at ? new Date(event.created_at).toLocaleString() : "Timestamp unavailable"}</td></tr>)}</tbody></table><p className="lo-pagination">Page {data.recent_events.current_page} of {data.recent_events.last_page}; {data.recent_events.total} recorded events.</p></div> : <p className="lw-empty">No recorded parcel events for this period.</p>}</section>
+        </>}
+        <p className="lw-footnote">Pickup counts use ready-for-pickup orders without a pickup assignment. Transfer receipt is counted only after the stored lifecycle status is arrived. Historical return-transfer departure actors are not retained by the current data model.</p>
+    </section>;
 }

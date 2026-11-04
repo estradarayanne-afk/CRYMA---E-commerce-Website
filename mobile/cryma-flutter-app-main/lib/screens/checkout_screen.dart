@@ -17,11 +17,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Map<String, dynamic>> _cartItems = [];
   List<Map<String, dynamic>> _addresses = [];
   int? _addressId;
-  String _paymentMethod = 'cash_on_delivery';
+  final String _paymentMethod = 'cash_on_delivery';
   bool _loading = true;
   bool _submitting = false;
   String? _error;
   String? _checkoutKey;
+  String? _voucherCode;
+  String? _voucherDiscount;
 
   @override
   void initState() {
@@ -31,6 +33,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadCheckout() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final cartItems = await CartStore.instance.items();
       final checkoutData = await ApiService.instance.getCheckoutData();
@@ -89,6 +97,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         .join(', ');
   }
 
+  List<Map<String, dynamic>> _orderItems() => _cartItems.map((item) {
+        final value = <String, dynamic>{
+          'product_id':
+              int.parse((item['product_id'] ?? item['id']).toString()),
+          'quantity': item['quantity'] as int? ?? 1,
+        };
+        if (item['variant_id'] != null) {
+          value['variant_id'] = item['variant_id'];
+        }
+        return value;
+      }).toList();
+
+  Future<void> _selectVoucher() async {
+    final selected = await Navigator.pushNamed<Map<String, dynamic>>(
+      context,
+      '/voucher_selection',
+      arguments: _orderItems(),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _voucherCode = selected['code']?.toString();
+      _voucherDiscount = selected['discount_amount']?.toString();
+    });
+  }
+
   Future<void> _placeOrder() async {
     if (_submitting) return;
     if (_addressId == null) {
@@ -96,6 +129,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SnackBar(
           content: Text('Add a delivery address before checkout.'),
         ),
+      );
+      return;
+    }
+    final availableAddressIds = _addresses
+        .map((address) => int.tryParse(address['id']?.toString() ?? ''))
+        .whereType<int>()
+        .toSet();
+    if (!availableAddressIds.contains(_addressId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose a valid saved delivery address.')),
       );
       return;
     }
@@ -108,18 +151,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _submitting = true);
     try {
-      final items = _cartItems.map((item) {
-        final value = <String, dynamic>{
-          'product_id': int.parse(
-            (item['product_id'] ?? item['id']).toString(),
-          ),
-          'quantity': item['quantity'] as int? ?? 1,
-        };
-        if (item['variant_id'] != null) {
-          value['variant_id'] = item['variant_id'];
-        }
-        return value;
-      }).toList();
+      final items = _orderItems();
       final selectedAddress = _addresses.firstWhere(
         (address) => int.tryParse(address['id'].toString()) == _addressId,
       );
@@ -129,6 +161,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         paymentMethod: _paymentMethod,
         items: items,
         idempotencyKey: _checkoutKey!,
+        voucherCode: _voucherCode,
       );
       final existingItems = await CartStore.instance.items();
       await CartStore.instance.save(
@@ -167,7 +200,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               (item['quantity'] as int? ?? 1)),
     );
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Checkout'),
         foregroundColor: AppColors.primary,
@@ -199,8 +232,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           const Text('Add a delivery address to continue.'),
                           const SizedBox(height: 12),
                           ElevatedButton(
-                            onPressed: () =>
-                                Navigator.pushNamed(context, '/add_address'),
+                            onPressed: () async {
+                              final saved = await Navigator.pushNamed<bool>(
+                                context,
+                                '/add_address',
+                              );
+                              if (saved == true && mounted) {
+                                await _loadCheckout();
+                              }
+                            },
                             child: const Text('Add Address'),
                           ),
                         ],
@@ -209,6 +249,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   : ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Voucher',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 8),
+                                if (_voucherCode == null)
+                                  OutlinedButton.icon(
+                                    onPressed: _submitting || _cartItems.isEmpty
+                                        ? null
+                                        : _selectVoucher,
+                                    icon:
+                                        const Icon(Icons.local_offer_outlined),
+                                    label: const Text('Select a voucher'),
+                                  )
+                                else ...[
+                                  Text(
+                                      '$_voucherCode · server-validated discount ₱${_voucherDiscount ?? '0.00'}'),
+                                  Row(children: [
+                                    TextButton(
+                                        onPressed:
+                                            _submitting ? null : _selectVoucher,
+                                        child: const Text('Change')),
+                                    TextButton(
+                                        onPressed: _submitting
+                                            ? null
+                                            : () => setState(() {
+                                                  _voucherCode = null;
+                                                  _voucherDiscount = null;
+                                                }),
+                                        child: const Text('Remove')),
+                                  ]),
+                                ],
+                                const Text(
+                                    'The server revalidates voucher eligibility and the final discount when you place the order.',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.black54)),
+                              ],
+                            ),
+                          ),
+                        ),
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(16),
@@ -243,29 +328,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                           ),
                         ),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: RadioGroup<String>(
-                              groupValue: _paymentMethod,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _paymentMethod = value);
-                                }
-                              },
-                              child: const Column(
-                                children: [
-                                  RadioListTile<String>(
-                                    value: 'cash_on_delivery',
-                                    title: Text('Cash on Delivery'),
-                                  ),
-                                  RadioListTile<String>(
-                                    value: 'gcash',
-                                    title: Text('GCash'),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        const Card(
+                          child: ListTile(
+                            leading: Icon(Icons.payments_outlined),
+                            title: Text('Cash on Delivery'),
+                            subtitle: Text('Pay when your order is delivered.'),
+                            trailing: Icon(Icons.check_circle,
+                                color: AppColors.success),
                           ),
                         ),
                         Card(

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../../shared/services/api";
 import PrivateDeliveryProof from "../../../shared/components/PrivateDeliveryProof";
+import ParcelQrScanner from "../../../shared/components/ParcelQrScanner";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Deliveries.css";
 
@@ -10,12 +11,16 @@ const label = formatStatusLabel;
 export default function Deliveries() {
     const [queue, setQueue] = useState({ pickup_orders: [], pickup_assignments: [], sorting_orders: [], deliveries: [], areas: [], eligible_pickup_couriers: [], eligible_delivery_couriers: [] });
     const [areas, setAreas] = useState([]);
+    const [hubs, setHubs] = useState([]);
+    const [sortingScannerOrder, setSortingScannerOrder] = useState(null);
     const [pickupChoices, setPickupChoices] = useState({});
     const [areaChoices, setAreaChoices] = useState({});
     const [deliveryChoices, setDeliveryChoices] = useState({});
     const [areaCourierChoices, setAreaCourierChoices] = useState({});
     const [reasons, setReasons] = useState({});
     const [newArea, setNewArea] = useState("");
+    const [newAreaHub, setNewAreaHub] = useState("");
+    const [legacyHubChoices, setLegacyHubChoices] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState("");
     const [error, setError] = useState("");
@@ -24,9 +29,10 @@ export default function Deliveries() {
     const load = useCallback(async () => {
         setLoading(true); setError("");
         try {
-            const [queueResponse, areaResponse] = await Promise.all([api.get("/admin/logistics"), api.get("/admin/delivery-areas")]);
+            const [queueResponse, areaResponse, hubResponse] = await Promise.all([api.get("/admin/logistics"), api.get("/admin/delivery-areas"), api.get("/admin/hubs")]);
             setQueue(queueResponse.data?.data || { pickup_orders: [], pickup_assignments: [], sorting_orders: [], deliveries: [], areas: [], eligible_pickup_couriers: [], eligible_delivery_couriers: [] });
             setAreas(areaResponse.data?.data || []);
+            setHubs(hubResponse.data?.data || []);
         } catch (err) { setError(err.response?.data?.message || "Logistics workspace is unavailable."); }
         finally { setLoading(false); }
     }, []);
@@ -50,11 +56,15 @@ export default function Deliveries() {
         void mutate(`pickup-${orderId}`, () => api.post(`/admin/orders/${orderId}/pickup-assignment`, payload), `Pickup assignment for order #${orderId} saved.`);
     };
 
-    const scanParcel = (order) => void mutate(
+    const scanParcel = (order, parcelCode) => {
+        setSortingScannerOrder(null);
+        if (!parcelCode) return;
+        return void mutate(
         `scan-${order.id}`,
-        () => api.patch(`/admin/orders/${order.id}/scan`, { expected_status: order.status }),
+        () => api.patch(`/admin/orders/${order.id}/scan`, { expected_status: order.status, parcel_code: parcelCode }),
         `Parcel #${order.id} scanned. Read its delivery address, choose the area, and assign an area rider.`,
     );
+    };
 
     const processSorting = (order) => {
         const areaId = Number(areaChoices[order.id] || order.delivery?.delivery_area_id);
@@ -84,7 +94,8 @@ export default function Deliveries() {
         event.preventDefault();
         const name = newArea.trim();
         if (!name) { setError("Enter a delivery-area name."); return; }
-        void mutate("area-create", () => api.post("/admin/delivery-areas", { name }), `Delivery area “${name}” created.`).then(() => setNewArea(""));
+        if (!newAreaHub) { setError("Choose an active hub for this delivery area."); return; }
+        void mutate("area-create", () => api.post("/admin/delivery-areas", { name, hub_id: Number(newAreaHub) }), `Delivery area “${name}” created.`).then(() => { setNewArea(""); setNewAreaHub(""); });
     };
 
     const activeAreas = useMemo(() => areas.filter((area) => area.is_active), [areas]);
@@ -100,7 +111,7 @@ export default function Deliveries() {
         {!loading && eligiblePickup.length === 0 && <div className="ad-note">No eligible riders are available. Riders must be active, email verified, have an approved required-document set, a courier profile, and a vehicle.</div>}
 
         <section className="ad-section"><div className="ad-section-title"><div><h2>Delivery areas and courier coverage</h2><p>Area names and rider membership are configured by administrators. No locality routing is assumed.</p></div><span>{areas.length}</span></div>
-            <form className="ad-action-row ad-area-create" onSubmit={addArea}><input aria-label="New delivery area name" maxLength={100} value={newArea} onChange={(event) => setNewArea(event.target.value)} placeholder="Delivery area name"/><button type="submit" disabled={!!saving}>{saving === "area-create" ? "Saving…" : "Add area"}</button></form>
+            <form className="ad-action-row ad-area-create" onSubmit={addArea}><input aria-label="New delivery area name" maxLength={100} value={newArea} onChange={(event) => setNewArea(event.target.value)} placeholder="Delivery area name"/><select aria-label="Active hub for new delivery area" required value={newAreaHub} onChange={(event) => setNewAreaHub(event.target.value)}><option value="">Select active hub</option>{hubs.filter((hub) => hub.is_active).map((hub) => <option value={hub.id} key={hub.id}>{hub.name} · {hub.code}</option>)}</select><button type="submit" disabled={!!saving || !hubs.some((hub) => hub.is_active)}>{saving === "area-create" ? "Saving…" : "Add area"}</button></form>
             {loading ? <div className="ad-empty" role="status">Loading delivery areas…</div> : areas.length === 0 ? <div className="ad-empty">No delivery areas configured.</div> : <div className="ad-area-grid">{areas.map((area) => <article className="ad-area-card" key={area.id}>
                 <div className="ad-area-heading"><div><h3>{area.name}</h3><span className={area.is_active ? "ad-area-active" : "ad-area-inactive"}>{area.is_active ? "Active" : "Inactive"}</span></div><button type="button" disabled={!!saving} onClick={() => void mutate(`area-${area.id}`, () => api.patch(`/admin/delivery-areas/${area.id}`, { is_active: !area.is_active }), `${area.name} ${area.is_active ? "deactivated" : "activated"}.`)}>{area.is_active ? "Deactivate" : "Activate"}</button></div>
                 <div className="ad-area-couriers">{area.couriers?.length ? area.couriers.map((profile) => <div key={profile.id}><span>{courierName(profile)}</span><button type="button" disabled={!!saving} aria-label={`Remove ${courierName(profile)} from ${area.name}`} onClick={() => void mutate(`remove-${area.id}-${profile.id}`, () => api.delete(`/admin/delivery-areas/${area.id}/couriers/${profile.id}`), `Courier removed from ${area.name}.`)}>Remove</button></div>) : <p>No couriers assigned.</p>}</div>
@@ -127,13 +138,13 @@ export default function Deliveries() {
                 const assignedCourier = order.delivery?.courierProfile?.user ? [order.delivery.courierProfile.user.first_name, order.delivery.courierProfile.user.last_name].filter(Boolean).join(" ") : "Unassigned legacy record";
                 const needsReason = order.status === "DELIVERY_FAILED" || isLegacyInTransit || (order.status === "ASSIGNED_TO_RIDER" && !!order.delivery?.courier_profile_id);
                 return <article className="ad-logistics-row ad-logistics-row--sorting" key={`sort-${order.id}`}><div><strong>Order #{order.id} · {label(order.status)}</strong>{order.delivery?.legacy_imported && <small className="ad-legacy">Legacy status; historical actors and assignments were not available.{isLegacyInTransit ? " Verify the current courier and area before recording a new assignment." : ""}</small>}<span>Delivery address: {order.delivery_address || "Buyer delivery address unavailable"}</span><span>Current courier: {assignedCourier}</span>{["AT_SORTING_CENTER", "SORTED"].includes(order.status) && <small>{parcelScanned ? "Parcel scanned; ready for area routing." : "Scan parcel first. Then read the delivery address and choose its area."}</small>}<small>{order.items?.map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</small></div>{isAssignable ? <div className="ad-actions">
-                    {needsSortingScan && <button type="button" disabled={!!saving} onClick={() => scanParcel(order)}>{saving === `scan-${order.id}` ? "Scanning…" : "Scan parcel"}</button>}
+                    {needsSortingScan && <><button type="button" disabled={!!saving} onClick={() => setSortingScannerOrder(order)}>{saving === `scan-${order.id}` ? "Scanning…" : "Scan parcel QR"}</button>{sortingScannerOrder?.id === order.id && <ParcelQrScanner title={`Verify parcel for order ${order.id}`} onScan={(code) => scanParcel(order, code)} onClose={() => setSortingScannerOrder(null)} />}</>}
                     <select aria-label={`Delivery area for order ${order.id}`} disabled={needsSortingScan} value={selectedArea} onChange={(event) => setAreaChoices((current) => ({ ...current, [order.id]: event.target.value }))}><option value="">Select delivery area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>
                     {courierSelect(couriersForArea(selectedArea), deliveryChoices[order.id] ?? (["ASSIGNED_TO_RIDER", "SORTED"].includes(order.status) ? order.delivery?.courier_profile_id : ""), (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Delivery rider for order ${order.id}`, needsSortingScan)}
                     {(needsReason || order.status === "ASSIGNED_TO_RIDER") && <input aria-label={`Delivery decision reason for order ${order.id}`} maxLength={1000} value={reasons[`delivery-${order.id}`] || ""} onChange={(event) => setReason(`delivery-${order.id}`, event.target.value)} placeholder={needsReason ? "Reason required" : "Reason if reassigning"}/>}
                     <button type="button" disabled={!!saving || !selectedArea || !couriersForArea(selectedArea).length || needsSortingScan} onClick={() => processSorting(order)}>{saving === `delivery-${order.id}` ? "Saving…" : order.status === "AT_SORTING_CENTER" || order.status === "SORTED" ? "Sort and assign" : order.status === "DELIVERY_FAILED" ? "Retry / reassign" : isLegacyInTransit ? "Record current assignment" : "Reassign before pickup"}</button>
                     {order.status === "DELIVERY_FAILED" && <button type="button" className="ad-secondary-button" disabled={!!saving || !(reasons[`delivery-${order.id}`] || "").trim()} onClick={() => void mutate(`return-${order.id}`, () => api.patch(`/admin/orders/${order.id}/delivery-resolution`, { status: "RETURNED", reason: (reasons[`delivery-${order.id}`] || "").trim() }), `Order #${order.id} recorded as returned.`)}>Record return decision</button>}
-                </div> : needsLegacyReceiptVerification ? <div className="ad-actions"><p className="ad-note">Legacy status only: verify the parcel is physically at the sorting center before recording a new receipt event. No pickup rider is inferred.</p><input aria-label={`Legacy receipt verification note for order ${order.id}`} maxLength={1000} value={reasons[`legacy-${order.id}`] || ""} onChange={(event) => setReason(`legacy-${order.id}`, event.target.value)} placeholder="Verification note required"/><button type="button" disabled={!!saving || !(reasons[`legacy-${order.id}`] || "").trim()} onClick={() => void mutate(`legacy-${order.id}`, () => api.patch(`/admin/orders/${order.id}/legacy-sorting-receipt`, { reason: (reasons[`legacy-${order.id}`] || "").trim() }), `Sorting-center receipt verified for order #${order.id}.`)}>Record verified receipt</button></div> : <span className="ad-muted">No action available for this status.</span>}</article>;
+                </div> : needsLegacyReceiptVerification ? <div className="ad-actions"><p className="ad-note">Legacy status only: verify the parcel is physically at the selected hub before recording a new receipt event. No pickup rider is inferred.</p><select aria-label={`Receiving hub for legacy order ${order.id}`} value={legacyHubChoices[order.id] || ""} onChange={(event) => setLegacyHubChoices((current) => ({ ...current, [order.id]: event.target.value }))}><option value="">Select active hub</option>{hubs.filter((hub) => hub.is_active).map((hub) => <option key={hub.id} value={hub.id}>{hub.name} · {hub.code}</option>)}</select><input aria-label={`Legacy receipt verification note for order ${order.id}`} maxLength={1000} value={reasons[`legacy-${order.id}`] || ""} onChange={(event) => setReason(`legacy-${order.id}`, event.target.value)} placeholder="Verification note required"/><button type="button" disabled={!!saving || !(reasons[`legacy-${order.id}`] || "").trim() || !legacyHubChoices[order.id]} onClick={() => void mutate(`legacy-${order.id}`, () => api.patch(`/admin/orders/${order.id}/legacy-sorting-receipt`, { reason: (reasons[`legacy-${order.id}`] || "").trim(), hub_id: Number(legacyHubChoices[order.id]) }), `Sorting-center receipt verified for order #${order.id}.`)}>Record verified receipt</button></div> : <span className="ad-muted">No action available for this status.</span>}</article>;
             })}
         </section>
         <section className="ad-section"><div className="ad-section-title"><div><h2>Parcel event history</h2><p>Persisted parcel stages and actors. Imported legacy entries are identified as historical imports.</p></div><span>{queue.deliveries.length}</span></div>

@@ -10,7 +10,7 @@ class OrderSuccessScreen extends StatelessWidget {
     final result = ModalRoute.of(context)?.settings.arguments;
     final order = result is Map<String, dynamic> ? result : <String, dynamic>{};
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

@@ -44,6 +44,8 @@ use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboardCont
 use App\Http\Controllers\Logistics\RiderManagementController;
 use App\Http\Controllers\Logistics\ParcelOperationsController;
 use App\Http\Controllers\Logistics\ParcelFlowController;
+use App\Http\Controllers\Admin\HubStaffProvisioningController;
+use App\Http\Controllers\Logistics\HubStaffParcelOperationsController;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:5,1');
@@ -84,9 +86,45 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // Admin managed courier assignment and delivery audit.
     Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/hub-staff', [HubStaffProvisioningController::class, 'index']);
+        Route::post('/admin/hub-staff', [HubStaffProvisioningController::class, 'store']);
+        Route::get('/admin/hub-staff/{id}', [HubStaffProvisioningController::class, 'show']);
+        Route::patch('/admin/hub-staff/{id}/hub', [HubStaffProvisioningController::class, 'reassign']);
+        Route::patch('/admin/hub-staff/{id}/activate', [HubStaffProvisioningController::class, 'activate']);
+        Route::patch('/admin/hub-staff/{id}/suspend', [HubStaffProvisioningController::class, 'suspend']);
+        Route::put('/admin/logistics-users/{id}/hub-staff-capability', [HubStaffProvisioningController::class, 'grantCapability']);
+        Route::delete('/admin/logistics-users/{id}/hub-staff-capability', [HubStaffProvisioningController::class, 'revokeCapability']);
+    });
+
+    Route::middleware(['role:logistics', 'hub-staff-provisioner'])->group(function () {
+        Route::get('/logistics/hub-staff', [HubStaffProvisioningController::class, 'index']);
+        Route::post('/logistics/hub-staff', [HubStaffProvisioningController::class, 'store']);
+        Route::get('/logistics/hub-staff/{id}', [HubStaffProvisioningController::class, 'show']);
+        Route::patch('/logistics/hub-staff/{id}/hub', [HubStaffProvisioningController::class, 'reassign']);
+        Route::patch('/logistics/hub-staff/{id}/activate', [HubStaffProvisioningController::class, 'activate']);
+        Route::patch('/logistics/hub-staff/{id}/suspend', [HubStaffProvisioningController::class, 'suspend']);
+    });
+
+    Route::middleware(['role:hub_staff', 'assigned-active-hub'])->get('/hub-staff/assignment', [HubStaffProvisioningController::class, 'assignment']);
+
+    Route::middleware(['role:hub_staff', 'assigned-active-hub'])->prefix('/hub-staff')->group(function () {
+        Route::get('/parcels', [HubStaffParcelOperationsController::class, 'index']);
+        Route::post('/incoming-pickups/lookup', [HubStaffParcelOperationsController::class, 'incomingPickup']);
+        Route::post('/receipts', [HubStaffParcelOperationsController::class, 'receivePickup']);
+        Route::get('/incoming-transfers', [HubStaffParcelOperationsController::class, 'incomingTransfers']);
+        Route::get('/outgoing-transfers', [HubStaffParcelOperationsController::class, 'outgoingTransfers']);
+        Route::patch('/transfers/{id}/receive', [HubStaffParcelOperationsController::class, 'receiveTransfer']);
+        Route::post('/transfers/{id}/release', [HubStaffParcelOperationsController::class, 'releaseTransfer']);
+        Route::post('/parcels/scan', [HubStaffParcelOperationsController::class, 'scan']);
+        Route::patch('/parcels/{parcelCode}/sort', [HubStaffParcelOperationsController::class, 'sort']);
+        Route::get('/activity', [HubStaffParcelOperationsController::class, 'history']);
+    });
+
+    Route::middleware('role:admin')->group(function () {
         Route::get('/admin/parcel-flow', [ParcelFlowController::class, 'operations']);
         Route::get('/admin/hubs', [ParcelFlowController::class, 'hubs']);
         Route::post('/admin/hubs', [ParcelFlowController::class, 'createHub']);
+        Route::patch('/admin/hubs/{id}', [ParcelFlowController::class, 'updateHub']);
         Route::patch('/admin/delivery-areas/{id}/hub', [ParcelFlowController::class, 'mapArea']);
         Route::post('/admin/hub-transfers', [ParcelFlowController::class, 'createTransfer']);
         Route::post('/admin/parcel-returns/{id}/assign-courier', [ParcelFlowController::class, 'assignReturnCourier']);
@@ -113,6 +151,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::patch('/courier/parcel-returns/{id}', [ParcelFlowController::class, 'updateReturn']);
         Route::get('/courier/hub-transfers', [ParcelFlowController::class, 'courierTransfers']);
         Route::patch('/courier/hub-transfers/{id}', [ParcelFlowController::class, 'updateTransfer']);
+        Route::post('/courier/hub-transfers/{id}/confirm-collection', [ParcelFlowController::class, 'confirmTransferCollection']);
         Route::get('/courier/pickups', [PickupController::class, 'index']);
         Route::get('/courier/pickup-history', [PickupController::class, 'history']);
         Route::get('/courier/pickups/{id}', [PickupController::class, 'show']);
@@ -129,17 +168,26 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/logistics/parcel-flow', [ParcelFlowController::class, 'operations']);
         Route::get('/logistics/hubs', [ParcelFlowController::class, 'hubs']);
         Route::post('/logistics/hubs', [ParcelFlowController::class, 'createHub']);
+        Route::patch('/logistics/hubs/{id}', [ParcelFlowController::class, 'updateHub']);
         Route::patch('/logistics/delivery-areas/{id}/hub', [ParcelFlowController::class, 'mapArea']);
         Route::post('/logistics/hub-transfers', [ParcelFlowController::class, 'createTransfer']);
+        Route::patch('/logistics/hub-transfers/{id}/dispatch', [ParcelFlowController::class, 'dispatchTransfer']);
+        Route::patch('/logistics/hub-transfers/{id}/receive', [ParcelFlowController::class, 'receiveTransfer']);
         Route::post('/logistics/parcel-returns/{id}/assign-courier', [ParcelFlowController::class, 'assignReturnCourier']);
         Route::patch('/logistics/parcel-returns/{id}/receive-at-hub', [ParcelFlowController::class, 'receiveReturnAtHub']);
         Route::get('/logistics/dashboard', [LogisticsDashboardController::class, 'index']);
+        Route::get('/logistics/reports/export', [LogisticsDashboardController::class, 'export']);
         Route::get('/logistics/operations', [LogisticsController::class, 'queue']);
         Route::get('/logistics/deliveries/{id}/proof/{kind}', [DeliveryProofController::class, 'showForStaff']);
         Route::get('/logistics/delivery-areas', [LogisticsController::class, 'areas']);
+        Route::post('/logistics/delivery-areas', [LogisticsController::class, 'storeArea']);
+        Route::patch('/logistics/delivery-areas/{areaId}', [LogisticsController::class, 'updateArea']);
+        Route::post('/logistics/delivery-areas/{areaId}/couriers', [LogisticsController::class, 'assignCourierToArea']);
+        Route::delete('/logistics/delivery-areas/{areaId}/couriers/{courierProfileId}', [LogisticsController::class, 'removeCourierFromArea']);
         Route::post('/logistics/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
         Route::patch('/logistics/orders/{orderId}/sorting-receipt', [ParcelOperationsController::class, 'confirmSortingReceipt']);
         Route::patch('/logistics/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);
+        Route::post('/logistics/parcels/scan', [LogisticsController::class, 'resolveAndScanParcel']);
         Route::patch('/logistics/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
         Route::post('/logistics/orders/{orderId}/delivery-assignment', [LogisticsController::class, 'reassignDelivery']);
         Route::patch('/logistics/orders/{orderId}/delivery-resolution', [AdminDeliveryController::class, 'resolve']);
