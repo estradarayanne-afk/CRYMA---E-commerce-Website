@@ -6,11 +6,25 @@ class CartStore {
   CartStore._();
 
   static final CartStore instance = CartStore._();
-  static const _storageKey = 'cryma_cart_items';
+  static const _storagePrefix = 'cryma_cart_items';
+
+  Future<String> _storageKey() async {
+    final preferences = await SharedPreferences.getInstance();
+    final rawUser = preferences.getString('cryma_api_user');
+    if (rawUser == null) return '${_storagePrefix}_guest';
+    try {
+      final user = jsonDecode(rawUser);
+      final id = user is Map ? user['id']?.toString() : null;
+      if (id != null && id.isNotEmpty) return '${_storagePrefix}_buyer_$id';
+    } catch (_) {
+      // Fall back to an anonymous cart if cached account data is invalid.
+    }
+    return '${_storagePrefix}_guest';
+  }
 
   Future<List<Map<String, dynamic>>> items() async {
     final preferences = await SharedPreferences.getInstance();
-    final raw = preferences.getString(_storageKey);
+    final raw = preferences.getString(await _storageKey());
     if (raw == null) return [];
     final decoded = jsonDecode(raw);
     if (decoded is! List) return [];
@@ -39,7 +53,7 @@ class CartStore {
     } else {
       current[existingIndex]['quantity'] =
           (current[existingIndex]['quantity'] as int? ?? 1) +
-          (item['quantity'] as int? ?? 1);
+              (item['quantity'] as int? ?? 1);
     }
     await _save(current);
   }
@@ -50,6 +64,6 @@ class CartStore {
 
   Future<void> _save(List<Map<String, dynamic>> items) async {
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_storageKey, jsonEncode(items));
+    await preferences.setString(await _storageKey(), jsonEncode(items));
   }
 }

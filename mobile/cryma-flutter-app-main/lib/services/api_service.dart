@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'cart_store.dart';
+import 'favorites_store.dart';
 
 class ApiService {
   ApiService({http.Client? client, String? baseUrl})
@@ -86,6 +90,36 @@ class ApiService {
     return _decode(response);
   }
 
+  Future<Map<String, dynamic>> updateProfileImage(
+    XFile file, {
+    required Map<String, String?> fields,
+  }) async {
+    final request = http.MultipartRequest('POST', _uri('/api/account/profile'));
+    final headers = await _headers(authenticated: true);
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
+    request.fields['_method'] = 'PATCH';
+    fields.forEach((key, value) {
+      if (value != null) request.fields[key] = value;
+    });
+    request.files
+        .add(await http.MultipartFile.fromPath('profile_image', file.path));
+    final streamed = await _client.send(request).timeout(_timeout);
+    return _decode(await http.Response.fromStream(streamed));
+  }
+
+  Future<Uint8List?> getProfileImageBytes() async {
+    final response = await _client
+        .get(_uri('/api/account/profile-image'),
+            headers: await _headers(authenticated: true))
+        .timeout(_timeout);
+    if (response.statusCode == 404) return null;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response);
+    }
+    return response.bodyBytes;
+  }
+
   Future<Map<String, dynamic>?> login(String email, String password) async {
     late final Map<String, dynamic> response;
     try {
@@ -129,6 +163,9 @@ class ApiService {
   Future<void> logout() async {
     final preferences = await SharedPreferences.getInstance();
     final token = preferences.getString(_tokenKey);
+    await CartStore.instance.clear();
+    await FavoritesStore.instance.clear();
+    await preferences.remove('cryma_pending_checkout');
     if (token != null && token.isNotEmpty) {
       try {
         await post('/api/logout', body: const {}, authenticated: true);
@@ -139,6 +176,15 @@ class ApiService {
     } else {
       await preferences.remove(_userKey);
     }
+  }
+
+  Future<Map<String, dynamic>> getCurrentPolicies() async {
+    final response = await get('/api/policies/current');
+    final data = response['data'];
+    if (response['success'] != true || data is! Map<String, dynamic>) {
+      throw const ApiException('The server returned invalid policy versions.');
+    }
+    return data;
   }
 
   Future<Map<String, dynamic>?> restoreBuyerSession() async {
@@ -163,20 +209,49 @@ class ApiService {
     String? search,
     String? category,
   }) async {
-    final query = <String, String>{};
+    return (await getProductsPage(search: search, category: category)).items;
+  }
+
+  Future<ApiPage> getProductsPage({
+    String? search,
+    String? category,
+    double? minPrice,
+    double? maxPrice,
+    bool inStockOnly = false,
+    String sort = 'featured',
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      'per_page': '$perPage',
+      'sort': sort
+    };
     if (search != null && search.trim().isNotEmpty) {
       query['search'] = search.trim();
     }
     if (category != null && category.trim().isNotEmpty && category != 'All') {
       query['category'] = category.trim();
     }
+    if (minPrice != null) query['min_price'] = '$minPrice';
+    if (maxPrice != null) query['max_price'] = '$maxPrice';
+    if (inStockOnly) query['stock'] = '1';
     final response = await get('/api/products', query: query);
     final data = response['data'];
-    final rows = data is Map<String, dynamic> ? data['data'] : data;
+    final rows = data is Map<String, dynamic> ? data['data'] : null;
     if (rows is! List) {
       throw const ApiException('The server returned an invalid product list.');
     }
-    return rows.whereType<Map<String, dynamic>>().toList();
+    return ApiPage.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<Map<String, dynamic>> getStorefront(String slug) async {
+    final response = await get('/api/stores/${Uri.encodeComponent(slug)}');
+    final data = response['data'];
+    if (response['success'] != true || data is! Map<String, dynamic>) {
+      throw const ApiException('The server returned an invalid storefront.');
+    }
+    return data;
   }
 
   Future<Map<String, dynamic>> getProduct(String id) async {
@@ -186,6 +261,133 @@ class ApiService {
       throw const ApiException('The server returned an invalid product.');
     }
     return product;
+  }
+
+  Future<Map<String, dynamic>> getProductReviews(String productId) async {
+    final response = await get('/api/products/$productId/reviews');
+    final data = response['data'];
+    if (response['success'] != true || data is! Map<String, dynamic>) {
+      throw const ApiException('The server returned invalid product reviews.');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> submitProductReview({
+    required String productId,
+    required int orderId,
+    required int rating,
+    String? comment,
+  }) {
+    return post(
+      '/api/products/$productId/reviews',
+      authenticated: true,
+      body: {
+        'order_id': orderId,
+        'rating': rating,
+        if (comment != null && comment.trim().isNotEmpty)
+          'comment': comment.trim(),
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getBuyerChatConversations() async {
+    final response =
+        await get('/api/buyer/chat/conversations', authenticated: true);
+    final rows = response['data'];
+    if (response['success'] != true || rows is! List) {
+      throw const ApiException('The server returned invalid conversations.');
+    }
+    return rows.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> getBuyerChatConversation(String id) async {
+    final response =
+        await get('/api/buyer/chat/conversations/$id', authenticated: true);
+    final data = response['data'];
+    if (response['success'] != true || data is! Map<String, dynamic>) {
+      throw const ApiException('The server returned an invalid conversation.');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> sendBuyerChatMessage(
+    String conversationId,
+    String message, {
+    int? orderId,
+    int? productId,
+  }) {
+    return post(
+      '/api/buyer/chat/conversations/$conversationId/messages',
+      authenticated: true,
+      body: {
+        'message': message.trim(),
+        if (orderId != null) 'order_id': orderId,
+        if (productId != null) 'product_id': productId,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> shareBuyerChatProduct(
+      String conversationId, int productId) {
+    return post('/api/buyer/chat/conversations/$conversationId/products',
+        authenticated: true, body: {'product_id': productId});
+  }
+
+  Future<Map<String, dynamic>> sendBuyerChatAttachment(
+    String conversationId,
+    XFile file, {
+    int? orderId,
+  }) async {
+    final request = http.MultipartRequest('POST',
+        _uri('/api/buyer/chat/conversations/$conversationId/attachments'));
+    final headers = await _headers(authenticated: true);
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
+    if (orderId != null) request.fields['order_id'] = orderId.toString();
+    request.files
+        .add(await http.MultipartFile.fromPath('attachment', file.path));
+    final streamed = await _client.send(request).timeout(_timeout);
+    return _decode(await http.Response.fromStream(streamed));
+  }
+
+  Future<http.Response> downloadBuyerChatAttachment(
+      String conversationId, String messageId) async {
+    final headers = await _headers(authenticated: true);
+    headers.remove('Content-Type');
+    final response = await _client
+        .get(
+          _uri(
+              '/api/buyer/chat/conversations/$conversationId/messages/$messageId/attachment'),
+          headers: headers,
+        )
+        .timeout(_timeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response);
+    }
+    return response;
+  }
+
+  Future<void> markBuyerChatRead(String conversationId) async {
+    await patch(
+      '/api/buyer/chat/conversations/$conversationId/read',
+      authenticated: true,
+      body: const {},
+    );
+  }
+
+  Future<Map<String, dynamic>> startBuyerSellerConversation({
+    String? productId,
+    String? sellerId,
+  }) {
+    return post(
+      '/api/buyer/chat/seller-conversations',
+      authenticated: true,
+      body: {
+        if (productId != null)
+          'product_id': int.tryParse(productId) ?? productId,
+        if (sellerId != null) 'seller_id': int.tryParse(sellerId) ?? sellerId,
+      },
+    );
   }
 
   /// Read-only connectivity check against the existing public product API.
@@ -320,14 +522,49 @@ class ApiService {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getBuyerOrders() async {
-    final response = await get('/api/orders', authenticated: true);
-    final page = response['data'];
-    final rows = page is Map<String, dynamic> ? page['data'] : page;
-    if (rows is! List) {
+  Future<ApiPage> getBuyerOrdersPage({
+    int page = 1,
+    String? search,
+    String? status,
+    String? dateFrom,
+    String? dateTo,
+    String sort = 'newest',
+  }) async {
+    final query = <String, String>{'page': '$page', 'sort': sort};
+    if (search != null && search.trim().isNotEmpty) {
+      query['search'] = search.trim();
+    }
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    if (dateFrom != null && dateFrom.isNotEmpty) query['date_from'] = dateFrom;
+    if (dateTo != null && dateTo.isNotEmpty) query['date_to'] = dateTo;
+    final response =
+        await get('/api/orders', query: query, authenticated: true);
+    final data = response['data'];
+    if (data is! Map<String, dynamic> || data['data'] is! List) {
       throw const ApiException('The server returned an invalid order list.');
     }
-    return rows.whereType<Map<String, dynamic>>().toList();
+    return ApiPage.fromJson(data);
+  }
+
+  Future<List<Map<String, dynamic>>> getBuyerOrders() async {
+    return (await getBuyerOrdersPage()).items;
+  }
+
+  Future<Map<String, dynamic>> cancelBuyerOrder(String id) {
+    return post('/api/orders/$id/cancel', body: const {}, authenticated: true);
+  }
+
+  Future<Map<String, dynamic>> requestBuyerRefund({
+    required String orderId,
+    required String reason,
+    required double requestedAmount,
+  }) {
+    return post('/api/orders/$orderId/refund-requests',
+        authenticated: true,
+        body: {
+          'reason': reason.trim(),
+          'requested_amount': requestedAmount,
+        });
   }
 
   Future<Map<String, dynamic>> getBuyerOrder(String id) async {
@@ -443,18 +680,43 @@ class ApiService {
       message,
       statusCode: response.statusCode,
       fieldErrors: fieldErrors,
+      responseData: json,
     );
   }
 }
 
 class ApiException implements Exception {
   const ApiException(this.message,
-      {this.statusCode, this.fieldErrors = const {}});
+      {this.statusCode,
+      this.fieldErrors = const {},
+      this.responseData = const {}});
 
   final String message;
   final int? statusCode;
   final Map<String, String> fieldErrors;
+  final Map<String, dynamic> responseData;
 
   @override
   String toString() => message;
+}
+
+class ApiPage {
+  const ApiPage(
+      {required this.items,
+      required this.currentPage,
+      required this.lastPage,
+      required this.total});
+  final List<Map<String, dynamic>> items;
+  final int currentPage;
+  final int lastPage;
+  final int total;
+
+  factory ApiPage.fromJson(Map<String, dynamic> json) => ApiPage(
+        items: (json['data'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList(),
+        currentPage: int.tryParse(json['current_page']?.toString() ?? '') ?? 1,
+        lastPage: int.tryParse(json['last_page']?.toString() ?? '') ?? 1,
+        total: int.tryParse(json['total']?.toString() ?? '') ?? 0,
+      );
 }

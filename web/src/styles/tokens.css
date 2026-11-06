@@ -1,43 +1,59 @@
 :root {
-    --crimson: #B21F3A;
-    --deep-crimson: #7E1830;
-    --wine: #4B1725;
-    --floral-pink: #EFA7B8;
-    --blush: #F9DCE4;
-    --rose-cream: #FFF7F8;
-    --soft-rose: #FFE9EE;
-    --white: #FFFFFF;
-    --text-primary: #26151A;
-    --text-secondary: #4B3038;
-    --text-tertiary: #765660;
-    --text-muted: #8A6871;
-    --text-subtle: #B79EA5;
+    /* Brand */
+    --color-brand-deep: #741f35;
+    --color-brand-rose: #a83f59;
+    --color-brand-floral: #e8bfc9;
+    --color-brand-warm-white: #fff8f7;
+    --color-brand-soft-background: #f3eceb;
+    --color-brand-charcoal: #292326;
 
-    --color-border: #F0DDE2;
-    --surface: var(--white);
-    --surface-raised: #FFFFFF;
-    --surface-neutral: #F7F7F5;
-    --border-neutral: #E7E5E2;
-    --text-neutral-muted: #70696A;
-    --color-success: #28705D;
-    --color-success-soft: #F0FAF6;
-    --color-success-border: #C8E5D9;
-    --color-warning: #875D15;
-    --color-warning-soft: #FFF8E8;
-    --color-danger: var(--crimson);
-    --color-danger-soft: #FFF3F5;
-    --focus-ring: 0 0 0 3px rgba(178, 31, 58, 0.16);
+    /* Semantic surfaces, text, and borders */
+    --color-background: var(--color-brand-soft-background);
+    --color-surface: var(--color-brand-warm-white);
+    --color-surface-raised: #ffffff;
+    --color-surface-muted: #f8f3f2;
+    --color-text-primary: var(--color-brand-charcoal);
+    --color-text-secondary: #51464a;
+    --color-text-muted: #6f6266;
+    --color-text-subtle: #84777b;
+    --color-border: #e6d9dc;
+    --color-border-strong: #cdb9bf;
 
+    /* Status colors: dark foregrounds retain contrast on pale surfaces. */
+    --color-success: #246b55;
+    --color-success-soft: #edf7f2;
+    --color-success-border: #b9d9ca;
+    --color-warning: #79520d;
+    --color-warning-soft: #fff6df;
+    --color-warning-border: #ead49b;
+    --color-danger: #9b263f;
+    --color-danger-soft: #fff0f2;
+    --color-danger-border: #e6b9c2;
+    --color-info: #285c76;
+    --color-info-soft: #edf6fa;
+    --color-info-border: #bdd7e3;
+
+    /* Accessible focus treatment on both light and dark surfaces. */
+    --focus-ring-color: #a83f59;
+    --focus-ring: 0 0 0 3px rgba(168, 63, 89, 0.22);
+    --focus-ring-offset: 2px;
+
+    /* Typography */
+    --font-family-heading: "Poppins", "Segoe UI", sans-serif;
+    --font-family-body: "Inter", "Segoe UI", Arial, sans-serif;
+    --font-family-base: var(--font-family-body);
+    --font-body: var(--font-family-body);
     --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
     --font-size-md: 1rem;
-    --font-size-lg: 1.25rem;
+    --font-size-lg: 1.125rem;
     --font-size-xl: 1.5rem;
     --font-size-2xl: 2rem;
-    --font-family-base: Inter, "Segoe UI", Arial, sans-serif;
     --line-height-tight: 1.2;
     --line-height-normal: 1.5;
+    --line-height-relaxed: 1.65;
 
+    /* Existing 4px spacing scale retained for feature stylesheet compatibility. */
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
@@ -46,29 +62,46 @@
     --space-6: 32px;
     --space-7: 48px;
 
+    /* Existing radius conventions retained. */
     --radius-sm: 8px;
-    --radius-md: 14px;
-    --radius-lg: 20px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
     --radius-pill: 999px;
-    --shadow-card: 0 12px 34px rgba(75, 23, 37, 0.08);
-    --shadow-popover: 0 18px 45px rgba(75, 23, 37, 0.13);
-    --shadow-modal: 0 24px 64px rgba(75, 23, 37, 0.2);
-    --transition-fast: 180ms ease;
+
+    /* Calm, brand-tinted elevation. */
+    --shadow-card: 0 8px 22px rgba(41, 35, 38, 0.065);
+    --shadow-popover: 0 14px 34px rgba(41, 35, 38, 0.11);
+    --shadow-modal: 0 24px 64px rgba(41, 35, 38, 0.2);
+
+    --transition-fast: 160ms ease;
     --transition-standard: 220ms ease;
+    --transition: var(--transition-fast);
     --container-wide: 1480px;
     --z-header: 200;
     --z-overlay: 900;
     --z-toast: 950;
     --z-modal: 1000;
-
     --sidebar-width: 260px;
     --sidebar-collapsed-width: 82px;
     --header-height: 72px;
-    --transition: var(--transition-fast);
 
-    font-family: var(--font-family-base);
-    color: var(--text-primary);
-    background: var(--rose-cream);
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
+    /* Legacy aliases used across existing feature CSS. */
+    --crimson: var(--color-brand-rose);
+    --deep-crimson: var(--color-brand-deep);
+    --wine: #542332;
+    --floral-pink: var(--color-brand-floral);
+    --blush: #f3dfe3;
+    --rose-cream: var(--color-brand-warm-white);
+    --soft-rose: #f8e9ec;
+    --white: #ffffff;
+    --text-primary: var(--color-text-primary);
+    --text-secondary: var(--color-text-secondary);
+    --text-tertiary: #63575b;
+    --text-muted: var(--color-text-muted);
+    --text-subtle: var(--color-text-subtle);
+    --surface: var(--color-surface);
+    --surface-raised: var(--color-surface-raised);
+    --surface-neutral: var(--color-surface-muted);
+    --border-neutral: var(--color-border);
+    --text-neutral-muted: var(--color-text-muted);
 }

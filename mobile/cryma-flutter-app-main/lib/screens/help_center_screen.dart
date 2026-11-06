@@ -13,7 +13,7 @@ class HelpCenterScreen extends StatelessWidget {
     {
       'q': 'How can I cancel my order?',
       'a':
-          'You can cancel your order within 24 hours of placing it. Go to My Orders and select Cancel.',
+          'Cancellation is available only before shipment activity begins. Open the order details and use Cancel order if the action is available. CRYMA checks eligibility when you submit the request.',
     },
     {
       'q': 'What payment methods do you accept?',

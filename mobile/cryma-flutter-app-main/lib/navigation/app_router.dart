@@ -17,6 +17,7 @@ import '../screens/register_contact_screen.dart';
 import '../screens/register_address_screen.dart';
 import '../screens/register_id_screen.dart';
 import '../screens/register_account_screen.dart';
+import '../screens/register_review_screen.dart';
 import '../screens/registration_pending_screen.dart';
 import '../screens/otp_verification_screen.dart';
 
@@ -28,6 +29,7 @@ import '../screens/categories_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/search_results_screen.dart';
 import '../screens/products_detail_screen.dart';
+import '../screens/storefront_screen.dart';
 import '../screens/all_reviews_screen.dart'; // ✅ BAGO
 import '../screens/cart_screen.dart';
 import '../screens/checkout_screen.dart';
@@ -94,10 +96,11 @@ class AppRouter {
       // ============================================================
       case '/register_personal':
         return MaterialPageRoute(
-            builder: (_) => const RegisterPersonalScreen());
+            settings: settings, builder: (_) => const RegisterPersonalScreen());
       case '/register_contact':
         final data = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => RegisterContactScreen(
             personalData: data?['personalData'],
           ),
@@ -105,6 +108,7 @@ class AppRouter {
       case '/register_address':
         final data = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => RegisterAddressScreen(
             personalData: data?['personalData'],
             contactData: data?['contactData'],
@@ -113,21 +117,30 @@ class AppRouter {
       case '/register_id':
         final data = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => RegisterIDScreen(
             personalData: data?['personalData'],
             contactData: data?['contactData'],
             addressData: data?['addressData'],
+            password: data?['password'],
+            passwordConfirmation: data?['passwordConfirmation'],
           ),
         );
       case '/register_account':
         final data = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => RegisterAccountScreen(
             personalData: data?['personalData'],
             contactData: data?['contactData'],
             addressData: data?['addressData'],
-            idFile: data?['idFile'],
           ),
+        );
+      case '/register_review':
+        final data = settings.arguments as Map<String, dynamic>? ?? {};
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => RegisterReviewScreen(data: data),
         );
       case '/registration_pending':
         return MaterialPageRoute(
@@ -135,9 +148,16 @@ class AppRouter {
 
       // ✅ OTP VERIFICATION SCREEN
       case '/otp_verification':
-        final email = settings.arguments as String?;
+        final arguments = settings.arguments;
+        final data = arguments is Map<String, dynamic>
+            ? arguments
+            : <String, dynamic>{'email': arguments};
         return MaterialPageRoute(
-          builder: (_) => OtpVerificationScreen(email: email),
+          builder: (_) => OtpVerificationScreen(
+            email: data['email']?.toString(),
+            deliveryFailed: data['deliveryFailed'] == true,
+            notice: data['notice']?.toString(),
+          ),
         );
 
       // ============================================================
@@ -170,6 +190,9 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => ProductsDetailScreen(productId: productId),
         );
+      case '/storefront':
+        final slug = settings.arguments as String? ?? '';
+        return MaterialPageRoute(builder: (_) => StorefrontScreen(slug: slug));
 
       // ✅ ALL REVIEWS SCREEN
       case '/all_reviews':

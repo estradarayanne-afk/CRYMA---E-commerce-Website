@@ -2,8 +2,8 @@
 .buyer-global-shell {
     min-height: 100vh;
     width: 100%;
-    --buyer-content-width: 1280px;
-    --buyer-page-gutter: 24px;
+    --buyer-content-width: 100%;
+    --buyer-page-gutter: 30px;
     background: var(--rose-cream, #fff7f8);
     color: var(--wine);
     font-family: var(--font-body, 'Segoe UI', Arial, sans-serif);
@@ -15,7 +15,7 @@
 /* Shared buyer page frame. Keep these rules inside the buyer layout so admin,
    seller, and courier workspaces retain their own spacing systems. */
 .buyer-global-shell .cryma-navbar-inner {
-    width: min(var(--buyer-content-width), calc(100% - 2 * var(--buyer-page-gutter)));
+    width: min(var(--buyer-content-width), calc(100% - var(--buyer-page-gutter) - var(--buyer-page-gutter)));
 }
 
 .buyer-global-shell .buyer-home-main,
@@ -24,7 +24,7 @@
 .buyer-global-shell .order-details-page,
 .buyer-global-shell .cart-page,
 .buyer-global-shell .checkout-page {
-    width: min(var(--buyer-content-width), calc(100% - 2 * var(--buyer-page-gutter)));
+    width: min(var(--buyer-content-width), calc(100% - var(--buyer-page-gutter) - var(--buyer-page-gutter)));
     margin-inline: auto;
 }
 
@@ -35,7 +35,7 @@
 .buyer-global-shell .product-details-container,
 .buyer-global-shell .buyer-chat-container,
 .buyer-global-shell .reviews-container {
-    width: min(var(--buyer-content-width), calc(100% - 2 * var(--buyer-page-gutter)));
+    width: min(var(--buyer-content-width), calc(100% - var(--buyer-page-gutter) - var(--buyer-page-gutter)));
     margin-inline: auto;
 }
 
@@ -186,7 +186,7 @@
 
 @media (max-width: 600px) {
     .buyer-global-shell {
-        --buyer-page-gutter: 14px;
+        --buyer-page-gutter: 16px;
     }
 
     .buyer-global-shell .checkout-page {
@@ -200,7 +200,7 @@
 
 .buyer-mobile-tab-bar { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 820px) {
     .buyer-global-main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
     .buyer-mobile-tab-bar {
         position: fixed;
@@ -241,4 +241,20 @@
     .buyer-global-shell--home .buyer-global-main {
         padding-bottom: calc(76px + env(safe-area-inset-bottom));
     }
+}
+
+/* Keep the guest storefront and existing mobile tab behavior on brand tokens. */
+.buyer-global-shell--home { background: var(--color-background); }
+.buyer-global-shell :where(button, a, input, select, textarea):focus-visible { outline-color: var(--focus-ring-color); }
+
+@media (max-width: 820px) {
+    .buyer-mobile-tab-bar {
+        border-top-color: var(--color-border);
+        background: rgba(255, 248, 247, .98);
+        box-shadow: 0 -4px 16px rgba(41, 35, 38, .08);
+    }
+
+    .buyer-mobile-tab { color: var(--color-text-muted); }
+    .buyer-mobile-tab.active { color: var(--color-brand-deep); }
+    .buyer-global-shell--home { background: var(--color-background); }
 }

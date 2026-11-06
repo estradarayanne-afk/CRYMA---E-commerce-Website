@@ -891,20 +891,20 @@
 .seller-dashboard .sl-btn-primary:hover:not(:disabled) { background:#FFF2F5; color:#641326; }
 .seller-dashboard .seller-dashboard-stats { grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; margin:0; }
 .seller-dashboard .seller-dashboard-stat { min-height:135px; padding:17px 19px; border:1px solid #F0DDE2; border-radius:15px; background:#fff; box-shadow:0 9px 22px rgba(66,18,32,.07),inset 0 2px #B21F3A; transition:transform .2s,box-shadow .2s; }
-.seller-dashboard .seller-dashboard-stat { min-height:132px; gap:9px; padding:17px 18px; border-top:3px solid var(--stat-accent,#7E1830); box-shadow:0 8px 22px rgba(66,18,32,.055); }
+.seller-dashboard .seller-dashboard-stat { min-height:116px; gap:8px; padding:13px 15px; border-top:2px solid var(--stat-accent,#7E1830); border-radius:12px; box-shadow:0 3px 10px rgba(41,35,38,.045); }
 .seller-dashboard-stat--active { --stat-accent:#27836C; }
 .seller-dashboard-stat--low { --stat-accent:#C17A25; }
 .seller-dashboard-stat--out { --stat-accent:#B8435C; }
 .seller-dashboard-stat--total { --stat-accent:#7E1830; }
 .seller-dashboard .seller-dashboard-stat-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .seller-dashboard .seller-dashboard-stat-icon { display:grid; width:34px; height:34px; flex:0 0 34px; place-items:center; border-radius:10px; background:color-mix(in srgb,var(--stat-accent) 10%,white); color:var(--stat-accent); }
-.seller-dashboard .seller-dashboard-stat:hover { transform:translateY(-2px); box-shadow:0 13px 27px rgba(66,18,32,.11),inset 0 2px #B21F3A; }
+.seller-dashboard .seller-dashboard-stat:hover { transform:translateY(-1px); box-shadow:0 6px 14px rgba(41,35,38,.075); }
 .seller-dashboard .sl-stat-label { color:#8A6871; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
 .seller-dashboard .sl-stat-value { display:block; margin:13px 0 5px; color:#26151A!important; font-size:28px; line-height:1; }
 .seller-dashboard .sl-stat-change { color:#8A6871; font-size:10px; }
 .seller-dashboard .seller-dashboard-grid { grid-template-columns:minmax(0,1.3fr) minmax(280px,1fr); gap:13px; margin:0; }
-.seller-dashboard .seller-dashboard-panel { min-width:0; margin:0; overflow:hidden; border:1px solid #F0DDE2; border-radius:15px; background:#fff; box-shadow:0 9px 22px rgba(66,18,32,.07),inset 0 2px #B21F3A; }
-.seller-dashboard .sl-panel-head { min-height:76px; padding:17px 19px; border-bottom:1px solid #F0DDE2; background:linear-gradient(180deg,#FFFAFB,#fff); }
+.seller-dashboard .seller-dashboard-panel { min-width:0; margin:0; overflow:hidden; border:1px solid #F0DDE2; border-radius:12px; background:#fff; box-shadow:0 3px 12px rgba(41,35,38,.045); }
+.seller-dashboard .sl-panel-head { min-height:66px; padding:13px 16px; border-bottom:1px solid #F0DDE2; background:#fffafb; }
 .seller-dashboard .sl-panel-head h3 { color:#4B1725; font-size:15px; font-weight:750; }
 .seller-dashboard .sl-panel-head p { color:#8A6871; font-size:11px; }
 .seller-dashboard .sl-panel-link { color:#8A1C30; font-size:11px; }
@@ -919,7 +919,7 @@
 .seller-dashboard .sl-list-row { min-height:66px; padding:12px 2px; border-color:#F4E8EB; }
 .seller-dashboard .sl-list-main strong, .seller-dashboard .sl-list-row > span:first-child { color:#3D2830; font-size:12px; }
 .seller-dashboard .sl-list-right .sl-badge { padding:5px 10px; border:1px solid rgba(39,131,108,.14); font-size:10px; font-weight:700; }
-.seller-dashboard .sl-panel--alert { margin-top:0; border-color:#E9D9CB; box-shadow:0 8px 22px rgba(91,53,19,.055),inset 0 2px #C17A25; }
+.seller-dashboard .sl-panel--alert { margin-top:0; border-color:#E9D9CB; box-shadow:0 3px 12px rgba(41,35,38,.045); }
 .seller-dashboard .sl-panel--alert .sl-panel-head { background:linear-gradient(180deg,#FFFCF8,#fff); }
 .seller-dashboard .sl-panel--alert .sl-panel-head h3 { color:#68400F; }
 .seller-dashboard .sl-panel--alert .sl-list-row { border-color:#F3E9DD; }
@@ -935,15 +935,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 18px;
-    min-height: 112px;
+    min-height: 104px;
     margin: 0 0 19px;
-    padding: 21px 25px;
-    border: 1px solid rgba(255,255,255,.24);
-    border-radius: 18px;
-    background:
-        radial-gradient(ellipse at 88% -20%,rgba(255,222,228,.28),transparent 36%),
-        linear-gradient(112deg,#40111f 0%,#721c35 48%,#a83c59 100%);
-    box-shadow: 0 16px 34px -17px rgba(55,8,23,.55),0 5px 12px rgba(68,17,34,.11),inset 0 1px rgba(255,255,255,.23),inset 0 -2px rgba(43,5,16,.2);
+    padding: 20px 22px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 12px;
+    background: #54192e;
+    box-shadow: 0 4px 12px rgba(49,12,23,.12);
 }
 .sl-page-head::after {
     content: "CRYMA";
@@ -951,11 +949,11 @@
     z-index: -1;
     top: 50%;
     right: 22px;
-    transform: translateY(-50%) rotate(-8deg);
-    color: rgba(255,255,255,.085);
-    font: 700 clamp(48px,8vw,92px)/1 Georgia,"Times New Roman",serif;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,.06);
+    font: 700 clamp(42px,7vw,76px)/1 var(--font-family-heading);
     letter-spacing: .12em;
-    text-shadow: 0 2px 12px rgba(255,255,255,.04);
+    text-shadow: none;
     white-space: nowrap;
     pointer-events: none;
 }
@@ -963,14 +961,14 @@
 .sl-page-head h1 {
     margin-top: 3px;
     color: #fff9fa;
-    font-family: Georgia,"Times New Roman",serif;
-    font-size: clamp(27px,2.8vw,35px);
-    font-weight: 600;
-    letter-spacing: -.55px;
+    font-family: var(--font-family-heading);
+    font-size: clamp(24px,2.5vw,31px);
+    font-weight: 650;
+    letter-spacing: -.035em;
     line-height: 1.12;
-    text-shadow: 0 2px 12px rgba(35,4,14,.2);
+    text-shadow: none;
 }
-.storefront-heading.sl-page-head h1 { margin-top:3px; color:#fff9fa; font:600 clamp(27px,2.8vw,35px)/1.12 Georgia,"Times New Roman",serif; letter-spacing:-.55px; text-shadow:0 2px 12px rgba(35,4,14,.2); }
+.storefront-heading.sl-page-head h1 { margin-top:3px; color:#fff9fa; font:650 clamp(24px,2.5vw,31px)/1.12 var(--font-family-heading); letter-spacing:-.035em; text-shadow:none; }
 .sl-page-head h1::before {
     content: "CRYMA PLATFORM";
     display: block;
@@ -999,17 +997,15 @@
 }
 .seller-dashboard .seller-dashboard-head {
     position:relative; isolation:isolate; overflow:hidden; display:flex; align-items:center; justify-content:space-between;
-    gap:18px; min-height:112px; margin:0; padding:21px 25px; border:1px solid rgba(255,255,255,.24);
-    border-radius:18px;
-    background:radial-gradient(ellipse at 88% -20%,rgba(255,222,228,.28),transparent 36%),linear-gradient(112deg,#40111f 0%,#721c35 48%,#a83c59 100%);
-    box-shadow:0 16px 34px -17px rgba(55,8,23,.55),0 5px 12px rgba(68,17,34,.11),inset 0 1px rgba(255,255,255,.23),inset 0 -2px rgba(43,5,16,.2);
+    gap:18px; min-height:104px; margin:0; padding:20px 22px; border:1px solid rgba(255,255,255,.18);
+    border-radius:12px; background:#54192e; box-shadow:0 4px 12px rgba(49,12,23,.12);
 }
 .seller-dashboard .seller-dashboard-head::after {
-    content:"CRYMA"; position:absolute; z-index:-1; top:50%; right:22px; bottom:auto; transform:translateY(-50%) rotate(-8deg);
-    color:rgba(255,255,255,.085); font:700 clamp(48px,8vw,92px)/1 Georgia,"Times New Roman",serif;
-    letter-spacing:.12em; text-shadow:0 2px 12px rgba(255,255,255,.04); white-space:nowrap; pointer-events:none;
+    content:"CRYMA"; position:absolute; z-index:-1; top:50%; right:22px; bottom:auto; transform:translateY(-50%);
+    color:rgba(255,255,255,.06); font:700 clamp(42px,7vw,76px)/1 var(--font-family-heading);
+    letter-spacing:.12em; text-shadow:none; white-space:nowrap; pointer-events:none;
 }
-.seller-dashboard .seller-dashboard-head h1 { margin-top: 3px; color: #fff9fa; font: 600 clamp(27px,2.8vw,35px)/1.12 Georgia,"Times New Roman",serif; letter-spacing: -.55px; }
+.seller-dashboard .seller-dashboard-head h1 { margin-top: 3px; color: #fff9fa; font: 650 clamp(24px,2.5vw,31px)/1.12 var(--font-family-heading); letter-spacing: -.035em; }
 .seller-dashboard .seller-dashboard-head h1::before { content: "CRYMA PLATFORM"; display:block; margin:0 0 8px; color:#f6cbd4; font:700 9px/1.2 Arial,sans-serif; letter-spacing:1.8px; }
 .seller-dashboard .seller-dashboard-head .sl-eyebrow { display:none; }
 .seller-dashboard .seller-dashboard-head p { color: rgba(255,247,249,.84); font-size:12px; }

@@ -404,9 +404,10 @@ function ProductDetails() {
         );
     }
 
-    const productMedia = Array.isArray(product.media) && product.media.length
+    const apiProductMedia = Array.isArray(product.media)
         ? product.media.filter((media) => media?.url && ["image", "video"].includes(media.type))
-        : [
+        : [];
+    const fallbackProductMedia = [
             ...(Array.isArray(product.images)
                 ? product.images.map((image) => typeof image === "string" ? image : image?.url || image?.image_url)
                 : []),
@@ -414,6 +415,14 @@ function ProductDetails() {
         ]
             .filter((url, index, urls) => typeof url === "string" && url.trim() && urls.indexOf(url) === index)
             .map((url) => ({ type: "image", url }));
+    const fallbackVideos = Array.isArray(product.videos)
+        ? product.videos.map((video) => typeof video === "string" ? video : video?.url || video?.video_url)
+            .filter((url) => typeof url === "string" && url.trim())
+            .map((url) => ({ type: "video", url }))
+        : [];
+    const productMedia = apiProductMedia.length
+        ? apiProductMedia
+        : [...fallbackProductMedia, ...fallbackVideos];
     const variantMedia = selectedVariant?.media_url
         ? { type: selectedVariant.media_type || "image", url: selectedVariant.media_url }
         : null;

@@ -3,6 +3,7 @@ import {
     Bell,
     Headset,
     ChevronDown,
+    LayoutGrid,
     Heart,
     LogOut,
     Menu,
@@ -373,21 +374,16 @@ function BuyerNavbar() {
                                 to="/shop"
                                 end
                                 onClick={closeMenus}
-                                className={({ isActive }) => `cryma-nav-link${isActive ? " active" : ""}`}
+                                className={({ isActive }) => `cryma-nav-link cryma-category-nav-link${isActive ? " active" : ""}`}
                             >
-                                All Categories
+                                <LayoutGrid size={16} strokeWidth={1.9} aria-hidden="true" />
+                                <span>All Categories</span>
                             </NavLink>
                         </nav>
                     </div>
 
-                    {/* LANDING PAGE CONTENT NAVIGATION / PRODUCT SEARCH */}
-                    {isLandingPage ? (
-                        <nav className="cryma-landing-nav" aria-label="Landing page sections">
-                            <a href="#featured-products" onClick={closeMenus}>Featured</a>
-                            <a href="#how-it-works" onClick={closeMenus}>How it works</a>
-                            <a href="#delivery-journey" onClick={closeMenus}>Delivery journey</a>
-                        </nav>
-                    ) : <form
+                    {/* Keep search prominent on the guest landing page as well as shop pages. */}
+                    <form
                         className="cryma-navbar-search"
                         onSubmit={handleSearch}
                     >
@@ -453,7 +449,7 @@ function BuyerNavbar() {
                                 </div>
                             </div>
                         )}
-                    </form>}
+                    </form>
 
                     {/* RIGHT ACTIONS */}
                     <div className="cryma-navbar-actions">

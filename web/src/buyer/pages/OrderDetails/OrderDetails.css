@@ -460,20 +460,20 @@
     width: min(1180px, calc(100% - 48px));
     margin: 0 auto;
     padding: 26px 0 70px;
-    color: #294442;
+    color: var(--color-text-primary);
 }
 .order-back-link {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    color: #315854;
+    color: var(--color-brand-deep);
     font-size: 9px;
     font-weight: 800;
     width: fit-content;
     min-height: 36px;
     margin-bottom: 4px;
     padding: 0 12px;
-    border: 1px solid #d7e3df;
+    border: 1px solid var(--color-border);
     border-radius: 7px;
     background: #ffffff;
     text-decoration: none;
@@ -486,8 +486,8 @@
 }
 .order-back-link:hover {
     color: var(--deep-crimson);
-    border-color: #bdd3cd;
-    background: #f5faf8;
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-muted);
     transform: translateX(-1px);
 }
 .order-details-header {
@@ -534,7 +534,7 @@
     padding: 17px;
     border: 1px solid #dceae5;
     border-radius: 10px;
-    background: #f5faf8;
+    background: var(--color-surface-muted);
 }
 .order-current-icon {
     width: 43px;
@@ -597,7 +597,7 @@
 }
 .order-panel-heading h2 {
     margin-top: 4px;
-    color: #294442;
+    color: var(--color-text-primary);
     font-size: 17px;
     margin: 5px 0 0;
     letter-spacing: -0.02em;
@@ -842,7 +842,7 @@
     font-size: 9px;
 }
 .order-mini-panel strong {
-    color: #294442;
+    color: var(--color-text-primary);
     font-size: 9px;
     text-align: right;
 }

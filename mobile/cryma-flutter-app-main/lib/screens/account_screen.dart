@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
 class AccountScreen extends StatefulWidget {
@@ -13,6 +15,7 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   Map<String, dynamic>? _user;
+  Uint8List? _profileImage;
 
   @override
   void initState() {
@@ -29,6 +32,14 @@ class _AccountScreenState extends State<AccountScreen> {
           _user = jsonDecode(raw) as Map<String, dynamic>;
         } catch (_) {}
       });
+      if (_user?['profile_image_url'] != null) {
+        try {
+          final bytes = await ApiService.instance.getProfileImageBytes();
+          if (mounted) setState(() => _profileImage = bytes);
+        } catch (_) {}
+      } else if (mounted) {
+        setState(() => _profileImage = null);
+      }
     }
   }
 
@@ -91,8 +102,14 @@ class _AccountScreenState extends State<AccountScreen> {
                               shape: BoxShape.circle,
                               color: AppColors.lightGray,
                             ),
-                            child: const Icon(Icons.person,
-                                size: 56, color: AppColors.gray),
+                            child: _profileImage == null
+                                ? const Icon(Icons.person,
+                                    size: 56, color: AppColors.gray)
+                                : ClipOval(
+                                    child: Image.memory(_profileImage!,
+                                        fit: BoxFit.cover,
+                                        width: 100,
+                                        height: 100)),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -144,28 +161,68 @@ class _AccountScreenState extends State<AccountScreen> {
                     ),
                     const SizedBox(height: 16),
                     _buildMenuSection(context, 'MY ACCOUNT', const [
-                      _MenuItem(icon: Icons.person_outline, label: 'Personal Information', route: '/edit_profile'),
-                      _MenuItem(icon: Icons.location_on_outlined, label: 'Address Book', route: '/address_book'),
-                      _MenuItem(icon: Icons.wallet_outlined, label: 'Payment Methods', route: '/payment_methods'),
+                      _MenuItem(
+                          icon: Icons.person_outline,
+                          label: 'Personal Information',
+                          route: '/edit_profile'),
+                      _MenuItem(
+                          icon: Icons.location_on_outlined,
+                          label: 'Address Book',
+                          route: '/address_book'),
+                      _MenuItem(
+                          icon: Icons.wallet_outlined,
+                          label: 'Payment Methods',
+                          route: '/payment_methods'),
                     ]),
                     _buildMenuSection(context, 'MY SHOPPING', const [
-                      _MenuItem(icon: Icons.description_outlined, label: 'My Orders', route: '/my_orders'),
-                      _MenuItem(icon: Icons.star_outline, label: 'My Reviews', route: '/my_reviews'),
-                      _MenuItem(icon: Icons.local_offer_outlined, label: 'Vouchers', route: '/vouchers'),
-                      _MenuItem(icon: Icons.favorite_border, label: 'Wishlist', route: '/wishlist'),
+                      _MenuItem(
+                          icon: Icons.description_outlined,
+                          label: 'My Orders',
+                          route: '/my_orders'),
+                      _MenuItem(
+                          icon: Icons.star_outline,
+                          label: 'My Reviews',
+                          route: '/my_reviews'),
+                      _MenuItem(
+                          icon: Icons.local_offer_outlined,
+                          label: 'Vouchers',
+                          route: '/vouchers'),
+                      _MenuItem(
+                          icon: Icons.favorite_border,
+                          label: 'Wishlist',
+                          route: '/wishlist'),
                     ]),
                     _buildMenuSection(context, 'SUPPORT', const [
-                      _MenuItem(icon: Icons.chat_bubble_outline, label: 'Customer Support', route: '/support'),
-                      _MenuItem(icon: Icons.help_outline, label: 'Help Center', route: '/help_center'),
-                      _MenuItem(icon: Icons.description_outlined, label: 'Terms & Conditions', route: '/terms'),
-                      _MenuItem(icon: Icons.shield_outlined, label: 'Privacy Policy', route: '/privacy'),
+                      _MenuItem(
+                          icon: Icons.chat_bubble_outline,
+                          label: 'Customer Support',
+                          route: '/support'),
+                      _MenuItem(
+                          icon: Icons.help_outline,
+                          label: 'Help Center',
+                          route: '/help_center'),
+                      _MenuItem(
+                          icon: Icons.description_outlined,
+                          label: 'Terms & Conditions',
+                          route: '/terms'),
+                      _MenuItem(
+                          icon: Icons.shield_outlined,
+                          label: 'Privacy Policy',
+                          route: '/privacy'),
                     ]),
                     _buildMenuSection(context, 'SECURITY', const [
-                      _MenuItem(icon: Icons.key_outlined, label: 'Change Password', route: '/change_password'),
-                      _MenuItem(icon: Icons.shield_outlined, label: 'Security Settings', route: '/security_settings'),
+                      _MenuItem(
+                          icon: Icons.key_outlined,
+                          label: 'Change Password',
+                          route: '/change_password'),
+                      _MenuItem(
+                          icon: Icons.shield_outlined,
+                          label: 'Security Settings',
+                          route: '/security_settings'),
                     ]),
                     GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/logout_confirmation'),
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/logout_confirmation'),
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -177,9 +234,15 @@ class _AccountScreenState extends State<AccountScreen> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.logout_outlined, size: 20, color: AppColors.danger),
+                            Icon(Icons.logout_outlined,
+                                size: 20, color: AppColors.danger),
                             SizedBox(width: 8),
-                            Text('Logout', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.danger, fontFamily: 'Poppins')),
+                            Text('Logout',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.danger,
+                                    fontFamily: 'Poppins')),
                           ],
                         ),
                       ),
@@ -201,24 +264,39 @@ class _AccountScreenState extends State<AccountScreen> {
           currentIndex: 4,
           onTap: (index) {
             switch (index) {
-              case 0: Navigator.pushReplacementNamed(context, '/home'); break;
-              case 1: Navigator.pushNamed(context, '/categories'); break;
-              case 2: Navigator.pushNamed(context, '/cart'); break;
-              case 3: Navigator.pushNamed(context, '/my_orders'); break;
-              case 4: break;
+              case 0:
+                Navigator.pushReplacementNamed(context, '/home');
+                break;
+              case 1:
+                Navigator.pushNamed(context, '/categories');
+                break;
+              case 2:
+                Navigator.pushNamed(context, '/cart');
+                break;
+              case 3:
+                Navigator.pushNamed(context, '/my_orders');
+                break;
+              case 4:
+                break;
             }
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           selectedItemColor: AppColors.primary,
           unselectedItemColor: AppColors.gray,
-          selectedLabelStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w600),
-          unselectedLabelStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 10),
+          selectedLabelStyle: const TextStyle(
+              fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w600),
+          unselectedLabelStyle:
+              const TextStyle(fontFamily: 'Poppins', fontSize: 10),
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.grid_view_outlined), label: 'Categories'),
-            BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: 'Cart'),
-            BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined), label: 'Orders'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined), label: 'Home'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.grid_view_outlined), label: 'Categories'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.shopping_cart_outlined), label: 'Cart'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.list_alt_outlined), label: 'Orders'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
           ],
         ),
@@ -226,7 +304,8 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildMenuSection(BuildContext context, String title, List<_MenuItem> items) {
+  Widget _buildMenuSection(
+      BuildContext context, String title, List<_MenuItem> items) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -234,14 +313,24 @@ class _AccountScreenState extends State<AccountScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 20, bottom: 8),
-            child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gray, fontFamily: 'Poppins')),
+            child: Text(title,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.gray,
+                    fontFamily: 'Poppins')),
           ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 2, offset: const Offset(0, 1))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1))
+              ],
             ),
             child: Column(
               children: items.map((item) {
@@ -249,20 +338,34 @@ class _AccountScreenState extends State<AccountScreen> {
                 return GestureDetector(
                   onTap: () => Navigator.pushNamed(context, item.route),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF0F0F0))),
+                      border: isLast
+                          ? null
+                          : const Border(
+                              bottom: BorderSide(color: Color(0xFFF0F0F0))),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(color: const Color(0xFFE8F3F2), borderRadius: BorderRadius.circular(10)),
-                          child: Icon(item.icon, size: 20, color: AppColors.primary),
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFE8F3F2),
+                              borderRadius: BorderRadius.circular(10)),
+                          child: Icon(item.icon,
+                              size: 20, color: AppColors.primary),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(child: Text(item.label, style: const TextStyle(fontSize: 14, color: AppColors.darkGray, fontFamily: 'Poppins'))),
-                        const Icon(Icons.chevron_right, size: 18, color: AppColors.gray),
+                        Expanded(
+                            child: Text(item.label,
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.darkGray,
+                                    fontFamily: 'Poppins'))),
+                        const Icon(Icons.chevron_right,
+                            size: 18, color: AppColors.gray),
                       ],
                     ),
                   ),
@@ -280,5 +383,6 @@ class _MenuItem {
   final IconData icon;
   final String label;
   final String route;
-  const _MenuItem({required this.icon, required this.label, required this.route});
+  const _MenuItem(
+      {required this.icon, required this.label, required this.route});
 }

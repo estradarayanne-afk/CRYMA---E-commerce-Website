@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../utils/auth_widgets.dart';
+import '../utils/buyer_registration.dart';
 import '../utils/colors.dart';
-import '../utils/validators.dart';
 
 class RegisterContactScreen extends StatefulWidget {
   const RegisterContactScreen({
@@ -16,18 +17,33 @@ class RegisterContactScreen extends StatefulWidget {
 }
 
 class _RegisterContactScreenState extends State<RegisterContactScreen> {
-
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _contactNumberController = TextEditingController();
+  final TextEditingController _contactNumberController =
+      TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _emailKey = GlobalKey<FormFieldState>();
   final _contactKey = GlobalKey<FormFieldState>();
 
   @override
+  void initState() {
+    super.initState();
+    BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
+  }
+
+  @override
   void dispose() {
+    BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
     _emailController.dispose();
     _contactNumberController.dispose();
     super.dispose();
+  }
+
+  void _onServerErrorsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _formKey.currentState?.validate();
+    });
   }
 
   void _handleContinue() {
@@ -57,7 +73,7 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -127,11 +143,15 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
                   icon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   fieldKey: _emailKey,
-                  validator: AppValidators.email,
+                  validator: (value) =>
+                      BuyerRegistrationErrorStore.instance.errorFor('email') ??
+                      BuyerRegistrationRules.validateEmail(value),
                   inputFormatters: [
-                    LengthLimitingTextInputFormatter(100),
+                    LengthLimitingTextInputFormatter(254),
                     FilteringTextInputFormatter.deny(RegExp(r'\s')),
                   ],
+                  onChanged: (_) =>
+                      BuyerRegistrationErrorStore.instance.clearField('email'),
                 ),
                 const SizedBox(height: 8),
 
@@ -164,7 +184,7 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'A verification link will be sent to this email after registration.',
+                          'A six-digit verification code will be sent to this email after registration.',
                           style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF687477),
@@ -189,11 +209,15 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
                   icon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
                   fieldKey: _contactKey,
-                  validator: AppValidators.mobileNumber, // ✅ NEW
+                  validator: (value) =>
+                      BuyerRegistrationErrorStore.instance.errorFor('phone') ??
+                      BuyerRegistrationRules.validatePhone(value),
                   inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly, // ✅ numbers only
-                    LengthLimitingTextInputFormatter(11), // ✅ max 11 digits
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(11),
                   ],
+                  onChanged: (_) =>
+                      BuyerRegistrationErrorStore.instance.clearField('phone'),
                 ),
 
                 const SizedBox(height: 30),
@@ -236,102 +260,7 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
   // STEPPER
   // ============================================================
   Widget _buildStepper({required int currentStep}) {
-    final List<String> steps = [
-      'Personal',
-      'Contact',
-      'Address',
-      'Verify',
-      'Account',
-    ];
-
-    return SizedBox(
-      height: 64,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 26,
-            right: 26,
-            top: 18,
-            child: Row(
-              children: List.generate(steps.length - 1, (index) {
-                final isCompleted = index + 1 < currentStep;
-
-                return Expanded(
-                  child: Container(
-                    height: 2,
-                    color:
-                        isCompleted ? AppColors.primary : AppColors.lightGray,
-                  ),
-                );
-              }),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: steps.asMap().entries.map((entry) {
-              final index = entry.key;
-              final label = entry.value;
-              final stepNumber = index + 1;
-
-              final isCurrent = stepNumber == currentStep;
-              final isCompleted = stepNumber < currentStep;
-
-              return SizedBox(
-                width: 50,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.lightGray,
-                      ),
-                      child: Center(
-                        child: isCompleted
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.white,
-                                size: 18,
-                              )
-                            : Text(
-                                stepNumber.toString(),
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCurrent
-                                      ? AppColors.white
-                                      : AppColors.gray,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 9,
-                        fontWeight: isCurrent || isCompleted
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.gray,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
+    return RegistrationProgressHeader(currentStep: currentStep);
   }
 
   // ============================================================
@@ -363,6 +292,7 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters,
     GlobalKey<FormFieldState>? fieldKey,
+    ValueChanged<String>? onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -383,6 +313,7 @@ class _RegisterContactScreenState extends State<RegisterContactScreen> {
         keyboardType: keyboardType,
         validator: validator,
         inputFormatters: inputFormatters,
+        onChanged: onChanged,
         style: const TextStyle(
           fontSize: 13,
           color: AppColors.darkGray,

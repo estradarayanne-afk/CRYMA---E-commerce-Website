@@ -31,3 +31,4 @@ backend/storage/app/public/registration-documents/**
 .DS_Store
 Thumbs.db
 *.log
+/mobile/cryma-flutter-app-main/qa-artifacts/app-debug.apk

@@ -215,17 +215,7 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ],
                   ),
-                  GestureDetector(
-                    onTap: () {},
-                    child: const Text(
-                      'Edit',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
+                  const SizedBox(width: 40),
                 ],
               ),
             ),
@@ -473,16 +463,11 @@ class _CartScreenState extends State<CartScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
               color: AppColors.lightGray,
-              image: item.imagePath.startsWith('http')
-                  ? DecorationImage(
-                      image: NetworkImage(item.imagePath),
-                      fit: BoxFit.cover,
-                    )
-                  : DecorationImage(
-                      image: AssetImage(item.imagePath),
-                      fit: BoxFit.cover,
-                    ),
             ),
+            clipBehavior: Clip.antiAlias,
+            child: item.imagePath.isEmpty
+                ? const Icon(Icons.image_not_supported_outlined, color: AppColors.gray)
+                : Image(image: item.imagePath.startsWith('http') ? NetworkImage(item.imagePath) : AssetImage(item.imagePath), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: AppColors.gray)),
           ),
           const SizedBox(width: 10),
           Expanded(

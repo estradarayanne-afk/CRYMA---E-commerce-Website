@@ -39,27 +39,27 @@ function makeFacet(THREE, points, color, z, options = {}) {
     return mesh;
 }
 
-function buildOrigamiMark(THREE) {
+function buildOrigamiMark(THREE, palette) {
     const mark = new THREE.Group();
     // These facets redraw the diagonal folded gesture in CRYMA's logo as real, beveled meshes.
     const point = (x, y) => [(x - 340) / 100, (280 - y) / 100];
     const points = (coords) => coords.map(([x, y]) => point(x, y));
     const faces = [
         {
-            color: "#64132f",
+            color: palette.deep,
             z: -0.14,
             coords: [[91, 411], [285, 137], [602, 53], [423, 329], [551, 429], [260, 510]],
             depth: 0.22,
         },
         {
-            color: "#b92750",
+            color: palette.rose,
             z: 0.04,
             coords: [[91, 411], [285, 137], [290, 367]],
             depth: 0.13,
             metalness: 0.21,
         },
         {
-            color: "#df5374",
+            color: palette.rose,
             z: 0.09,
             coords: [[285, 137], [602, 53], [423, 329], [290, 367]],
             depth: 0.14,
@@ -67,7 +67,7 @@ function buildOrigamiMark(THREE) {
             metalness: 0.23,
         },
         {
-            color: "#f3a1b4",
+            color: palette.floral,
             z: 0.2,
             coords: [[285, 137], [446, 329], [602, 53]],
             depth: 0.1,
@@ -75,7 +75,7 @@ function buildOrigamiMark(THREE) {
             metalness: 0.12,
         },
         {
-            color: "#871a3c",
+            color: palette.deep,
             z: 0.11,
             coords: [[290, 367], [423, 329], [551, 429], [260, 510]],
             depth: 0.15,
@@ -88,8 +88,8 @@ function buildOrigamiMark(THREE) {
     });
 
     const creaseMaterial = new THREE.MeshStandardMaterial({
-        color: "#ffe3e8",
-        emissive: "#9f2949",
+        color: palette.warmWhite,
+        emissive: palette.deep,
         emissiveIntensity: 0.23,
         roughness: 0.32,
         metalness: 0.24,
@@ -111,10 +111,24 @@ export default function HomeHeroScene() {
     const containerRef = useRef(null);
     const canvasRef = useRef(null);
     const badgesRef = useRef({});
-    const [failed, setFailed] = useState(false);
+    const [sceneFailed, setSceneFailed] = useState(false);
+    const [useStaticScene, setUseStaticScene] = useState(() =>
+        window.matchMedia?.("(max-width: 820px)").matches ?? false,
+    );
 
     useEffect(() => {
-        if (window.matchMedia?.("(max-width: 700px)").matches) return undefined;
+        const breakpoint = window.matchMedia("(max-width: 820px)");
+        const syncSceneMode = (event) => setUseStaticScene(event.matches);
+        if (breakpoint.addEventListener) breakpoint.addEventListener("change", syncSceneMode);
+        else breakpoint.addListener(syncSceneMode);
+        return () => {
+            if (breakpoint.removeEventListener) breakpoint.removeEventListener("change", syncSceneMode);
+            else breakpoint.removeListener(syncSceneMode);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (useStaticScene) return undefined;
 
         const container = containerRef.current;
         const canvasHost = canvasRef.current;
@@ -142,6 +156,16 @@ export default function HomeHeroScene() {
                 ]);
                 if (disposed) return;
 
+                const rootStyles = getComputedStyle(document.documentElement);
+                const token = (name, fallback) => rootStyles.getPropertyValue(name).trim() || fallback;
+                const palette = {
+                    deep: token("--color-brand-deep", "#741f35"),
+                    rose: token("--color-brand-rose", "#a83f59"),
+                    floral: token("--color-brand-floral", "#e8bfc9"),
+                    warmWhite: token("--color-brand-warm-white", "#fff8f7"),
+                    charcoal: token("--color-brand-charcoal", "#292326"),
+                };
+
                 scene = new THREE.Scene();
                 camera = new THREE.PerspectiveCamera(36, 1, 0.1, 70);
                 camera.position.set(0, 0.18, 9.2);
@@ -168,8 +192,8 @@ export default function HomeHeroScene() {
                     else object.material?.dispose?.();
                 });
 
-                scene.add(new THREE.HemisphereLight("#fff0ee", "#311126", 1.75));
-                const keyLight = new THREE.DirectionalLight("#fff1e6", 4.4);
+                scene.add(new THREE.HemisphereLight(palette.warmWhite, palette.deep, 1.75));
+                const keyLight = new THREE.DirectionalLight(palette.warmWhite, 4.4);
                 keyLight.position.set(-3.5, 5.4, 5);
                 keyLight.castShadow = true;
                 keyLight.shadow.mapSize.set(1536, 1536);
@@ -181,20 +205,20 @@ export default function HomeHeroScene() {
                 keyLight.shadow.normalBias = 0.025;
                 scene.add(keyLight);
 
-                const roseLight = new THREE.PointLight("#ff7e9f", 25, 11, 2);
+                const roseLight = new THREE.PointLight(palette.floral, 25, 11, 2);
                 roseLight.position.set(-3.2, 1.4, 3.2);
                 scene.add(roseLight);
-                const rimLight = new THREE.PointLight("#b69aff", 19, 10, 2);
+                const rimLight = new THREE.PointLight(palette.rose, 19, 10, 2);
                 rimLight.position.set(3.5, 1.8, -1.7);
                 scene.add(rimLight);
 
-                mark = buildOrigamiMark(THREE);
+                mark = buildOrigamiMark(THREE, palette);
                 mark.scale.setScalar(0.91);
                 scene.add(mark);
 
                 const floor = new THREE.Mesh(
                     new THREE.PlaneGeometry(30, 30),
-                    new THREE.ShadowMaterial({ color: "#1a0613", opacity: 0.42 }),
+                    new THREE.ShadowMaterial({ color: palette.charcoal, opacity: 0.42 }),
                 );
                 floor.rotation.x = -Math.PI / 2;
                 floor.position.set(0, -2.17, 0);
@@ -281,7 +305,7 @@ export default function HomeHeroScene() {
                 console.warn("The CRYMA 3D hero could not start.", error);
                 renderer?.dispose();
                 renderer?.domElement.remove();
-                if (!disposed) setFailed(true);
+                if (!disposed) setSceneFailed(true);
             }
         };
 
@@ -302,17 +326,17 @@ export default function HomeHeroScene() {
             renderer?.dispose();
             renderer?.domElement.remove();
         };
-    }, []);
+    }, [useStaticScene]);
 
     return (
-        <div className={`buyer-hero-three-scene ${failed ? "is-fallback" : ""}`} ref={containerRef}>
+        <div className={`buyer-hero-three-scene ${useStaticScene || sceneFailed ? "is-fallback" : ""}`} ref={containerRef}>
             <div className="buyer-hero-three-canvas" ref={canvasRef} aria-hidden="true">
-                {failed && (
+                {(useStaticScene || sceneFailed) && (
                     <svg className="buyer-hero-three-fallback" viewBox="0 0 680 560" aria-hidden="true">
-                        <path fill="#7f193a" d="m91 411 194-274 317-84-179 276 128 100-291 81-169-99Z" />
-                        <path fill="#d7476b" d="m285 137 317-84-179 276-133 38-5-230Z" />
-                        <path fill="#f3a1b4" d="m285 137 161 192L602 53l-317 84Z" />
-                        <path fill="#4b102b" d="m290 367 133-38 128 100-291 81 30-143Z" />
+                        <path fill="var(--color-brand-deep, #741f35)" d="m91 411 194-274 317-84-179 276 128 100-291 81-169-99Z" />
+                        <path fill="var(--color-brand-rose, #a83f59)" d="m285 137 317-84-179 276-133 38-5-230Z" />
+                        <path fill="var(--color-brand-floral, #e8bfc9)" d="m285 137 161 192L602 53l-317 84Z" />
+                        <path fill="var(--color-brand-deep, #741f35)" d="m290 367 133-38 128 100-291 81 30-143Z" />
                     </svg>
                 )}
             </div>

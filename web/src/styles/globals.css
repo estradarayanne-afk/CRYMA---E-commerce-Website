@@ -11,18 +11,35 @@ body,
 }
 
 html {
-    background: var(--rose-cream);
+    background: var(--color-background);
     scroll-behavior: smooth;
     color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 body {
     min-width: 320px;
     min-height: 100vh;
     margin: 0;
-    color: var(--text-primary);
-    background: var(--rose-cream);
-    font-family: var(--font-family-base);
+    color: var(--color-text-primary);
+    background: var(--color-background);
+    font-family: var(--font-family-body);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-normal);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-family-heading);
+    line-height: var(--line-height-tight);
 }
 
 button,
@@ -36,7 +53,7 @@ input,
 select,
 textarea,
 button {
-    accent-color: var(--crimson);
+    accent-color: var(--color-brand-rose);
 }
 
 button,
@@ -75,20 +92,18 @@ button:disabled {
     filter: saturate(.72);
 }
 
-button:focus-visible {
-    outline-color: rgba(126, 24, 48, .72);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px rgba(255, 247, 248, .92);
+:focus-visible {
+    outline: 3px solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
 }
 
-:focus-visible {
-    outline: 3px solid rgba(178, 31, 58, 0.48);
-    outline-offset: 2px;
+button:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-surface-raised);
 }
 
 ::selection {
-    color: var(--wine);
-    background: var(--blush);
+    color: var(--color-brand-deep);
+    background: var(--color-brand-floral);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -97,6 +112,7 @@ button:focus-visible {
     *::after {
         scroll-behavior: auto !important;
         animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
 }

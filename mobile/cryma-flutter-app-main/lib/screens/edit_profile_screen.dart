@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../utils/colors.dart';
@@ -20,6 +22,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneController = TextEditingController();
   bool _loading = true;
   bool _saving = false;
+  XFile? _profileImage;
 
   @override
   void initState() {
@@ -57,19 +60,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      final response = await ApiService.instance.patch(
-        '/api/account/profile',
-        authenticated: true,
-        body: {
-          'first_name': _firstNameController.text.trim(),
-          'last_name': _lastNameController.text.trim(),
-          'middle_name': _middleNameController.text.trim(),
-          'phone': _phoneController.text.trim(),
-        },
-      );
-      // Update stored user
-      final updatedUser = response['user'];
-      if (updatedUser is Map<String, dynamic>) {
+      late final Map<String, dynamic> response;
+      final profileFields = <String, dynamic>{
+        'first_name': _firstNameController.text.trim(),
+        'last_name': _lastNameController.text.trim(),
+        'middle_name': _middleNameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+      };
+      if (_profileImage != null) {
+        response = await ApiService.instance.updateProfileImage(
+          _profileImage!,
+          fields: profileFields.map(
+            (key, value) => MapEntry(key, value.toString()),
+          ),
+        );
+      } else {
+        response = await ApiService.instance.patch(
+          '/api/account/profile',
+          authenticated: true,
+          body: profileFields,
+        );
+      }
+      final updatedUser = response['data'] as Map<String, dynamic>?;
+      if (updatedUser != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('cryma_api_user', jsonEncode(updatedUser));
       }
@@ -80,9 +93,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Navigator.pop(context);
       }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update profile.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update profile.')));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -101,12 +120,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 22, color: AppColors.primary),
+                    icon: const Icon(Icons.arrow_back,
+                        size: 22, color: AppColors.primary),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Expanded(
-                    child: Text('Edit Profile', textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary, fontFamily: 'Poppins')),
+                    child: Text('Edit Profile',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                            fontFamily: 'Poppins')),
                   ),
                   const SizedBox(width: 36),
                 ],
@@ -116,10 +141,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Center(
+                              child: Column(children: [
+                            CircleAvatar(
+                                radius: 38,
+                                backgroundColor: AppColors.softRose,
+                                foregroundImage: _profileImage == null
+                                    ? null
+                                    : FileImage(File(_profileImage!.path)),
+                                child: const Icon(Icons.person_outline,
+                                    size: 36, color: AppColors.primary)),
+                            TextButton.icon(
+                                onPressed: _saving
+                                    ? null
+                                    : () async {
+                                        final image = await ImagePicker()
+                                            .pickImage(
+                                                source: ImageSource.gallery,
+                                                imageQuality: 85);
+                                        if (image != null && mounted) {
+                                          setState(() => _profileImage = image);
+                                        }
+                                      },
+                                icon: const Icon(Icons.photo_camera_outlined),
+                                label: const Text('Choose profile photo')),
+                          ])),
                           _buildLabel('FIRST NAME'),
                           _buildTextField(controller: _firstNameController),
                           _buildLabel('LAST NAME'),
@@ -127,9 +178,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           _buildLabel('MIDDLE NAME'),
                           _buildTextField(controller: _middleNameController),
                           _buildLabel('EMAIL ADDRESS'),
-                          _buildTextField(controller: _emailController, enabled: false),
+                          _buildTextField(
+                              controller: _emailController, enabled: false),
                           _buildLabel('CONTACT NUMBER'),
-                          _buildTextField(controller: _phoneController, keyboardType: TextInputType.phone),
+                          _buildTextField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone),
                           const SizedBox(height: 10),
                         ],
                       ),
@@ -144,11 +198,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                   child: _saving
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
-                      : const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.white, fontFamily: 'Poppins')),
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.white))
+                      : const Text('Save Changes',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.white,
+                              fontFamily: 'Poppins')),
                 ),
               ),
             ),
@@ -161,7 +225,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 3),
-      child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary, fontFamily: 'Poppins')),
+      child: Text(text,
+          style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+              fontFamily: 'Poppins')),
     );
   }
 
@@ -180,8 +249,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         controller: controller,
         enabled: enabled,
         keyboardType: keyboardType,
-        style: const TextStyle(fontSize: 12, color: AppColors.darkGray, fontFamily: 'Poppins'),
-        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 9)),
+        style: const TextStyle(
+            fontSize: 12, color: AppColors.darkGray, fontFamily: 'Poppins'),
+        decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 9)),
       ),
     );
   }

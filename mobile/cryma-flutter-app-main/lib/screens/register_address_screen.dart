@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../utils/auth_widgets.dart';
+import '../utils/buyer_registration.dart';
 import '../utils/colors.dart';
 
 // ============================================================
@@ -344,34 +348,180 @@ class RegisterAddressScreen extends StatefulWidget {
 }
 
 class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
+  static const _psgcRoot = 'https://psgc.cloud/api/v2';
+  List<Map<String, dynamic>> _regions = [];
+  List<Map<String, dynamic>> _provinces = [];
+  List<Map<String, dynamic>> _cities = [];
+  List<Map<String, dynamic>> _barangayRows = [];
+  String _regionCode = '';
+  String _provinceCode = '';
+  String _cityCode = '';
+  String _selectedRegion = '';
   String _selectedProvince = '';
   String _selectedMunicipality = '';
   String _selectedBarangay = '';
 
   final TextEditingController _houseNumberController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
-  final TextEditingController _otherDetailsController = TextEditingController();
+  final TextEditingController _buildingNameController = TextEditingController();
+  final TextEditingController _unitNumberController = TextEditingController();
+  final TextEditingController _postalCodeController = TextEditingController();
 
   final _formKey = GlobalKey<FormState>(); // ✅ NEW
 
   bool _showProvince = false;
+  bool _showRegion = false;
   bool _showMunicipality = false;
   bool _showBarangay = false;
+  bool _attemptedContinue = false;
+
+  @override
+  void initState() {
+    super.initState();
+    BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
+    _loadRegions();
+  }
 
   @override
   void dispose() {
+    BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
     _houseNumberController.dispose();
     _streetController.dispose();
-    _otherDetailsController.dispose();
+    _buildingNameController.dispose();
+    _unitNumberController.dispose();
+    _postalCodeController.dispose();
     super.dispose();
   }
 
+  void _onServerErrorsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _formKey.currentState?.validate();
+    });
+  }
+
+  String? _serverError(String field) =>
+      BuyerRegistrationErrorStore.instance.errorFor(field);
+
+  Widget _fieldError(String? message) {
+    if (message == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: AppColors.danger,
+          fontSize: 11,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
   List<String> _getMunicipalities() {
-    return AddressData.municipalities[_selectedProvince] ?? [];
+    return _cities.map((row) => row['name'].toString()).toList();
   }
 
   List<String> _getBarangays() {
-    return AddressData.barangays[_selectedMunicipality] ?? [];
+    return _barangayRows.map((row) => row['name'].toString()).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchOptions(String path) async {
+    final response = await http.get(Uri.parse('$_psgcRoot/$path'),
+        headers: const {
+          'Accept': 'application/json'
+        }).timeout(const Duration(seconds: 12));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw const FormatException(
+          'Philippine address options are unavailable. Please try again.');
+    }
+    final decoded = jsonDecode(response.body);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : decoded;
+    if (data is! List) {
+      throw const FormatException(
+          'The location service returned an invalid response.');
+    }
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<void> _loadRegions() async {
+    try {
+      final rows = await _fetchOptions('regions');
+      if (mounted) setState(() => _regions = rows);
+    } catch (error) {
+      if (mounted) _showAlert(error.toString());
+    }
+  }
+
+  Future<void> _selectRegion(String value) async {
+    final row = _regions.firstWhere((item) => item['name'] == value,
+        orElse: () => const {});
+    final code = row['code']?.toString() ?? '';
+    setState(() {
+      _attemptedContinue = false;
+      _selectedRegion = value;
+      _showRegion = false;
+      _showProvince = false;
+      _showMunicipality = false;
+      _showBarangay = false;
+      _regionCode = code;
+      _selectedProvince = '';
+      _selectedMunicipality = '';
+      _selectedBarangay = '';
+      _provinces = [];
+      _cities = [];
+      _barangayRows = [];
+    });
+    BuyerRegistrationErrorStore.instance.clearField('region');
+    try {
+      final rows = await _fetchOptions('regions/$code/provinces');
+      if (mounted && code == _regionCode) setState(() => _provinces = rows);
+    } catch (error) {
+      if (mounted) _showAlert(error.toString());
+    }
+  }
+
+  Future<void> _selectProvince(String value) async {
+    final row = _provinces.firstWhere((item) => item['name'] == value,
+        orElse: () => const {});
+    final code = row['code']?.toString() ?? '';
+    setState(() {
+      _selectedProvince = value;
+      _provinceCode = code;
+      _selectedMunicipality = '';
+      _selectedBarangay = '';
+      _cities = [];
+      _barangayRows = [];
+    });
+    BuyerRegistrationErrorStore.instance.clearField('province');
+    try {
+      final rows = await _fetchOptions(
+          'regions/$_regionCode/provinces/$code/cities-municipalities');
+      if (mounted && code == _provinceCode) setState(() => _cities = rows);
+    } catch (error) {
+      if (mounted) _showAlert(error.toString());
+    }
+  }
+
+  Future<void> _selectMunicipality(String value) async {
+    final row = _cities.firstWhere((item) => item['name'] == value,
+        orElse: () => const {});
+    final code = row['code']?.toString() ?? '';
+    setState(() {
+      _selectedMunicipality = value;
+      _cityCode = code;
+      _selectedBarangay = '';
+      _barangayRows = [];
+    });
+    BuyerRegistrationErrorStore.instance.clearField('municipality');
+    try {
+      final rows = await _fetchOptions(
+          'regions/$_regionCode/provinces/$_provinceCode/cities-municipalities/$code/barangays');
+      if (mounted && code == _cityCode) setState(() => _barangayRows = rows);
+    } catch (error) {
+      if (mounted) _showAlert(error.toString());
+    }
   }
 
   void _showAlert(String message) {
@@ -407,17 +557,16 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
   }
 
   void _handleContinue() {
-    // 1. Validate dropdowns
+    setState(() => _attemptedContinue = true);
+    // Validate location selections before checking the text fields.
     if (_selectedProvince.isEmpty ||
         _selectedMunicipality.isEmpty ||
-        _selectedBarangay.isEmpty) {
-      _showAlert(
-        'Please select Province, Municipality, and Barangay.',
-      );
+        _selectedBarangay.isEmpty ||
+        _selectedRegion.isEmpty) {
+      setState(() {});
       return;
     }
 
-    // 2. Validate text fields
     final isFormValid = _formKey.currentState?.validate() ?? false;
     if (!isFormValid) {
       return;
@@ -425,16 +574,19 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
 
     final addressData = {
       'province': _selectedProvince,
+      'region': _selectedRegion,
       'municipality': _selectedMunicipality,
       'barangay': _selectedBarangay,
       'houseNumber': _houseNumberController.text.trim(),
       'street': _streetController.text.trim(),
-      'otherDetails': _otherDetailsController.text.trim(),
+      'buildingName': _buildingNameController.text.trim(),
+      'unitNumber': _unitNumberController.text.trim(),
+      'postalCode': _postalCodeController.text.trim(),
     };
 
     Navigator.pushNamed(
       context,
-      '/register_id',
+      '/register_account',
       arguments: {
         'personalData': widget.personalData ?? {},
         'contactData': widget.contactData ?? {},
@@ -449,7 +601,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -491,7 +643,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                 const SizedBox(height: 10),
 
                 // STEPPER
-                _buildStepper(currentStep: 3),
+                _buildStepper(currentStep: 2),
                 const SizedBox(height: 14),
 
                 // INTRO
@@ -506,8 +658,30 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                 const SizedBox(height: 18),
 
                 // LOCATION SECTION
-                _buildSectionTitle('LOCATION (API-BASED)'),
+                _buildSectionTitle('LOCATION'),
                 const SizedBox(height: 6),
+
+                _buildLabel('REGION *'),
+                const SizedBox(height: 4),
+                _buildDropdown(
+                  value: _selectedRegion,
+                  hint: _regions.isEmpty ? 'Loading regions…' : 'Select region',
+                  isOpen: _showRegion,
+                  items: _regions.map((row) => row['name'].toString()).toList(),
+                  isDisabled: _regions.isEmpty,
+                  onToggle: () => setState(() {
+                    _showRegion = !_showRegion;
+                    _showProvince = false;
+                    _showMunicipality = false;
+                    _showBarangay = false;
+                  }),
+                  onSelect: _selectRegion,
+                ),
+                _fieldError(_serverError('region') ??
+                    (_attemptedContinue && _selectedRegion.isEmpty
+                        ? 'Select a region.'
+                        : null)),
+                const SizedBox(height: 10),
 
                 // PROVINCE
                 _buildLabel('PROVINCE *'),
@@ -516,7 +690,9 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                   value: _selectedProvince,
                   hint: 'Select province',
                   isOpen: _showProvince,
-                  items: AddressData.provinces,
+                  items:
+                      _provinces.map((row) => row['name'].toString()).toList(),
+                  isDisabled: _selectedRegion.isEmpty,
                   onToggle: () {
                     setState(() {
                       _showProvince = !_showProvince;
@@ -526,15 +702,17 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                   },
                   onSelect: (value) {
                     setState(() {
-                      _selectedProvince = value;
-                      _selectedMunicipality = '';
-                      _selectedBarangay = '';
                       _showProvince = false;
                       _showMunicipality = false;
                       _showBarangay = false;
                     });
+                    _selectProvince(value);
                   },
                 ),
+                _fieldError(_serverError('province') ??
+                    (_attemptedContinue && _selectedProvince.isEmpty
+                        ? 'Select a province.'
+                        : null)),
                 const SizedBox(height: 10),
 
                 // MUNICIPALITY
@@ -547,8 +725,9 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                   items: _getMunicipalities(),
                   isDisabled: _selectedProvince.isEmpty,
                   onToggle: () {
-                    if (_selectedProvince.isEmpty) {
-                      _showAlert('Please select a province first.');
+                    if (_selectedProvince.isEmpty || _cities.isEmpty) {
+                      _showAlert(
+                          'Please select a province and wait for its cities to load.');
                     } else {
                       setState(() {
                         _showMunicipality = !_showMunicipality;
@@ -559,13 +738,16 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                   },
                   onSelect: (value) {
                     setState(() {
-                      _selectedMunicipality = value;
-                      _selectedBarangay = '';
                       _showMunicipality = false;
                       _showBarangay = false;
                     });
+                    _selectMunicipality(value);
                   },
                 ),
+                _fieldError(_serverError('municipality') ??
+                    (_attemptedContinue && _selectedMunicipality.isEmpty
+                        ? 'Select a city or municipality.'
+                        : null)),
                 const SizedBox(height: 10),
 
                 // BARANGAY
@@ -578,7 +760,8 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                   items: _getBarangays(),
                   isDisabled: _selectedMunicipality.isEmpty,
                   onToggle: () {
-                    if (_selectedMunicipality.isEmpty) {
+                    if (_selectedMunicipality.isEmpty ||
+                        _barangayRows.isEmpty) {
                       _showAlert('Please select a municipality first.');
                     } else {
                       setState(() {
@@ -593,75 +776,125 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                       _selectedBarangay = value;
                       _showBarangay = false;
                     });
+                    BuyerRegistrationErrorStore.instance.clearField('barangay');
                   },
                 ),
+                _fieldError(_serverError('barangay') ??
+                    (_attemptedContinue && _selectedBarangay.isEmpty
+                        ? 'Select a barangay.'
+                        : null)),
                 const SizedBox(height: 16),
 
                 // MANUAL ADDRESS
                 _buildSectionTitle('MANUAL ADDRESS'),
                 const SizedBox(height: 6),
 
-                // HOUSE / UNIT NUMBER (Optional)
-                _buildLabel('HOUSE / UNIT NUMBER'),
+                // Registration API requires the street and house number.
+                _buildLabel('HOUSE NUMBER *'),
                 const SizedBox(height: 4),
                 _buildTextField(
                   controller: _houseNumberController,
                   hintText: '123',
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) return null;
-                    if (value.trim().length > 20) return 'Max 20 characters';
-                    if (!RegExp(r'^[a-zA-Z0-9\-\s]+$').hasMatch(value)) {
-                      return 'Letters, numbers, hyphen only';
+                    if (_serverError('house_number') != null) {
+                      return _serverError('house_number');
+                    }
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter your house or unit number';
+                    }
+                    if (value.trim().length > 20) {
+                      return 'Max 20 characters';
                     }
                     return null;
                   },
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[a-zA-Z0-9\-\s]'),
-                    ),
                     LengthLimitingTextInputFormatter(20),
                   ],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('house_number'),
                 ),
                 const SizedBox(height: 10),
 
-                // STREET (Optional)
-                _buildLabel('STREET'),
+                _buildLabel('STREET *'),
                 const SizedBox(height: 4),
                 _buildTextField(
                   controller: _streetController,
                   hintText: 'Sampaguita Street',
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) return null;
-                    if (value.trim().length > 100) return 'Max 100 characters';
-                    if (!RegExp(r"^[a-zA-Z0-9ñÑ\s\-\.,']+$").hasMatch(value)) {
-                      return 'Invalid characters';
+                    if (_serverError('street') != null) {
+                      return _serverError('street');
+                    }
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter your street';
+                    }
+                    if (value.trim().length > 100) {
+                      return 'Max 100 characters';
                     }
                     return null;
                   },
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r"[a-zA-Z0-9ñÑ\s\-\.,']"),
-                    ),
                     LengthLimitingTextInputFormatter(100),
                   ],
+                  onChanged: (_) =>
+                      BuyerRegistrationErrorStore.instance.clearField('street'),
                 ),
                 const SizedBox(height: 10),
 
-                // OTHER DETAILS (Optional)
-                _buildLabel('OTHER DETAILS'),
+                _buildLabel('BUILDING / SUBDIVISION'),
                 const SizedBox(height: 4),
                 _buildTextField(
-                  controller: _otherDetailsController,
-                  hintText: 'Near the plaza...',
-                  maxLines: 2,
+                  controller: _buildingNameController,
+                  hintText: 'Optional',
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) return null;
-                    if (value.trim().length > 200) return 'Max 200 characters';
+                    if (_serverError('building_name') != null) {
+                      return _serverError('building_name');
+                    }
+                    if ((value ?? '').length > 80) return 'Max 80 characters';
                     return null;
                   },
+                  inputFormatters: [LengthLimitingTextInputFormatter(80)],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('building_name'),
+                ),
+                const SizedBox(height: 10),
+
+                _buildLabel('UNIT / FLOOR'),
+                const SizedBox(height: 4),
+                _buildTextField(
+                  controller: _unitNumberController,
+                  hintText: 'Optional',
+                  validator: (value) {
+                    if (_serverError('unit_number') != null) {
+                      return _serverError('unit_number');
+                    }
+                    if ((value ?? '').length > 30) return 'Max 30 characters';
+                    return null;
+                  },
+                  inputFormatters: [LengthLimitingTextInputFormatter(30)],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('unit_number'),
+                ),
+                const SizedBox(height: 10),
+
+                _buildLabel('POSTAL CODE *'),
+                const SizedBox(height: 4),
+                _buildTextField(
+                  controller: _postalCodeController,
+                  hintText: '4-digit postal code',
+                  validator: (value) {
+                    if (_serverError('postal_code') != null) {
+                      return _serverError('postal_code');
+                    }
+                    return RegExp(r'^\d{4}$').hasMatch(value?.trim() ?? '')
+                        ? null
+                        : 'Enter a valid 4-digit postal code';
+                  },
                   inputFormatters: [
-                    LengthLimitingTextInputFormatter(200),
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
                   ],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('postal_code'),
                 ),
                 const SizedBox(height: 28),
 
@@ -701,100 +934,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
   // STEPPER (walang binago)
   // ============================================================
   Widget _buildStepper({required int currentStep}) {
-    final List<String> steps = [
-      'Personal',
-      'Contact',
-      'Address',
-      'Verify',
-      'Account',
-    ];
-
-    return SizedBox(
-      height: 64,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 26,
-            right: 26,
-            top: 18,
-            child: Row(
-              children: List.generate(steps.length - 1, (index) {
-                final isCompleted = index + 1 < currentStep;
-                return Expanded(
-                  child: Container(
-                    height: 2,
-                    color:
-                        isCompleted ? AppColors.primary : AppColors.lightGray,
-                  ),
-                );
-              }),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: steps.asMap().entries.map((entry) {
-              final index = entry.key;
-              final label = entry.value;
-              final stepNumber = index + 1;
-              final isCurrent = stepNumber == currentStep;
-              final isCompleted = stepNumber < currentStep;
-
-              return SizedBox(
-                width: 50,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.lightGray,
-                      ),
-                      child: Center(
-                        child: isCompleted
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.white,
-                                size: 18,
-                              )
-                            : Text(
-                                stepNumber.toString(),
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCurrent
-                                      ? AppColors.white
-                                      : AppColors.gray,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 9,
-                        fontWeight: isCurrent || isCompleted
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.gray,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
+    return RegistrationProgressHeader(currentStep: currentStep);
   }
 
   Widget _buildSectionTitle(String text) {
@@ -836,6 +976,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
     int maxLines = 1,
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters,
+    ValueChanged<String>? onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -851,6 +992,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
         maxLines: maxLines,
         validator: validator,
         inputFormatters: inputFormatters,
+        onChanged: onChanged,
         style: const TextStyle(
           fontSize: 13,
           color: AppColors.darkGray,

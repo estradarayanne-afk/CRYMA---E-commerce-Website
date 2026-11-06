@@ -41,6 +41,13 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   List<Order> _allOrders = [];
   bool _loading = true;
   String? _error;
+  int _currentPage = 1;
+  int _lastPage = 1;
+  bool _loadingMore = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _sort = 'newest';
+  String? _dateFrom;
+  String? _dateTo;
 
   final List<String> _tabs = [
     'All',
@@ -48,6 +55,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     'To Ship',
     'In Transit',
     'Delivered',
+    'Cancelled',
   ];
 
   @override
@@ -56,16 +64,28 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     _loadOrders();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadOrders() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final rows = await ApiService.instance.getBuyerOrders();
+      final page = await ApiService.instance.getBuyerOrdersPage(
+          search: _searchController.text,
+          sort: _sort,
+          dateFrom: _dateFrom,
+          dateTo: _dateTo);
       if (!mounted) return;
       setState(() {
-        _allOrders = rows.map(_orderFromJson).toList();
+        _allOrders = page.items.map(_orderFromJson).toList();
+        _currentPage = page.currentPage;
+        _lastPage = page.lastPage;
         _loading = false;
       });
     } catch (error) {
@@ -73,6 +93,32 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       setState(() {
         _error = error.toString();
         _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _currentPage >= _lastPage) return;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await ApiService.instance.getBuyerOrdersPage(
+          page: _currentPage + 1,
+          search: _searchController.text,
+          sort: _sort,
+          dateFrom: _dateFrom,
+          dateTo: _dateTo);
+      if (!mounted) return;
+      setState(() {
+        _allOrders.addAll(page.items.map(_orderFromJson));
+        _currentPage = page.currentPage;
+        _lastPage = page.lastPage;
+        _loadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingMore = false;
+        _error = error.toString();
       });
     }
   }
@@ -125,9 +171,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               ) ??
               0)
           .round(),
-      imagePath: image.isEmpty
-          ? 'assets/image/headphones.jpg'
-          : ApiService.instance.resolveImageUrl(image),
+      imagePath:
+          image.isEmpty ? '' : ApiService.instance.resolveImageUrl(image),
     );
   }
 
@@ -231,9 +276,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               width: double.infinity,
               color: AppColors.white,
               padding: const EdgeInsets.fromLTRB(24, 10, 16, 12),
-              child: const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
+              child: Row(children: [
+                const Expanded(
+                    child: Text(
                   'My Orders',
                   textAlign: TextAlign.left,
                   style: TextStyle(
@@ -243,9 +288,94 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                     fontFamily: 'Poppins',
                     letterSpacing: 0,
                   ),
-                ),
-              ),
+                )),
+                IconButton(
+                    tooltip: 'Filter by date',
+                    icon:
+                        const Icon(Icons.date_range, color: AppColors.primary),
+                    onPressed: () async {
+                      final range = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                          initialDateRange: _dateFrom == null
+                              ? null
+                              : DateTimeRange(
+                                  start: DateTime.parse(_dateFrom!),
+                                  end: DateTime.parse(_dateTo!)));
+                      if (range != null && mounted) {
+                        setState(() {
+                          _dateFrom =
+                              range.start.toIso8601String().substring(0, 10);
+                          _dateTo =
+                              range.end.toIso8601String().substring(0, 10);
+                        });
+                        _loadOrders();
+                      }
+                    }),
+                if (_dateFrom != null)
+                  IconButton(
+                      tooltip: 'Clear date filter',
+                      icon: const Icon(Icons.filter_alt_off,
+                          color: AppColors.primary),
+                      onPressed: () {
+                        setState(() {
+                          _dateFrom = null;
+                          _dateTo = null;
+                        });
+                        _loadOrders();
+                      }),
+                IconButton(
+                    tooltip: 'Change order sorting',
+                    icon: const Icon(Icons.sort, color: AppColors.primary),
+                    onPressed: () async {
+                      const options = ['newest', 'oldest', 'highest', 'lowest'];
+                      final value = await showModalBottomSheet<String>(
+                          context: context,
+                          builder: (context) => SafeArea(
+                                  child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                    for (final option in options)
+                                      ListTile(
+                                          title: Text(switch (option) {
+                                            'newest' => 'Newest',
+                                            'oldest' => 'Oldest',
+                                            'highest' => 'Highest total',
+                                            _ => 'Lowest total'
+                                          }),
+                                          trailing: _sort == option
+                                              ? const Icon(Icons.check)
+                                              : null,
+                                          onTap: () =>
+                                              Navigator.pop(context, option))
+                                  ])));
+                      if (value != null && mounted) {
+                        setState(() => _sort = value);
+                        _loadOrders();
+                      }
+                    }),
+              ]),
             ),
+
+            Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _loadOrders(),
+                    decoration: InputDecoration(
+                        hintText: 'Search order number or product',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: IconButton(
+                            tooltip: 'Search',
+                            onPressed: _loadOrders,
+                            icon: const Icon(Icons.arrow_forward)),
+                        filled: true,
+                        fillColor: AppColors.white,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none)))),
 
             // ======================================================
             // STATUS TABS
@@ -299,8 +429,30 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                               physics: const BouncingScrollPhysics(),
                               padding:
                                   const EdgeInsets.fromLTRB(20, 14, 20, 20),
-                              itemCount: filteredOrders.length,
+                              itemCount: filteredOrders.length +
+                                  (_currentPage < _lastPage ? 1 : 0),
                               itemBuilder: (context, index) {
+                                if (index == filteredOrders.length) {
+                                  return Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Center(
+                                          child: OutlinedButton.icon(
+                                              onPressed: _loadingMore
+                                                  ? null
+                                                  : _loadMore,
+                                              icon: _loadingMore
+                                                  ? const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                              strokeWidth: 2))
+                                                  : const Icon(
+                                                      Icons.expand_more),
+                                              label: Text(_loadingMore
+                                                  ? 'Loading…'
+                                                  : 'Load older orders'))));
+                                }
                                 final order = filteredOrders[index];
 
                                 return _buildOrderCard(order);
@@ -484,19 +636,19 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Image(
-                    image: order.imagePath.startsWith('http')
-                        ? NetworkImage(order.imagePath)
-                        : AssetImage(order.imagePath),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(
-                        Icons.image_outlined,
-                        color: AppColors.gray,
-                        size: 30,
-                      );
-                    },
-                  ),
+                  child: order.imagePath.isEmpty
+                      ? const Icon(Icons.image_not_supported_outlined,
+                          color: AppColors.gray, size: 30)
+                      : Image(
+                          image: order.imagePath.startsWith('http')
+                              ? NetworkImage(order.imagePath)
+                              : AssetImage(order.imagePath),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.image_not_supported_outlined,
+                              color: AppColors.gray,
+                              size: 30),
+                        ),
                 ),
 
                 const SizedBox(width: 14),
@@ -641,27 +793,34 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '/home');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          if (_currentPage < _lastPage)
+            OutlinedButton.icon(
+                onPressed: _loadingMore ? null : _loadMore,
+                icon: const Icon(Icons.expand_more),
+                label: Text(_loadingMore ? 'Loading…' : 'Load older orders'))
+          else
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, '/home');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Shop Now',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.white,
+                  fontFamily: 'Poppins',
+                ),
               ),
             ),
-            child: const Text(
-              'Shop Now',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.white,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ),
         ],
       ),
     );

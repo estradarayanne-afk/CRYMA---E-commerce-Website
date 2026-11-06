@@ -179,39 +179,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                   Row(
                     children: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.notifications_outlined,
-                                size: 22, color: AppColors.primary),
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/notification');
-                            },
-                          ),
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: const BoxDecoration(
-                                color: AppColors.danger,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  '3',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.white,
-                                    fontFamily: 'Poppins',
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        tooltip: 'Order activity',
+                        icon: const Icon(Icons.notifications_outlined,
+                            size: 22, color: AppColors.primary),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/notification'),
                       ),
                       IconButton(
                         icon: const Icon(Icons.chat_bubble_outline,
@@ -302,7 +275,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   : GridView.builder(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
                         crossAxisSpacing: spacing,
                         mainAxisSpacing: spacing,

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import '../services/cart_store.dart';
@@ -28,7 +30,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    _checkoutKey = _idempotencyKey();
     _loadCheckout();
   }
 
@@ -50,12 +51,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 (address) => address?['is_default'] == true,
                 orElse: () => addresses.isEmpty ? null : addresses.first,
               );
+      final selectedItems = cartItems.where((item) => item['selected'] == true).toList();
+      final selectedAddressId = int.tryParse(selectedAddress?['id']?.toString() ?? '');
+      final key = await _getOrCreateCheckoutKey(selectedItems, selectedAddressId, _voucherCode);
       if (!mounted) return;
       setState(() {
-        _cartItems =
-            cartItems.where((item) => item['selected'] == true).toList();
+        _cartItems = selectedItems;
         _addresses = addresses;
-        _addressId = int.tryParse(selectedAddress?['id']?.toString() ?? '');
+        _addressId = selectedAddressId;
+        _checkoutKey = key;
         _loading = false;
       });
     } catch (error) {
@@ -76,6 +80,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return '${segment(8)}-${segment(4)}-4${segment(3)}-'
         '${(8 + random.nextInt(4)).toRadixString(16)}${segment(3)}-'
         '${segment(12)}';
+  }
+
+  Future<String> _getOrCreateCheckoutKey(List<Map<String, dynamic>> items, int? addressId, String? voucher) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = items.map((item) => {
+      'product_id': item['product_id'] ?? item['id'],
+      'variant_id': item['variant_id'],
+      'quantity': item['quantity'],
+    }).toList()..sort((a, b) => a.toString().compareTo(b.toString()));
+    final fingerprint = '$addressId|${jsonEncode(normalized)}|${voucher ?? ''}';
+    final existing = prefs.getString('cryma_pending_checkout');
+    if (existing != null) {
+      try {
+        final data = jsonDecode(existing) as Map<String, dynamic>;
+        if (data['fingerprint'] == fingerprint && data['key'] is String) return data['key'] as String;
+      } catch (_) {}
+    }
+    final key = _idempotencyKey();
+    await prefs.setString('cryma_pending_checkout', jsonEncode({'fingerprint': fingerprint, 'key': key}));
+    return key;
+  }
+
+  Future<void> _refreshCheckoutKey() async {
+    final key = await _getOrCreateCheckoutKey(_cartItems, _addressId, _voucherCode);
+    if (mounted) setState(() => _checkoutKey = key);
   }
 
   String _addressLabel(Map<String, dynamic> address) {
@@ -120,6 +149,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _voucherCode = selected['code']?.toString();
       _voucherDiscount = selected['discount_amount']?.toString();
     });
+    await _refreshCheckoutKey();
   }
 
   Future<void> _placeOrder() async {
@@ -163,6 +193,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         idempotencyKey: _checkoutKey!,
         voucherCode: _voucherCode,
       );
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.remove('cryma_pending_checkout');
       final existingItems = await CartStore.instance.items();
       await CartStore.instance.save(
         existingItems.where((item) => item['selected'] != true).toList(),
@@ -277,12 +309,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             _submitting ? null : _selectVoucher,
                                         child: const Text('Change')),
                                     TextButton(
-                                        onPressed: _submitting
-                                            ? null
-                                            : () => setState(() {
-                                                  _voucherCode = null;
-                                                  _voucherDiscount = null;
-                                                }),
+                                        onPressed: _submitting ? null : () async {
+                                          setState(() { _voucherCode = null; _voucherDiscount = null; });
+                                          await _refreshCheckoutKey();
+                                        },
                                         child: const Text('Remove')),
                                   ]),
                                 ],
@@ -321,8 +351,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ),
                                     );
                                   }).toList(),
-                                  onChanged: (value) =>
-                                      setState(() => _addressId = value),
+                                  onChanged: (value) async {
+                                    setState(() => _addressId = value);
+                                    await _refreshCheckoutKey();
+                                  },
                                 ),
                               ],
                             ),
