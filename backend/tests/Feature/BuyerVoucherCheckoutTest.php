@@ -307,4 +307,69 @@ class BuyerVoucherCheckoutTest extends TestCase
             'items' => [['product_id' => $product->id, 'quantity' => $quantity]],
         ];
     }
+
+    public function test_voucher_redemption_is_reversed_on_buyer_cancellation(): void
+    {
+        [$buyer, $product] = $this->buyerAndProduct('50.00', 3);
+        $voucher = $this->voucher(['code' => 'CANCELME', 'per_buyer_limit' => 1]);
+        $this->claim($buyer, $voucher);
+
+        $response = $this->checkout($buyer, $product, ['voucher_code' => 'CANCELME'])
+            ->assertCreated();
+
+        $orderId = $response->json('data.id');
+        $this->assertDatabaseHas('voucher_redemptions', ['order_id' => $orderId]);
+        $this->assertSame(1, $voucher->redemptions()->count());
+
+        // Cancel the order.
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson("/api/orders/{$orderId}/cancel")
+            ->assertOk();
+
+        // Redemption must be gone.
+        $this->assertDatabaseMissing('voucher_redemptions', ['order_id' => $orderId]);
+        $this->assertSame(0, $voucher->fresh()->redemptions()->count());
+    }
+
+    public function test_cancellation_reversal_respects_per_buyer_limit(): void
+    {
+        [$buyer, $product] = $this->buyerAndProduct('50.00', 4);
+        $voucher = $this->voucher(['code' => 'REUSE', 'per_buyer_limit' => 1]);
+        $this->claim($buyer, $voucher);
+
+        // First order — placed and then cancelled.
+        $first = $this->checkout($buyer, $product, ['voucher_code' => 'REUSE'])
+            ->assertCreated();
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson("/api/orders/{$first->json('data.id')}/cancel")
+            ->assertOk();
+
+        // After cancellation the buyer should be able to use the voucher again.
+        $second = $this->checkout($buyer, $product, ['voucher_code' => 'REUSE'])
+            ->assertCreated();
+
+        $this->assertNotSame($first->json('data.id'), $second->json('data.id'));
+        $this->assertSame(1, $voucher->fresh()->redemptions()->count());
+    }
+
+    public function test_admin_cancellation_also_reverses_voucher_redemption(): void
+    {
+        [$buyer, $product] = $this->buyerAndProduct('50.00', 3);
+        $admin   = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $voucher = $this->voucher(['code' => 'ADMCANCEL', 'per_buyer_limit' => 1]);
+        $this->claim($buyer, $voucher);
+
+        $response = $this->checkout($buyer, $product, ['voucher_code' => 'ADMCANCEL'])
+            ->assertCreated();
+        $orderId = $response->json('data.id');
+
+        $this->assertDatabaseHas('voucher_redemptions', ['order_id' => $orderId]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/admin/orders/{$orderId}/status", ['status' => 'CANCELLED'])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('voucher_redemptions', ['order_id' => $orderId]);
+        $this->assertSame(0, $voucher->fresh()->redemptions()->count());
+    }
 }

@@ -45,8 +45,16 @@ class DashboardController extends Controller
             ->endOfDay();
         $currentUsers = User::whereBetween('created_at', [$monthStart, Carbon::now()]);
         $previousUsers = User::whereBetween('created_at', [$previousMonthStart, $previousMonthEnd]);
-        $currentOrders = Order::whereBetween('created_at', [$monthStart, Carbon::now()]);
-        $previousOrders = Order::whereBetween('created_at', [$previousMonthStart, $previousMonthEnd]);
+
+        // Whitelist of statuses that represent real commercial activity.
+        // Cancelled orders are intentionally excluded from all financial aggregates.
+        // New statuses are excluded by default until explicitly added here.
+        $revenueStatuses = ['PENDING', 'PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'DELIVERED', 'COMPLETED'];
+
+        $currentOrders = Order::whereBetween('created_at', [$monthStart, Carbon::now()])
+            ->whereIn('status', $revenueStatuses);
+        $previousOrders = Order::whereBetween('created_at', [$previousMonthStart, $previousMonthEnd])
+            ->whereIn('status', $revenueStatuses);
 
         return response()->json([
             'success' => true,
@@ -58,8 +66,8 @@ class DashboardController extends Controller
                 'riders'               => $riders,
                 'admins'               => $admins,
                 'logistics'            => $logistics,
-                'total_orders'         => Order::count(),
-                'total_revenue'        => Order::sum('total_amount'),
+                'total_orders'         => Order::whereIn('status', $revenueStatuses)->count(),
+                'total_revenue'        => Order::whereIn('status', $revenueStatuses)->sum('total_amount'),
                 'monthly_activity'     => [
                     'users' => ['current' => (clone $currentUsers)->count(), 'previous' => (clone $previousUsers)->count()],
                     'sellers' => [

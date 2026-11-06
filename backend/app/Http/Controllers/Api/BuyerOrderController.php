@@ -3,22 +3,22 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
-use App\Models\Conversation;
 use App\Models\Commission;
 use App\Models\CodCollection;
+use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Order;
+use App\Models\PlatformConfig;
 use App\Models\Product;
 use App\Models\RefundRequest;
 use App\Models\SellerProfile;
+use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherRedemption;
-use App\Models\User;
 use App\Notifications\SellerActivityNotification;
 use App\Support\VoucherDiscount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 
@@ -26,14 +26,6 @@ class BuyerOrderController extends Controller
 {
     public function checkoutData(Request $request)
     {
-        $requiredAddressColumns = ['region', 'label', 'recipient_name', 'phone', 'is_default'];
-        abort_unless(
-            Schema::hasTable('addresses') &&
-            !collect($requiredAddressColumns)->contains(fn (string $column) => !Schema::hasColumn('addresses', $column)),
-            503,
-            'Checkout address selection is unavailable until the required address migrations are applied.'
-        );
-
         $addresses = $request->user()->addresses()
             ->orderByDesc('is_default')
             ->latest('id')
@@ -230,6 +222,9 @@ class BuyerOrderController extends Controller
             $order->save();
             Commission::where('order_id', $order->id)->whereIn('status', ['pending', 'available'])->update(['status' => 'cancelled']);
             CodCollection::where('order_id', $order->id)->where('status', 'awaiting_collection')->update(['status' => 'cancelled']);
+            // Reverse the voucher redemption so the use count is returned to the voucher.
+            // This must run inside the transaction so it rolls back if anything fails.
+            VoucherRedemption::where('order_id', $order->id)->delete();
 
             return $order->load('items.product');
         });
@@ -654,13 +649,14 @@ class BuyerOrderController extends Controller
                 ]);
 
                 $earningsBasisCents = max(0, $subtotalCents - $discountCents);
-                $commissionCents = (int) round($earningsBasisCents * 0.10);
+                $commissionRatePercent = (float) PlatformConfig::getValue('commission_rate_percent', '10.00');
+                $commissionCents = (int) round($earningsBasisCents * ($commissionRatePercent / 100));
                 $sellerId = $order->items()->value('seller_id');
                 Commission::create([
                     'order_id' => $order->id,
                     'seller_id' => $sellerId,
                     'order_amount' => $this->formatCents($earningsBasisCents),
-                    'commission_rate' => 10.00,
+                    'commission_rate' => $commissionRatePercent,
                     'commission_amount' => $this->formatCents($commissionCents),
                     'seller_earnings' => $this->formatCents($earningsBasisCents - $commissionCents),
                     'status' => 'pending',
