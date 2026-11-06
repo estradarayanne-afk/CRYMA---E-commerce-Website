@@ -1,29 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
-// ============================================================
-// MESSAGE MODEL
-// ============================================================
-class Message {
-  final String id;
-  final String text;
-  final String time;
-  final bool isMine;
-
-  Message({
-    required this.id,
-    required this.text,
-    required this.time,
-    this.isMine = false,
-  });
-}
-
-// ============================================================
-// CHAT CONVERSATION SCREEN
-// ============================================================
 class ChatConversationScreen extends StatefulWidget {
   const ChatConversationScreen({super.key, this.chatId});
-
   final String? chatId;
 
   @override
@@ -31,74 +12,168 @@ class ChatConversationScreen extends StatefulWidget {
 }
 
 class _ChatConversationScreenState extends State<ChatConversationScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
+  Map<String, dynamic>? _conversation;
+  List<Map<String, dynamic>> _messages = [];
+  bool _loading = true;
+  bool _sending = false;
+  String? _error;
+  List<Map<String, dynamic>> _orders = [];
+  String? _selectedOrderId;
 
-  final List<Message> _messages = [
-    Message(
-      id: '1',
-      text:
-          'Hello! Thank you for your order 😊 Your package has been handed to J&T Express.',
-      time: '2:01 PM',
-      isMine: false,
-    ),
-    Message(
-      id: '2',
-      text: 'Thank you! Can I get the tracking number?',
-      time: '2:03 PM',
-      isMine: true,
-    ),
-    Message(
-      id: '3',
-      text:
-          'Of course! Tracking number: JT1234567890. You can track it at J&T website.',
-      time: '2:04 PM',
-      isMine: false,
-    ),
-    Message(
-      id: '4',
-      text: 'Perfect, thank you so much! 👍',
-      time: '2:05 PM',
-      isMine: true,
-    ),
-    Message(
-      id: '5',
-      text:
-          "You're welcome! Please leave a review once you receive it. Have a great day! 😊",
-      time: '2:06 PM',
-      isMine: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isNotEmpty) {
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final id = widget.chatId;
+    if (id == null || id.isEmpty) {
       setState(() {
-        _messages.add(
-          Message(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            text: _messageController.text.trim(),
-            time: _formatTime(DateTime.now()),
-            isMine: true,
-          ),
-        );
-        _messageController.clear();
+        _error = 'Select a conversation from Messages first.';
+        _loading = false;
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final conversation =
+          await ApiService.instance.getBuyerChatConversation(id);
+      final messages = (conversation['messages'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      try {
+        await ApiService.instance.markBuyerChatRead(id);
+      } catch (_) {
+        // A read-receipt failure should not prevent the buyer from viewing chat.
+      }
+      final seller = conversation['seller'] as Map<String, dynamic>?;
+      final sellerId = seller?['id']?.toString();
+      final allOrders = (await ApiService.instance.getBuyerOrdersPage()).items;
+      final orders = sellerId == null
+          ? allOrders
+          : allOrders.where((order) {
+              final items = (order['items'] as List? ?? const [])
+                  .whereType<Map<String, dynamic>>();
+              return items
+                  .any((item) => item['seller_id']?.toString() == sellerId);
+            }).toList();
+      if (!mounted) return;
+      setState(() {
+        _conversation = conversation;
+        _messages = messages;
+        _orders = orders;
+        _loading = false;
       });
       _scrollToBottom();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
     }
   }
 
-  String _formatTime(DateTime time) {
-    return '${time.hour}:${time.minute.toString().padLeft(2, '0')} ${time.hour >= 12 ? 'PM' : 'AM'}';
+  String get _title {
+    final seller = _conversation?['seller'] as Map<String, dynamic>?;
+    final profile = seller?['seller_profile'] as Map<String, dynamic>?;
+    final business = profile?['business_name']?.toString().trim();
+    if (business != null && business.isNotEmpty) return business;
+    if (seller != null) {
+      final name =
+          '${seller['first_name'] ?? ''} ${seller['last_name'] ?? ''}'.trim();
+      if (name.isNotEmpty) return name;
+    }
+    return _conversation == null ? 'Conversation' : 'CRYMA Support';
+  }
+
+  bool _isMine(Map<String, dynamic> message) =>
+      message['sender_type'] == 'user' || message['sender_type'] == 'buyer';
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    final id = widget.chatId;
+    if (text.isEmpty || id == null || _sending) return;
+    setState(() => _sending = true);
+    try {
+      await ApiService.instance.sendBuyerChatMessage(id, text,
+          orderId: int.tryParse(_selectedOrderId ?? ''));
+      _messageController.clear();
+      await _load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _attachImage() async {
+    final id = widget.chatId;
+    if (id == null || _sending) return;
+    final file = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (file == null) return;
+    setState(() => _sending = true);
+    try {
+      await ApiService.instance.sendBuyerChatAttachment(
+        id,
+        file,
+        orderId: int.tryParse(_selectedOrderId ?? ''),
+      );
+      await _load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _openAttachment(Map<String, dynamic> message) async {
+    final id = widget.chatId;
+    final messageId = message['id']?.toString();
+    if (id == null || messageId == null) return;
+    try {
+      final response =
+          await ApiService.instance.downloadBuyerChatAttachment(id, messageId);
+      if (!mounted) return;
+      await showDialog<void>(
+          context: context,
+          builder: (context) => Dialog(
+              child: InteractiveViewer(
+                  child:
+                      Image.memory(response.bodyBytes, fit: BoxFit.contain))));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        _scrollController.animateTo(_scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
       }
     });
   }
@@ -107,235 +182,186 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ============================================================
-            // HEADER
-            // ============================================================
-            Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 24, color: AppColors.primary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  // ✅ LOCAL AVATAR - AssetImage
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.lightGray,
-                      image: DecorationImage(
-                        image: AssetImage('assets/image/techzoneph.jpg'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Seller Info
+      appBar: AppBar(
+        title: Text(_title,
+            style: const TextStyle(
+                fontFamily: 'Poppins',
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600)),
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.primary,
+        elevation: 0,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                            onPressed: _load, child: const Text('Try again'))
+                      ])))
+              : Column(children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'TechZone PH',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF00B894),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Text(
-                              'Online',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.gray,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Call Button
-                  IconButton(
-                    icon: const Icon(Icons.call_outlined,
-                        size: 22, color: AppColors.primary),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
-
-            // ============================================================
-            // MESSAGES LIST
-            // ============================================================
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final message = _messages[index];
-                  return _buildMessage(message);
-                },
-              ),
-            ),
-
-            // ============================================================
-            // INPUT
-            // ============================================================
-            Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F5),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _messageController,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppColors.darkGray,
-                                fontFamily: 'Poppins',
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'Type a message...',
-                                hintStyle: TextStyle(
-                                  fontSize: 14,
-                                  color: AppColors.gray,
-                                  fontFamily: 'Poppins',
+                    child: _messages.isEmpty
+                        ? const Center(
+                            child: Text(
+                                'No messages yet. Send a message to start the conversation.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: AppColors.gray)))
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final message = _messages[index];
+                              final mine = _isMine(message);
+                              final senderType =
+                                  message['sender_type']?.toString();
+                              return Align(
+                                alignment: mine
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                child: Container(
+                                  constraints: BoxConstraints(
+                                      maxWidth:
+                                          MediaQuery.sizeOf(context).width *
+                                              .78),
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                      color: mine
+                                          ? AppColors.primary
+                                          : AppColors.white,
+                                      borderRadius: BorderRadius.circular(16)),
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (senderType == 'assistant')
+                                          const Text('CRYMA Support',
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppColors.primary,
+                                                  fontWeight: FontWeight.w600)),
+                                        if (message['product']
+                                            is Map<String, dynamic>)
+                                          Text(
+                                              'Product: ${(message['product'] as Map)['name'] ?? 'Shared item'}',
+                                              style: TextStyle(
+                                                  color: mine
+                                                      ? AppColors.white
+                                                      : AppColors.primary,
+                                                  fontWeight: FontWeight.w600)),
+                                        if (message['order']
+                                            is Map<String, dynamic>)
+                                          Text(
+                                              'Order #${(message['order'] as Map)['id']} · ${(message['order'] as Map)['status'] ?? ''}',
+                                              style: TextStyle(
+                                                  color: mine
+                                                      ? AppColors.white
+                                                      : AppColors.primary,
+                                                  fontWeight: FontWeight.w600)),
+                                        Text(
+                                            message['message']?.toString() ??
+                                                '',
+                                            style: TextStyle(
+                                                fontFamily: 'Poppins',
+                                                color: mine
+                                                    ? AppColors.white
+                                                    : AppColors.darkGray)),
+                                        if ((message['attachment_name'] ?? '')
+                                            .toString()
+                                            .isNotEmpty)
+                                          TextButton.icon(
+                                              onPressed: () =>
+                                                  _openAttachment(message),
+                                              icon: Icon(Icons.image_outlined,
+                                                  color: mine
+                                                      ? AppColors.white
+                                                      : AppColors.primary),
+                                              label: Text('View image',
+                                                  style: TextStyle(
+                                                      color: mine
+                                                          ? AppColors.white
+                                                          : AppColors
+                                                              .primary))),
+                                      ]),
                                 ),
-                                border: InputBorder.none,
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              onSubmitted: (_) => _sendMessage(),
-                            ),
+                              );
+                            },
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.image_outlined,
-                                size: 22, color: AppColors.gray),
-                            onPressed: () {},
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: _sendMessage,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.send_outlined,
-                        size: 20,
+                  SafeArea(
+                    top: false,
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      if (_orders.isNotEmpty)
+                        Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                            child: DropdownButtonFormField<String?>(
+                                initialValue: _selectedOrderId,
+                                decoration: const InputDecoration(
+                                    labelText: 'Attach an order (optional)',
+                                    isDense: true),
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text('No order attached')),
+                                  ..._orders.map((order) => DropdownMenuItem<
+                                          String?>(
+                                      value: order['id'].toString(),
+                                      child: Text(
+                                          'Order #${order['id']} · ${order['status'] ?? ''}')))
+                                ],
+                                onChanged: (value) =>
+                                    setState(() => _selectedOrderId = value))),
+                      Container(
                         color: AppColors.white,
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                        child: Row(children: [
+                          if (_conversation?['seller'] == null)
+                            IconButton(
+                                tooltip: 'Attach an image',
+                                onPressed: _sending ? null : _attachImage,
+                                icon: const Icon(Icons.attach_file,
+                                    color: AppColors.primary)),
+                          Expanded(
+                              child: TextField(
+                                  controller: _messageController,
+                                  minLines: 1,
+                                  maxLines: 4,
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (_) => _sendMessage(),
+                                  decoration: const InputDecoration(
+                                      hintText: 'Write a message',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 12)))),
+                          const SizedBox(width: 8),
+                          IconButton.filled(
+                              onPressed: _sending ? null : _sendMessage,
+                              icon: _sending
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2))
+                                  : const Icon(Icons.send),
+                              color: Colors.white,
+                              style: IconButton.styleFrom(
+                                  backgroundColor: AppColors.primary)),
+                        ]),
                       ),
-                    ),
+                    ]),
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // MESSAGE BUBBLE
-  // ============================================================
-  Widget _buildMessage(Message message) {
-    final isMine = message.isMine;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.8,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: isMine ? AppColors.primary : AppColors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(isMine ? 16 : 4),
-                topRight: Radius.circular(isMine ? 4 : 16),
-                bottomLeft: const Radius.circular(16),
-                bottomRight: const Radius.circular(16),
-              ),
-              boxShadow: isMine
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-            ),
-            child: Text(
-              message.text,
-              style: TextStyle(
-                fontSize: 14,
-                color: isMine ? AppColors.white : AppColors.darkGray,
-                fontFamily: 'Poppins',
-                height: 1.4,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              message.time,
-              style: const TextStyle(
-                fontSize: 10,
-                color: AppColors.gray,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ),
-        ],
-      ),
+                ]),
     );
   }
 }

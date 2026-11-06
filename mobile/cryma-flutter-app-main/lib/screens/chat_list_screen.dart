@@ -1,326 +1,111 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
-// ============================================================
-// CHAT MODEL
-// ============================================================
-class Chat {
-  final String id;
-  final String name;
-  final String message;
-  final String time;
-  final int unread;
-  final String imagePath;
-
-  const Chat({
-    required this.id,
-    required this.name,
-    required this.message,
-    required this.time,
-    this.unread = 0,
-    required this.imagePath,
-  });
-}
-
-// ============================================================
-// CHAT LIST SCREEN
-// ============================================================
-class ChatListScreen extends StatelessWidget {
+class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
 
-  final List<Chat> _chats = const [
-    Chat(
-      id: '1',
-      name: 'TechZone PH',
-      message: 'Your order has been shipped!',
-      time: '2m ago',
-      unread: 2,
-      imagePath: 'assets/image/techzoneph.jpg',
-    ),
-    Chat(
-      id: '2',
-      name: 'Belle Beauty Hub',
-      message: 'Hi! Is this still available?',
-      time: '1h ago',
-      unread: 0,
-      imagePath: 'assets/image/belle_beautyhub.jpg',
-    ),
-    Chat(
-      id: '3',
-      name: 'Home Essentials PH',
-      message: 'Thank you for your order 😊',
-      time: 'Yesterday',
-      unread: 0,
-      imagePath: 'assets/image/home_essential.jpg',
-    ),
-    Chat(
-      id: '4',
-      name: "Juan's Sports Store",
-      message: 'We have that in blue! Would you...',
-      time: 'Mon',
-      unread: 1,
-      imagePath: 'assets/image/juans_sport_store.jpg',
-    ),
-    Chat(
-      id: '5',
-      name: 'Fashion Forward MNL',
-      message: 'Your return has been approved.',
-      time: 'Sun',
-      unread: 0,
-      imagePath: 'assets/image/fashion-forward-mnl.jpg',
-    ),
-  ];
+  @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  List<Map<String, dynamic>> _conversations = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final conversations = await ApiService.instance.getBuyerChatConversations();
+      if (!mounted) return;
+      setState(() { _conversations = conversations; _loading = false; });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() { _error = error.toString(); _loading = false; });
+    }
+  }
+
+  String _title(Map<String, dynamic> conversation) {
+    final seller = conversation['seller'] as Map<String, dynamic>?;
+    final profile = seller?['seller_profile'] as Map<String, dynamic>?;
+    final business = profile?['business_name']?.toString().trim();
+    if (business != null && business.isNotEmpty) return business;
+    if (seller != null) {
+      final name = '${seller['first_name'] ?? ''} ${seller['last_name'] ?? ''}'.trim();
+      if (name.isNotEmpty) return name;
+    }
+    return 'CRYMA Support';
+  }
+
+  String _preview(Map<String, dynamic> conversation) {
+    final messages = conversation['messages'];
+    if (messages is List && messages.isNotEmpty && messages.last is Map<String, dynamic>) {
+      return (messages.last as Map<String, dynamic>)['message']?.toString() ?? 'No messages yet';
+    }
+    return 'No messages yet';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ============================================================
-            // HEADER - may back arrow na
-            // ============================================================
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  // ✅ BACK ARROW
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 22, color: AppColors.primary),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  // TITLE
-                  const Text(
-                    'Messages',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // SEARCH BAR
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.search, size: 16, color: AppColors.gray),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: TextField(
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.darkGray,
-                        fontFamily: 'Poppins',
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search conversations...',
-                        hintStyle: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.gray,
-                          fontFamily: 'Poppins',
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Messages', style: TextStyle(fontFamily: 'Poppins', color: AppColors.primary, fontWeight: FontWeight.w600)),
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.primary,
+        elevation: 0,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _StateMessage(message: _error!, onRetry: _load)
+              : _conversations.isEmpty
+                  ? const Center(child: Text('Your conversations will appear here.', style: TextStyle(fontFamily: 'Poppins', color: AppColors.gray)))
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _conversations.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final conversation = _conversations[index];
+                          final unread = int.tryParse(conversation['unread_messages_count']?.toString() ?? '') ?? 0;
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            leading: const CircleAvatar(backgroundColor: AppColors.softRose, child: Icon(Icons.storefront_outlined, color: AppColors.primary)),
+                            title: Text(_title(conversation), style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: AppColors.darkGray)),
+                            subtitle: Text(_preview(conversation), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Poppins', color: AppColors.gray)),
+                            trailing: unread > 0 ? CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 11))) : const Icon(Icons.chevron_right, color: AppColors.gray),
+                            onTap: () => Navigator.pushNamed(context, '/chat_conversation', arguments: conversation['id'].toString()).then((_) => _load()),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-
-            // CHAT LIST
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _chats.length,
-                itemBuilder: (context, index) {
-                  final chat = _chats[index];
-                  return _buildChatItem(context, chat);
-                },
-              ),
-            ),
-
-            // BOTTOM NAVIGATION
-            _buildBottomNav(),
-          ],
-        ),
-      ),
     );
   }
+}
 
-  // ============================================================
-  // CHAT ITEM
-  // ============================================================
-  Widget _buildChatItem(BuildContext context, Chat chat) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          '/chat_conversation',
-          arguments: chat.id,
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.lightGray,
-                image: DecorationImage(
-                  image: AssetImage(chat.imagePath),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        chat.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      Text(
-                        chat.time,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: AppColors.gray,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          chat.message,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.gray,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                      ),
-                      if (chat.unread > 0) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          width: 18,
-                          height: 18,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${chat.unread}',
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.white,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+class _StateMessage extends StatelessWidget {
+  const _StateMessage({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
 
-  // ============================================================
-  // BOTTOM NAVIGATION
-  // ============================================================
-  Widget _buildBottomNav() {
-    return Container(
-      height: 60,
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(
-          top: BorderSide(color: Color(0xFFE8E8E8), width: 1),
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Poppins', color: AppColors.gray)),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+          ]),
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(Icons.home_outlined, 'Home', false),
-          _buildNavItem(Icons.grid_view_outlined, 'Categories', false),
-          _buildNavItem(Icons.shopping_cart_outlined, 'Cart', false),
-          _buildNavItem(Icons.list_alt_outlined, 'Orders', false),
-          _buildNavItem(Icons.person_outlined, 'Account', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to respective screen
-      },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 22,
-            color: isActive ? AppColors.primary : AppColors.gray,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              color: isActive ? AppColors.primary : AppColors.gray,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              fontFamily: 'Poppins',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      );
 }

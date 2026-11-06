@@ -55,13 +55,13 @@ test("validates addresses and normalizes supported Philippine mobile formats", (
     assert.equal(normalizePhilippineMobile("+63 917-123-4567"), "+639171234567");
     assert.equal(normalizePhilippineMobile("09171234567"), "+639171234567");
     assert.deepEqual(getRegistrationStepErrors(2, {
-        phone: "9171234567", region: "NCR", province: "Metro Manila",
+        phone: "09171234567", region: "NCR", province: "Metro Manila",
         municipality: "Manila", barangay: "Barangay 1", houseNumber: "12-A",
         street: "Rizal St.", buildingName: "", unitNumber: "", postalCode: "1000",
     }), {});
     assert.ok(getRegistrationStepErrors(2, { phone: "123", houseNumber: " ", street: "" }).phone);
     assert.deepEqual(getRegistrationStepErrors(2, {
-        phone: "9171234567", region: "NCR", province: "Metro Manila",
+        phone: "09171234567", region: "NCR", province: "Metro Manila",
         municipality: "Manila", barangay: "Barangay 1", houseNumber: "1".repeat(20),
         street: "S".repeat(100), buildingName: "B".repeat(80), unitNumber: "U".repeat(30), postalCode: "1000",
     }), {});
@@ -72,12 +72,12 @@ test("validates addresses and normalizes supported Philippine mobile formats", (
     }).street);
 });
 
-test("requires a ten digit subscriber number beginning with 9 after the fixed country prefix", () => {
+test("requires an 11-digit Philippine mobile number beginning with 09", () => {
     const address = { region: "NCR", province: "Metro Manila", municipality: "Manila", barangay: "Barangay 1", houseNumber: "1", street: "Road", postalCode: "1000" };
-    for (const phone of ["", "917123456", "0171234567", "+639171234567", "917123456a", "91712345678"]) {
+    for (const phone of ["", "9171234567", "0917123456", "08171234567", "+639171234567", "0917123456a", "091712345678"]) {
         assert.ok(getRegistrationStepErrors(2, { ...address, phone }).phone, `expected ${phone} to fail`);
     }
-    assert.equal(getRegistrationStepErrors(2, { ...address, phone: "9171234567" }).phone, undefined);
+    assert.equal(getRegistrationStepErrors(2, { ...address, phone: "09171234567" }).phone, undefined);
 });
 
 test("enforces email and password boundaries", () => {

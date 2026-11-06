@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/favorites_store.dart';
 import '../utils/colors.dart';
 
 // ============================================================
@@ -68,28 +69,71 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   String? _selectedCategory;
   String _sortOrder = 'Newest';
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _inStockOnly = false;
+  double? _minPrice;
+  double? _maxPrice;
+  int _page = 1;
+  int _lastPage = 1;
+  final Set<String> _favoriteIds = {};
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _selectedCategory = widget.category;
+    _loadFavorites();
     _loadResults();
   }
 
-  Future<void> _loadResults() async {
+  Future<void> _loadFavorites() async {
+    final ids = await FavoritesStore.instance.getIds();
+    if (mounted) {
+      setState(() {
+        _favoriteIds
+          ..clear()
+          ..addAll(ids);
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite(String id) async {
+    await FavoritesStore.instance.toggle(id);
+    if (mounted) {
+      setState(() {
+        if (!_favoriteIds.add(id)) _favoriteIds.remove(id);
+      });
+    }
+  }
+
+  Future<void> _loadResults({bool append = false}) async {
     setState(() {
-      _loading = true;
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _page = 1;
+      }
       _error = null;
     });
     try {
-      final products = await ApiService.instance.getProducts(
+      final page = await ApiService.instance.getProductsPage(
         search: widget.searchQuery,
         category: _selectedCategory,
+        minPrice: _minPrice,
+        maxPrice: _maxPrice,
+        inStockOnly: _inStockOnly,
+        sort: switch (_sortOrder) {
+          'Price: low to high' => 'price-low',
+          'Price: high to low' => 'price-high',
+          _ => 'newest'
+        },
+        page: append ? _page + 1 : 1,
       );
+      final products = page.items;
       if (!mounted) return;
       setState(() {
-        _results = products.map((product) {
+        final rows = products.map((product) {
           final price =
               double.tryParse(product['price']?.toString() ?? '') ?? 0;
           final originalPrice =
@@ -104,19 +148,27 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 double.tryParse(product['average_rating']?.toString() ?? '') ??
                     0,
             category: product['category']?.toString() ?? 'Other',
-            imagePath: image.isEmpty
-                ? 'assets/image/headphones.jpg'
-                : ApiService.instance.resolveImageUrl(image),
+            imagePath:
+                image.isEmpty ? '' : ApiService.instance.resolveImageUrl(image),
             isSale: originalPrice != null && originalPrice > price,
           );
         }).toList();
+        if (append) {
+          _results.addAll(rows);
+        } else {
+          _results = rows;
+        }
+        _page = page.currentPage;
+        _lastPage = page.lastPage;
         _loading = false;
+        _loadingMore = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.toString();
         _loading = false;
+        _loadingMore = false;
       });
     }
   }
@@ -132,28 +184,80 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _showFilters() async {
-    final category = await showModalBottomSheet<String>(
+    final minimum = TextEditingController(text: _minPrice?.toString() ?? '');
+    final maximum = TextEditingController(text: _maxPrice?.toString() ?? '');
+    var category = _selectedCategory ?? '';
+    var inStock = _inStockOnly;
+    final values = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(title: Text('Filter by category')),
-            ListTile(
-              title: const Text('All categories'),
-              onTap: () => Navigator.pop(context, ''),
-            ),
-            for (final option in _categoryOptions)
-              ListTile(
-                title: Text(option),
-                onTap: () => Navigator.pop(context, option),
-              ),
-          ],
-        ),
-      ),
+      builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+                title: const Text('Filter products'),
+                content: SingleChildScrollView(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  DropdownButtonFormField<String>(
+                      initialValue: category,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      items: [
+                        const DropdownMenuItem(
+                            value: '', child: Text('All categories')),
+                        ..._categoryOptions.map((value) =>
+                            DropdownMenuItem(value: value, child: Text(value)))
+                      ],
+                      onChanged: (value) =>
+                          setDialogState(() => category = value ?? '')),
+                  TextField(
+                      controller: minimum,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration:
+                          const InputDecoration(labelText: 'Minimum price')),
+                  TextField(
+                      controller: maximum,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration:
+                          const InputDecoration(labelText: 'Maximum price')),
+                  CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: inStock,
+                      title: const Text('In stock only'),
+                      onChanged: (value) =>
+                          setDialogState(() => inStock = value ?? false)),
+                ])),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, {
+                            'category': category,
+                            'min': minimum.text,
+                            'max': maximum.text,
+                            'stock': inStock
+                          }),
+                      child: const Text('Apply'))
+                ],
+              )),
     );
-    if (category == null || !mounted) return;
-    setState(() => _selectedCategory = category.isEmpty ? null : category);
+    minimum.dispose();
+    maximum.dispose();
+    if (values == null || !mounted) return;
+    final min = double.tryParse(values['min'] as String);
+    final max = double.tryParse(values['max'] as String);
+    if (min != null && max != null && min > max) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Minimum price must not exceed maximum price.')));
+      return;
+    }
+    setState(() {
+      _selectedCategory = (values['category'] as String).isEmpty
+          ? null
+          : values['category'] as String;
+      _minPrice = min;
+      _maxPrice = max;
+      _inStockOnly = values['stock'] as bool;
+    });
     await _loadResults();
   }
 
@@ -178,8 +282,13 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         ),
       ),
     );
-    if (selected != null && mounted) setState(() => _sortOrder = selected);
+    if (selected != null && mounted) {
+      setState(() => _sortOrder = selected);
+      await _loadResults();
+    }
   }
+
+  Future<void> _loadMore() => _loadResults(append: true);
 
   // ============================================================
   // BUILD
@@ -369,8 +478,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                                 // SMALLER CARD
                                 mainAxisExtent: 350,
                               ),
-                              itemCount: _displayedResults.length,
+                              itemCount: _displayedResults.length +
+                                  (_page < _lastPage ? 1 : 0),
                               itemBuilder: (context, index) {
+                                if (index == _displayedResults.length) {
+                                  return Center(
+                                      child: OutlinedButton(
+                                          onPressed:
+                                              _loadingMore ? null : _loadMore,
+                                          child: Text(_loadingMore
+                                              ? 'Loading…'
+                                              : 'Load more')));
+                                }
                                 return _buildResultCard(
                                   context,
                                   _displayedResults[index],
@@ -516,28 +635,25 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 children: [
                   // PRODUCT IMAGE
                   Positioned.fill(
-                    child: Image(
-                      image: result.imagePath.startsWith('http')
-                          ? NetworkImage(result.imagePath)
-                          : AssetImage(result.imagePath),
-                      fit: BoxFit.cover,
-                      errorBuilder: (
-                        context,
-                        error,
-                        stackTrace,
-                      ) {
-                        return Container(
-                          color: const Color(0xFFE9E9E9),
-                          child: const Center(
-                            child: Icon(
-                              Icons.image_not_supported_outlined,
-                              size: 42,
-                              color: Colors.grey,
-                            ),
+                    child: result.imagePath.isEmpty
+                        ? Container(
+                            color: AppColors.lightGray,
+                            child: const Center(
+                                child: Icon(Icons.image_not_supported_outlined,
+                                    size: 42, color: AppColors.gray)))
+                        : Image(
+                            image: result.imagePath.startsWith('http')
+                                ? NetworkImage(result.imagePath)
+                                : AssetImage(result.imagePath),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                                color: AppColors.lightGray,
+                                child: const Center(
+                                    child: Icon(
+                                        Icons.image_not_supported_outlined,
+                                        size: 42,
+                                        color: AppColors.gray))),
                           ),
-                        );
-                      },
-                    ),
                   ),
 
                   // ==================================================
@@ -589,11 +705,19 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           ),
                         ],
                       ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.favorite_border,
+                      child: IconButton(
+                        tooltip: _favoriteIds.contains(result.id)
+                            ? 'Remove from wishlist'
+                            : 'Add to wishlist',
+                        onPressed: () => _toggleFavorite(result.id),
+                        icon: Icon(
+                          _favoriteIds.contains(result.id)
+                              ? Icons.favorite
+                              : Icons.favorite_border,
                           size: 26,
-                          color: AppColors.gray,
+                          color: _favoriteIds.contains(result.id)
+                              ? AppColors.danger
+                              : AppColors.gray,
                         ),
                       ),
                     ),

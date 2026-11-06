@@ -4,9 +4,16 @@ import '../services/api_service.dart';
 import '../utils/colors.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
-  const OtpVerificationScreen({super.key, this.email});
+  const OtpVerificationScreen({
+    super.key,
+    this.email,
+    this.deliveryFailed = false,
+    this.notice,
+  });
 
   final String? email;
+  final bool deliveryFailed;
+  final String? notice;
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -60,7 +67,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   void _handlePaste(String value) {
-    final digits = value.replaceAll(RegExp(r'[^0-9]'), '').substring(0, value.replaceAll(RegExp(r'[^0-9]'), '').length.clamp(0, 6));
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '').substring(
+        0, value.replaceAll(RegExp(r'[^0-9]'), '').length.clamp(0, 6));
     for (var index = 0; index < _controllers.length; index++) {
       _controllers[index].text = index < digits.length ? digits[index] : '';
     }
@@ -79,10 +87,18 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     if (_isVerifying) return;
     setState(() => _isVerifying = true);
     try {
-      await ApiService.instance.verifyEmail(
+      final response = await ApiService.instance.verifyEmail(
         email: widget.email ?? '',
         otp: otp,
       );
+      final data = response['data'];
+      if (response['success'] != true ||
+          data is! Map<String, dynamic> ||
+          data['email_verified'] != true) {
+        throw const ApiException(
+          'CRYMA did not confirm email verification. Please try again.',
+        );
+      }
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/registration_pending');
       }
@@ -91,7 +107,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.message)));
       }
-    } catch (_) {
+    } on Exception {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Verification failed. Try again.')),
@@ -107,18 +123,26 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     setState(() => _isResending = true);
     var resent = false;
     try {
-      await ApiService.instance.resendVerification(widget.email ?? '');
+      final response =
+          await ApiService.instance.resendVerification(widget.email ?? '');
+      if (response['success'] != true) {
+        throw const ApiException(
+          'CRYMA could not confirm the resend request. Please try again.',
+        );
+      }
       resent = true;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('A new code has been sent to your email')),
+          const SnackBar(
+              content: Text('A new code has been sent to your email')),
         );
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
-    } catch (_) {
+    } on Exception {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not resend code. Try again.')),
@@ -178,7 +202,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
               // SUBTITLE
               Text(
-                'We sent a 6-digit code to\n${widget.email ?? "your email address"}',
+                '${widget.deliveryFailed ? "We could not deliver the code to" : "We sent a 6-digit code to"}\n${widget.email ?? "your email address"}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
@@ -188,6 +212,26 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+              if (widget.deliveryFailed || widget.notice != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.softRose,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.notice ??
+                        'Your registration was saved, but the verification email was not delivered. Use Resend Code when available.',
+                    style: const TextStyle(
+                      color: AppColors.darkGray,
+                      fontSize: 12,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
 
               // ✅ 6 OTP BOXES
               Row(
@@ -240,7 +284,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         } else if (value.isEmpty && index > 0) {
                           _focusNodes[index - 1].requestFocus();
                         }
-                        if (_controllers.map((c) => c.text).join().length == 6) {
+                        if (_controllers.map((c) => c.text).join().length ==
+                            6) {
                           _handleVerify();
                         }
                       },

@@ -5,13 +5,6 @@ import { canDispatchReturnTransfer } from "../../../hubStaff/utils/hubStaffWorks
 
 const human = (s = "") => s.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 const person = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(" ") || "Courier";
-const card = {
-    background: "#fff",
-    border: "1px solid #f0dce2",
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 16,
-};
 
 export default function ParcelFlow({ base = "/admin" }) {
     const [data, setData] = useState({
@@ -19,6 +12,7 @@ export default function ParcelFlow({ base = "/admin" }) {
         areas: [],
         transfers: [],
         returns: [],
+        deliveries: [],
         couriers: [],
     });
     const [error, setError] = useState("");
@@ -32,10 +26,21 @@ export default function ParcelFlow({ base = "/admin" }) {
         setError("");
         try {
             const { data: result } = await api.get(`${base}/parcel-flow`);
-            setData(result.data);
+            const payload = result?.data;
+            if (!payload || typeof payload !== "object") {
+                throw new Error("The parcel operations response was incomplete.");
+            }
+            setData({
+                hubs: Array.isArray(payload.hubs) ? payload.hubs : [],
+                areas: Array.isArray(payload.areas) ? payload.areas : [],
+                transfers: Array.isArray(payload.transfers) ? payload.transfers : [],
+                returns: Array.isArray(payload.returns) ? payload.returns : [],
+                deliveries: Array.isArray(payload.deliveries) ? payload.deliveries : [],
+                couriers: Array.isArray(payload.couriers) ? payload.couriers : [],
+            });
             setLoaded(true);
         } catch (e) {
-            setError(e.response?.data?.message || "Parcel operations could not be loaded.");
+            setError(e.response?.data?.message || e.message || "Parcel operations could not be loaded.");
         } finally {
             setLoading(false);
         }
@@ -116,7 +121,7 @@ export default function ParcelFlow({ base = "/admin" }) {
             {error && <div className="lw-alert" role="alert">{error}</div>}
             {notice && <div className="lo-success" role="status">{notice}</div>}
             {!loaded && loading ? <p className="lw-empty" role="status">Loading hub and delivery area records…</p> : loaded ? <HubAreaManagement base={base} data={data} busy={busy} run={run} /> : <p className="lw-empty">Hub and delivery area records are unavailable. Use Refresh to try again.</p>}
-            <section style={card}>
+            <section className="lo-parcel-section lo-return-queue">
                 <h2>Return parcels</h2>
                 <p>
                     Approve a refund with return required, assign a pickup courier, receive the item
@@ -125,13 +130,13 @@ export default function ParcelFlow({ base = "/admin" }) {
                 </p>
                 {data.returns.length ? (
                     data.returns.map((r) => (
-                        <article
-                            key={r.id}
-                            style={{ borderTop: "1px solid #f0dce2", padding: "14px 0" }}
-                        >
-                            <strong>
-                                Return #{r.id} · Order #{r.order_id} · {human(r.status)}
-                            </strong>
+                        <details className="lo-return-item" key={r.id}>
+                            <summary>
+                                <strong>Return #{r.id} · Order #{r.order_id}</strong>
+                                <span className="lo-return-status">{human(r.status)}</span>
+                                <small>{person(r.buyer)} · {r.current_hub?.name || "Not received at hub"}</small>
+                            </summary>
+                            <div className="lo-return-item-body">
                             <p>
                                 Buyer: {person(r.buyer)} · Seller: {person(r.seller)} · Hub:{" "}
                                 {r.current_hub?.name || "Not received"}
@@ -204,20 +209,20 @@ export default function ParcelFlow({ base = "/admin" }) {
                             {r.status === "delivered" && (
                                 <p>Waiting for seller to confirm the returned parcel.</p>
                             )}
-                        </article>
+                            </div>
+                        </details>
                     ))
                 ) : (
-                    <p>No approved returns requiring parcel movement.</p>
+                    <p className="lo-parcel-empty">No approved returns requiring parcel movement.</p>
                 )}
             </section>
-            <section style={card}>
+            <section className="lo-parcel-section lo-transfer-queue">
                 <h2>Hub-to-hub transfers</h2>
                 <p>Prepare delivery transfers using an explicit area-to-hub mapping. Logistics confirms departure; destination receipt remains pending until the existing QR flow succeeds.</p>
                 {data.deliveries.map((d) => (
-                    <div
-                        key={`d${d.id}`}
-                        style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 0" }}
-                    >
+                    <details className="lo-transfer-prepare" key={`d${d.id}`}>
+                        <summary><strong>Order #{d.order_id} · {human(d.status)}</strong><span>{d.current_hub?.name || "Unknown hub"} · {d.delivery_area?.name || "Choose an area"}</span></summary>
+                        <div className="lo-parcel-item">
                         <span>
                             <strong>Order #{d.order_id} · {human(d.status)}</strong><br />
                             Current hub: {d.current_hub?.name || "Unknown hub"} · Area: {d.delivery_area?.name || "Choose intended area"}
@@ -270,15 +275,18 @@ export default function ParcelFlow({ base = "/admin" }) {
                         >
                             Create transfer
                         </button>
-                    </div>
+                        </div>
+                    </details>
                 ))}
+                {data.deliveries.length === 0 && !data.returns.some((item) => item.status === "at_hub") && (
+                    <p className="lo-parcel-empty">No parcels are currently waiting for a hub-to-hub transfer.</p>
+                )}
                 {data.returns
                     .filter((r) => r.status === "at_hub")
                     .map((r) => (
-                        <div
-                            key={`r${r.id}`}
-                            style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 0" }}
-                        >
+                        <details className="lo-transfer-prepare" key={`r${r.id}`}>
+                            <summary><strong>Return #{r.id}</strong><span>From {r.current_hub?.name || "current hub"} · choose destination</span></summary>
+                            <div className="lo-parcel-item">
                             <span>
                                 Return #{r.id} from {r.current_hub?.name}
                             </span>
@@ -321,7 +329,8 @@ export default function ParcelFlow({ base = "/admin" }) {
                             >
                                 Create transfer
                             </button>
-                        </div>
+                            </div>
+                        </details>
                     ))}
                 <div className="lo-transfer-stage-summary" role="list" aria-label="Hub transfer stages">
                     {[

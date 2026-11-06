@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/api_service.dart';
+import '../utils/auth_widgets.dart';
+import '../utils/buyer_registration.dart';
 import '../utils/colors.dart';
-import '../utils/validators.dart';
 
 class RegisterAccountScreen extends StatefulWidget {
   const RegisterAccountScreen({
@@ -10,13 +10,11 @@ class RegisterAccountScreen extends StatefulWidget {
     this.personalData,
     this.contactData,
     this.addressData,
-    this.idFile,
   });
 
   final Map<String, dynamic>? personalData;
   final Map<String, dynamic>? contactData;
   final Map<String, dynamic>? addressData;
-  final String? idFile;
 
   @override
   State<RegisterAccountScreen> createState() => _RegisterAccountScreenState();
@@ -32,133 +30,46 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
 
   bool _showPassword = false;
   bool _showConfirmPassword = false;
-  bool _agreeTerms = false;
-  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
+  }
 
   @override
   void dispose() {
+    BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _showAlert(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  void _onServerErrorsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _formKey.currentState?.validate();
+    });
   }
 
-  Future<void> _handleSubmit() async {
+  void _handleContinue() {
     final isPasswordValid = _formKey.currentState?.validate() ?? false;
     _confirmPasswordKey.currentState?.validate();
     final isConfirmValid =
         _confirmPasswordController.text == _passwordController.text;
     if (!isPasswordValid || !isConfirmValid) return;
-    if (!_agreeTerms) {
-      _showAlert('Please agree to the Terms & Conditions.');
-      return;
-    }
-
-    final personal = widget.personalData ?? {};
-    final contact = widget.contactData ?? {};
-    final address = widget.addressData ?? {};
-    final idFile = widget.idFile;
-
-    final email = contact['email'] as String? ?? '';
-    if (email.isEmpty) {
-      _showAlert('Email is missing. Please go back and re-enter your email.');
-      return;
-    }
-    if (idFile == null || idFile.isEmpty) {
-      _showAlert('Valid ID is missing. Please go back and upload your ID.');
-      return;
-    }
-
-    // Map sex value to backend enum
-    final rawSex = (personal['sex'] as String? ?? '').toLowerCase();
-    final sex = rawSex == 'male'
-        ? 'male'
-        : rawSex == 'female'
-            ? 'female'
-            : 'prefer_not_to_say';
-
-    // Format birthday from MM/dd/yyyy to yyyy-MM-dd
-    String birthday = personal['birthday'] as String? ?? '';
-    if (birthday.contains('/')) {
-      final parts = birthday.split('/');
-      if (parts.length == 3) birthday = '${parts[2]}-${parts[0]}-${parts[1]}';
-    }
-
-    // Format phone: 09171234567 → +639171234567
-    String phone = contact['contactNumber'] as String? ?? '';
-    if (phone.startsWith('09') && phone.length == 11) {
-      phone = '+63${phone.substring(1)}';
-    }
-
-    final fields = <String, dynamic>{
-      'first_name': personal['firstName'] ?? '',
-      'last_name': personal['lastName'] ?? '',
-      'middle_name': personal['middleInitial'] ?? '',
-      'sex': sex,
-      'birthday': birthday,
-      'email': email,
-      'phone': phone,
-      'password': _passwordController.text,
-      'password_confirmation': _confirmPasswordController.text,
-      'role': 'buyer',
-      'region': address['province'] ?? '',
-      'province': address['province'] ?? '',
-      'municipality': address['municipality'] ?? '',
-      'barangay': address['barangay'] ?? '',
-      'street': address['street'] ?? '',
-      'house_number': address['houseNumber'] ?? '',
-      'postal_code': '0000',
-      'terms_accepted': '1',
-      'terms_version': '1.0',
-      'privacy_notice_acknowledged': '1',
-      'privacy_version': '1.0',
-    };
-
-    setState(() => _isSubmitting = true);
-    try {
-      await ApiService.instance.register(fields: fields, validIdPath: idFile);
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/otp_verification',
-          arguments: email);
-    } on ApiException catch (e) {
-      if (mounted) _showAlert(e.message);
-    } catch (e) {
-      if (mounted) _showAlert('Registration failed. Please try again.');
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  Color _getPasswordStrengthColor(String password) {
-    if (password.isEmpty) return AppColors.gray;
-
-    switch (AppValidators.passwordStrength(password)) {
-      case 'Weak':
-        return Colors.red;
-      case 'Fair':
-        return Colors.orange;
-      case 'Good':
-        return Colors.green;
-      case 'Strong':
-        return AppColors.primary;
-      default:
-        return AppColors.gray;
-    }
+    Navigator.pushNamed(
+      context,
+      '/register_id',
+      arguments: {
+        'personalData': widget.personalData ?? {},
+        'contactData': widget.contactData ?? {},
+        'addressData': widget.addressData ?? {},
+        'password': _passwordController.text,
+        'passwordConfirmation': _confirmPasswordController.text,
+      },
+    );
   }
 
   @override
@@ -167,7 +78,7 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -208,7 +119,7 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
                 const SizedBox(height: 10),
 
                 // STEPPER
-                _buildStepper(currentStep: 5),
+                _buildStepper(currentStep: 3),
                 const SizedBox(height: 14),
 
                 // DESCRIPTION
@@ -230,13 +141,17 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
                   controller: _passwordController,
                   showPassword: _showPassword,
                   hintText: 'Minimum 8 characters',
-                  validator: AppValidators.password,
+                  validator: (value) =>
+                      BuyerRegistrationErrorStore.instance
+                          .errorFor('password') ??
+                      BuyerRegistrationRules.validatePassword(value),
                   onToggle: () {
                     setState(() {
                       _showPassword = !_showPassword;
                     });
                   },
                   onChanged: (_) {
+                    BuyerRegistrationErrorStore.instance.clearField('password');
                     setState(() {});
                     if (_confirmPasswordController.text.isNotEmpty) {
                       _confirmPasswordKey.currentState?.validate();
@@ -245,31 +160,14 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
                 ),
                 const SizedBox(height: 6),
 
-                // PASSWORD STRENGTH BARS
-                if (_passwordController.text.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      Expanded(child: _strengthBar(active: true)),
-                      const SizedBox(width: 6),
-                      Expanded(child: _strengthBar(active: true)),
-                      const SizedBox(width: 6),
-                      Expanded(child: _strengthBar(active: true)),
-                      const SizedBox(width: 6),
-                      Expanded(child: _strengthBar(active: false)),
-                    ],
+                Text(
+                  '${_passwordController.text.runes.length} / ${BuyerRegistrationRules.maxPasswordLength} characters',
+                  style: const TextStyle(
+                    color: AppColors.gray,
+                    fontSize: 10,
+                    fontFamily: 'Poppins',
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${AppValidators.passwordStrength(_passwordController.text)} password strength',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: _getPasswordStrengthColor(
-                        _passwordController.text,
-                      ),
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ],
+                ),
                 const SizedBox(height: 14),
 
                 // CONFIRM PASSWORD
@@ -280,112 +178,30 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
                   showPassword: _showConfirmPassword,
                   hintText: 'Re-enter your password',
                   fieldKey: _confirmPasswordKey,
-                  validator: (value) => AppValidators.confirmPassword(
-                    value,
-                    _passwordController.text,
-                  ),
+                  validator: (value) =>
+                      BuyerRegistrationErrorStore.instance
+                          .errorFor('password_confirmation') ??
+                      BuyerRegistrationRules.validatePasswordConfirmation(
+                        value,
+                        _passwordController.text,
+                      ),
                   onToggle: () {
                     setState(() {
                       _showConfirmPassword = !_showConfirmPassword;
                     });
                   },
                   onChanged: (_) {
+                    BuyerRegistrationErrorStore.instance
+                        .clearField('password_confirmation');
                     setState(() {});
                   },
                 ),
                 const SizedBox(height: 14),
-
-                // TERMS AND CONDITIONS
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _agreeTerms = !_agreeTerms;
-                    });
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      border: Border.all(
-                        color: AppColors.lightGray,
-                        width: 1.5,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: _agreeTerms
-                                ? AppColors.primary
-                                : AppColors.white,
-                            border: Border.all(
-                              color: _agreeTerms
-                                  ? AppColors.primary
-                                  : AppColors.gray,
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: _agreeTerms
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 14,
-                                  color: AppColors.white,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: RichText(
-                            text: const TextSpan(
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.gray,
-                                fontFamily: 'Poppins',
-                                height: 1.5,
-                              ),
-                              children: [
-                                TextSpan(text: 'I agree to the '),
-                                TextSpan(
-                                  text: 'Terms & Conditions',
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                TextSpan(text: ' and '),
-                                TextSpan(
-                                  text: 'Privacy Policy',
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                TextSpan(text: ' of CRYMA.'),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // ✅ SUBMIT BUTTON — nakalink na sa _handleSubmit
                 SizedBox(
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _handleSubmit,
+                    onPressed: _handleContinue,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: AppColors.white,
@@ -394,24 +210,15 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.white,
-                            ),
-                          )
-                        : const Text(
-                            'Submit Registration',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.white,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.white,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -427,102 +234,7 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
   // STEPPER
   // ============================================================
   Widget _buildStepper({required int currentStep}) {
-    final List<String> steps = [
-      'Personal',
-      'Contact',
-      'Address',
-      'Verify',
-      'Account',
-    ];
-
-    return SizedBox(
-      height: 64,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 26,
-            right: 26,
-            top: 18,
-            child: Row(
-              children: List.generate(steps.length - 1, (index) {
-                final isCompleted = index + 1 < currentStep;
-
-                return Expanded(
-                  child: Container(
-                    height: 2,
-                    color:
-                        isCompleted ? AppColors.primary : AppColors.lightGray,
-                  ),
-                );
-              }),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: steps.asMap().entries.map((entry) {
-              final index = entry.key;
-              final label = entry.value;
-              final stepNumber = index + 1;
-
-              final isCurrent = stepNumber == currentStep;
-              final isCompleted = stepNumber < currentStep;
-
-              return SizedBox(
-                width: 50,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.lightGray,
-                      ),
-                      child: Center(
-                        child: isCompleted
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.white,
-                                size: 18,
-                              )
-                            : Text(
-                                stepNumber.toString(),
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCurrent
-                                      ? AppColors.white
-                                      : AppColors.gray,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 9,
-                        fontWeight: isCurrent || isCompleted
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.gray,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
+    return RegistrationProgressHeader(currentStep: currentStep);
   }
 
   // ============================================================
@@ -584,8 +296,9 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
               onChanged: onChanged,
               validator: validator,
               inputFormatters: [
-                LengthLimitingTextInputFormatter(30),
-                FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                LengthLimitingTextInputFormatter(
+                  BuyerRegistrationRules.maxPasswordLength,
+                ),
               ],
               textInputAction: TextInputAction.done,
               style: const TextStyle(
@@ -628,19 +341,6 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // PASSWORD STRENGTH BAR
-  // ============================================================
-  Widget _strengthBar({required bool active}) {
-    return Container(
-      height: 4,
-      decoration: BoxDecoration(
-        color: active ? AppColors.primary : AppColors.lightGray,
-        borderRadius: BorderRadius.circular(10),
       ),
     );
   }

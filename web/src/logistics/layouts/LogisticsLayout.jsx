@@ -23,12 +23,12 @@ import "../../admin/layouts/AdminWorkspace.css";
 const LINKS = [
     { to: "/logistics/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/logistics/riders", label: "Rider Management", icon: UsersRound },
-    { to: "/logistics/pickups", label: "Pickup Requests", icon: ClipboardList },
-    { to: "/logistics/incoming-parcels", label: "Incoming Parcels", icon: PackageCheck },
-    { to: "/logistics/sorting", label: "Sorting", icon: Boxes },
-    { to: "/logistics/parcel-flow", label: "Parcel Flow & Hubs", icon: Boxes },
-    { to: "/logistics/delivery-assignment", label: "Delivery Assignment", icon: MapPinned },
-    { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", icon: Truck },
+    { to: "/logistics/pickups", label: "Pickup Requests", flow: "01 · Collect", icon: ClipboardList },
+    { to: "/logistics/incoming-parcels", label: "Incoming Parcels", flow: "02 · Receive", icon: PackageCheck },
+    { to: "/logistics/sorting", label: "Sorting", flow: "03 · Sort", icon: Boxes },
+    { to: "/logistics/parcel-flow", label: "Parcel Flow & Hubs", flow: "04 · Transfer", icon: Boxes },
+    { to: "/logistics/delivery-assignment", label: "Delivery Assignment", flow: "05 · Dispatch", icon: MapPinned },
+    { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", flow: "06 · Track", icon: Truck },
     { to: "/logistics/reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -141,10 +141,10 @@ function LogisticsLayout() {
                 </div>
                 <p className="lw-section-label">Workspace</p>
                 <nav className="lw-nav" id="logistics-workspace-navigation" aria-label="Logistics workspace">
-                    {LINKS.map(({ to, label, icon: Icon }) => (
+                    {LINKS.map(({ to, label, flow, icon: Icon }) => (
                         <NavLink key={to} to={to} end={to === "/logistics/dashboard"} onClick={() => setMobileNavOpen(false)} title={sidebarCollapsed ? label : undefined} className={({ isActive }) => isActive ? "active" : ""}>
                             <Icon size={18} aria-hidden="true" />
-                            <span className="lw-nav-label">{label}</span>
+                            <span className="lw-nav-copy"><span className="lw-nav-label">{label}</span>{flow && <small className="lw-nav-flow">{flow}</small>}</span>
                         </NavLink>
                     ))}
                 </nav>
@@ -172,7 +172,7 @@ function LogisticsLayout() {
                         </button>
                         <div className="lw-breadcrumb"><span>CRYMA</span><span>/</span><strong>{currentPage}</strong></div>
                     </div>
-                    <div className="lw-header-right"><div className="lw-header-status"><span />System online</div><div className="lw-header-date"><span className="lw-header-date-icon"><Clock3 aria-hidden="true" /></span><div><span>Today</span><strong>{headerDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" })}</strong></div></div></div>
+                    <div className="lw-header-right"><div className="lw-header-status"><Boxes size={14} aria-hidden="true" />Logistics workspace</div><div className="lw-header-date"><span className="lw-header-date-icon"><Clock3 aria-hidden="true" /></span><div><span>Today</span><strong>{headerDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" })}</strong></div></div></div>
                 </header>
                 <main className="lw-content al-content"><Outlet /></main>
             </div>

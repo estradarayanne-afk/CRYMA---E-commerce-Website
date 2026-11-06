@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/api_service.dart';
 import '../services/cart_store.dart';
+import '../services/favorites_store.dart';
 import '../utils/colors.dart';
 
 class ProductsDetailScreen extends StatefulWidget {
@@ -19,23 +21,18 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   // ============================================================
 
   Map<String, dynamic> _product = {
-    'id': '1',
-    'name': 'Anker Soundcore Q35 Wireless Headphones',
-    'price': 2499,
-    'originalPrice': 3299,
-    'rating': 4.7,
-    'reviews': 842,
-    'sold': 1200,
-    'category': 'ELECTRONICS',
-    'images': [
-      'assets/image/headphones.jpg',
-      'assets/image/headphones.jpg',
-      'assets/image/headphones.jpg',
-      'assets/image/headphones.jpg',
-    ],
-    'colors': ['Black', 'Blue', 'White'],
-    'stock': 25,
-    'discount': 24,
+    'id': '',
+    'name': 'Loading product…',
+    'price': 0,
+    'originalPrice': 0,
+    'rating': 0.0,
+    'reviews': 0,
+    'sold': 0,
+    'category': '',
+    'images': [''],
+    'colors': <String>[],
+    'stock': 0,
+    'discount': 0,
   };
 
   // ============================================================
@@ -58,6 +55,7 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   final List<Map<String, dynamic>> _reviews = [];
   String? _selectedVariantId;
   bool _isLoading = true;
+  bool _isFavorite = false;
   String? _loadError;
 
   Map<String, dynamic>? get _selectedVariant {
@@ -80,9 +78,10 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           0)
       .round();
 
-  ImageProvider _imageProvider(String path) {
+  ImageProvider? _imageProvider(String path) {
+    if (path.isEmpty) return null;
     if (path.startsWith('http')) return NetworkImage(path);
-    return AssetImage(path.isEmpty ? 'assets/image/headphones.jpg' : path);
+    return AssetImage(path);
   }
 
   @override
@@ -162,6 +161,8 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           'seller': businessName == null || businessName.isEmpty
               ? 'CRYMA Shop'
               : businessName,
+          'seller_id': seller['id']?.toString(),
+          'store_slug': sellerProfile['store_slug']?.toString(),
         };
         _selectedImage = colorImage.isNotEmpty
             ? ApiService.instance.resolveImageUrl(colorImage)
@@ -175,12 +176,91 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
         }
         _isLoading = false;
       });
+      _isFavorite = await FavoritesStore.instance.contains(widget.productId!);
+      if (mounted) setState(() {});
+      await _loadProductReviews();
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _loadError = error.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final id = widget.productId;
+    if (id == null) return;
+    await FavoritesStore.instance.toggle(id);
+    if (mounted) setState(() => _isFavorite = !_isFavorite);
+  }
+
+  Future<void> _shareProduct() async {
+    final id = widget.productId;
+    if (id == null) return;
+    await Clipboard.setData(
+        ClipboardData(text: 'https://cryma.store/products/$id'));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Product link copied.')));
+    }
+  }
+
+  Future<void> _chatWithSeller() async {
+    final id = widget.productId;
+    if (id == null) return;
+    try {
+      final response =
+          await ApiService.instance.startBuyerSellerConversation(productId: id);
+      final conversation = response['data'] as Map<String, dynamic>?;
+      final conversationId = conversation?['id']?.toString();
+      if (!mounted) return;
+      if (conversationId == null) {
+        throw const ApiException(
+            'The seller conversation could not be opened.');
+      }
+      await Navigator.pushNamed(context, '/chat_conversation',
+          arguments: conversationId);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  Future<void> _loadProductReviews() async {
+    final id = widget.productId;
+    if (id == null) return;
+    try {
+      final data = await ApiService.instance.getProductReviews(id);
+      final rows = (data['reviews'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        _reviews
+          ..clear()
+          ..addAll(rows.map((review) {
+            final buyer = review['buyer'] as Map<String, dynamic>?;
+            return {
+              'name': '${buyer?['first_name'] ?? ''} ${buyer?['last_name'] ?? ''}'
+                      .trim()
+                      .isEmpty
+                  ? 'Buyer'
+                  : '${buyer?['first_name'] ?? ''} ${buyer?['last_name'] ?? ''}'
+                      .trim(),
+              'rating':
+                  double.tryParse(review['rating']?.toString() ?? '') ?? 0.0,
+              'comment': review['comment']?.toString() ?? '',
+              'date': review['created_at']?.toString() ?? '',
+            };
+          }));
+        _product['rating'] =
+            double.tryParse(data['average_rating']?.toString() ?? '') ?? 0;
+        _product['reviews'] = data['review_count'] ?? _reviews.length;
+      });
+    } catch (_) {
+      // Product detail remains usable if the optional review request fails.
     }
   }
 
@@ -464,6 +544,28 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   // ============================================================
   Future<void> _buyNow() => _addToCart(openCheckout: true);
 
+  Future<void> _messageSeller() async {
+    try {
+      final response = await ApiService.instance.startBuyerSellerConversation(
+        productId: widget.productId,
+      );
+      final conversation = response['data'];
+      final id = conversation is Map<String, dynamic>
+          ? conversation['id']?.toString()
+          : null;
+      if (!mounted) return;
+      if (id == null) {
+        throw const ApiException('The server did not return a conversation.');
+      }
+      await Navigator.pushNamed(context, '/chat_conversation', arguments: id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
   // ============================================================
   // BUILD
   // ============================================================
@@ -500,6 +602,21 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
           child: Row(
             children: [
+              SizedBox(
+                width: 48,
+                height: 54,
+                child: OutlinedButton(
+                  onPressed: _messageSeller,
+                  style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      side: const BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
+                  child: const Icon(Icons.chat_bubble_outline,
+                      color: AppColors.primary),
+                ),
+              ),
+              const SizedBox(width: 8),
               // ADD TO CART
               Expanded(
                 child: SizedBox(
@@ -584,12 +701,17 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                     children: [
                       IconButton(
                         padding: EdgeInsets.zero,
-                        icon: const Icon(
-                          Icons.favorite_border,
+                        icon: Icon(
+                          _isFavorite ? Icons.favorite : Icons.favorite_border,
                           size: 30,
-                          color: AppColors.primary,
+                          color: _isFavorite
+                              ? AppColors.danger
+                              : AppColors.primary,
                         ),
-                        onPressed: () {},
+                        tooltip: _isFavorite
+                            ? 'Remove from wishlist'
+                            : 'Add to wishlist',
+                        onPressed: _toggleFavorite,
                       ),
                       const SizedBox(width: 8),
                       IconButton(
@@ -599,7 +721,8 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                           size: 29,
                           color: AppColors.primary,
                         ),
-                        onPressed: () {},
+                        tooltip: 'Copy product link',
+                        onPressed: _shareProduct,
                       ),
                     ],
                   ),
@@ -646,22 +769,17 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
               borderRadius: BorderRadius.circular(26),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Image(
-              image: _imageProvider(_selectedImage),
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: const Color(0xFFE9E9E9),
-                  child: const Center(
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 45,
-                      color: AppColors.gray,
-                    ),
+            child: _imageProvider(_selectedImage) == null
+                ? const Center(
+                    child: Icon(Icons.image_not_supported_outlined,
+                        size: 45, color: AppColors.gray))
+                : Image(
+                    image: _imageProvider(_selectedImage)!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                        child: Icon(Icons.image_not_supported_outlined,
+                            size: 45, color: AppColors.gray)),
                   ),
-                );
-              },
-            ),
           ),
           if ((_product['discount'] as int? ?? 0) > 0)
             Positioned(
@@ -721,19 +839,18 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Image(
-                image: _imageProvider(imagePath),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Center(
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 22,
-                      color: AppColors.gray,
+              child: _imageProvider(imagePath) == null
+                  ? const Center(
+                      child: Icon(Icons.image_not_supported_outlined,
+                          size: 22, color: AppColors.gray))
+                  : Image(
+                      image: _imageProvider(imagePath)!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(
+                              child: Icon(Icons.image_not_supported_outlined,
+                                  size: 22, color: AppColors.gray)),
                     ),
-                  );
-                },
-              ),
             ),
           );
         },
@@ -975,6 +1092,20 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           ..._specifications.map(
             (spec) => _buildSpecRow(spec['label']!, spec['value']!),
           ),
+          if ((_product['store_slug'] ?? '').toString().isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/storefront',
+                    arguments: _product['store_slug']),
+                icon: const Icon(Icons.storefront_outlined),
+                label: const Text('Visit this store'),
+              ),
+            ),
+          TextButton.icon(
+              onPressed: _chatWithSeller,
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('Message seller')),
         ],
       ),
     );

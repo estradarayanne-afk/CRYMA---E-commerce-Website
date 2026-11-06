@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
     AlertCircle,
     Check,
-    ChevronDown,
     Filter,
     RefreshCw,
     RotateCcw,
@@ -54,9 +53,10 @@ function Categories() {
     const [loadedQueryIdentity, setLoadedQueryIdentity] = useState(null);
 
     const [filterOpen, setFilterOpen] = useState(false);
-    const [sortOpen, setSortOpen] = useState(false);
     const loadMoreRef = useRef(null);
-    const sortControlRef = useRef(null);
+    const filterToggleRef = useRef(null);
+    const filterPanelRef = useRef(null);
+    const filterCloseRef = useRef(null);
     const resultsRef = useRef(null);
     const loadMoreInFlightRef = useRef(false);
     const requestVersionRef = useRef(0);
@@ -94,6 +94,49 @@ function Categories() {
         maxPrice: searchParams.get("maxPrice") || "",
         stock: searchParams.get("stock") === "1",
     });
+
+    useEffect(() => {
+        if (!filterOpen) return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        const mobileQuery = window.matchMedia("(max-width: 900px)");
+        const filterToggle = filterToggleRef.current;
+        const syncScrollLock = () => {
+            document.body.style.overflow = mobileQuery.matches ? "hidden" : previousOverflow;
+            if (mobileQuery.matches) filterCloseRef.current?.focus();
+        };
+        syncScrollLock();
+        mobileQuery.addEventListener("change", syncScrollLock);
+
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") {
+                setFilterOpen(false);
+                return;
+            }
+
+            if (event.key !== "Tab" || !mobileQuery.matches) return;
+            const focusable = [...(filterPanelRef.current?.querySelectorAll(
+                "button:not([disabled]), input:not([disabled]), select:not([disabled])"
+            ) || [])];
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last?.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first?.focus();
+            }
+        };
+        document.addEventListener("keydown", closeOnEscape);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            mobileQuery.removeEventListener("change", syncScrollLock);
+            document.removeEventListener("keydown", closeOnEscape);
+            if (mobileQuery.matches) filterToggle?.focus();
+        };
+    }, [filterOpen]);
 
     useEffect(() => {
         let cancelled = false;
@@ -142,22 +185,6 @@ function Categories() {
 
         return () => { cancelled = true; };
     }, [reloadKey, requestIdentity, requestKey]);
-
-    useEffect(() => {
-        if (!sortOpen) return undefined;
-        const closeOnOutsidePointer = (event) => {
-            if (!sortControlRef.current?.contains(event.target)) setSortOpen(false);
-        };
-        const closeOnEscape = (event) => {
-            if (event.key === "Escape") setSortOpen(false);
-        };
-        document.addEventListener("pointerdown", closeOnOutsidePointer);
-        document.addEventListener("keydown", closeOnEscape);
-        return () => {
-            document.removeEventListener("pointerdown", closeOnOutsidePointer);
-            document.removeEventListener("keydown", closeOnEscape);
-        };
-    }, [sortOpen]);
 
     useEffect(() => {
         const sentinel = loadMoreRef.current;
@@ -231,7 +258,6 @@ function Categories() {
 
     const handleSort = (value) => {
         updateParams({ sort: value });
-        setSortOpen(false);
     };
 
     const handleRefreshProducts = () => {
@@ -280,6 +306,7 @@ function Categories() {
         params.delete("minPrice");
         params.delete("maxPrice");
         params.delete("stock");
+        params.delete("sort");
 
         setSearchParams(params);
 
@@ -414,7 +441,10 @@ function Categories() {
                             type="button"
                             className={category === item ? "active" : ""}
                             aria-pressed={category === item}
-                            onClick={() => updateParams({ category: item })}
+                            onClick={() => {
+                                if (filterOpen) setDraftFilters((current) => ({ ...current, category: item }));
+                                updateParams({ category: item });
+                            }}
                         >
                             {item === "All" ? "All Products" : item}
                         </button>
@@ -430,20 +460,25 @@ function Categories() {
 
                             <button
                                 type="button"
+                                ref={filterToggleRef}
                                 className={`shop-filter-button ${activeFilterCount > 0 ? "has-filters" : ""}`}
-                                aria-label={activeFilterCount ? `Filters, ${activeFilterCount} active` : "Open filters"}
+                                aria-label={activeFilterCount ? `Filters and sort, ${activeFilterCount} active` : "Open filters and sort"}
+                                aria-expanded={filterOpen}
+                                aria-controls="shop-filter-panel"
                         onClick={() => {
-                            setDraftFilters({
-                                category,
-                                minPrice,
-                                maxPrice,
-                                stock: stockOnly,
-                            });
-                            setFilterOpen(true);
+                            if (!filterOpen) {
+                                setDraftFilters({
+                                    category,
+                                    minPrice,
+                                    maxPrice,
+                                    stock: stockOnly,
+                                });
+                            }
+                            setFilterOpen((open) => !open);
                         }}
                     >
-                        <span className="shop-filter-symbol"><Filter size={16} aria-hidden="true" /></span>
-                        <span className="shop-filter-copy"><b>Filters</b><small>Shape your feed</small></span>
+                        <span className="shop-filter-symbol"><SlidersHorizontal size={16} aria-hidden="true" /></span>
+                        <span className="shop-filter-copy"><b>Filters &amp; Sort</b><small>Refine your results</small></span>
 
                         {activeFilterCount > 0 && (
                             <b>
@@ -468,11 +503,10 @@ function Categories() {
                         {category !== "All" && (
                             <button
                                 type="button"
-                                onClick={() =>
-                                    updateParams({
-                                        category: "All",
-                                    })
-                                }
+                                onClick={() => {
+                                    if (filterOpen) setDraftFilters((current) => ({ ...current, category: "All" }));
+                                    updateParams({ category: "All" });
+                                }}
                             >
                                 {category}
                                 <X size={12} />
@@ -482,11 +516,10 @@ function Categories() {
                         {minPrice !== "" && (
                             <button
                                 type="button"
-                                onClick={() =>
-                                    updateParams({
-                                        minPrice: "",
-                                    })
-                                }
+                                onClick={() => {
+                                    if (filterOpen) setDraftFilters((current) => ({ ...current, minPrice: "" }));
+                                    updateParams({ minPrice: "" });
+                                }}
                             >
                                 Min ₱{Number(minPrice).toLocaleString()}
                                 <X size={12} />
@@ -496,11 +529,10 @@ function Categories() {
                         {maxPrice !== "" && (
                             <button
                                 type="button"
-                                onClick={() =>
-                                    updateParams({
-                                        maxPrice: "",
-                                    })
-                                }
+                                onClick={() => {
+                                    if (filterOpen) setDraftFilters((current) => ({ ...current, maxPrice: "" }));
+                                    updateParams({ maxPrice: "" });
+                                }}
                             >
                                 Max ₱{Number(maxPrice).toLocaleString()}
                                 <X size={12} />
@@ -510,11 +542,10 @@ function Categories() {
                         {stockOnly && (
                             <button
                                 type="button"
-                                onClick={() =>
-                                    updateParams({
-                                        stock: false,
-                                    })
-                                }
+                                onClick={() => {
+                                    if (filterOpen) setDraftFilters((current) => ({ ...current, stock: false }));
+                                    updateParams({ stock: false });
+                                }}
                             >
                                 In Stock
                                 <X size={12} />
@@ -524,164 +555,14 @@ function Categories() {
                     </div>
                 </div>
 
-                <div className="shop-sort-control" ref={sortControlRef}>
-                    <span>
-                        Sort by
-                    </span>
-
-                    <div className="shop-sort-select">
-                        <button
-                            type="button"
-                            className="shop-sort-trigger"
-                            aria-haspopup="menu"
-                            aria-expanded={sortOpen}
-                            aria-label={`Sort products, currently ${SORT_OPTIONS.find((option) => option.value === sort)?.label || "Recommended"}`}
-                            onClick={() => setSortOpen((open) => !open)}
-                        >
-                            <SlidersHorizontal size={15} aria-hidden="true" />
-                            <span>{SORT_OPTIONS.find((option) => option.value === sort)?.label || "Recommended"}</span>
-                            <ChevronDown size={14} className={sortOpen ? "is-open" : ""} aria-hidden="true" />
-                        </button>
-                        {sortOpen && (
-                            <div className="shop-sort-menu" role="menu" aria-label="Sort products">
-                                {SORT_OPTIONS.map((option) => (
-                                    <button
-                                        type="button"
-                                        role="menuitemradio"
-                                        aria-checked={sort === option.value}
-                                        className={sort === option.value ? "active" : ""}
-                                        key={option.value}
-                                        onClick={() => handleSort(option.value)}
-                                    >
-                                        <span>{option.label}</span>
-                                        {sort === option.value && <Check size={15} aria-hidden="true" />}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
             </section>
 
-            {/* RESULTS */}
-
-            <section className="shop-results" ref={resultsRef}>
-
-                <div className="shop-results-heading">
-
-                    <div>
-                        <h2>
-                            {categoryTitle}
-                        </h2>
-                    </div>
-
-                    {search && (
-                        <p>
-                            Search results for{" "}
-                            <strong>
-                                "{search}"
-                            </strong>
-                        </p>
-                    )}
-
-                </div>
-
-                {loading ? (
-                    <div className="shop-product-grid shop-skeleton-grid" aria-label="Loading products" aria-busy="true">
-                        {Array.from({ length: 12 }, (_, index) => (
-                            <div className="shop-skeleton-card" key={index}>
-                                <div className="shop-skeleton-image" />
-                                <div className="shop-skeleton-copy"><span /><span /><span /></div>
-                            </div>
-                        ))}
-                    </div>
-                ) : loadError ? (
-                    <div className="shop-empty shop-error-state" role="alert">
-                        <div className="shop-empty-icon"><AlertCircle size={24} /></div>
-                        <h2>Unable to load products</h2>
-                        <p>Please check your connection and try again.</p>
-                        <button type="button" onClick={() => setReloadKey((value) => value + 1)}>
-                            <RefreshCw size={14} /> Try again
-                        </button>
-                    </div>
-                ) : filteredProducts.length > 0 ? (
-                    <>
-                        <div className="shop-product-grid">
-                            {filteredProducts.map((product) => (
-                                <ProductCard
-                                    key={product.id}
-                                    product={product}
-                                    onAddToCart={(item) => {
-                                        const event = new CustomEvent("cryma-add-to-cart", { detail: item, cancelable: true });
-                                        window.dispatchEvent(event);
-                                        return !event.defaultPrevented;
-                                    }}
-                                />
-                            ))}
-                        </div>
-                        {loadingMore && (
-                            <div className="shop-product-grid shop-skeleton-grid shop-load-more-skeletons" aria-label="Loading more products" aria-busy="true">
-                                {Array.from({ length: 5 }, (_, index) => (
-                                    <div className="shop-skeleton-card" key={index}>
-                                        <div className="shop-skeleton-image" />
-                                        <div className="shop-skeleton-copy"><span /><span /><span /></div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {loadMoreError && (
-                            <div className="shop-load-more-error" role="alert">
-                                <span>We couldn’t load the next set of finds.</span>
-                                <button type="button" onClick={() => setLoadMoreError(false)}>Try again</button>
-                            </div>
-                        )}
-                        <div className="shop-scroll-sentinel" ref={loadMoreRef} aria-hidden="true" />
-                    </>
-                ) : (
-                    <div className="shop-empty">
-
-                        <div className="shop-empty-icon">
-                            <Filter size={24} />
-                        </div>
-
-                        <h2>
-                            No products found
-                        </h2>
-
-                        <p>
-                            Try changing your search
-                            or filters.
-                        </p>
-
-                        <button
-                            type="button"
-                            onClick={handleClearFilters}
-                        >
-                            <RotateCcw size={14} />
-                            Clear filters
-                        </button>
-
-                    </div>
-                )}
-
-            </section>
-
-            {/* FILTER DRAWER */}
+            <div className={`shop-results-layout${filterOpen ? " filters-open" : ""}`}>
 
             {filterOpen && (
-                <div
-                    className="shop-filter-overlay"
-                    onMouseDown={(event) => {
-                        if (
-                            event.target ===
-                            event.currentTarget
-                        ) {
-                            setFilterOpen(false);
-                        }
-                    }}
-                >
-                    <aside className="shop-filter-drawer">
+                <>
+                    <button type="button" className="shop-filter-backdrop" aria-label="Close filters" onClick={() => setFilterOpen(false)} />
+                    <aside className="shop-filter-drawer" id="shop-filter-panel" ref={filterPanelRef} aria-label="Product filters">
 
                         <div className="shop-filter-header">
 
@@ -697,6 +578,7 @@ function Categories() {
 
                             <button
                                 type="button"
+                                ref={filterCloseRef}
                                 onClick={() =>
                                     setFilterOpen(false)
                                 }
@@ -708,6 +590,15 @@ function Categories() {
                         </div>
 
                         <div className="shop-filter-content">
+
+                            <div className="shop-filter-section shop-filter-sort-row">
+                                <label htmlFor="shop-sort-select">Sort by</label>
+                                <select id="shop-sort-select" value={sort} onChange={(event) => handleSort(event.target.value)}>
+                                    {SORT_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                </select>
+                            </div>
 
                             {/* CATEGORY */}
 
@@ -915,9 +806,115 @@ function Categories() {
                         </div>
 
                     </aside>
-                </div>
+                </>
             )}
 
+
+
+            {/* RESULTS */}
+
+            <section className="shop-results" ref={resultsRef}>
+
+                <div className="shop-results-heading">
+
+                    <div>
+                        <h2>
+                            {categoryTitle}
+                        </h2>
+                    </div>
+
+                    {search && (
+                        <p>
+                            Search results for{" "}
+                            <strong>
+                                "{search}"
+                            </strong>
+                        </p>
+                    )}
+
+                </div>
+
+                {loading ? (
+                    <div className="shop-product-grid shop-skeleton-grid" aria-label="Loading products" aria-busy="true">
+                        {Array.from({ length: 12 }, (_, index) => (
+                            <div className="shop-skeleton-card" key={index}>
+                                <div className="shop-skeleton-image" />
+                                <div className="shop-skeleton-copy"><span /><span /><span /></div>
+                            </div>
+                        ))}
+                    </div>
+                ) : loadError ? (
+                    <div className="shop-empty shop-error-state" role="alert">
+                        <div className="shop-empty-icon"><AlertCircle size={24} /></div>
+                        <h2>Unable to load products</h2>
+                        <p>Please check your connection and try again.</p>
+                        <button type="button" onClick={() => setReloadKey((value) => value + 1)}>
+                            <RefreshCw size={14} /> Try again
+                        </button>
+                    </div>
+                ) : filteredProducts.length > 0 ? (
+                    <>
+                        <div className="shop-product-grid">
+                            {filteredProducts.map((product) => (
+                                <ProductCard
+                                    key={product.id}
+                                    product={product}
+                                    onAddToCart={(item) => {
+                                        const event = new CustomEvent("cryma-add-to-cart", { detail: item, cancelable: true });
+                                        window.dispatchEvent(event);
+                                        return !event.defaultPrevented;
+                                    }}
+                                />
+                            ))}
+                        </div>
+                        {loadingMore && (
+                            <div className="shop-product-grid shop-skeleton-grid shop-load-more-skeletons" aria-label="Loading more products" aria-busy="true">
+                                {Array.from({ length: 5 }, (_, index) => (
+                                    <div className="shop-skeleton-card" key={index}>
+                                        <div className="shop-skeleton-image" />
+                                        <div className="shop-skeleton-copy"><span /><span /><span /></div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {loadMoreError && (
+                            <div className="shop-load-more-error" role="alert">
+                                <span>We couldn’t load the next set of finds.</span>
+                                <button type="button" onClick={() => setLoadMoreError(false)}>Try again</button>
+                            </div>
+                        )}
+                        <div className="shop-scroll-sentinel" ref={loadMoreRef} aria-hidden="true" />
+                    </>
+                ) : (
+                    <div className="shop-empty">
+
+                        <div className="shop-empty-icon">
+                            <Filter size={24} />
+                        </div>
+
+                        <h2>
+                            No products found
+                        </h2>
+
+                        <p>
+                            Try changing your search
+                            or filters.
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={handleClearFilters}
+                        >
+                            <RotateCcw size={14} />
+                            Clear filters
+                        </button>
+
+                    </div>
+                )}
+
+            </section>
+
+            </div>
         </div>
     );
 }

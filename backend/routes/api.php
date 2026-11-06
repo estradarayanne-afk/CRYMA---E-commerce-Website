@@ -55,6 +55,15 @@ Route::get('/application/document-correction', [ApplicantDocumentCorrectionContr
 Route::post('/application/document-correction', [ApplicantDocumentCorrectionController::class, 'replace'])->middleware('throttle:10,1');
 Route::post('/forgot-password', [PasswordRecoveryController::class, 'sendLink'])->middleware('throttle:3,1');
 Route::post('/reset-password', [PasswordRecoveryController::class, 'reset'])->middleware('throttle:5,1');
+Route::get('/policies/current', function () {
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'terms' => config('policies.terms'),
+            'privacy' => config('policies.privacy'),
+        ],
+    ]);
+});
 
 // Public seller storefront.
 Route::get('/stores/{slug}', [StorefrontController::class, 'publicShow']);

@@ -1118,19 +1118,18 @@ const handleResendVerification = async () => {
                                     </label>
 
                                     <div className="registration-phone-input">
-                                        <span className="registration-phone-prefix" aria-hidden="true">+63</span>
                                         <input
                                             type="tel"
                                             inputMode="numeric"
                                             maxLength={REGISTRATION_LIMITS.phone}
                                             autoComplete="tel-national"
-                                            pattern="9[0-9]{9}"
+                                            pattern="09[0-9]{9}"
                                             required
-                                            aria-label="Mobile number after +63"
+                                            aria-label="Mobile number starting with 09"
                                             aria-invalid={Boolean(currentStepErrors.phone)}
                                             value={phone}
                                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, REGISTRATION_LIMITS.phone))}
-                                            placeholder="9171234567"
+                                            placeholder="09171234567"
                                         />
                                     </div>
                                     {currentStepErrors.phone && <small className="registration-field-error">{currentStepErrors.phone}</small>}

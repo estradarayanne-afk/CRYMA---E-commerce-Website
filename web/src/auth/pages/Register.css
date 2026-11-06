@@ -1104,9 +1104,8 @@
 .register-content .auth-field input:focus,
 .register-content .auth-field select:focus,
 .register-content .password-field input:focus { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(178,31,58,.12); outline: 0; }
-.registration-phone-input { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; }
-.registration-phone-prefix { display: flex; align-items: center; padding: 0 14px; border: 1px solid #cbbbc0; border-right: 0; border-radius: 10px 0 0 10px; background: #f8f3f4; color: var(--text-primary); font-weight: 700; }
-.register-content .registration-phone-input input { min-width: 0; border-radius: 0 10px 10px 0; }
+.registration-phone-input { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+.register-content .registration-phone-input input { min-width: 0; }
 .register-actions .primary-action { min-height: 50px; font-size: 15px; }
 .register-actions .secondary-action { min-height: 48px; font-size: 14px; }
 .auto-generated-label { margin-left: 8px; color: var(--text-muted); font-size: 12px; font-weight: 500; }

@@ -1,251 +1,63 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
-class AllReviewsScreen extends StatelessWidget {
+class AllReviewsScreen extends StatefulWidget {
   const AllReviewsScreen({super.key, this.productId});
-
   final String? productId;
 
-  // Sample reviews (hardcoded muna — papalitan ng API later)
-  final List<Map<String, dynamic>> _reviews = const [
-    {
-      'name': 'Maria Santos',
-      'rating': 5.0,
-      'comment': 'Sobrang ganda ng sound quality! Worth it!',
-      'date': '2 weeks ago',
-    },
-    {
-      'name': 'Juan Dela Cruz',
-      'rating': 4.0,
-      'comment': 'Comfortable siya sa tenga, matagal malowbat.',
-      'date': '1 month ago',
-    },
-    {
-      'name': 'Ana Reyes',
-      'rating': 5.0,
-      'comment': 'Fast shipping, maayos ang packaging!',
-      'date': '1 month ago',
-    },
-    {
-      'name': 'Carlo Mendoza',
-      'rating': 5.0,
-      'comment': 'Excellent noise cancellation! Highly recommended.',
-      'date': '1 month ago',
-    },
-    {
-      'name': 'Liza Garcia',
-      'rating': 4.0,
-      'comment': 'Maganda pero medyo mabigat sa ulo.',
-      'date': '2 months ago',
-    },
-    {
-      'name': 'Mark Villanueva',
-      'rating': 5.0,
-      'comment': 'Sulit! Battery lasts for days.',
-      'date': '2 months ago',
-    },
-  ];
+  @override
+  State<AllReviewsScreen> createState() => _AllReviewsScreenState();
+}
+
+class _AllReviewsScreenState extends State<AllReviewsScreen> {
+  List<Map<String, dynamic>> _reviews = [];
+  double _average = 0;
+  int _count = 0;
+  bool _loading = true;
+  String? _error;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ============================================================
-            // HEADER
-            // ============================================================
-            Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 22, color: AppColors.primary),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'All Reviews',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
+  void initState() { super.initState(); _load(); }
 
-            // ============================================================
-            // RATING SUMMARY
-            // ============================================================
-            Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  const Text(
-                    '4.7',
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: List.generate(5, (index) {
-                          return const Icon(Icons.star,
-                              size: 18, color: AppColors.gold);
-                        }),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${_reviews.length} reviews',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.gray,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // ============================================================
-            // REVIEWS LIST
-            // ============================================================
-            Expanded(
-              child: ListView.builder(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: _reviews.length,
-                itemBuilder: (context, index) {
-                  final review = _reviews[index];
-                  return _buildReviewItem(review);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _load() async {
+    if (widget.productId == null) {
+      setState(() { _error = 'No product was selected.'; _loading = false; });
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = await ApiService.instance.getProductReviews(widget.productId!);
+      if (!mounted) return;
+      setState(() {
+        _reviews = (data['reviews'] as List? ?? const []).whereType<Map<String, dynamic>>().toList();
+        _average = double.tryParse(data['average_rating']?.toString() ?? '') ?? 0;
+        _count = int.tryParse(data['review_count']?.toString() ?? '') ?? _reviews.length;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() { _error = error.toString(); _loading = false; });
+    }
   }
 
-  // ============================================================
-  // REVIEW ITEM
-  // ============================================================
-  Widget _buildReviewItem(Map<String, dynamic> review) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.lightGray),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Avatar + Name + Rating + Date
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: AppColors.softRose,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    review['name'][0],
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      review['name'],
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.darkGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        ...List.generate(5, (index) {
-                          return Icon(
-                            index < (review['rating'] as double).floor()
-                                ? Icons.star
-                                : Icons.star_border,
-                            size: 14,
-                            color: AppColors.gold,
-                          );
-                        }),
-                        const SizedBox(width: 8),
-                        Text(
-                          review['date'],
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.gray,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Comment
-          Text(
-            review['comment'],
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-              fontFamily: 'Poppins',
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('Product Reviews', style: TextStyle(fontFamily: 'Poppins', color: AppColors.primary)), backgroundColor: AppColors.white, foregroundColor: AppColors.primary, elevation: 0),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [Text(_error!, textAlign: TextAlign.center), const SizedBox(height: 12), OutlinedButton(onPressed: _load, child: const Text('Try again'))])))
+                : Column(children: [
+                    Card(margin: const EdgeInsets.all(16), child: Padding(padding: const EdgeInsets.all(18), child: Row(children: [Text(_average.toStringAsFixed(1), style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.primary, fontFamily: 'Poppins')), const SizedBox(width: 14), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: List.generate(5, (i) => Icon(i < _average.round() ? Icons.star : Icons.star_border, color: AppColors.gold, size: 17))), Text('$_count reviews', style: const TextStyle(color: AppColors.gray, fontFamily: 'Poppins'))])]))),
+                    Expanded(child: _reviews.isEmpty ? const Center(child: Text('No customer reviews yet.', style: TextStyle(fontFamily: 'Poppins', color: AppColors.gray))) : RefreshIndicator(onRefresh: _load, child: ListView.separated(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), itemCount: _reviews.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (context, index) {
+                      final review = _reviews[index];
+                      final buyer = review['buyer'] as Map<String, dynamic>?;
+                      final name = '${buyer?['first_name'] ?? ''} ${buyer?['last_name'] ?? ''}'.trim();
+                      final rating = double.tryParse(review['rating']?.toString() ?? '') ?? 0;
+                      return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(name.isEmpty ? 'Buyer' : name, style: const TextStyle(fontWeight: FontWeight.w600, fontFamily: 'Poppins'))), ...List.generate(5, (i) => Icon(i < rating.round() ? Icons.star : Icons.star_border, color: AppColors.gold, size: 15))]), const SizedBox(height: 8), Text(review['comment']?.toString() ?? '', style: const TextStyle(color: AppColors.textSecondary, height: 1.45, fontFamily: 'Poppins'))])));
+                    }))),
+                  ]),
+      );
 }

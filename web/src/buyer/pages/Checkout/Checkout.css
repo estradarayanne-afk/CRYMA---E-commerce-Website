@@ -325,7 +325,7 @@
 }
 
 .checkout-confirm-modal h2 {
-    color: #294442;
+    color: var(--color-text-primary);
     font-size: 18px;
 }
 
@@ -953,7 +953,7 @@ button.checkout-summary-change { border-color: #e8d5dc; border-radius: 9px; colo
 }
 .checkout-panel-heading h2 {
     margin-top: 2px;
-    color: #294442;
+    color: var(--color-text-primary);
     font-size: 13px;
     font-weight: 800;
 }
@@ -1031,7 +1031,7 @@ button.checkout-summary-change { border-color: #e8d5dc; border-radius: 9px; colo
 }
 .checkout-item strong {
     display: block;
-    color: #294442;
+    color: var(--color-text-primary);
     font-size: 11px;
     overflow: hidden;
     font-weight: 700;
@@ -1170,7 +1170,7 @@ button.checkout-summary-change { border-color: #e8d5dc; border-radius: 9px; colo
     color: #367273;
 }
 .checkout-empty h2 {
-    color: #294442;
+    color: var(--color-text-primary);
     font-size: 18px;
 }
 .checkout-empty p {

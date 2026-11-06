@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
+import '../utils/auth_widgets.dart';
+import '../utils/buyer_registration.dart';
 import '../utils/colors.dart';
 
 class RegisterIDScreen extends StatefulWidget {
@@ -8,11 +11,15 @@ class RegisterIDScreen extends StatefulWidget {
     this.personalData,
     this.contactData,
     this.addressData,
+    this.password,
+    this.passwordConfirmation,
   });
 
   final Map<String, dynamic>? personalData;
   final Map<String, dynamic>? contactData;
   final Map<String, dynamic>? addressData;
+  final String? password;
+  final String? passwordConfirmation;
 
   @override
   State<RegisterIDScreen> createState() => _RegisterIDScreenState();
@@ -21,60 +28,65 @@ class RegisterIDScreen extends StatefulWidget {
 class _RegisterIDScreenState extends State<RegisterIDScreen> {
   String? _selectedFile;
   String? _selectedFileName;
-  final _picker = ImagePicker();
+  String? _fileError;
 
-  void _showAlert(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Error',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: Text(
-          message,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 14,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'OK',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 14,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
   }
 
+  @override
+  void dispose() {
+    BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
+    super.dispose();
+  }
+
+  void _onServerErrorsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String? _serverError(String field) =>
+      BuyerRegistrationErrorStore.instance.errorFor(field);
+
   Future<void> _pickFile() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedFile = picked.path;
-        _selectedFileName = picked.name;
-      });
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
+      );
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(
+            () => _fileError = error.message ?? 'Unable to select a file.');
+      }
+      return;
     }
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    final fileError = BuyerRegistrationRules.validateDocument(
+      name: file.name,
+      size: file.size,
+    );
+    if (fileError != null || file.path == null) {
+      setState(() {
+        _fileError = fileError ?? 'The selected file could not be opened.';
+      });
+      return;
+    }
+    BuyerRegistrationErrorStore.instance.clearField('valid_id');
+    setState(() {
+      _selectedFile = file.path;
+      _selectedFileName = file.name;
+      _fileError = null;
+    });
   }
 
   void _handleContinue() {
-    if (_selectedFile == null) {
-      _showAlert('Please upload a valid ID.');
+    if (_selectedFile == null || _serverError('valid_id') != null) {
+      setState(
+          () => _fileError = _serverError('valid_id') ?? 'Upload a valid ID.');
       return;
     }
 
@@ -83,11 +95,13 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
       'contactData': widget.contactData ?? {},
       'addressData': widget.addressData ?? {},
       'idFile': _selectedFile,
+      'password': widget.password ?? '',
+      'passwordConfirmation': widget.passwordConfirmation ?? '',
     };
 
     Navigator.pushNamed(
       context,
-      '/register_account',
+      '/register_review',
       arguments: combinedData,
     );
   }
@@ -98,7 +112,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -214,7 +228,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
 
                     // Supported files
                     const Text(
-                      'JPG, PNG or PDF supported',
+                      'JPG, JPEG, PNG or PDF supported',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
@@ -268,6 +282,19 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.primary,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ],
+                    if (_fileError != null ||
+                        _serverError('valid_id') != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _serverError('valid_id') ?? _fileError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.danger,
+                          fontSize: 11,
                           fontFamily: 'Poppins',
                         ),
                       ),
@@ -328,101 +355,6 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
   // STEPPER
   // ============================================================
   Widget _buildStepper({required int currentStep}) {
-    final List<String> steps = [
-      'Personal',
-      'Contact',
-      'Address',
-      'Verify',
-      'Account',
-    ];
-
-    return SizedBox(
-      height: 64,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 26,
-            right: 26,
-            top: 18,
-            child: Row(
-              children: List.generate(steps.length - 1, (index) {
-                final isCompleted = index + 1 < currentStep;
-
-                return Expanded(
-                  child: Container(
-                    height: 2,
-                    color:
-                        isCompleted ? AppColors.primary : AppColors.lightGray,
-                  ),
-                );
-              }),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: steps.asMap().entries.map((entry) {
-              final index = entry.key;
-              final label = entry.value;
-              final stepNumber = index + 1;
-
-              final isCurrent = stepNumber == currentStep;
-              final isCompleted = stepNumber < currentStep;
-
-              return SizedBox(
-                width: 50,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.lightGray,
-                      ),
-                      child: Center(
-                        child: isCompleted
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.white,
-                                size: 18,
-                              )
-                            : Text(
-                                stepNumber.toString(),
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCurrent
-                                      ? AppColors.white
-                                      : AppColors.gray,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 9,
-                        fontWeight: isCurrent || isCompleted
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.gray,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
+    return RegistrationProgressHeader(currentStep: currentStep);
   }
 }

@@ -190,41 +190,45 @@ export default function RiderManagement() {
                                         : "Not provided"}</span>
                                 </div>
 
-                                <section className="lr-documents" aria-label={`Documents for ${applicantName(rider)}`}>
-                                    <h3>Submitted documents</h3>
-                                    {REQUIRED_DOCUMENTS.map((type) => {
-                                        const document = documents.find((item) => item.document_type === type);
-                                        return (
-                                            <div className="lr-document" key={type}>
-                                                <div className="lr-document-info">
-                                                    <strong>{DOCUMENT_LABELS[type]}</strong>
-                                                    <span>{document ? `${document.original_file_name} · ${document.status}` : "Not submitted"}</span>
-                                                    {document?.rejection_reason && <small>Reason: {document.rejection_reason}</small>}
-                                                </div>
-                                                {document && (
-                                                    <div className="lr-document-actions">
-                                                        <button type="button" className="lr-secondary" onClick={() => void openDocument(rider.id, document)}>View</button>
-                                                        {document.status === "pending" && <>
-                                                            <button type="button" className="lr-secondary" disabled={!!saving} onClick={() => updateDocument(rider.id, document.id, "approve", applicantName(rider), DOCUMENT_LABELS[type])}>
-                                                                {saving === `document-${document.id}` ? "Saving…" : "Approve"}
-                                                            </button>
-                                                            <input
-                                                                aria-label={`Rejection reason for ${DOCUMENT_LABELS[type]}`}
-                                                                value={documentRejectionReasons[document.id] || ""}
-                                                                onChange={(event) => setDocumentRejectionReasons((current) => ({ ...current, [document.id]: event.target.value }))}
-                                                                placeholder="Document rejection reason"
-                                                                maxLength={500}
-                                                            />
-                                                            <button type="button" className="lr-danger" disabled={!!saving || !documentRejectionReasons[document.id]?.trim()} onClick={() => updateDocument(rider.id, document.id, "reject", applicantName(rider), DOCUMENT_LABELS[type])}>Reject document</button>
-                                                        </>}
+                                <details className="lr-documents">
+                                    <summary>Submitted documents <span>{documents.filter((document) => document.status === "approved").length}/3 approved</span></summary>
+                                    <div className="lr-documents-body" role="group" aria-label={`Documents for ${applicantName(rider)}`}>
+                                        {REQUIRED_DOCUMENTS.map((type) => {
+                                            const document = documents.find((item) => item.document_type === type);
+                                            return (
+                                                <div className="lr-document" key={type}>
+                                                    <div className="lr-document-info">
+                                                        <strong>{DOCUMENT_LABELS[type]}</strong>
+                                                        <span>{document ? `${document.original_file_name} · ${document.status}` : "Not submitted"}</span>
+                                                        {document?.rejection_reason && <small>Reason: {document.rejection_reason}</small>}
                                                     </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </section>
+                                                    {document && (
+                                                        <div className="lr-document-actions">
+                                                            <button type="button" className="lr-secondary" onClick={() => void openDocument(rider.id, document)}>View</button>
+                                                            {document.status === "pending" && <>
+                                                                <button type="button" className="lr-secondary" disabled={!!saving} onClick={() => updateDocument(rider.id, document.id, "approve", applicantName(rider), DOCUMENT_LABELS[type])}>
+                                                                    {saving === `document-${document.id}` ? "Saving…" : "Approve"}
+                                                                </button>
+                                                                <input
+                                                                    aria-label={`Rejection reason for ${DOCUMENT_LABELS[type]}`}
+                                                                    value={documentRejectionReasons[document.id] || ""}
+                                                                    onChange={(event) => setDocumentRejectionReasons((current) => ({ ...current, [document.id]: event.target.value }))}
+                                                                    placeholder="Document rejection reason"
+                                                                    maxLength={500}
+                                                                />
+                                                                <button type="button" className="lr-danger" disabled={!!saving || !documentRejectionReasons[document.id]?.trim()} onClick={() => updateDocument(rider.id, document.id, "reject", applicantName(rider), DOCUMENT_LABELS[type])}>Reject document</button>
+                                                            </>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </details>
 
-                                <footer className="lr-review-actions">
+                                <details className="lr-review-panel">
+                                    <summary>Review application</summary>
+                                    <footer className="lr-review-actions">
                                     <button
                                         type="button"
                                         className="lr-primary"
@@ -253,7 +257,8 @@ export default function RiderManagement() {
                                     {(!rider.email_verified_at || !allDocumentsApproved) && (
                                         <small className="lr-hint">Approval requires verified email and approval of all three documents.</small>
                                     )}
-                                </footer>
+                                    </footer>
+                                </details>
                             </article>
                         );
                     })}

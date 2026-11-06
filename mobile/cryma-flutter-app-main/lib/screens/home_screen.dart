@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../services/api_service.dart';
+import '../services/favorites_store.dart';
 import '../utils/colors.dart';
 
 // ============================================================
@@ -44,8 +45,7 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final images = json['images'];
-    final firstImage =
-        json['image']?.toString() ??
+    final firstImage = json['image']?.toString() ??
         (images is List && images.isNotEmpty ? images.first.toString() : '');
     final price = double.tryParse(json['price']?.toString() ?? '') ?? 0;
     final originalPrice =
@@ -58,7 +58,7 @@ class Product {
       price: price.round(),
       originalPrice: originalPrice.round(),
       imageUrl: firstImage.isEmpty
-          ? 'assets/image/headphones.jpg'
+          ? ''
           : ApiService.instance.resolveImageUrl(firstImage),
       isSale: originalPrice > price,
     );
@@ -85,7 +85,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadFavorites();
     _loadFeaturedProducts();
+  }
+
+  Future<void> _loadFavorites() async {
+    final ids = await FavoritesStore.instance.getIds();
+    if (!mounted) return;
+    setState(() {
+      _isLiked.addEntries(ids.map((id) => MapEntry(id, true)));
+    });
   }
 
   Future<void> _loadFeaturedProducts() async {
@@ -145,10 +154,10 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
-  void _toggleLike(String id) {
-    setState(() {
-      _isLiked[id] = !(_isLiked[id] ?? false);
-    });
+  Future<void> _toggleLike(String id) async {
+    await FavoritesStore.instance.toggle(id);
+    if (!mounted) return;
+    setState(() => _isLiked[id] = !(_isLiked[id] ?? false));
   }
 
   void _onNavItemTapped(int index) {
@@ -199,30 +208,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Row(
                     children: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.notifications_outlined,
-                              color: AppColors.primary,
-                            ),
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/notification');
-                            },
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppColors.danger,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        tooltip: 'Notifications',
+                        icon: const Icon(Icons.notifications_outlined,
+                            color: AppColors.primary),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/notification'),
                       ),
                       IconButton(
                         icon: const Icon(
@@ -346,8 +337,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBanner() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 31),
-      height: 150,
+      margin: EdgeInsets.zero,
+      height: 250,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         image: const DecorationImage(
@@ -358,15 +349,24 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: AppColors.primary.withValues(alpha: 0.35),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              AppColors.primaryDark.withValues(alpha: .91),
+              AppColors.primary.withValues(alpha: .55),
+              AppColors.primaryDark.withValues(alpha: .08),
+            ],
+            stops: const [0, .58, 1],
+          ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             const Text(
-              'DISCOVER MORE',
+              'LOCAL FINDS · REAL PEOPLE',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -377,9 +377,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Everything You Need,\nAll in One Place.',
+              'Good things\nmove closer.',
               style: TextStyle(
-                fontSize: 17,
+                fontSize: 23,
                 fontWeight: FontWeight.bold,
                 color: AppColors.white,
                 fontFamily: 'Poppins',
@@ -544,20 +544,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Center(child: Text('No products are available yet.')),
           )
         else
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+          SizedBox(
+            height: 410,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
               itemCount: _featuredProducts.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.62,
+              separatorBuilder: (_, __) => const SizedBox(width: 15),
+              itemBuilder: (context, index) => SizedBox(
+                width: 205,
+                child: _buildProductCard(_featuredProducts[index]),
               ),
-              itemBuilder: (context, index) =>
-                  _buildProductCard(_featuredProducts[index]),
             ),
           ),
       ],
@@ -575,10 +572,11 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.pushNamed(context, '/product_detail', arguments: product.id);
       },
       child: Container(
-        padding: const EdgeInsets.all(10),
+        height: 400,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(11),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -593,17 +591,26 @@ class _HomeScreenState extends State<HomeScreen> {
             // Product Image
             Stack(
               children: [
-                Container(
-                  height: 130,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    color: AppColors.lightGray,
-                    image: DecorationImage(
-                      image: product.imageUrl.startsWith('http')
-                          ? NetworkImage(product.imageUrl)
-                          : AssetImage(product.imageUrl) as ImageProvider,
-                      fit: BoxFit.cover,
-                    ),
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: AppColors.lightGray),
+                    clipBehavior: Clip.antiAlias,
+                    child: product.imageUrl.isEmpty
+                        ? const Center(
+                            child: Icon(Icons.image_not_supported_outlined,
+                                color: AppColors.gray, size: 34))
+                        : Image(
+                            image: product.imageUrl.startsWith('http')
+                                ? NetworkImage(product.imageUrl)
+                                : AssetImage(product.imageUrl) as ImageProvider,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(Icons.image_not_supported_outlined,
+                                    color: AppColors.gray, size: 34))),
                   ),
                 ),
 

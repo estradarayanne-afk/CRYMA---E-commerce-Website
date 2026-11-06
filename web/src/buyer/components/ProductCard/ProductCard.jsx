@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Heart, PackageOpen, ShoppingCart, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -12,6 +12,34 @@ import { getProductDetailPath, toggleWishlistProduct } from "../../../shared/uti
 import { getProductCategory, getProductShopName } from "../../../shared/utils/productDiscovery";
 import "./ProductCard.css";
 
+// Known catalog mismatch: product 10 points to unrelated seller media.
+// Keep its product data intact and use the neutral fallback until the catalog is corrected.
+const KNOWN_MISMATCHED_PRODUCT_MEDIA = new Map([
+    ["10", new Set([
+        "/storage/products/10/tHbKkfs0Y9zXqUReFgoxxFwYoR9AqrdV1sHRFyYA.jpg",
+        "/storage/products/10/HjunRcu6Wmw93Bhsbw3wd533ui3tVVQQLAJ9DICI.mp4",
+    ])],
+]);
+
+function isKnownMismatchedMedia(product, mediaUrl) {
+    const mismatchedPaths = KNOWN_MISMATCHED_PRODUCT_MEDIA.get(String(product?.id));
+    if (!mismatchedPaths) return false;
+
+    try {
+        const pathname = decodeURIComponent(new URL(mediaUrl, window.location.origin).pathname).toLowerCase();
+        return [...mismatchedPaths].some((path) => path.toLowerCase() === pathname);
+    } catch {
+        return [...mismatchedPaths].some((path) => path.toLowerCase() === String(mediaUrl).toLowerCase());
+    }
+}
+
+function getMediaUrl(media) {
+    const url = typeof media === "string"
+        ? media
+        : media?.url || media?.image_url || media?.video_url;
+    return typeof url === "string" ? url.trim() : "";
+}
+
 function ProductCard({
     product,
     saved,
@@ -21,15 +49,23 @@ function ProductCard({
 }) {
     const navigate = useNavigate();
     const [wishlist, setWishlist] = useState(getBuyerWishlist);
-    const imageCandidates = [product?.image, product?.image_url, product?.thumbnail, product?.displayImage];
-    const imageArray = Array.isArray(product?.images)
-        ? product.images.map((image) => typeof image === "string" ? image : image?.url || image?.image_url)
+    const imageCandidates = [product?.image, product?.image_url, product?.thumbnail, product?.displayImage]
+        .map(getMediaUrl);
+    const imageArray = Array.isArray(product?.images) ? product.images.map(getMediaUrl) : [];
+    const mediaImages = Array.isArray(product?.media)
+        ? product.media.filter((media) => String(media?.type || "").toLowerCase() === "image").map(getMediaUrl)
         : [];
-    const productImages = [...new Set([...imageCandidates, ...imageArray]
-        .filter((image) => typeof image === "string" && image.trim()))];
+    const videoCandidates = Array.isArray(product?.videos) ? product.videos.map(getMediaUrl) : [];
+    const productImages = [...new Set([...imageCandidates, ...mediaImages, ...imageArray]
+        .filter((image) => typeof image === "string" && image.trim() && !isKnownMismatchedMedia(product, image)))];
     const [failedImage, setFailedImage] = useState("");
     const productImage = productImages.find((image) => image !== failedImage) || "";
-    const imageFrameRef = useRef(null);
+    const productVideoCandidates = [...videoCandidates, ...(Array.isArray(product?.media)
+        ? product.media.filter((media) => String(media?.type || "").toLowerCase() === "video").map(getMediaUrl)
+        : [])].filter((video) => typeof video === "string" && video.trim() && !isKnownMismatchedMedia(product, video));
+    const [failedVideo, setFailedVideo] = useState("");
+    const productVideo = productVideoCandidates.find((video) => video !== failedVideo) || "";
+    const [loadedImage, setLoadedImage] = useState("");
 
     const localSaved = wishlist.some((id) => String(id) === String(product?.id));
 
@@ -48,10 +84,6 @@ function ProductCard({
         };
     }, []);
 
-    useEffect(() => {
-        imageFrameRef.current?.classList.remove("has-loaded-image");
-    }, [productImage]);
-
     const handleCardPointerMove = (event) => {
         if (event.pointerType === "touch" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
         const bounds = event.currentTarget.getBoundingClientRect();
@@ -66,11 +98,16 @@ function ProductCard({
         event.currentTarget.style.setProperty("--card-tilt-y", "0deg");
     };
 
-    const price = Number(product?.price || 0);
-    const stock = Number(product?.stock || 0);
+    const hasPrice = product?.price !== null && product?.price !== undefined && String(product.price).trim() !== "" && Number.isFinite(Number(product.price));
+    const price = hasPrice ? Number(product.price) : null;
+    const hasStock = product?.stock !== null && product?.stock !== undefined && String(product.stock).trim() !== "" && Number.isFinite(Number(product.stock));
+    const stock = hasStock ? Number(product.stock) : null;
     const rating = Number(product?.average_rating ?? product?.rating ?? 0);
     const reviewCount = Number(product?.review_count ?? product?.reviews_count ?? 0);
-    const originalPrice = Number(product?.original_price ?? product?.compare_at_price ?? 0);
+    const originalPriceValue = product?.original_price ?? product?.compare_at_price;
+    const originalPrice = originalPriceValue !== null && originalPriceValue !== undefined && String(originalPriceValue).trim() !== "" && Number.isFinite(Number(originalPriceValue))
+        ? Number(originalPriceValue)
+        : null;
 
     const shopName = getProductShopName(product?.seller);
     const sellerOnVacation = product?.seller?.is_on_vacation === true || product?.seller_on_vacation === true;
@@ -139,7 +176,7 @@ function ProductCard({
                     product?.name || "product"
                 }`}
             >
-                <div ref={imageFrameRef} className={`buyer-product-image ${productImage ? "has-image" : ""}`}>
+                <div className={`buyer-product-image ${productImage || productVideo ? "has-image" : ""} ${((productImage && loadedImage === productImage) || (productVideo && loadedImage === productVideo)) ? "has-loaded-image" : ""}`}>
                     {sellerOnVacation && <span className="buyer-product-vacation-badge">On vacation</span>}
                     {productImage && failedImage !== productImage ? (
                         <img
@@ -147,14 +184,24 @@ function ProductCard({
                             alt={product?.name || "Product"}
                             loading="lazy"
                             decoding="async"
-                            onLoad={(event) => event.currentTarget.parentElement?.classList.add("has-loaded-image")}
+                            onLoad={() => setLoadedImage(productImage)}
                             onError={() => setFailedImage(productImage)}
+                        />
+                    ) : productVideo ? (
+                        <video
+                            src={productVideo}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            aria-label={`${product?.name || "Product"} video preview`}
+                            onLoadedData={() => setLoadedImage(productVideo)}
+                            onError={() => setFailedVideo(productVideo)}
                         />
                     ) : (
                         <span className="buyer-product-image-fallback" role="img" aria-label={`Illustrated placeholder for ${product?.name || "product"}`}>
                             <span className="buyer-product-fallback-orbit" aria-hidden="true" />
                             <span className="buyer-product-fallback-mark" aria-hidden="true"><PackageOpen size={32} strokeWidth={1.4} /></span>
-                            <small>CRYMA SELECT</small>
+                            <small>Image unavailable</small>
                         </span>
                     )}
                 </div>
@@ -191,21 +238,24 @@ function ProductCard({
                     </span>
                 )}
 
-                <Link
-                    to={getProductDetailPath(product?.id)}
-                    className="buyer-product-name"
-                    aria-label={`View ${product?.name || "product"} details and reviews`}
-                >
-                    {product?.name ||
-                        "Unnamed product"}
-                </Link>
+                {product?.name && (
+                    <Link
+                        to={getProductDetailPath(product?.id)}
+                        className="buyer-product-name"
+                        aria-label={`View ${product.name} details and reviews`}
+                    >
+                        {product.name}
+                    </Link>
+                )}
 
-                <strong className="buyer-product-price">
-                    {product?.price_from_variants ? "From " : ""}
-                    {String.fromCharCode(8369)}{price.toLocaleString()}
-                </strong>
+                {price !== null && (
+                    <strong className="buyer-product-price">
+                        {product?.price_from_variants ? "From " : ""}
+                        {String.fromCharCode(8369)}{price.toLocaleString()}
+                    </strong>
+                )}
 
-                {originalPrice > price && (
+                {originalPrice !== null && price !== null && originalPrice > price && (
                     <div className="buyer-product-deal">
                         <del>{String.fromCharCode(8369)}{originalPrice.toLocaleString()}</del>
                         <span>{Math.round((1 - price / originalPrice) * 100)}% off</span>
@@ -228,25 +278,23 @@ function ProductCard({
                         </span>
                     )}
 
-                    <span className="buyer-product-stock">
-                        {stock > 0
-                            ? `${stock} available`
-                            : "Out of stock"}
-                    </span>
+                    {hasStock && <span className="buyer-product-stock">
+                        {stock > 0 ? `${stock} available` : "Out of stock"}
+                    </span>}
 
                 </div>
 
                 <button
                     type="button"
                     className="buyer-product-add"
-                    disabled={stock <= 0 || sellerOnVacation}
+                    disabled={stock === null || stock <= 0 || sellerOnVacation}
                 onClick={handleAddToCart}
                 >
                     <ShoppingCart size={15} />
 
-                    {sellerOnVacation ? "On vacation" : stock > 0
+                    {sellerOnVacation ? "On vacation" : stock !== null && stock > 0
                         ? product?.variants?.length ? "Choose Options" : "Add to Cart"
-                        : "Out of Stock"}
+                        : stock === null ? "Unavailable" : "Out of Stock"}
                 </button>
 
             </div>

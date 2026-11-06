@@ -5,7 +5,7 @@ export const REGISTRATION_LIMITS = Object.freeze({
     middleName: 2,
     lastName: 30,
     email: 254,
-    phone: 10,
+    phone: 11,
     password: 128,
     houseNumber: 20,
     street: 100,
@@ -43,7 +43,7 @@ export function normalizePhilippineMobile(value) {
 }
 
 const validName = (value) => /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u.test(value);
-const validPhilippineMobile = (value) => /^9\d{9}$/.test(value);
+const validPhilippineMobile = (value) => /^09\d{9}$/.test(value);
 const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export function calculateAgeOnDate(value, today = null) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -88,7 +88,7 @@ export function getRegistrationStepErrors(step, values) {
     }
 
     if (step === 2) {
-        if (!validPhilippineMobile(String(values.phone ?? ""))) errors.phone = "Enter the 10-digit mobile number after +63, starting with 9.";
+        if (!validPhilippineMobile(String(values.phone ?? ""))) errors.phone = "Enter an 11-digit mobile number starting with 09.";
         for (const [field, label, max] of [
             ["houseNumber", "House number", REGISTRATION_LIMITS.houseNumber],
             ["street", "Street", REGISTRATION_LIMITS.street],

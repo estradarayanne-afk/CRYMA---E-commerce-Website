@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowRight,
     CheckCircle2,
     MessageCircle,
     PackageOpen,
     Search,
-    ShieldCheck,
     Truck,
     Users,
 } from "lucide-react";
@@ -14,11 +13,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../../../shared/services/api";
 import HomeHeroScene from "./HomeHeroScene";
 import ProductCard from "../../components/ProductCard/ProductCard";
-import { PRODUCT_CATEGORIES } from "../../../shared/constants/categories";
-import {
-    LANDING_VISUALS,
-    getLandingCategoryVisual,
-} from "../../../shared/constants/landingVisuals";
+import { LANDING_VISUALS } from "../../../shared/constants/landingVisuals";
 import {
     getBuyerCart,
     isBuyerSession,
@@ -28,64 +23,53 @@ import {
 
 import "./Home.css";
 
-const MOBILE_HOME_CATEGORIES = [
-    { name: "Women's Apparel", image: "/mobile-home/fashion.jpg" },
-    { name: "Health & Beauty", image: "/mobile-home/beauty.jpg" },
-    { name: "Electronics & Gadgets", image: "/mobile-home/electronics.jpg" },
-    { name: "Home & Garden", image: "/mobile-home/homes.jpg" },
-    { name: "Sports & Outdoors", image: "/mobile-home/sports.jpg" },
-];
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function getBuyerGreetingName() {
     try {
         const user = JSON.parse(localStorage.getItem("user") || "null");
-        const firstName = user?.first_name || user?.firstName || user?.name?.split(" ")[0] || user?.username;
-        return typeof firstName === "string" && firstName.trim() ? firstName.trim() : "";
+
+        const firstName =
+            user?.first_name ||
+            user?.firstName ||
+            user?.name?.split(" ")[0] ||
+            user?.username;
+
+        return typeof firstName === "string" && firstName.trim()
+            ? firstName.trim()
+            : "";
     } catch {
         return "";
     }
 }
 
 function getProductImage(product) {
-    if (!product) {
+    if (!product || typeof product !== "object") {
         return "";
     }
 
-    if (typeof product.image === "string" && product.image.trim()) {
-        return product.image;
-    }
+    const candidates = [
+        product.image,
+        product.image_url,
+        product.thumbnail,
+        product.primary_image,
+        ...(Array.isArray(product.images)
+            ? product.images.flatMap((image) => [
+                typeof image === "string" ? image : image?.url,
+                image?.image_url,
+            ])
+            : []),
+    ];
 
-    if (
-        typeof product.image_url === "string" &&
-        product.image_url.trim()
-    ) {
-        return product.image_url;
-    }
-
-    if (
-        typeof product.thumbnail === "string" &&
-        product.thumbnail.trim()
-    ) {
-        return product.thumbnail;
-    }
-
-    if (Array.isArray(product.images) && product.images.length > 0) {
-        const firstImage = product.images[0];
-
-        if (typeof firstImage === "string") {
-            return firstImage;
-        }
-
-        if (firstImage?.url) {
-            return firstImage.url;
-        }
-
-        if (firstImage?.image_url) {
-            return firstImage.image_url;
-        }
-    }
-
-    return "";
+    return (
+        candidates.find(
+            (image) =>
+                typeof image === "string" &&
+                image.trim().length > 0
+        )?.trim() || ""
+    );
 }
 
 function normalizeProduct(product) {
@@ -95,104 +79,117 @@ function normalizeProduct(product) {
     };
 }
 
+function getProductList(payload) {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+
+    if (Array.isArray(payload?.data?.data)) {
+        return payload.data.data;
+    }
+
+    if (Array.isArray(payload?.data)) {
+        return payload.data;
+    }
+
+    if (Array.isArray(payload?.products)) {
+        return payload.products;
+    }
+
+    return [];
+}
+
+function showToast(message, type = "error") {
+    window.dispatchEvent(
+        new CustomEvent("cryma-toast", {
+            detail: { message, type },
+        })
+    );
+}
+
+/* =========================================================
+   HOME COMPONENT
+========================================================= */
+
 function Home() {
     const navigate = useNavigate();
+
     const heroRef = useRef(null);
+    const previousFocusRef = useRef(null);
+
     const buyerSession = isBuyerSession();
-    const greetingName = buyerSession ? getBuyerGreetingName() : "";
+    const greetingName = buyerSession
+        ? getBuyerGreetingName()
+        : "";
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
     const [mobileSearch, setMobileSearch] = useState("");
 
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [cartModalOpen, setCartModalOpen] = useState(false);
 
-    useEffect(() => {
-        const hero = heroRef.current;
-        if (!hero || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return undefined;
+    const [retryCount, setRetryCount] = useState(0);
 
-        const onPointerMove = (event) => {
-            const bounds = hero.getBoundingClientRect();
-            const x = (event.clientX - bounds.left) / bounds.width - 0.5;
-            const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-            hero.style.setProperty("--hero-copy-x", `${-x * 8}px`);
-            hero.style.setProperty("--hero-copy-y", `${-y * 6}px`);
-        };
-        const resetParallax = () => {
-            hero.style.setProperty("--hero-copy-x", "0px");
-            hero.style.setProperty("--hero-copy-y", "0px");
-        };
+    /* =====================================================
+       FEATURED PRODUCTS
+    ===================================================== */
 
-        hero.addEventListener("pointermove", onPointerMove, { passive: true });
-        hero.addEventListener("pointerleave", resetParallax, { passive: true });
-        return () => {
-            hero.removeEventListener("pointermove", onPointerMove);
-            hero.removeEventListener("pointerleave", resetParallax);
-        };
-    }, []);
+    const featuredProducts = useMemo(
+        () => products.slice(0, 8),
+        [products]
+    );
+
+    /* =====================================================
+       PRODUCT FETCHING
+    ===================================================== */
 
     useEffect(() => {
-        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return undefined;
-
-        const sections = document.querySelectorAll("#featured-products, #categories, .buyer-landing-value-section, #how-it-works, #delivery-journey");
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add("is-visible");
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.12, rootMargin: "0px 0px -48px 0px" });
-
-        sections.forEach((section) => {
-            section.classList.add("buyer-scroll-reveal");
-            observer.observe(section);
-        });
-
-        return () => observer.disconnect();
-    }, []);
-
-    useEffect(() => {
-        let mounted = true;
+        const controller = new AbortController();
 
         const loadProducts = async () => {
+            setLoading(true);
+            setError("");
+
             try {
-                setLoading(true);
-                setError("");
+                const response = await api.get(
+                    "/products?per_page=8",
+                    {
+                        signal: controller.signal,
+                    }
+                );
 
-                const response = await api.get("/products?per_page=50");
-
-                if (!mounted) return;
-
-                const payload = response?.data;
-
-                let items = [];
-
-                if (Array.isArray(payload)) {
-                    items = payload;
-                } else if (Array.isArray(payload?.data?.data)) {
-                    items = payload.data.data;
-                } else if (Array.isArray(payload?.data)) {
-                    items = payload.data;
-                } else if (Array.isArray(payload?.products)) {
-                    items = payload.products;
+                if (controller.signal.aborted) {
+                    return;
                 }
+
+                const items = getProductList(response?.data);
 
                 setProducts(
                     items.map(normalizeProduct)
                 );
             } catch (err) {
-                console.error("Failed to load products:", err);
-
-                if (mounted) {
-                    setError(
-                        "We couldn't load the products right now."
-                    );
+                if (
+                    controller.signal.aborted ||
+                    err?.name === "CanceledError" ||
+                    err?.code === "ERR_CANCELED"
+                ) {
+                    return;
                 }
+
+                console.error(
+                    "Failed to load products:",
+                    err
+                );
+
+                setProducts([]);
+                setError(
+                    "We couldn't load the products right now. Please try again."
+                );
             } finally {
-                if (mounted) {
+                if (!controller.signal.aborted) {
                     setLoading(false);
                 }
             }
@@ -200,122 +197,394 @@ function Home() {
 
         loadProducts();
 
+        return () => controller.abort();
+    }, [retryCount]);
+
+    /* =====================================================
+       HERO PARALLAX
+    ===================================================== */
+
+    useEffect(() => {
+        const hero = heroRef.current;
+
+        if (
+            !hero ||
+            window.matchMedia?.(
+                "(prefers-reduced-motion: reduce)"
+            ).matches
+        ) {
+            return undefined;
+        }
+
+        const onPointerMove = (event) => {
+            const bounds = hero.getBoundingClientRect();
+
+            if (!bounds.width || !bounds.height) {
+                return;
+            }
+
+            const x =
+                (event.clientX - bounds.left) /
+                    bounds.width -
+                0.5;
+
+            const y =
+                (event.clientY - bounds.top) /
+                    bounds.height -
+                0.5;
+
+            hero.style.setProperty(
+                "--hero-copy-x",
+                `${-x * 8}px`
+            );
+
+            hero.style.setProperty(
+                "--hero-copy-y",
+                `${-y * 6}px`
+            );
+        };
+
+        const resetParallax = () => {
+            hero.style.setProperty(
+                "--hero-copy-x",
+                "0px"
+            );
+
+            hero.style.setProperty(
+                "--hero-copy-y",
+                "0px"
+            );
+        };
+
+        hero.addEventListener(
+            "pointermove",
+            onPointerMove,
+            { passive: true }
+        );
+
+        hero.addEventListener(
+            "pointerleave",
+            resetParallax,
+            { passive: true }
+        );
+
         return () => {
-            mounted = false;
+            hero.removeEventListener(
+                "pointermove",
+                onPointerMove
+            );
+
+            hero.removeEventListener(
+                "pointerleave",
+                resetParallax
+            );
+
+            resetParallax();
         };
     }, []);
 
-    const featuredProducts = useMemo(() => {
-        return products.slice(0, 4);
-    }, [products]);
+    /* =====================================================
+       SCROLL REVEAL
+    ===================================================== */
 
-    const categoryHighlights = useMemo(() => {
-        const productCategories = products
-            .map(
-                (product) =>
-                    product?.category?.name ||
-                    product?.category ||
-                    product?.category_name
-            )
-            .filter(Boolean);
+    useEffect(() => {
+        if (
+            window.matchMedia?.(
+                "(prefers-reduced-motion: reduce)"
+            ).matches ||
+            !("IntersectionObserver" in window)
+        ) {
+            return undefined;
+        }
 
-        const known = new Set(PRODUCT_CATEGORIES.map((name) => name.toLowerCase()));
-        const additionalCategories = [...new Set(productCategories)]
-            .filter((name) => !known.has(String(name).toLowerCase()));
-
-        return [...PRODUCT_CATEGORIES, ...additionalCategories];
-    }, [products]);
-
-    const handleStartShopping = () => {
-        navigate("/shop");
-    };
-
-    const handleMobileSearch = (event) => {
-        event.preventDefault();
-        const query = mobileSearch.trim();
-        navigate(query ? `/shop?search=${encodeURIComponent(query)}` : "/shop");
-    };
-
-    const handleCategoryClick = (category) => {
-        navigate(
-            `/shop?category=${encodeURIComponent(category)}`
+        const sections = document.querySelectorAll(
+            "#featured-products, #how-it-works, #delivery-journey"
         );
-    };
 
-    const handleAddToCart = (product) => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add(
+                            "is-visible"
+                        );
+
+                        observer.unobserve(entry.target);
+                    }
+                });
+            },
+            {
+                threshold: 0.12,
+                rootMargin: "0px 0px -48px 0px",
+            }
+        );
+
+        sections.forEach((section) => {
+            section.classList.add(
+                "buyer-scroll-reveal"
+            );
+
+            observer.observe(section);
+        });
+
+        return () => observer.disconnect();
+    }, []);
+
+    /* =====================================================
+       NAVIGATION
+    ===================================================== */
+
+    const handleStartShopping = useCallback(() => {
+        navigate("/shop");
+    }, [navigate]);
+
+    const handleMobileSearch = useCallback(
+        (event) => {
+            event.preventDefault();
+
+            const query = mobileSearch.trim();
+
+            navigate(
+                query
+                    ? `/shop?search=${encodeURIComponent(query)}`
+                    : "/shop"
+            );
+        },
+        [mobileSearch, navigate]
+    );
+
+    /* =====================================================
+       ADD TO CART
+    ===================================================== */
+
+    const handleAddToCart = useCallback((product) => {
+        if (!product?.id) {
+            showToast(
+                "This product is currently unavailable."
+            );
+
+            return false;
+        }
+
         if (!isBuyerSession()) {
             requestBuyerSignIn({
                 title: "Sign in to add to cart",
-                message: "Create an account or sign in to shop on CRYMA.",
+                message:
+                    "Create an account or sign in to shop on CRYMA.",
             });
+
             return false;
         }
 
-        const existingCart = getBuyerCart();
+        let existingCart = getBuyerCart();
+
+        if (!Array.isArray(existingCart)) {
+            existingCart = [];
+        }
+
         const existingIndex = existingCart.findIndex(
-            (item) => String(item.id) === String(product.id)
+            (item) =>
+                String(item.id) === String(product.id)
         );
-        const currentQuantity = existingIndex >= 0
-            ? Number(existingCart[existingIndex].quantity || 1)
-            : 0;
-        const nextQuantity = currentQuantity + 1;
-        const rawStock = product?.stock ?? existingCart[existingIndex]?.stock;
-        const stock = rawStock === null || rawStock === undefined || rawStock === ""
-            ? null
-            : Number(rawStock);
 
-        if (Number.isFinite(stock) && nextQuantity > stock) {
-            window.dispatchEvent(new CustomEvent("cryma-toast", {
-                detail: { message: `Only ${stock} item${stock === 1 ? "" : "s"} available.`, type: "error" },
-            }));
+        const existingItem =
+            existingIndex >= 0
+                ? existingCart[existingIndex]
+                : null;
+
+        const currentQuantity = Math.max(
+            0,
+            Number(existingItem?.quantity) || 0
+        );
+
+        const nextQuantity = currentQuantity + 1;
+
+        const rawStock =
+            product.stock ?? existingItem?.stock;
+
+        const stock =
+            rawStock === null ||
+            rawStock === undefined ||
+            rawStock === ""
+                ? null
+                : Number(rawStock);
+
+        if (
+            stock !== null &&
+            (!Number.isFinite(stock) || stock < 0)
+        ) {
+            showToast(
+                "Unable to verify product availability."
+            );
+
             return false;
         }
+
+        if (
+            stock !== null &&
+            nextQuantity > stock
+        ) {
+            showToast(
+                stock === 0
+                    ? "This product is currently out of stock."
+                    : `Only ${stock} item${stock === 1 ? "" : "s"} available.`
+            );
+
+            return false;
+        }
+
+        const updatedCart = [...existingCart];
 
         if (existingIndex >= 0) {
-            existingCart[existingIndex].quantity = nextQuantity;
+            updatedCart[existingIndex] = {
+                ...existingItem,
+                quantity: nextQuantity,
+            };
         } else {
-            existingCart.push({ ...product, quantity: 1 });
+            updatedCart.push({
+                ...product,
+                quantity: 1,
+            });
         }
 
-        if (!saveBuyerCart(existingCart)) {
-            window.dispatchEvent(new CustomEvent("cryma-toast", {
-                detail: { message: "Unable to save your cart. Please try again.", type: "error" },
-            }));
+        if (!saveBuyerCart(updatedCart)) {
+            showToast(
+                "Unable to save your cart. Please try again."
+            );
+
             return false;
         }
+
+        previousFocusRef.current =
+            document.activeElement;
+
         setSelectedProduct(product);
         setCartModalOpen(true);
+
         return true;
-    };
+    }, []);
+
+    /* =====================================================
+       CART MODAL ACCESSIBILITY
+    ===================================================== */
+
+    useEffect(() => {
+        if (!cartModalOpen) {
+            return undefined;
+        }
+
+        const handleEscape = (event) => {
+            if (event.key === "Escape") {
+                setCartModalOpen(false);
+            }
+        };
+
+        window.addEventListener(
+            "keydown",
+            handleEscape
+        );
+
+        return () => {
+            window.removeEventListener(
+                "keydown",
+                handleEscape
+            );
+        };
+    }, [cartModalOpen]);
+
+    useEffect(() => {
+        if (cartModalOpen) {
+            const modal = document.querySelector(
+                ".buyer-cart-confirmation"
+            );
+
+            modal?.querySelector("button")?.focus();
+
+            return undefined;
+        }
+
+        previousFocusRef.current?.focus?.();
+
+        return undefined;
+    }, [cartModalOpen]);
+
+    /* =====================================================
+       SUPPORT NAVIGATION
+    ===================================================== */
+
+    const handleContactSupport = useCallback(() => {
+        if (isBuyerSession()) {
+            navigate("/buyer/support");
+            return;
+        }
+
+        requestBuyerSignIn({
+            title: "Contact CRYMA Customer Service",
+            message:
+                "Sign in to send a message to our support team.",
+            from: "/buyer/support",
+        });
+    }, [navigate]);
+
+    /* =====================================================
+       RENDER
+    ===================================================== */
 
     return (
         <div className="buyer-home">
             <main className="buyer-home-main">
 
-                <form className="buyer-mobile-home-search" onSubmit={handleMobileSearch}>
-                    <Search size={20} aria-hidden="true" />
+                {/* =========================================
+                    MOBILE SEARCH
+                ========================================= */}
+
+                <form
+                    className="buyer-mobile-home-search"
+                    onSubmit={handleMobileSearch}
+                    role="search"
+                >
+                    <Search
+                        size={20}
+                        aria-hidden="true"
+                    />
+
                     <input
                         type="search"
                         value={mobileSearch}
-                        onChange={(event) => setMobileSearch(event.target.value)}
+                        onChange={(event) =>
+                            setMobileSearch(event.target.value)
+                        }
                         placeholder="Search products, brands..."
-                        aria-label="Search products, brands"
+                        aria-label="Search products and brands"
                     />
                 </form>
 
-                {/* HERO */}
-                <section className="buyer-landing-hero" ref={heroRef}>
+                {/* =========================================
+                    HERO
+                ========================================= */}
 
+                <section
+                    className="buyer-landing-hero"
+                    ref={heroRef}
+                >
                     <div className="buyer-landing-hero-content">
 
                         <span className="buyer-landing-eyebrow">
-                            {buyerSession ? "YOUR NEIGHBORHOOD MARKETPLACE" : "LOCAL FINDS. REAL PEOPLE."}
+                            {buyerSession
+                                ? "YOUR NEIGHBORHOOD MARKETPLACE"
+                                : "LOCAL FINDS. REAL PEOPLE."}
                         </span>
 
                         {buyerSession && (
                             <span className="buyer-welcome-badge">
-                                <span aria-hidden="true">&#x1F44B;</span>
-                                Welcome back{greetingName ? `, ${greetingName}` : ""}!
+                                <span aria-hidden="true">
+                                    👋
+                                </span>
+
+                                Welcome back
+                                {greetingName
+                                    ? `, ${greetingName}`
+                                    : "!"}
                             </span>
                         )}
 
@@ -336,29 +605,47 @@ function Home() {
                         </h1>
 
                         <p>
-                            Meet independent sellers, find things you love, and get
-                            them delivered through CRYMA &mdash; all in one local marketplace.
+                            Meet independent sellers, find things
+                            you love, and get them delivered through
+                            CRYMA — all in one local marketplace.
                         </p>
 
                         <div className="buyer-landing-actions">
+
                             <button
                                 type="button"
                                 className="buyer-primary-button"
                                 onClick={handleStartShopping}
                             >
-                                {buyerSession ? "Browse All Categories" : "Explore CRYMA"}
+                                {buyerSession
+                                    ? "Browse All Categories"
+                                    : "Explore CRYMA"}
+
                                 <ArrowRight size={17} />
                             </button>
 
                             {buyerSession ? (
-                                <button type="button" className="buyer-secondary-button" onClick={() => navigate("/orders")}>
+                                <button
+                                    type="button"
+                                    className="buyer-secondary-button"
+                                    onClick={() =>
+                                        navigate("/orders")
+                                    }
+                                >
                                     View My Orders
                                 </button>
                             ) : (
-                                <button type="button" className="buyer-secondary-button" onClick={() => navigate("/register")}>
+                                <button
+                                    type="button"
+                                    className="buyer-secondary-button"
+                                    onClick={() =>
+                                        navigate("/register")
+                                    }
+                                >
                                     Join the marketplace
                                 </button>
                             )}
+
                         </div>
 
                         <div className="buyer-hero-trust">
@@ -385,37 +672,33 @@ function Home() {
                     <div className="buyer-landing-hero-visual buyer-hero-three-visual">
                         <HomeHeroScene />
                     </div>
-                    <div className="buyer-mobile-home-hero">
-                        <img
-                            src="/mobile-home/welcome_page.jpg"
-                            alt="Discover more of CRYMA"
-                            fetchPriority="high"
-                            decoding="async"
-                        />
-                        <div className="buyer-mobile-hero-copy">
-                            <span>DISCOVER MORE</span>
-                            <strong>Everything You Need,<br />All in One Place.</strong>
-                            <button type="button" onClick={handleStartShopping}>
-                                Shop Now <ArrowRight size={15} aria-hidden="true" />
-                            </button>
-                        </div>
-                    </div>
+
                 </section>
 
+                {/* =========================================
+                    FEATURED PRODUCTS
+                ========================================= */}
 
-                {/* FEATURED */}
-                <section id="featured-products" className="buyer-landing-section buyer-landing-featured">
-
+                <section
+                    id="featured-products"
+                    className="buyer-landing-section buyer-landing-featured"
+                >
                     <div className="buyer-landing-section-heading">
 
                         <div>
-                            <span className="buyer-mobile-featured-eyebrow">Featured Products</span>
+                            <span className="buyer-mobile-featured-eyebrow">
+                                Featured Products
+                            </span>
+
                             <span>CURATED FOR YOU</span>
 
                             <h2>
                                 A few things worth discovering.
                             </h2>
-                            <h2 className="buyer-mobile-featured-title">Featured Products</h2>
+
+                            <h2 className="buyer-mobile-featured-title">
+                                Featured Products
+                            </h2>
 
                             <p>
                                 Start with what's catching attention,
@@ -434,243 +717,113 @@ function Home() {
 
                     </div>
 
-                    {loading ? (
-                        <div className="buyer-landing-loading">
+                    {/* LOADING */}
+
+                    {loading && (
+                        <div
+                            className="buyer-landing-loading"
+                            role="status"
+                            aria-live="polite"
+                        >
                             <div className="buyer-landing-spinner" />
-                            <p>Finding something good...</p>
+
+                            <p>
+                                Finding something good...
+                            </p>
                         </div>
-                    ) : error ? (
-                        <div className="buyer-landing-state">
-                            <strong>Something went wrong</strong>
+                    )}
+
+                    {/* ERROR */}
+
+                    {!loading && error && (
+                        <div
+                            className="buyer-landing-state"
+                            role="alert"
+                        >
+                            <strong>
+                                Something went wrong
+                            </strong>
+
                             <p>{error}</p>
 
                             <button
                                 type="button"
                                 onClick={() =>
-                                    window.location.reload()
+                                    setRetryCount((count) => count + 1)
                                 }
                             >
                                 Try Again
                             </button>
                         </div>
-                    ) : featuredProducts.length === 0 ? (
-                        <div className="buyer-empty-featured">
-
-                            <div className="buyer-empty-featured-visual" aria-hidden="true">
-                                <PackageOpen size={52} strokeWidth={1.3} />
-                            </div>
-
-                            <div>
-                                <strong>
-                                    The shelves are still being filled.
-                                </strong>
-
-                                <p>
-                                    New products will appear here
-                                    once they're available.
-                                </p>
-
-                                <button
-                                    type="button"
-                                    onClick={handleStartShopping}
-                                >
-                                    Explore marketplace
-                                    <ArrowRight size={15} />
-                                </button>
-                            </div>
-
-                        </div>
-                    ) : (
-                        <div className="buyer-landing-product-grid">
-
-                            {featuredProducts.map((product) => (
-                                <ProductCard
-                                    key={product.id}
-                                    product={product}
-                                    onAddToCart={handleAddToCart}
-                                    tiltOnHover
-                                />
-                            ))}
-
-                        </div>
                     )}
-                </section>
 
+                    {/* EMPTY */}
 
-                {/* CATEGORY DISCOVERY */}
-                <section id="categories" className="buyer-landing-section buyer-landing-category-section">
+                    {!loading &&
+                        !error &&
+                        featuredProducts.length === 0 && (
+                            <div className="buyer-empty-featured">
 
-                    <div className="buyer-mobile-section-heading">
-                        <h2>Categories</h2>
-                        <button type="button" onClick={handleStartShopping}>
-                            See All <ArrowRight size={15} aria-hidden="true" />
-                        </button>
-                    </div>
-
-                    <div className="buyer-landing-section-heading buyer-desktop-category-heading">
-
-                        <div>
-                            <span>EXPLORE</span>
-
-                            <h2>
-                                Find your next favorite.
-                            </h2>
-
-                            <p>
-                                Explore local sellers and new finds across CRYMA.
-                            </p>
-                        </div>
-
-                        <button
-                            type="button"
-                            className="buyer-category-section-link"
-                            onClick={handleStartShopping}
-                        >
-                            All categories
-                            <ArrowRight size={15} aria-hidden="true" />
-                        </button>
-
-                    </div>
-
-                    <div className="buyer-mobile-category-grid">
-                        {MOBILE_HOME_CATEGORIES.map((category) => (
-                            <button
-                                key={category.name}
-                                type="button"
-                                className="buyer-mobile-category"
-                                onClick={() => handleCategoryClick(category.name)}
-                            >
-                                <span className="buyer-mobile-category-image">
-                                    <img src={category.image} alt="" loading="lazy" decoding="async" />
-                                </span>
-                                <span>{category.name}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="buyer-landing-category-grid">
-
-                        {categoryHighlights.slice(0, 8).map(
-                            (category, index) => (
-                                <button
-                                    key={category}
-                                    type="button"
-                                    className={`buyer-landing-category-card category-${index + 1}`}
-                                    onClick={() => handleCategoryClick(category)}
+                                <div
+                                    className="buyer-empty-featured-visual"
+                                    aria-hidden="true"
                                 >
-                                    {getLandingCategoryVisual(category) ? (
-                                        <img
-                                            className="buyer-category-image"
-                                            src={getLandingCategoryVisual(category).src}
-                                            alt={getLandingCategoryVisual(category).alt}
-                                            loading="lazy"
-                                            decoding="async"
-                                            style={{ objectPosition: getLandingCategoryVisual(category).position }}
-                                            onError={(event) => {
-                                                event.currentTarget.hidden = true;
-                                                event.currentTarget.parentElement?.classList.add("image-unavailable");
-                                            }}
-                                        />
-                                    ) : (
-                                        <span className="buyer-category-fallback" aria-hidden="true">
-                                            {category.slice(0, 1).toUpperCase()}
-                                        </span>
-                                    )}
-                                    <span className="buyer-category-shade" aria-hidden="true" />
-                                    <span className="buyer-category-number">
-                                        {String(index + 1).padStart(2, "0")}
-                                    </span>
+                                    <PackageOpen
+                                        size={52}
+                                        strokeWidth={1.3}
+                                    />
+                                </div>
 
-                                    <span className="buyer-category-name">
-                                        {category}
-                                    </span>
+                                <div>
+                                    <strong>
+                                        The shelves are still being filled.
+                                    </strong>
 
-                                    <ArrowRight size={18} />
-                                </button>
-                            )
+                                    <p>
+                                        New products will appear here
+                                        once they're available.
+                                    </p>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleStartShopping}
+                                    >
+                                        Explore marketplace
+                                        <ArrowRight size={15} />
+                                    </button>
+                                </div>
+
+                            </div>
                         )}
 
-                    </div>
+                    {/* PRODUCTS */}
+
+                    {!loading &&
+                        !error &&
+                        featuredProducts.length > 0 && (
+                            <div className="buyer-landing-product-grid">
+
+                                {featuredProducts.map((product) => (
+                                    <ProductCard
+                                        key={product.id}
+                                        product={product}
+                                        onAddToCart={handleAddToCart}
+                                    />
+                                ))}
+
+                            </div>
+                        )}
+
                 </section>
 
+                {/* =========================================
+                    HOW IT WORKS
+                ========================================= */}
 
-                {!buyerSession && <>
-                {/* WHY CRYMA */}
-                <section className="buyer-landing-section buyer-landing-value-section">
-
-                    <div className="buyer-landing-section-heading">
-
-                        <div>
-                            <span>WHY CRYMA</span>
-
-                            <h2>
-                                More than a place to shop.
-                            </h2>
-
-                            <p>
-                                A marketplace designed around people,
-                                discovery, and a better buying experience.
-                            </p>
-                        </div>
-
-                    </div>
-
-                    <div className="buyer-value-grid">
-
-                        <article className="buyer-value-card">
-                            <div className="buyer-value-icon">
-                                <Users size={22} />
-                            </div>
-
-                            <h3>
-                                Discover real sellers
-                            </h3>
-
-                            <p>
-                                Shop from people and businesses
-                                bringing their own products to CRYMA.
-                            </p>
-                        </article>
-
-                        <article className="buyer-value-card">
-                            <div className="buyer-value-icon">
-                                <ShieldCheck size={22} />
-                            </div>
-
-                            <h3>
-                                Shop with confidence
-                            </h3>
-
-                            <p>
-                                Clear product information and an
-                                experience designed around trust.
-                            </p>
-                        </article>
-
-                        <article className="buyer-value-card">
-                            <div className="buyer-value-icon">
-                                <Truck size={22} />
-                            </div>
-
-                            <h3>
-                                Delivery made easier
-                            </h3>
-
-                            <p>
-                                Orders can move through CRYMA's
-                                growing logistics network.
-                            </p>
-                        </article>
-
-                    </div>
-                </section>
-
-
-                </>}
-
-                {/* HOW IT WORKS */}
-                <section id="how-it-works" className="buyer-how-section">
-
+                <section
+                    id="how-it-works"
+                    className="buyer-how-section"
+                >
                     <div className="buyer-landing-section-heading">
 
                         <div>
@@ -681,8 +834,8 @@ function Home() {
                             </h2>
 
                             <p>
-                                A simple shopping journey from the
-                                first scroll to delivery.
+                                A simple shopping journey from
+                                the first scroll to delivery.
                             </p>
                         </div>
 
@@ -692,16 +845,20 @@ function Home() {
 
                         <div className="buyer-how-step">
                             <span>01</span>
+
                             <h3>Discover</h3>
+
                             <p>
-                                Browse products and categories
+                                Explore products from local sellers
                                 that interest you.
                             </p>
                         </div>
 
                         <div className="buyer-how-step">
                             <span>02</span>
+
                             <h3>Choose</h3>
+
                             <p>
                                 Find something you love and add it
                                 to your cart.
@@ -710,7 +867,9 @@ function Home() {
 
                         <div className="buyer-how-step">
                             <span>03</span>
+
                             <h3>Order</h3>
+
                             <p>
                                 Complete your purchase through
                                 the marketplace.
@@ -719,29 +878,60 @@ function Home() {
 
                         <div className="buyer-how-step">
                             <span>04</span>
+
                             <h3>Receive</h3>
+
                             <p>
-                                Follow your order as it makes its
-                                way to you.
+                                Follow your order as it makes
+                                its way to you.
                             </p>
                         </div>
 
                     </div>
                 </section>
 
-                {/* LOGISTICS */}
-                <section id="delivery-journey" className="buyer-logistics-section">
+                {/* =========================================
+                    LOGISTICS NETWORK
+                ========================================= */}
 
+                <section
+                    id="delivery-journey"
+                    className="buyer-logistics-section"
+                >
                     <div className="buyer-logistics-decoration">
                         <span>CRYMA</span>
                     </div>
 
-                    <svg className="buyer-logistics-route" viewBox="0 0 480 280" fill="none" aria-hidden="true">
-                        <path className="buyer-logistics-route-path" d="M30 170 C80 55 175 60 210 160 S360 265 440 120" />
-                        <path className="buyer-logistics-route-highlight" d="M30 170 C80 55 175 60 210 160 S360 265 440 120" />
+                    <svg
+                        className="buyer-logistics-route"
+                        viewBox="0 0 480 280"
+                        fill="none"
+                        aria-hidden="true"
+                    >
+                        <path
+                            className="buyer-logistics-route-path"
+                            d="M30 170 C80 55 175 60 210 160 S360 265 440 120"
+                        />
+
+                        <path
+                            className="buyer-logistics-route-highlight"
+                            d="M30 170 C80 55 175 60 210 160 S360 265 440 120"
+                        />
+
                         <g className="buyer-logistics-route-truck">
-                            <rect x="-17" y="-11" width="25" height="16" rx="3" />
-                            <path d="M8 -7h8l7 7v5H8z" fill="currentColor" />
+                            <rect
+                                x="-17"
+                                y="-11"
+                                width="25"
+                                height="16"
+                                rx="3"
+                            />
+
+                            <path
+                                d="M8 -7h8l7 7v5H8z"
+                                fill="currentColor"
+                            />
+
                             <circle cx="-9" cy="8" r="4" />
                             <circle cx="14" cy="8" r="4" />
                         </g>
@@ -754,14 +944,15 @@ function Home() {
                         </span>
 
                         <h2>
-                            Want to be part of
+                            Every parcel has
                             <br />
-                            the <em>delivery journey?</em>
+                            a <em>journey to make.</em>
                         </h2>
 
                         <p>
-                            Join CRYMA as a courier and help
-                            bring orders from local sellers to customers.
+                            Be part of CRYMA's logistics network.
+                            Help move parcels between hubs and keep
+                            deliveries moving across the marketplace.
                         </p>
 
                         <button
@@ -778,7 +969,9 @@ function Home() {
                     </div>
 
                     <div className="buyer-logistics-card">
+
                         <div className="buyer-logistics-photo">
+
                             <img
                                 src={LANDING_VISUALS.logistics.src}
                                 alt={LANDING_VISUALS.logistics.alt}
@@ -786,9 +979,13 @@ function Home() {
                                 decoding="async"
                                 onError={(event) => {
                                     event.currentTarget.hidden = true;
-                                    event.currentTarget.parentElement?.classList.add("image-unavailable");
+
+                                    event.currentTarget.parentElement?.classList.add(
+                                        "image-unavailable"
+                                    );
                                 }}
                             />
+
                         </div>
 
                         <div className="buyer-logistics-icon">
@@ -796,24 +993,24 @@ function Home() {
                         </div>
 
                         <strong>
-                            Deliver. Connect. Earn.
+                            Connect. Transfer. Deliver.
                         </strong>
 
                         <p>
-                            Flexible delivery opportunities through
-                            the CRYMA marketplace.
+                            Support hub-to-hub parcel transfers
+                            through the CRYMA logistics network.
                         </p>
 
                         <div className="buyer-logistics-points">
 
                             <span>
                                 <CheckCircle2 size={14} />
-                                Delivery opportunities
+                                Hub-to-hub transfers
                             </span>
 
                             <span>
                                 <CheckCircle2 size={14} />
-                                Order tracking
+                                Parcel movement tracking
                             </span>
 
                             <span>
@@ -826,11 +1023,15 @@ function Home() {
                     </div>
                 </section>
 
+                {/* =========================================
+                    FOOTER
+                ========================================= */}
 
-                {/* FOOTER */}
                 <footer className="buyer-footer">
 
                     <div className="buyer-footer-main">
+
+                        {/* BRAND */}
 
                         <div className="buyer-footer-brand">
 
@@ -852,24 +1053,8 @@ function Home() {
 
                                 <button
                                     type="button"
-                                    aria-label="Facebook"
-                                >
-                                    f
-                                </button>
-
-                                <button
-                                    type="button"
-                                    aria-label="Instagram"
-                                >
-                                    ◎
-                                </button>
-
-                                <button
-                                    type="button"
-                                    aria-label="Messages"
-                                    onClick={() => isBuyerSession()
-                                        ? navigate("/buyer/support")
-                                        : requestBuyerSignIn({ title: "Sign in to contact support", message: "Sign in to message CRYMA Customer Service.", from: "/buyer/support" })}
+                                    aria-label="Contact CRYMA Customer Service"
+                                    onClick={handleContactSupport}
                                 >
                                     <MessageCircle size={16} />
                                 </button>
@@ -877,14 +1062,26 @@ function Home() {
                             </div>
                         </div>
 
+                        {/* SHOP */}
+
                         <div className="buyer-footer-column">
+
                             <h3>Shop</h3>
 
-                            <Link to="/shop">Browse products</Link>
-                            <Link to="/shop">All Categories</Link>
+                            <Link to="/shop">
+                                Browse products
+                            </Link>
+
+                            <Link to="/shop">
+                                All Categories
+                            </Link>
+
                         </div>
 
+                        {/* JOIN */}
+
                         <div className="buyer-footer-column">
+
                             <h3>Join CRYMA</h3>
 
                             <button
@@ -913,35 +1110,45 @@ function Home() {
                             >
                                 Become a Courier
                             </button>
+
                         </div>
 
+                        {/* SUPPORT */}
+
                         <div className="buyer-footer-column">
+
                             <h3>Need help?</h3>
 
                             <button
                                 type="button"
-                                onClick={() => navigate("/login")}
+                                onClick={() =>
+                                    navigate("/login")
+                                }
                             >
                                 Sign In
                             </button>
 
                             <button
                                 type="button"
-                                onClick={() => navigate("/register")}
+                                onClick={() =>
+                                    navigate("/register")
+                                }
                             >
                                 Create Account
                             </button>
 
                             <button
                                 type="button"
-                                onClick={() => isBuyerSession()
-                                    ? navigate("/buyer/support")
-                                    : requestBuyerSignIn({ title: "Contact CRYMA Customer Service", message: "Sign in to send a message to our support team.", from: "/buyer/support" })}
+                                onClick={handleContactSupport}
                             >
                                 Contact CRYMA
                             </button>
+
                         </div>
+
                     </div>
+
+                    {/* FOOTER BOTTOM */}
 
                     <div className="buyer-footer-bottom">
 
@@ -951,37 +1158,61 @@ function Home() {
                         </span>
 
                         <div>
-                            <Link to="/privacy">Privacy</Link>
-                            <Link to="/terms">Terms</Link>
-                            <Link to="/delivery-and-payments">Delivery &amp; payments</Link>
+
+                            <Link to="/privacy">
+                                Privacy
+                            </Link>
+
+                            <Link to="/terms">
+                                Terms
+                            </Link>
+
+                            <Link to="/delivery-and-payments">
+                                Delivery &amp; payments
+                            </Link>
+
                         </div>
 
                     </div>
+
                 </footer>
+
             </main>
 
+            {/* =============================================
+                CART CONFIRMATION MODAL
+            ============================================= */}
 
-            {/* CART MODAL */}
             {cartModalOpen && selectedProduct && (
                 <div
                     className="buyer-cart-confirmation-overlay"
-                    onClick={() => setCartModalOpen(false)}
+                    onClick={() =>
+                        setCartModalOpen(false)
+                    }
                 >
                     <div
                         className="buyer-cart-confirmation"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="buyer-cart-title"
                         onClick={(event) =>
                             event.stopPropagation()
                         }
                     >
+
                         <div className="buyer-success-icon">
                             <CheckCircle2 size={22} />
                         </div>
 
-                        <h3>Added to cart</h3>
+                        <h3 id="buyer-cart-title">
+                            Added to cart
+                        </h3>
 
                         <p>
                             <strong>
-                                {selectedProduct.name}
+                                {selectedProduct.name ||
+                                    selectedProduct.title ||
+                                    "This product"}
                             </strong>{" "}
                             has been added to your cart.
                         </p>
@@ -1009,9 +1240,11 @@ function Home() {
                             </button>
 
                         </div>
+
                     </div>
                 </div>
             )}
+
         </div>
     );
 }

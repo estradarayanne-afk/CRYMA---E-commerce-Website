@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../utils/auth_widgets.dart';
+import '../utils/buyer_registration.dart';
 import '../utils/colors.dart';
-import '../utils/validators.dart';
 
 class RegisterPersonalScreen extends StatefulWidget {
   const RegisterPersonalScreen({super.key});
@@ -23,11 +24,20 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
 
   String _selectedSex = '';
   bool _showSexDropdown = false;
+  String? _sexError;
+  String? _birthdayError;
 
-  final List<String> _sexOptions = ['Male', 'Female', 'Other'];
+  final List<String> _sexOptions = ['Male', 'Female', 'Prefer not to say'];
+
+  @override
+  void initState() {
+    super.initState();
+    BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
+  }
 
   @override
   void dispose() {
+    BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
     _lastNameController.dispose();
     _firstNameController.dispose();
     _middleInitialController.dispose();
@@ -36,75 +46,64 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     super.dispose();
   }
 
+  void _onServerErrorsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _formKey.currentState?.validate();
+    });
+  }
+
+  String? _serverError(String field) =>
+      BuyerRegistrationErrorStore.instance.errorFor(field);
+
   // ============================================================
   // AGE COMPUTATION
   // ============================================================
   void _computeAge(DateTime birthDate) {
-    final today = DateTime.now();
-    int age = today.year - birthDate.year;
-    final monthDiff = today.month - birthDate.month;
-    if (monthDiff < 0 || (monthDiff == 0 && today.day < birthDate.day)) {
-      age--;
-    }
-    _ageController.text = age.toString();
+    final birthday = DateFormat('yyyy-MM-dd').format(birthDate);
+    _ageController.text =
+        BuyerRegistrationRules.ageOnDate(birthday)?.toString() ?? '';
   }
 
   void _onDateSelected(DateTime? date) {
     if (date != null) {
-      _birthdayController.text = DateFormat('MM/dd/yyyy').format(date);
+      _birthdayController.text = DateFormat('yyyy-MM-dd').format(date);
       _computeAge(date);
-      setState(() {}); // ✅ refresh para mawala yung error
+      BuyerRegistrationErrorStore.instance.clearField('birthday');
+      setState(() {
+        _birthdayError = BuyerRegistrationRules.validateBirthday(
+          _birthdayController.text,
+        );
+      });
     }
-  }
-
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _handleContinue() {
-    // ✅ Validate names via Form
     final isFormValid = _formKey.currentState?.validate() ?? false;
-
-    // ✅ Validate sex
-    if (_selectedSex.isEmpty) {
-      _showErrorDialog('Please select your sex.');
-      return;
-    }
-
-    // ✅ Validate birthday
-    if (_birthdayController.text.isEmpty) {
-      _showErrorDialog('Please select your birthday.');
-      return;
-    }
-
-    if (!isFormValid) {
-      return; // May error na sa fields
-    }
+    setState(() {
+      _sexError =
+          _selectedSex.isEmpty ? 'Select one of the available options.' : null;
+      _birthdayError = BuyerRegistrationRules.validateBirthday(
+        _birthdayController.text,
+      );
+    });
+    if (!isFormValid || _selectedSex.isEmpty || _birthdayError != null) return;
 
     final formData = {
       'lastName': _lastNameController.text.trim(),
       'firstName': _firstNameController.text.trim(),
       'middleInitial': _middleInitialController.text.trim(),
-      'sex': _selectedSex,
+      'sex': _selectedSex.toLowerCase() == 'prefer not to say'
+          ? 'prefer_not_to_say'
+          : _selectedSex.toLowerCase(),
       'birthday': _birthdayController.text,
       'age': _ageController.text,
     };
     Navigator.pushNamed(
       context,
       '/register_contact',
-      arguments: formData,
+      arguments: {'personalData': formData},
     );
   }
 
@@ -114,7 +113,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -172,7 +171,14 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                 _buildTextField(
                   controller: _lastNameController,
                   hintText: 'Dela Cruz',
-                  validator: AppValidators.name,
+                  validator: (value) =>
+                      _serverError('last_name') ??
+                      BuyerRegistrationRules.validateName(value),
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(30),
+                  ],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('last_name'),
                 ),
                 const SizedBox(height: 10),
 
@@ -181,7 +187,14 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                 _buildTextField(
                   controller: _firstNameController,
                   hintText: 'Juan',
-                  validator: AppValidators.name,
+                  validator: (value) =>
+                      _serverError('first_name') ??
+                      BuyerRegistrationRules.validateName(value),
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(30),
+                  ],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('first_name'),
                 ),
                 const SizedBox(height: 10),
 
@@ -190,24 +203,29 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                 _buildTextField(
                   controller: _middleInitialController,
                   hintText: 'R.',
-                  validator: AppValidators.middleInitial,
+                  validator: (value) =>
+                      _serverError('middle_name') ??
+                      BuyerRegistrationRules.validateMiddleInitial(value),
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[a-zA-Z\.]'),
-                    ),
                     LengthLimitingTextInputFormatter(2),
                   ],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('middle_name'),
                 ),
                 const SizedBox(height: 10),
 
                 // SEX
                 _buildLabel('SEX *'),
                 _buildSexDropdown(),
+                if (_serverError('sex') != null || _sexError != null)
+                  _fieldError(_serverError('sex') ?? _sexError!),
                 const SizedBox(height: 10),
 
                 // BIRTHDAY
                 _buildLabel('BIRTHDAY *'),
                 _buildDatePicker(),
+                if (_serverError('birthday') != null || _birthdayError != null)
+                  _fieldError(_serverError('birthday') ?? _birthdayError!),
                 const SizedBox(height: 10),
 
                 // AGE (AUTO-GENERATED)
@@ -276,100 +294,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   // STEPPER
   // ============================================================
   Widget _buildStepper({required int currentStep}) {
-    final List<String> steps = [
-      'Personal',
-      'Contact',
-      'Address',
-      'Verify',
-      'Account',
-    ];
-
-    return SizedBox(
-      height: 64,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 26,
-            right: 26,
-            top: 18,
-            child: Row(
-              children: List.generate(steps.length - 1, (index) {
-                final isCompleted = index + 1 < currentStep;
-                return Expanded(
-                  child: Container(
-                    height: 2,
-                    color:
-                        isCompleted ? AppColors.primary : AppColors.lightGray,
-                  ),
-                );
-              }),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: steps.asMap().entries.map((entry) {
-              final index = entry.key;
-              final label = entry.value;
-              final stepNumber = index + 1;
-              final isCurrent = stepNumber == currentStep;
-              final isCompleted = stepNumber < currentStep;
-
-              return SizedBox(
-                width: 50,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.lightGray,
-                      ),
-                      child: Center(
-                        child: isCompleted
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.white,
-                                size: 18,
-                              )
-                            : Text(
-                                stepNumber.toString(),
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCurrent
-                                      ? AppColors.white
-                                      : AppColors.gray,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 9,
-                        fontWeight: isCurrent || isCompleted
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isCurrent || isCompleted
-                            ? AppColors.primary
-                            : AppColors.gray,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
+    return RegistrationProgressHeader(currentStep: currentStep);
   }
 
   Widget _buildLabel(String text) {
@@ -395,6 +320,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     required String hintText,
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters,
+    ValueChanged<String>? onChanged,
     int maxLines = 1,
   }) {
     return Container(
@@ -409,6 +335,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
         maxLines: maxLines,
         validator: validator,
         inputFormatters: inputFormatters,
+        onChanged: onChanged,
         style: const TextStyle(
           fontSize: 13,
           color: AppColors.darkGray,
@@ -493,7 +420,9 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                     setState(() {
                       _selectedSex = option;
                       _showSexDropdown = false;
+                      _sexError = null;
                     });
+                    BuyerRegistrationErrorStore.instance.clearField('sex');
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -530,11 +459,14 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   Widget _buildDatePicker() {
     return GestureDetector(
       onTap: () async {
+        final localToday = DateTime.now().toUtc().add(const Duration(hours: 8));
+        final today =
+            DateTime(localToday.year, localToday.month, localToday.day);
         final DateTime? picked = await showDatePicker(
           context: context,
-          initialDate: DateTime.now(),
+          initialDate: today,
           firstDate: DateTime(1900),
-          lastDate: DateTime.now(),
+          lastDate: today,
         );
         if (picked != null) {
           setState(() {
@@ -559,7 +491,9 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
             Text(
               _birthdayController.text.isEmpty
                   ? 'MM / DD / YYYY'
-                  : _birthdayController.text,
+                  : DateFormat('MM/dd/yyyy').format(
+                      DateTime.parse(_birthdayController.text),
+                    ),
               style: TextStyle(
                 fontSize: 13,
                 color: _birthdayController.text.isEmpty
@@ -574,4 +508,16 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
       ),
     );
   }
+
+  Widget _fieldError(String message) => Padding(
+        padding: const EdgeInsets.only(top: 5),
+        child: Text(
+          message,
+          style: const TextStyle(
+            color: AppColors.danger,
+            fontSize: 11,
+            fontFamily: 'Poppins',
+          ),
+        ),
+      );
 }

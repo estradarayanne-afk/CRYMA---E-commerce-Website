@@ -1,4 +1,4 @@
-.sl-vouchers-page { display:grid; gap:17px; max-width:1180px; margin:0 auto; color:#351923; }
+.sl-vouchers-page { display:grid; gap:17px; width:100%; max-width:none; margin:0; color:#351923; }
 .sl-vouchers-header { margin-bottom:0; }
 .sl-vouchers-eyebrow { color:#96344f; font-size:9px; font-weight:800; letter-spacing:.15em; }
 .sl-vouchers-header p { max-width:640px; margin:6px 0 0; color:#f7e7eb; font-size:12px; }
