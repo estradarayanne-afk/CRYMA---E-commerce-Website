@@ -1,8 +1,19 @@
 .admin-finance-page { display:grid; gap:12px; }
-.admin-finance-tabs { display:flex; align-items:center; gap:5px; width:max-content; max-width:100%; padding:5px; border:1px solid #eadde1; border-radius:12px; background:#fff; box-shadow:0 4px 13px rgba(65,13,29,.035); }
-.admin-finance-tabs button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:38px; padding:0 14px; border:1px solid transparent; border-radius:8px; background:transparent; color:#765a63; font:650 11px/1 inherit; cursor:pointer; transition:background .16s ease,color .16s ease,box-shadow .16s ease; }
+.admin-finance-header { display:flex; align-items:center; min-height:76px; padding:13px 18px; border:1px solid #6b2039; border-radius:11px; background:linear-gradient(112deg,#4a1027,#761c38 68%,#842744); color:#fff; box-shadow:0 4px 12px rgba(65,13,29,.08); }
+.admin-finance-header > div { position:relative; z-index:1; }
+.admin-finance-eyebrow { color:#f3cbd5; font-size:8px; font-weight:800; letter-spacing:.13em; }
+.admin-finance-header h1 { margin:4px 0 3px; color:#fff9fa; font-size:clamp(20px,2vw,25px); line-height:1.12; }
+.admin-finance-header p { margin:0; color:rgba(255,247,249,.82); font-size:11px; }
+.admin-finance-tabs { display:grid; grid-template-columns:repeat(2,minmax(150px,1fr)); gap:4px; width:min(100%,380px); padding:4px; border:1px solid #eadde1; border-radius:10px; background:#fff; box-shadow:0 3px 9px rgba(65,13,29,.03); }
+.admin-finance-tabs button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:39px; padding:0 12px; border:1px solid transparent; border-radius:7px; background:transparent; color:#765a63; font:650 11px/1 inherit; cursor:pointer; transition:background .16s ease,color .16s ease,box-shadow .16s ease; }
 .admin-finance-tabs button:hover:not(.is-active) { background:#fff5f7; color:#70213a; }
 .admin-finance-tabs button.is-active { border-color:#7e1830; background:linear-gradient(135deg,#7e1830,#922b47); color:#fff; box-shadow:0 3px 8px rgba(83,17,35,.18); }
 .admin-finance-tabs button:focus-visible { outline:2px solid #a93654; outline-offset:2px; }
 .admin-finance-panel { min-width:0; }
-@media (max-width:520px) { .admin-finance-tabs { width:100%; } .admin-finance-tabs button { flex:1; padding:0 9px; } }
+.admin-finance-panel > .commission-page { width:100%; max-width:none; margin:0; padding:0; }
+.commission-context { display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:62px; padding:9px 13px; border:1px solid #eadde1; border-radius:10px; background:#fff; }
+.commission-context .commission-rate-note { margin:0; }
+.commission-context .commission-count { min-width:82px; display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 10px; border:1px solid #eadde1; border-radius:8px; background:#fcf8f9; box-shadow:none; }
+.commission-context .commission-count strong { color:#541b30; font-size:17px; }
+.commission-context .commission-count span { font-size:9px; }
+@media (max-width:520px) { .admin-finance-header { min-height:unset; padding:14px; } .admin-finance-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; } .admin-finance-tabs button { padding:0 9px; } .commission-context { align-items:flex-start; } .commission-context .commission-count { flex-direction:column; gap:1px; } }

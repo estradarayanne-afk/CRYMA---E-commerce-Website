@@ -62,14 +62,14 @@ class RegistrationProgressHeader extends StatelessWidget {
 
   final int currentStep;
 
-  static const _steps = ['Personal', 'Contact', 'Account', 'ID', 'Review'];
+  static const _steps = ['Personal', 'Address', 'Account', 'Verify', 'Review'];
 
   @override
   Widget build(BuildContext context) {
     final step = currentStep.clamp(1, _steps.length);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      padding: const EdgeInsets.fromLTRB(10, 18, 10, 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -89,28 +89,46 @@ class RegistrationProgressHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              const CrymaWordmark(
-                logoSize: 42,
-                fontSize: 18,
-                onBrandSurface: true,
+              IconButton(
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                ),
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints.tightFor(width: 38, height: 42),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               const Expanded(
-                child: Text(
-                  'BUYER REGISTRATION',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.4,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CrymaWordmark(
+                      logoSize: 34,
+                      fontSize: 17,
+                      onBrandSurface: true,
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'BUYER REGISTRATION',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 6),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(30),
@@ -120,7 +138,7 @@ class RegistrationProgressHeader extends StatelessWidget {
                   '${step.toString().padLeft(2, '0')} / 05',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: .5,
                   ),
@@ -138,8 +156,8 @@ class RegistrationProgressHeader extends StatelessWidget {
                     children: [
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
-                        width: 28,
-                        height: 28,
+                        width: 24,
+                        height: 24,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: index + 1 <= step
@@ -152,7 +170,7 @@ class RegistrationProgressHeader extends StatelessWidget {
                         child: Center(
                           child: index + 1 < step
                               ? const Icon(Icons.check,
-                                  size: 17, color: AppColors.primaryDark)
+                                  size: 15, color: AppColors.primaryDark)
                               : Text(
                                   '${index + 1}',
                                   style: TextStyle(
@@ -186,7 +204,7 @@ class RegistrationProgressHeader extends StatelessWidget {
                 if (index < _steps.length - 1)
                   Expanded(
                     child: Container(
-                      height: 28,
+                      height: 24,
                       alignment: Alignment.center,
                       child: Container(
                         height: 1.5,
@@ -203,4 +221,29 @@ class RegistrationProgressHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+class RegistrationCard extends StatelessWidget {
+  const RegistrationCard({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: AppColors.lightGray.withValues(alpha: .7)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.wine.withValues(alpha: .09),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: child,
+      );
 }

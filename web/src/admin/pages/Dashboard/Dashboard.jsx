@@ -318,10 +318,6 @@ function AdminDashboard() {
 
             <section className="dashboard-page-header">
                 <div>
-                    <div className="dashboard-eyebrow">
-                        CRYMA PLATFORM
-                    </div>
-
                     <h1>Admin Dashboard</h1>
 
                     <p>

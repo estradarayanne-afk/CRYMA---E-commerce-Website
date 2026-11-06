@@ -175,40 +175,15 @@ function Commission() {
     return (
         <div className="commission-page">
 
-            {/* HEADER */}
-
-            <div className="commission-header">
-
-                <div>
-                    <span className="commission-eyebrow">
-                        FINANCIAL MANAGEMENT
-                    </span>
-
-                    <h1>
-                        Commissions
-                    </h1>
-
-                    <p>
-                        Monitor seller commissions and seller earnings.
-                    </p>
-                    <div className="commission-rate-note">
-                        <strong>10% standard platform rate</strong>
-                        <span>Commission is calculated from the order amount; each record shows the rate applied.</span>
-                    </div>
+            <div className="commission-context">
+                <div className="commission-rate-note">
+                    <strong>10% standard platform rate</strong>
+                    <span>Commission is calculated from the order amount; each record shows the rate applied.</span>
                 </div>
-
                 <div className="commission-count">
-
-                    <strong>
-                        {pagination.total}
-                    </strong>
-
-                    <span>
-                        Records
-                    </span>
-
+                    <strong>{pagination.total}</strong>
+                    <span>Records</span>
                 </div>
-
             </div>
 
             <CommissionTrend

@@ -89,9 +89,9 @@ cleartext HTTP for local development only.
   verification documents required by the current Laravel registration API.
   Create/verify the rider account through the CRYMA website; the mobile app
   will not create a fake offline account.
-- Some secondary shopper screens (such as chat, wishlist, and parts of profile
-  management) remain local/demo UI and are not represented as connected API
-  features.
+- Buyer chat, profile, saved addresses, reviews, and vouchers use the Laravel
+  API. The shopper cart and wishlist are stored locally on the device; they do
+  not sync between devices.
 
 ## Troubleshooting
 

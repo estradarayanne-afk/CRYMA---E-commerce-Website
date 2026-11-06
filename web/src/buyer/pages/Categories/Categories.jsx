@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     AlertCircle,
     Check,
@@ -186,53 +186,57 @@ function Categories() {
         return () => { cancelled = true; };
     }, [reloadKey, requestIdentity, requestKey]);
 
+    const loadMoreProducts = useCallback(async () => {
+        if (!isCurrentQueryLoaded || !hasMore || loading || loadingMore || loadError || readyQueryRef.current !== requestKey || loadMoreInFlightRef.current) return;
+
+        const requestVersion = requestVersionRef.current;
+        const nextPage = currentPage + 1;
+        loadMoreInFlightRef.current = true;
+        setLoadingMore(true);
+        setLoadMoreError(false);
+
+        try {
+            const { data } = await api.get("/products", { params: { ...JSON.parse(requestKey), page: nextPage } });
+            if (requestVersion !== requestVersionRef.current) return;
+
+            const pageData = data?.data;
+            const items = Array.isArray(pageData?.data)
+                ? pageData.data
+                : Array.isArray(data?.data)
+                    ? data.data
+                    : Array.isArray(data?.products)
+                        ? data.products
+                        : [];
+            const loadedPage = Math.max(nextPage, Number(pageData?.current_page) || nextPage);
+            const lastPage = Math.max(loadedPage, Number(pageData?.last_page) || loadedPage);
+            setProducts((current) => {
+                const existingIds = new Set(current.map((product) => String(product.id)));
+                return [...current, ...items.filter((product) => !existingIds.has(String(product.id)))];
+            });
+            setCurrentPage(loadedPage);
+            setHasMore(loadedPage < lastPage);
+        } catch (error) {
+            console.error("Unable to load more products:", error);
+            if (requestVersion === requestVersionRef.current) setLoadMoreError(true);
+        } finally {
+            if (requestVersion === requestVersionRef.current) {
+                loadMoreInFlightRef.current = false;
+                setLoadingMore(false);
+            }
+        }
+    }, [currentPage, hasMore, isCurrentQueryLoaded, loadError, loading, loadingMore, requestKey]);
+
     useEffect(() => {
         const sentinel = loadMoreRef.current;
-        if (!sentinel || !isCurrentQueryLoaded || !hasMore || loading || loadingMore || loadError || loadMoreError || readyQueryRef.current !== requestKey) return undefined;
+        if (!sentinel || loadMoreError || !isCurrentQueryLoaded || !hasMore || loading || loadingMore || loadError || readyQueryRef.current !== requestKey) return undefined;
 
         const observer = new IntersectionObserver(([entry]) => {
-            if (!entry.isIntersecting || loadMoreInFlightRef.current) return;
-            const requestVersion = requestVersionRef.current;
-            const nextPage = currentPage + 1;
-            loadMoreInFlightRef.current = true;
-            setLoadingMore(true);
-
-            api.get("/products", { params: { ...JSON.parse(requestKey), page: nextPage } })
-                .then(({ data }) => {
-                    if (requestVersion !== requestVersionRef.current) return;
-                    const pageData = data?.data;
-                    const items = Array.isArray(pageData?.data)
-                        ? pageData.data
-                        : Array.isArray(data?.data)
-                            ? data.data
-                            : Array.isArray(data?.products)
-                                ? data.products
-                                : [];
-                    const loadedPage = Math.max(nextPage, Number(pageData?.current_page) || nextPage);
-                    const lastPage = Math.max(loadedPage, Number(pageData?.last_page) || loadedPage);
-                    setProducts((current) => {
-                        const existingIds = new Set(current.map((product) => String(product.id)));
-                        return [...current, ...items.filter((product) => !existingIds.has(String(product.id)))];
-                    });
-                    setCurrentPage(loadedPage);
-                    setHasMore(loadedPage < lastPage);
-                    setLoadMoreError(false);
-                })
-                .catch((error) => {
-                    console.error("Unable to load more products:", error);
-                    if (requestVersion === requestVersionRef.current) setLoadMoreError(true);
-                })
-                .finally(() => {
-                    if (requestVersion === requestVersionRef.current) {
-                        loadMoreInFlightRef.current = false;
-                        setLoadingMore(false);
-                    }
-                });
+            if (entry.isIntersecting) loadMoreProducts();
         }, { rootMargin: "640px 0px" });
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [requestKey, requestIdentity, currentPage, hasMore, loading, loadingMore, loadError, loadMoreError, reloadKey, isCurrentQueryLoaded]);
+    }, [hasMore, isCurrentQueryLoaded, loadError, loadMoreError, loadMoreProducts, loading, loadingMore, requestKey]);
 
     const updateParams = (updates = {}) => {
         const params = new URLSearchParams(searchParams);
@@ -405,6 +409,7 @@ function Categories() {
         minPrice !== "",
         maxPrice !== "",
         stockOnly,
+        sort !== "featured",
     ].filter(Boolean).length;
 
     const categoryTitle =
@@ -548,6 +553,13 @@ function Categories() {
                                 }}
                             >
                                 In Stock
+                                <X size={12} />
+                            </button>
+                        )}
+
+                        {sort !== "featured" && (
+                            <button type="button" onClick={() => handleSort("featured")}>
+                                Sort: {SORT_OPTIONS.find((option) => option.value === sort)?.label || sort}
                                 <X size={12} />
                             </button>
                         )}
@@ -880,10 +892,17 @@ function Categories() {
                         {loadMoreError && (
                             <div className="shop-load-more-error" role="alert">
                                 <span>We couldn’t load the next set of finds.</span>
-                                <button type="button" onClick={() => setLoadMoreError(false)}>Try again</button>
+                                <button type="button" onClick={loadMoreProducts}>Try again</button>
                             </div>
                         )}
-                        <div className="shop-scroll-sentinel" ref={loadMoreRef} aria-hidden="true" />
+                        {hasMore && !loadMoreError && (
+                            <div className="shop-load-more-actions">
+                                <button type="button" onClick={loadMoreProducts} disabled={loadingMore}>
+                                    {loadingMore ? "Loading products…" : "Load more products"}
+                                </button>
+                            </div>
+                        )}
+                        {hasMore && <div className="shop-scroll-sentinel" ref={loadMoreRef} aria-hidden="true" />}
                     </>
                 ) : (
                     <div className="shop-empty">

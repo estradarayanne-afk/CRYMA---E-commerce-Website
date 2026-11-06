@@ -24,8 +24,9 @@ class _SplashScreenState extends State<SplashScreen> {
       if (await ApiService.instance.restoreBuyerSession() != null) {
         route = '/home';
       }
-    } catch (_) {
-      // Keep the welcome screen available when the API cannot be reached.
+    } catch (error, stackTrace) {
+      debugPrint('Could not restore the buyer session: $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
     if (mounted) Navigator.pushReplacementNamed(context, route);
   }

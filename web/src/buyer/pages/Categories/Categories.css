@@ -274,6 +274,10 @@
 .shop-load-more-error { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 18px auto; color: #745765; font-size: 12px; }
 .shop-load-more-error button { min-height: 34px; padding: 0 12px; border: 1px solid #e4cbd3; border-radius: 8px; background: #fff; color: #671d3a; font: inherit; font-weight: 700; cursor: pointer; }
 .shop-load-more-error button:hover { background: #fff4f7; }
+.shop-load-more-actions { display: flex; justify-content: center; margin: 22px auto 8px; }
+.shop-load-more-actions button { min-height: 42px; padding: 0 20px; border: 1px solid #5a1935; border-radius: 9px; background: #5a1935; color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .18s ease, transform .18s ease; }
+.shop-load-more-actions button:hover:not(:disabled) { transform: translateY(-1px); background: #772448; }
+.shop-load-more-actions button:disabled { opacity: .72; cursor: wait; }
 .shop-scroll-sentinel { width: 100%; height: 2px; }
 .shop-apply-button { font-size: 13px; }
 @media (max-width: 950px) {
@@ -668,7 +672,7 @@
 .shop-results-heading { min-height: 54px; margin-bottom: 18px; }
 .shop-results-heading h2 { color: #3a1b2b; font-size: clamp(21px, 2.2vw, 27px); font-weight: 700; letter-spacing: -.03em; }
 .shop-results-heading p { font-size: 12px; }
-.shop-product-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 210px)); justify-content: start; gap: 13px; }
+.shop-product-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); justify-content: stretch; gap: 13px; }
 .shop-product-grid .buyer-product-card { min-height: 360px; overflow: hidden; border-color: #ecdee2; border-radius: 11px; background: #fffdfc; box-shadow: 0 3px 10px rgba(57,20,37,.045); transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
 .shop-product-grid .buyer-product-card:hover { transform: translateY(-3px); border-color: #d6a0af; box-shadow: 0 10px 22px rgba(57,20,37,.1); }
 .shop-product-grid .buyer-product-image { aspect-ratio: 1 / 1; background: linear-gradient(145deg,#f8eeee,#eee4e4); }
@@ -684,7 +688,7 @@
 
 @media (max-width: 1120px) {
     .shop-header { grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); }
-    .shop-product-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 210px)); }
+    .shop-product-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
 }
 @media (max-width: 900px) {
     .shop-category-nav-shell { align-items: flex-start; flex-direction: column; gap: 10px; }
@@ -696,7 +700,7 @@
     .shop-header { height: 300px; min-height: 300px; }
     .shop-header-copy { padding: 24px; }
     .shop-header-visual { height: 100%; }
-    .shop-product-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 210px)); gap: 13px; }
+    .shop-product-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 13px; }
     .shop-controls { top: 64px; }
 }
 @media (max-width: 620px) {

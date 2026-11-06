@@ -1714,15 +1714,6 @@
     line-height: 1.12;
     text-shadow: none;
 }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1::before {
-    content: "CRYMA PLATFORM";
-    display: block;
-    margin: 0 0 8px;
-    color: #f6cbd4;
-    font: 700 9px/1.2 Arial,sans-serif;
-    letter-spacing: 1.8px;
-    text-shadow: none;
-}
 .al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) > div:first-child > span:first-child { display: none; }
 .al-root .al-content .dashboard-page-header > div:first-child > .dashboard-eyebrow { display: none; }
 .al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1::after { display: none; }

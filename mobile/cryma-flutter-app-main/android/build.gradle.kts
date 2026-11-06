@@ -22,3 +22,12 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+subprojects {
+    if (name == "file_picker") {
+        afterEvaluate {
+            extensions.configure<com.android.build.api.dsl.LibraryExtension> {
+                compileSdk = 36
+            }
+        }
+    }
+}
