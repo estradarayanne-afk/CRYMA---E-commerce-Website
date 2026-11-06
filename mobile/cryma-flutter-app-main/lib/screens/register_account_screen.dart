@@ -21,11 +21,13 @@ class RegisterAccountScreen extends StatefulWidget {
 }
 
 class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
+  final _emailKey = GlobalKey<FormFieldState>();
   final _confirmPasswordKey = GlobalKey<FormFieldState>();
 
   bool _showPassword = false;
@@ -35,11 +37,13 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
   void initState() {
     super.initState();
     BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
+    _emailController.text = widget.contactData?['email']?.toString() ?? '';
   }
 
   @override
   void dispose() {
     BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -55,16 +59,19 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
 
   void _handleContinue() {
     final isPasswordValid = _formKey.currentState?.validate() ?? false;
+    final isEmailValid = _emailKey.currentState?.validate() ?? false;
     _confirmPasswordKey.currentState?.validate();
     final isConfirmValid =
         _confirmPasswordController.text == _passwordController.text;
-    if (!isPasswordValid || !isConfirmValid) return;
+    if (!isEmailValid || !isPasswordValid || !isConfirmValid) return;
+    final contactData = Map<String, dynamic>.from(widget.contactData ?? {})
+      ..['email'] = _emailController.text.trim();
     Navigator.pushNamed(
       context,
       '/register_id',
       arguments: {
         'personalData': widget.personalData ?? {},
-        'contactData': widget.contactData ?? {},
+        'contactData': contactData,
         'addressData': widget.addressData ?? {},
         'password': _passwordController.text,
         'passwordConfirmation': _confirmPasswordController.text,
@@ -85,144 +92,121 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
             horizontal: screenWidth * 0.05,
             vertical: screenHeight * 0.02,
           ),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // HEADER
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: AppColors.primary,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Create Account',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-                const SizedBox(height: 10),
+          child: RegistrationCard(
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // STEPPER
+                  _buildStepper(currentStep: 3),
+                  const SizedBox(height: 22),
 
-                // STEPPER
-                _buildStepper(currentStep: 3),
-                const SizedBox(height: 14),
-
-                // DESCRIPTION
-                const Text(
-                  'Set a secure password to protect your account.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.gray,
-                    fontFamily: 'Poppins',
-                    height: 1.5,
+                  // DESCRIPTION
+                  const Text(
+                    'Account security',
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryDark,
+                      fontFamily: 'Poppins',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Create the login credentials you will use for CRYMA.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.gray,
+                      fontFamily: 'Poppins',
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
 
-                // PASSWORD
-                _buildLabel('PASSWORD *'),
-                const SizedBox(height: 4),
-                _buildPasswordField(
-                  controller: _passwordController,
-                  showPassword: _showPassword,
-                  hintText: 'Minimum 8 characters',
-                  validator: (value) =>
+                  _buildEmailField(),
+                  const SizedBox(height: 14),
+
+                  _buildPasswordField(
+                    controller: _passwordController,
+                    showPassword: _showPassword,
+                    label: 'Password *',
+                    hintText: 'At least 8 characters',
+                    validator: (value) =>
+                        BuyerRegistrationErrorStore.instance
+                            .errorFor('password') ??
+                        BuyerRegistrationRules.validatePassword(value),
+                    onToggle: () {
+                      setState(() {
+                        _showPassword = !_showPassword;
+                      });
+                    },
+                    onChanged: (_) {
                       BuyerRegistrationErrorStore.instance
-                          .errorFor('password') ??
-                      BuyerRegistrationRules.validatePassword(value),
-                  onToggle: () {
-                    setState(() {
-                      _showPassword = !_showPassword;
-                    });
-                  },
-                  onChanged: (_) {
-                    BuyerRegistrationErrorStore.instance.clearField('password');
-                    setState(() {});
-                    if (_confirmPasswordController.text.isNotEmpty) {
-                      _confirmPasswordKey.currentState?.validate();
-                    }
-                  },
-                ),
-                const SizedBox(height: 6),
-
-                Text(
-                  '${_passwordController.text.runes.length} / ${BuyerRegistrationRules.maxPasswordLength} characters',
-                  style: const TextStyle(
-                    color: AppColors.gray,
-                    fontSize: 10,
-                    fontFamily: 'Poppins',
+                          .clearField('password');
+                      setState(() {});
+                      if (_confirmPasswordController.text.isNotEmpty) {
+                        _confirmPasswordKey.currentState?.validate();
+                      }
+                    },
                   ),
-                ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 8),
+                  _buildPasswordStrength(),
+                  const SizedBox(height: 16),
 
-                // CONFIRM PASSWORD
-                _buildLabel('CONFIRM PASSWORD *'),
-                const SizedBox(height: 4),
-                _buildPasswordField(
-                  controller: _confirmPasswordController,
-                  showPassword: _showConfirmPassword,
-                  hintText: 'Re-enter your password',
-                  fieldKey: _confirmPasswordKey,
-                  validator: (value) =>
+                  _buildPasswordField(
+                    controller: _confirmPasswordController,
+                    showPassword: _showConfirmPassword,
+                    label: 'Confirm password *',
+                    hintText: 'Re-enter your password',
+                    fieldKey: _confirmPasswordKey,
+                    validator: (value) =>
+                        BuyerRegistrationErrorStore.instance
+                            .errorFor('password_confirmation') ??
+                        BuyerRegistrationRules.validatePasswordConfirmation(
+                          value,
+                          _passwordController.text,
+                        ),
+                    onToggle: () {
+                      setState(() {
+                        _showConfirmPassword = !_showConfirmPassword;
+                      });
+                    },
+                    onChanged: (_) {
                       BuyerRegistrationErrorStore.instance
-                          .errorFor('password_confirmation') ??
-                      BuyerRegistrationRules.validatePasswordConfirmation(
-                        value,
-                        _passwordController.text,
+                          .clearField('password_confirmation');
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _handleContinue,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                  onToggle: () {
-                    setState(() {
-                      _showConfirmPassword = !_showConfirmPassword;
-                    });
-                  },
-                  onChanged: (_) {
-                    BuyerRegistrationErrorStore.instance
-                        .clearField('password_confirmation');
-                    setState(() {});
-                  },
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _handleContinue,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      'Continue',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.white,
-                        fontFamily: 'Poppins',
+                      child: const Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.white,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),
@@ -237,110 +221,199 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
     return RegistrationProgressHeader(currentStep: currentStep);
   }
 
-  // ============================================================
-  // LABEL
-  // ============================================================
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
-          fontFamily: 'Poppins',
+  Widget _buildEmailField() {
+    return TextFormField(
+      key: _emailKey,
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.next,
+      autocorrect: false,
+      enableSuggestions: false,
+      validator: (value) =>
+          BuyerRegistrationErrorStore.instance.errorFor('email') ??
+          BuyerRegistrationRules.validateEmail(value),
+      inputFormatters: [
+        LengthLimitingTextInputFormatter(
+          BuyerRegistrationRules.maxEmailLength,
         ),
+        FilteringTextInputFormatter.deny(RegExp(r'\s')),
+      ],
+      onChanged: (_) =>
+          BuyerRegistrationErrorStore.instance.clearField('email'),
+      style: const TextStyle(
+        fontSize: 14,
+        color: AppColors.darkGray,
+        fontFamily: 'Poppins',
+      ),
+      decoration: _fieldDecoration(
+        label: 'Email address *',
+        hintText: 'you@example.com',
+        icon: Icons.alternate_email_rounded,
       ),
     );
   }
 
-  // ============================================================
-  // PASSWORD FIELD (may errorMaxLines: 2 na)
-  // ============================================================
+  InputDecoration _fieldDecoration({
+    required String label,
+    required String hintText,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    OutlineInputBorder border(Color color, [double width = 1]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return InputDecoration(
+      labelText: label,
+      hintText: hintText,
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      filled: true,
+      fillColor: Colors.white,
+      prefixIcon: Icon(icon, color: AppColors.gray),
+      suffixIcon: suffixIcon,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 19),
+      labelStyle: const TextStyle(
+        color: AppColors.gray,
+        fontSize: 13,
+        fontFamily: 'Poppins',
+      ),
+      floatingLabelStyle: const TextStyle(
+        color: AppColors.primary,
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+        fontFamily: 'Poppins',
+      ),
+      hintStyle: const TextStyle(
+        color: AppColors.textSubtle,
+        fontSize: 13,
+        fontFamily: 'Poppins',
+      ),
+      border: border(AppColors.lightGray),
+      enabledBorder: border(AppColors.lightGray),
+      focusedBorder: border(AppColors.primary, 1.5),
+      errorBorder: border(AppColors.danger),
+      focusedErrorBorder: border(AppColors.danger, 1.5),
+      errorStyle: const TextStyle(
+        fontSize: 11,
+        fontFamily: 'Poppins',
+        height: 1.3,
+      ),
+      errorMaxLines: 2,
+    );
+  }
+
+  Widget _buildPasswordStrength() {
+    final password = _passwordController.text;
+    final checks = [
+      password.runes.length >= 8,
+      RegExp(r'[A-Za-z]').hasMatch(password),
+      RegExp(r'\d').hasMatch(password),
+      RegExp(r'[^A-Za-z0-9]').hasMatch(password),
+    ];
+    final score = password.isEmpty ? 0 : checks.where((check) => check).length;
+    final label = switch (score) {
+      0 => 'Use at least 8 characters',
+      1 => 'Weak password',
+      2 => 'Fair password',
+      3 => 'Good password',
+      _ => 'Strong password',
+    };
+    final color = switch (score) {
+      0 || 1 => AppColors.danger,
+      2 => const Color(0xFFB7791F),
+      _ => AppColors.success,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: List.generate(4, (index) {
+            return Expanded(
+              child: Container(
+                height: 5,
+                margin: EdgeInsets.only(right: index == 3 ? 0 : 6),
+                decoration: BoxDecoration(
+                  color: index < score ? color : AppColors.lightGray,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 7),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: password.isEmpty ? AppColors.gray : color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$score/4',
+              style: const TextStyle(
+                color: AppColors.gray,
+                fontSize: 11,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildPasswordField({
     required TextEditingController controller,
     required bool showPassword,
+    required String label,
     required String hintText,
     required VoidCallback onToggle,
     required ValueChanged<String> onChanged,
     String? Function(String?)? validator,
     GlobalKey<FormFieldState>? fieldKey,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(
-          color: AppColors.lightGray,
-          width: 1.5,
+    return TextFormField(
+      key: fieldKey,
+      controller: controller,
+      obscureText: !showPassword,
+      onChanged: onChanged,
+      validator: validator,
+      inputFormatters: [
+        LengthLimitingTextInputFormatter(
+          BuyerRegistrationRules.maxPasswordLength,
         ),
-        borderRadius: BorderRadius.circular(16),
+      ],
+      textInputAction: TextInputAction.done,
+      style: const TextStyle(
+        fontSize: 14,
+        color: AppColors.darkGray,
+        fontFamily: 'Poppins',
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(width: 14),
-          const Padding(
-            padding: EdgeInsets.only(top: 15),
-            child: Icon(
-              Icons.shield_outlined,
-              color: AppColors.gray,
-              size: 22,
-            ),
+      decoration: _fieldDecoration(
+        label: label,
+        hintText: hintText,
+        icon: Icons.lock_outline_rounded,
+        suffixIcon: IconButton(
+          tooltip: showPassword ? 'Hide password' : 'Show password',
+          onPressed: onToggle,
+          icon: Icon(
+            showPassword
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+            color: AppColors.gray,
           ),
-          Expanded(
-            child: TextFormField(
-              key: fieldKey,
-              controller: controller,
-              obscureText: !showPassword,
-              onChanged: onChanged,
-              validator: validator,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(
-                  BuyerRegistrationRules.maxPasswordLength,
-                ),
-              ],
-              textInputAction: TextInputAction.done,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.darkGray,
-                fontFamily: 'Poppins',
-              ),
-              decoration: InputDecoration(
-                hintText: hintText,
-                hintStyle: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.gray,
-                  fontFamily: 'Poppins',
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 15,
-                ),
-                errorStyle: const TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'Poppins',
-                  height: 1.3,
-                ),
-                errorMaxLines: 2,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: onToggle,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 14, top: 15),
-              child: Icon(
-                showPassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-                color: AppColors.gray,
-                size: 22,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

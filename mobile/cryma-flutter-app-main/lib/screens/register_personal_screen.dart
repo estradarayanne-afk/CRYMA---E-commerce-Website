@@ -23,7 +23,6 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String _selectedSex = '';
-  bool _showSexDropdown = false;
   String? _sexError;
   String? _birthdayError;
 
@@ -102,7 +101,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     };
     Navigator.pushNamed(
       context,
-      '/register_contact',
+      '/register_address',
       arguments: {'personalData': formData},
     );
   }
@@ -120,44 +119,30 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
             horizontal: screenWidth * 0.05,
             vertical: screenHeight * 0.02,
           ),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
+          child: RegistrationCard(
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // HEADER
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: AppColors.primary),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Create Account',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
                 // STEPPER
                 _buildStepper(currentStep: 1),
-                const SizedBox(height: 10),
+                const SizedBox(height: 22),
 
                 // INTRO TEXT
                 const Text(
-                  'Enter your personal information to get started.',
+                  'Personal information',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Tell us a little about yourself.',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.gray,
@@ -165,22 +150,6 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-
-                // LAST NAME
-                _buildLabel('LAST NAME *'),
-                _buildTextField(
-                  controller: _lastNameController,
-                  hintText: 'Dela Cruz',
-                  validator: (value) =>
-                      _serverError('last_name') ??
-                      BuyerRegistrationRules.validateName(value),
-                  inputFormatters: [
-                    LengthLimitingTextInputFormatter(30),
-                  ],
-                  onChanged: (_) => BuyerRegistrationErrorStore.instance
-                      .clearField('last_name'),
-                ),
-                const SizedBox(height: 10),
 
                 // FIRST NAME
                 _buildLabel('FIRST NAME *'),
@@ -191,6 +160,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                       _serverError('first_name') ??
                       BuyerRegistrationRules.validateName(value),
                   inputFormatters: [
+                    CapitalizeNameWordsFormatter(),
                     LengthLimitingTextInputFormatter(30),
                   ],
                   onChanged: (_) => BuyerRegistrationErrorStore.instance
@@ -207,10 +177,28 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                       _serverError('middle_name') ??
                       BuyerRegistrationRules.validateMiddleInitial(value),
                   inputFormatters: [
+                    CapitalizeNameWordsFormatter(),
                     LengthLimitingTextInputFormatter(2),
                   ],
                   onChanged: (_) => BuyerRegistrationErrorStore.instance
                       .clearField('middle_name'),
+                ),
+                const SizedBox(height: 10),
+
+                // LAST NAME
+                _buildLabel('LAST NAME *'),
+                _buildTextField(
+                  controller: _lastNameController,
+                  hintText: 'Dela Cruz',
+                  validator: (value) =>
+                      _serverError('last_name') ??
+                      BuyerRegistrationRules.validateName(value),
+                  inputFormatters: [
+                    CapitalizeNameWordsFormatter(),
+                    LengthLimitingTextInputFormatter(30),
+                  ],
+                  onChanged: (_) => BuyerRegistrationErrorStore.instance
+                      .clearField('last_name'),
                 ),
                 const SizedBox(height: 10),
 
@@ -282,7 +270,24 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        Navigator.pushReplacementNamed(context, '/login'),
+                    icon: const Icon(Icons.login_rounded, size: 17),
+                    label: const Text('Already have an account? Sign in'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primaryDark,
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
+                ),
               ],
+              ),
             ),
           ),
         ),
@@ -363,93 +368,41 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   }
 
   // ============================================================
-  // SEX DROPDOWN (walang binago)
+  // SEX OPTIONS
   // ============================================================
   Widget _buildSexDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _sexOptions.map((option) {
+        final selected = _selectedSex == option;
+        return ChoiceChip(
+          label: Text(option),
+          selected: selected,
+          showCheckmark: false,
+          onSelected: (_) {
             setState(() {
-              _showSexDropdown = !_showSexDropdown;
+              _selectedSex = option;
+              _sexError = null;
             });
+            BuyerRegistrationErrorStore.instance.clearField('sex');
           },
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              border: Border.all(color: AppColors.lightGray),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _selectedSex.isEmpty ? 'Select sex' : _selectedSex,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _selectedSex.isEmpty
-                        ? AppColors.gray
-                        : AppColors.darkGray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                Icon(
-                  _showSexDropdown
-                      ? Icons.arrow_drop_up
-                      : Icons.arrow_drop_down,
-                  color: AppColors.gray,
-                ),
-              ],
-            ),
+          backgroundColor: Colors.white,
+          selectedColor: AppColors.softRose,
+          side: BorderSide(
+            color: selected ? AppColors.primary : AppColors.lightGray,
           ),
-        ),
-        if (_showSexDropdown)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              border: Border.all(color: AppColors.lightGray),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              children: _sexOptions.map((option) {
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedSex = option;
-                      _showSexDropdown = false;
-                      _sexError = null;
-                    });
-                    BuyerRegistrationErrorStore.instance.clearField('sex');
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 10, horizontal: 14),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: option == _sexOptions.last
-                              ? Colors.transparent
-                              : AppColors.lightGray,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      option,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.darkGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
-      ],
+          labelStyle: TextStyle(
+            color: selected ? AppColors.primary : AppColors.darkGray,
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            fontFamily: 'Poppins',
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -459,14 +412,13 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   Widget _buildDatePicker() {
     return GestureDetector(
       onTap: () async {
-        final localToday = DateTime.now().toUtc().add(const Duration(hours: 8));
-        final today =
-            DateTime(localToday.year, localToday.month, localToday.day);
+        final latestEligibleBirthday =
+            BuyerRegistrationRules.latestEligibleBirthday();
         final DateTime? picked = await showDatePicker(
           context: context,
-          initialDate: today,
+          initialDate: latestEligibleBirthday,
           firstDate: DateTime(1900),
-          lastDate: today,
+          lastDate: latestEligibleBirthday,
         );
         if (picked != null) {
           setState(() {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/buyer_category.dart';
 import '../services/api_service.dart';
 import '../services/favorites_store.dart';
 import '../utils/colors.dart';
@@ -48,22 +49,8 @@ class SearchResultsScreen extends StatefulWidget {
 }
 
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
-  static const _categoryOptions = [
-    'Pet Supplies',
-    'Electronics & Gadgets',
-    "Women's Apparel",
-    "Men's Apparel",
-    'Kids & Baby',
-    'Home & Garden',
-    'Sports & Outdoors',
-    'Health & Beauty',
-    'Books & Media',
-    'Food & Gourmet',
-    'Automotive & Motorcycle',
-    'Furniture & Office Equipment',
-    'Jewelry & Watches',
-    'Office & School Supplies',
-  ];
+  static final _categoryOptions =
+      buyerCategories.map((category) => category.name).toList();
 
   List<SearchResult> _results = [];
   String? _selectedCategory;
@@ -476,7 +463,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                                 mainAxisSpacing: 14,
 
                                 // SMALLER CARD
-                                mainAxisExtent: 350,
+                                mainAxisExtent: 315,
                               ),
                               itemCount: _displayedResults.length +
                                   (_page < _lastPage ? 1 : 0),
@@ -516,10 +503,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        height: 46,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 13,
-        ),
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 11),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(14),
@@ -540,7 +525,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             Text(
               label,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: AppColors.darkGray,
                 fontFamily: 'Poppins',
@@ -629,7 +614,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             // ==================================================
 
             SizedBox(
-              height: 165,
+              height: 148,
               width: double.infinity,
               child: Stack(
                 children: [
@@ -666,8 +651,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       left: 10,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.danger,
@@ -676,7 +661,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         child: const Text(
                           'SALE',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 9,
                             fontWeight: FontWeight.bold,
                             color: AppColors.white,
                             fontFamily: 'Poppins',
@@ -693,11 +678,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     top: 9,
                     right: 9,
                     child: Container(
-                      width: 46,
-                      height: 46,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         color: AppColors.white,
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -714,7 +699,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           _favoriteIds.contains(result.id)
                               ? Icons.favorite
                               : Icons.favorite_border,
-                          size: 26,
+                          size: 21,
                           color: _favoriteIds.contains(result.id)
                               ? AppColors.danger
                               : AppColors.gray,
@@ -733,10 +718,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  12,
-                  9,
-                  12,
-                  9,
+                  10,
+                  8,
+                  10,
+                  8,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -765,7 +750,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
                           height: 1.2,
                           fontWeight: FontWeight.w600,
                           color: AppColors.darkGray,
@@ -781,7 +766,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       children: [
                         const Icon(
                           Icons.star,
-                          size: 16,
+                          size: 14,
                           color: AppColors.gold,
                         ),
                         const SizedBox(width: 4),
@@ -808,7 +793,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         Text(
                           '₱${result.price}',
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,
                             fontFamily: 'Poppins',

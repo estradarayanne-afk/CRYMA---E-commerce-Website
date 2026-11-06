@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../utils/colors.dart';
+import '../widgets/buyer_bottom_navigation_bar.dart';
 
 // ============================================================
 // ORDER MODEL
@@ -37,7 +38,7 @@ class MyOrdersScreen extends StatefulWidget {
 }
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
-  String _activeTab = 'All';
+  String _activeTab = '';
   List<Order> _allOrders = [];
   bool _loading = true;
   String? _error;
@@ -49,14 +50,23 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   String? _dateFrom;
   String? _dateTo;
 
-  final List<String> _tabs = [
-    'All',
-    'To Pay',
-    'To Ship',
-    'In Transit',
-    'Delivered',
-    'Cancelled',
-  ];
+  static const _statusOptions = <String, String>{
+    '': 'All Orders',
+    'pending': 'Pending',
+    'placed': 'Placed',
+    'confirmed': 'Confirmed',
+    'preparing': 'Preparing',
+    'ready_for_pickup': 'Ready for Pickup',
+    'picked_up': 'Picked Up',
+    'at_sorting_center': 'At Sorting Center',
+    'sorted': 'Sorted',
+    'assigned_to_rider': 'Assigned to Rider',
+    'out_for_delivery': 'Out for Delivery',
+    'delivered': 'Delivered',
+    'completed': 'Completed',
+    'delivery_failed': 'Delivery Failed',
+    'returned': 'Returned',
+  };
 
   @override
   void initState() {
@@ -78,6 +88,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     try {
       final page = await ApiService.instance.getBuyerOrdersPage(
           search: _searchController.text,
+          status: _activeTab.isEmpty ? null : _activeTab,
           sort: _sort,
           dateFrom: _dateFrom,
           dateTo: _dateTo);
@@ -104,6 +115,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       final page = await ApiService.instance.getBuyerOrdersPage(
           page: _currentPage + 1,
           search: _searchController.text,
+          status: _activeTab.isEmpty ? null : _activeTab,
           sort: _sort,
           dateFrom: _dateFrom,
           dateTo: _dateTo);
@@ -137,27 +149,19 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               ? int.tryParse(item['quantity'].toString()) ?? 0
               : 0);
     });
-    final rawStatus = json['status']?.toString() ?? 'PENDING';
-    final status = switch (rawStatus) {
-      'PENDING' => 'To Pay',
-      'CONFIRMED' ||
-      'READY_FOR_PICKUP' ||
-      'PICKED_UP' ||
-      'AT_SORTING_CENTER' =>
-        'To Ship',
-      'OUT_FOR_DELIVERY' => 'In Transit',
-      'DELIVERED' || 'COMPLETED' => 'Delivered',
-      'CANCELLED' || 'DELIVERY_FAILED' => 'Cancelled',
-      _ => rawStatus
-          .toLowerCase()
-          .split('_')
-          .map(
-            (word) => word.isEmpty
-                ? word
-                : '${word[0].toUpperCase()}${word.substring(1)}',
-          )
-          .join(' '),
-    };
+    final rawStatus = json['status']?.toString().trim() ?? '';
+    final status = rawStatus.isEmpty
+        ? 'Unknown'
+        : _statusOptions[rawStatus.toLowerCase()] ??
+            rawStatus
+                .replaceAll(RegExp(r'[_-]+'), ' ')
+                .split(RegExp(r'\s+'))
+                .where((word) => word.isNotEmpty)
+                .map(
+                  (word) =>
+                      '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
+                )
+                .join(' ');
     final image = product['image']?.toString() ?? '';
     return Order(
       id: json['id'].toString(),
@@ -177,11 +181,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   }
 
   List<Order> get _filteredOrders {
-    if (_activeTab == 'All') {
-      return _allOrders;
-    }
-
-    return _allOrders.where((order) => order.status == _activeTab).toList();
+    return _allOrders;
   }
 
   String _formatPrice(int price) {
@@ -194,12 +194,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'In Transit':
+      case 'Out for Delivery':
         return const Color(0xFF2196F3);
 
       case 'Delivered':
         return const Color(0xFF4CAF50);
 
       case 'Cancelled':
+      case 'Delivery Failed':
         return const Color(0xFFF44336);
 
       default:
@@ -210,12 +212,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   Color _getStatusBgColor(String status) {
     switch (status) {
       case 'In Transit':
+      case 'Out for Delivery':
         return const Color(0xFFE3F2FD);
 
       case 'Delivered':
         return const Color(0xFFE8F5E9);
 
       case 'Cancelled':
+      case 'Delivery Failed':
         return const Color(0xFFFFEBEE);
 
       default:
@@ -227,26 +231,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   // BOTTOM NAVIGATION
   // ============================================================
   void _onNavItemTapped(int index) {
-    switch (index) {
-      case 0:
-        Navigator.pushReplacementNamed(context, '/home');
-        break;
-
-      case 1:
-        Navigator.pushNamed(context, '/categories');
-        break;
-
-      case 2:
-        Navigator.pushNamed(context, '/cart');
-        break;
-
-      case 3:
-        break;
-
-      case 4:
-        Navigator.pushNamed(context, '/account');
-        break;
-    }
+    BuyerBottomNavigationBar.navigateToTab(context, index, 3);
   }
 
   // ============================================================
@@ -388,9 +373,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 child: Row(
-                  children: _tabs.map((tab) {
-                    return _buildTab(tab);
-                  }).toList(),
+                  children: _statusOptions.entries
+                      .map((option) => _buildTab(option.key, option.value))
+                      .toList(),
                 ),
               ),
             ),
@@ -466,51 +451,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       // ============================================================
       // BOTTOM NAVIGATION
       // ============================================================
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          border: Border(top: BorderSide(color: AppColors.lightGray, width: 1)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: 3,
-          onTap: _onNavItemTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppColors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.gray,
-          elevation: 0,
-          selectedLabelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 10,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_outlined),
-              label: 'Categories',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart_outlined),
-              label: 'Cart',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.list_alt),
-              label: 'Orders',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outlined),
-              label: 'Account',
-            ),
-          ],
-        ),
+      bottomNavigationBar: BuyerBottomNavigationBar(
+        currentIndex: 3,
+        onDestinationSelected: _onNavItemTapped,
       ),
     );
   }
@@ -518,14 +461,16 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   // ============================================================
   // TAB WIDGET
   // ============================================================
-  Widget _buildTab(String tab) {
-    final bool isActive = _activeTab == tab;
+  Widget _buildTab(String value, String label) {
+    final bool isActive = _activeTab == value;
 
     return GestureDetector(
       onTap: () {
+        if (_activeTab == value) return;
         setState(() {
-          _activeTab = tab;
+          _activeTab = value;
         });
+        _loadOrders();
       },
       child: Container(
         height: 42,
@@ -541,7 +486,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         ),
         alignment: Alignment.center,
         child: Text(
-          tab,
+          label,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,

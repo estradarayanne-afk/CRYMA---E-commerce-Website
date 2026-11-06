@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/auth_widgets.dart';
 import '../utils/buyer_registration.dart';
@@ -8,9 +9,11 @@ class RegisterReviewScreen extends StatefulWidget {
   const RegisterReviewScreen({
     super.key,
     required this.data,
+    this.apiService,
   });
 
   final Map<String, dynamic> data;
+  final ApiService? apiService;
 
   @override
   State<RegisterReviewScreen> createState() => _RegisterReviewScreenState();
@@ -24,6 +27,8 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
   String? _message;
   String? _termsVersion;
   String? _privacyVersion;
+
+  ApiService get _apiService => widget.apiService ?? ApiService.instance;
 
   Map<String, dynamic> get _personal =>
       (widget.data['personalData'] as Map<String, dynamic>?) ?? {};
@@ -44,7 +49,7 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
       _message = null;
     });
     try {
-      final policies = await ApiService.instance.getCurrentPolicies();
+      final policies = await _apiService.getCurrentPolicies();
       final terms = policies['terms'];
       final privacy = policies['privacy'];
       final termsVersion =
@@ -114,7 +119,7 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
     );
 
     try {
-      final response = await ApiService.instance.register(
+      final response = await _apiService.register(
         fields: fields,
         validIdPath: widget.data['idFile'] as String? ?? '',
       );
@@ -184,19 +189,25 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
     }
   }
 
-  String _addressSummary() {
-    final parts = <String>[
-      _address['unitNumber']?.toString() ?? '',
-      _address['buildingName']?.toString() ?? '',
-      _address['houseNumber']?.toString() ?? '',
-      _address['street']?.toString() ?? '',
-      _address['barangay']?.toString() ?? '',
-      _address['municipality']?.toString() ?? '',
-      _address['province']?.toString() ?? '',
-      _address['region']?.toString() ?? '',
-      _address['postalCode']?.toString() ?? '',
-    ];
-    return parts.where((part) => part.trim().isNotEmpty).join(', ');
+  void _editSection(String routeName) {
+    Navigator.popUntil(
+      context,
+      (route) => route.settings.name == routeName,
+    );
+  }
+
+  String _displayPhone() {
+    final phone = _contact['contactNumber']?.toString() ?? '';
+    final normalized = BuyerRegistrationRules.normalizePhone(phone);
+    return normalized.startsWith('+63')
+        ? '+63 ${normalized.substring(3)}'
+        : phone;
+  }
+
+  String _displayBirthday() {
+    final birthday = _personal['birthday']?.toString() ?? '';
+    final parsed = DateTime.tryParse(birthday);
+    return parsed == null ? birthday : DateFormat('MM/dd/yyyy').format(parsed);
   }
 
   @override
@@ -214,202 +225,246 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon:
-                        const Icon(Icons.arrow_back, color: AppColors.primary),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+          child: RegistrationCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const RegistrationProgressHeader(currentStep: 5),
+                const SizedBox(height: 22),
+                const Text(
+                  'Review your application',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark,
+                    fontFamily: 'Poppins',
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Review Registration',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Confirm your information and uploaded ID before submitting.',
+                  style: TextStyle(
+                    color: AppColors.gray,
+                    fontSize: 13,
+                    height: 1.5,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _reviewSection(
+                  'Personal information',
+                  [
+                    ('Full name', fullName),
+                    ('Sex', _personal['sex']?.toString() ?? ''),
+                    ('Birthday', _displayBirthday()),
+                    if (_personal['age'] != null)
+                      ('Age', '${_personal['age']} years old'),
+                  ],
+                  onEdit: () => _editSection('/register_personal'),
+                ),
+                _reviewSection(
+                  'Contact and delivery address',
+                  [
+                    ('Mobile', _displayPhone()),
+                    ('Region', _address['region']?.toString() ?? ''),
+                    ('Province', _address['province']?.toString() ?? ''),
+                    (
+                      'City / municipality',
+                      _address['municipality']?.toString() ?? ''
+                    ),
+                    ('Barangay', _address['barangay']?.toString() ?? ''),
+                    ('House / lot', _address['houseNumber']?.toString() ?? ''),
+                    ('Street', _address['street']?.toString() ?? ''),
+                    ('Building', _address['buildingName']?.toString() ?? ''),
+                    ('Unit', _address['unitNumber']?.toString() ?? ''),
+                    ('Postal code', _address['postalCode']?.toString() ?? ''),
+                  ],
+                  onEdit: () => _editSection('/register_address'),
+                ),
+                _reviewSection(
+                  'Login credentials',
+                  [
+                    ('Email', _contact['email']?.toString() ?? ''),
+                    ('Password', 'Set'),
+                  ],
+                  onEdit: () => _editSection('/register_account'),
+                ),
+                _reviewSection(
+                  'Verification document',
+                  [('Valid ID', fileName ?? '')],
+                  onEdit: () => _editSection('/register_id'),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.lightGray),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Before you submit',
+                        style: TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _consentTile(
+                        value: _termsAccepted,
+                        title:
+                            'I have read and agree to the Terms and Conditions.',
+                        onChanged: _loadingPolicies
+                            ? null
+                            : (value) => setState(() {
+                                  _termsAccepted = value ?? false;
+                                  _message = null;
+                                }),
+                      ),
+                      _consentTile(
+                        value: _privacyAcknowledged,
+                        title: 'I acknowledge the Privacy Notice.',
+                        onChanged: _loadingPolicies
+                            ? null
+                            : (value) => setState(() {
+                                  _privacyAcknowledged = value ?? false;
+                                  _message = null;
+                                }),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_termsVersion != null && _privacyVersion != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Text(
+                      'Policy versions: Terms $_termsVersion · Privacy $_privacyVersion',
+                      style: const TextStyle(
+                        color: AppColors.gray,
+                        fontSize: 10,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
+                if (_message != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _message!,
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      fontSize: 12,
                       fontFamily: 'Poppins',
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              const RegistrationProgressHeader(currentStep: 5),
-              const SizedBox(height: 18),
-              const Text(
-                'Check your information',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                  fontFamily: 'Poppins',
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _loadingPolicies || _submitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: _loadingPolicies || _submitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.white,
+                            ),
+                          )
+                        : const Text('Submit registration'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              _reviewSection('Personal information', [
-                ('Name', fullName),
-                (
-                  'Middle initial',
-                  _personal['middleInitial']?.toString() ?? ''
-                ),
-                ('Sex', _personal['sex']?.toString() ?? ''),
-                ('Birthday', _personal['birthday']?.toString() ?? ''),
-              ]),
-              _reviewSection('Contact and address', [
-                ('Email', _contact['email']?.toString() ?? ''),
-                ('Mobile', _contact['contactNumber']?.toString() ?? ''),
-                ('Address', _addressSummary()),
-              ]),
-              _reviewSection('Identity document', [
-                ('File', fileName ?? ''),
-              ]),
-              const SizedBox(height: 14),
-              const Text(
-                'Consent',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              const SizedBox(height: 6),
-              CheckboxListTile(
-                value: _termsAccepted,
-                onChanged: _loadingPolicies
-                    ? null
-                    : (value) => setState(() {
-                          _termsAccepted = value ?? false;
-                          _message = null;
-                        }),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text(
-                  'I accept the Terms and Conditions.',
-                  style: TextStyle(fontSize: 12, fontFamily: 'Poppins'),
-                ),
-              ),
-              CheckboxListTile(
-                value: _privacyAcknowledged,
-                onChanged: _loadingPolicies
-                    ? null
-                    : (value) => setState(() {
-                          _privacyAcknowledged = value ?? false;
-                          _message = null;
-                        }),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text(
-                  'I acknowledge the Privacy Notice.',
-                  style: TextStyle(fontSize: 12, fontFamily: 'Poppins'),
-                ),
-              ),
-              if (_termsVersion != null && _privacyVersion != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Text(
-                    'Policy versions: Terms $_termsVersion · Privacy $_privacyVersion',
-                    style: const TextStyle(
-                      color: AppColors.gray,
-                      fontSize: 10,
-                      fontFamily: 'Poppins',
+                if (_message != null &&
+                    !_loadingPolicies &&
+                    _termsVersion == null) ...[
+                  Center(
+                    child: TextButton(
+                      onPressed: _loadPolicies,
+                      child: const Text('Retry loading policies'),
                     ),
                   ),
-                ),
-              if (_message != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _message!,
-                  style: const TextStyle(
-                    color: AppColors.danger,
-                    fontSize: 12,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
+                ],
               ],
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _loadingPolicies || _submitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: _loadingPolicies || _submitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.white,
-                          ),
-                        )
-                      : const Text('Submit registration'),
-                ),
-              ),
-              if (_message != null &&
-                  !_loadingPolicies &&
-                  _termsVersion == null) ...[
-                Center(
-                  child: TextButton(
-                    onPressed: _loadPolicies,
-                    child: const Text('Retry loading policies'),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _reviewSection(String title, List<(String, String)> entries) {
+  Widget _reviewSection(
+    String title,
+    List<(String, String)> entries, {
+    required VoidCallback onEdit,
+  }) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.lightGray),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Poppins',
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  minimumSize: const Size(44, 38),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                child: const Text('Edit'),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           for (final (label, value) in entries)
             if (value.trim().isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 96,
+                      width: 108,
                       child: Text(
                         label,
                         style: const TextStyle(
-                          color: AppColors.gray,
+                          color: AppColors.textSubtle,
                           fontSize: 11,
                           fontFamily: 'Poppins',
                         ),
@@ -420,7 +475,9 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
                         value,
                         style: const TextStyle(
                           color: AppColors.darkGray,
-                          fontSize: 11,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
                           fontFamily: 'Poppins',
                         ),
                       ),
@@ -429,6 +486,34 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
                 ),
               ),
         ],
+      ),
+    );
+  }
+
+  Widget _consentTile({
+    required bool value,
+    required String title,
+    required ValueChanged<bool?>? onChanged,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: CheckboxListTile(
+        value: value,
+        onChanged: onChanged,
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        visualDensity: const VisualDensity(horizontal: -3, vertical: -2),
+        controlAffinity: ListTileControlAffinity.leading,
+        activeColor: AppColors.primary,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            height: 1.35,
+            fontFamily: 'Poppins',
+          ),
+        ),
       ),
     );
   }

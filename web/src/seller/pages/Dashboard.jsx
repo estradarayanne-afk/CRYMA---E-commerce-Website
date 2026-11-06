@@ -69,7 +69,6 @@ function Dashboard() {
         <div className="sl-page seller-dashboard">
             <section className="sl-page-head seller-dashboard-head">
                 <div>
-                    <div className="sl-eyebrow">CRYMA PLATFORM</div>
                     <h1 className="sl-h1">Seller Dashboard</h1>
                     <p>Welcome back, <strong>{user?.first_name || "Seller"}</strong>. Here's how your store is doing.</p>
                 </div>

@@ -35,6 +35,7 @@ flutter:
   assets:
     - assets/image/
     - assets/image/categories/
+    - assets/data/philpostZipCodes.json
 
   fonts:
     - family: Poppins

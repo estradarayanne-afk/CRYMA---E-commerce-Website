@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../../shared/services/api";
+import "./Settlements.css";
 
 const peso = (value) =>
     `₱${Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
@@ -55,29 +56,8 @@ export default function Settlements() {
         }
     };
     return (
-        <section style={{ maxWidth: 1180, margin: "0 auto", padding: 28, color: "#321321" }}>
-            <header style={{ marginBottom: 24 }}>
-                <p
-                    style={{
-                        color: "#9b2445",
-                        fontWeight: 800,
-                        letterSpacing: ".12em",
-                        textTransform: "uppercase",
-                    }}
-                >
-                    Finance operations
-                </p>
-                <h1 style={{ margin: "4px 0 8px" }}>Settlements</h1>
-                <p>
-                    Record courier COD remittances and seller payouts after the real cash transfer
-                    is complete.
-                </p>
-            </header>
-            <div
-                role="tablist"
-                aria-label="Settlement type"
-                style={{ display: "flex", gap: 8, marginBottom: 18 }}
-            >
+        <section className="admin-settlements" aria-label="Settlement operations">
+            <div className="admin-settlement-tabs" role="tablist" aria-label="Settlement type">
                 {[
                     ["cod", "Courier COD remittances"],
                     ["payouts", "Seller payouts"],
@@ -86,44 +66,37 @@ export default function Settlements() {
                         key={key}
                         role="tab"
                         aria-selected={tab === key}
+                        className={tab === key ? "is-active" : ""}
                         onClick={() => setTab(key)}
-                        style={{
-                            border: 0,
-                            borderRadius: 10,
-                            padding: "11px 16px",
-                            background: tab === key ? "#711b39" : "#f8e9ed",
-                            color: tab === key ? "white" : "#54162e",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                        }}
                     >
                         {label}
                     </button>
                 ))}
             </div>
-            <div style={{ padding: 14, borderRadius: 10, background: "#fff6e8", marginBottom: 16 }}>
+            <div className="admin-settlement-note">
                 These controls only record payments already made. They do not transfer funds.
                 Refunds after an order has been paid out require manual finance review.
             </div>
             {error && (
-                <p role="alert" style={{ color: "#a01435" }}>
+                <p className="admin-settlement-error" role="alert">
                     {error}
                 </p>
             )}
             {loading ? (
                 <p>Loading settlement records…</p>
             ) : rows.length === 0 ? (
-                <p>No settlement records yet.</p>
+                <div className="admin-settlement-state">
+                    <strong>No settlement records yet</strong>
+                    <span>Completed remittances and payout records will appear here.</span>
+                </div>
             ) : (
-                <div
-                    style={{
-                        overflowX: "auto",
-                        background: "white",
-                        border: "1px solid #f0dce2",
-                        borderRadius: 14,
-                    }}
-                >
-                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 850 }}>
+                <div className="admin-settlement-table-panel">
+                    <div className="admin-settlement-table-heading">
+                        <div><h3>{tab === "cod" ? "COD remittance records" : "Seller payout records"}</h3><p>Review status and record completed transfers.</p></div>
+                        <span>{rows.length} {rows.length === 1 ? "record" : "records"}</span>
+                    </div>
+                    <div className="admin-settlement-table-scroll">
+                    <table className="admin-settlement-table">
                         <thead>
                             <tr>
                                 {(tab === "cod"
@@ -144,14 +117,7 @@ export default function Settlements() {
                                           "Payout",
                                       ]
                                 ).map((x) => (
-                                    <th
-                                        key={x}
-                                        style={{
-                                            textAlign: "left",
-                                            padding: 14,
-                                            borderBottom: "1px solid #f0dce2",
-                                        }}
-                                    >
+                                    <th key={x}>
                                         {x}
                                     </th>
                                 ))}
@@ -166,32 +132,33 @@ export default function Settlements() {
                                 const order = tab === "cod" ? row.order : row.order;
                                 return (
                                     <tr key={row.id}>
-                                        <td style={{ padding: 14 }}>#{order?.id}</td>
-                                        <td style={{ padding: 14 }}>
+                                        <td>#{order?.id}</td>
+                                        <td>
                                             {tab === "cod" ? name(order?.buyer) : name(row.seller)}
                                         </td>
-                                        <td style={{ padding: 14 }}>
+                                        <td>
                                             {tab === "cod"
                                                 ? name(row.courier_profile?.user)
                                                 : order?.status}
                                         </td>
-                                        <td style={{ padding: 14 }}>
+                                        <td>
                                             {peso(
                                                 tab === "cod"
                                                     ? (row.collected_amount ?? row.expected_amount)
                                                     : (row.payout_due ?? row.seller_earnings)
                                             )}
                                         </td>
-                                        <td style={{ padding: 14 }}>
+                                        <td>
                                             {row.status}
                                             {tab === "payouts" && Number(row.refunded_amount) > 0
                                                 ? ` · ${peso(row.refunded_amount)} refunded`
                                                 : ""}
                                         </td>
-                                        <td style={{ padding: 14 }}>
+                                        <td>
                                             {canAct ? (
-                                                <div style={{ display: "flex", gap: 8 }}>
+                                                <div className="admin-settlement-actions">
                                                     <input
+                                                        className="admin-settlement-reference"
                                                         aria-label="Payment reference"
                                                         placeholder="Transfer / remittance ref"
                                                         value={refs[row.id] || ""}
@@ -203,6 +170,7 @@ export default function Settlements() {
                                                         }
                                                     />
                                                     <button
+                                                        className="admin-settlement-record-button"
                                                         disabled={busy === row.id}
                                                         onClick={() => void act(row)}
                                                     >
@@ -224,6 +192,7 @@ export default function Settlements() {
                             })}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             )}
         </section>

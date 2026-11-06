@@ -45,7 +45,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Buyer sign-in failed unexpectedly: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -74,7 +76,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Could not check the CRYMA API connection: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -96,9 +100,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Column(
                   children: [
-                    _LoginBrandHeader(height: constraints.maxHeight * .34),
+                    _LoginBrandHeader(height: constraints.maxHeight * .28),
                     Transform.translate(
-                      offset: const Offset(0, -56),
+                      offset: const Offset(0, -42),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: ConstrainedBox(
@@ -138,10 +142,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
   Widget _loginCard(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
+        padding: const EdgeInsets.fromLTRB(20, 23, 20, 17),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(26),
           border: Border.all(color: AppColors.lightGray.withValues(alpha: .7)),
           boxShadow: [
             BoxShadow(
@@ -175,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               _buildInputField(
                 label: 'EMAIL ADDRESS',
                 controller: _emailController,
@@ -185,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 validator: AppValidators.email,
                 inputFormatters: [LengthLimitingTextInputFormatter(100)],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildInputField(
                 label: 'PASSWORD',
                 controller: _passwordController,
@@ -224,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
-                height: 60,
+                height: 54,
                 child: FilledButton.icon(
                   onPressed: _isSubmitting ? null : _handleLogin,
                   icon: _isSubmitting
@@ -242,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     textStyle: const TextStyle(
                         fontWeight: FontWeight.w700, letterSpacing: 1.2),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18)),
+                        borderRadius: BorderRadius.circular(15)),
                   ),
                 ),
               ),

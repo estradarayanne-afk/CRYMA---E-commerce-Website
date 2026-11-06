@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/cart_store.dart';
 import '../utils/colors.dart';
+import '../widgets/buyer_bottom_navigation_bar.dart';
 
 // ============================================================
 // CART ITEM MODEL
@@ -44,8 +45,6 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  int _selectedIndex = 2;
-
   // ✅ TANGGALIN ANG const DITO
   List<CartItem> _cartItems = [];
 
@@ -67,8 +66,8 @@ class _CartScreenState extends State<CartScreen> {
           variantId: item['variant_id']?.toString(),
           name: item['name']?.toString() ?? 'Product',
           color: item['color']?.toString() ?? 'Standard',
-          price: (double.tryParse(item['price']?.toString() ?? '') ?? 0)
-              .round(),
+          price:
+              (double.tryParse(item['price']?.toString() ?? '') ?? 0).round(),
           quantity: item['quantity'] as int? ?? 1,
           imagePath: image,
           seller: item['seller']?.toString() ?? 'CRYMA Seller',
@@ -123,8 +122,8 @@ class _CartScreenState extends State<CartScreen> {
     setState(() {
       final index = _cartItems.indexWhere((item) => item.id == id);
       if (index != -1) {
-        _cartItems[index].quantity = (_cartItems[index].quantity + change)
-            .clamp(1, 99);
+        _cartItems[index].quantity =
+            (_cartItems[index].quantity + change).clamp(1, 99);
       }
     });
     _persistCart();
@@ -139,9 +138,9 @@ class _CartScreenState extends State<CartScreen> {
 
   String _formatPrice(int price) {
     return price.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (match) => '${match.group(1)},',
-    );
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (match) => '${match.group(1)},',
+        );
   }
 
   bool get _allSelected =>
@@ -154,26 +153,7 @@ class _CartScreenState extends State<CartScreen> {
       _selectedItems.fold(0, (sum, item) => sum + (item.price * item.quantity));
 
   void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        Navigator.pushReplacementNamed(context, '/home');
-        break;
-      case 1:
-        Navigator.pushNamed(context, '/categories');
-        break;
-      case 2:
-        break;
-      case 3:
-        Navigator.pushNamed(context, '/my_orders');
-        break;
-      case 4:
-        Navigator.pushNamed(context, '/account');
-        break;
-    }
+    BuyerBottomNavigationBar.navigateToTab(context, index, 2);
   }
 
   @override
@@ -384,50 +364,9 @@ class _CartScreenState extends State<CartScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          border: Border(top: BorderSide(color: AppColors.lightGray, width: 1)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onNavItemTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppColors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.gray,
-          selectedLabelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 10,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_outlined),
-              label: 'Categories',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart),
-              label: 'Cart',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.list_alt_outlined),
-              label: 'Orders',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outlined),
-              label: 'Account',
-            ),
-          ],
-        ),
+      bottomNavigationBar: BuyerBottomNavigationBar(
+        currentIndex: 2,
+        onDestinationSelected: _onNavItemTapped,
       ),
     );
   }
@@ -466,8 +405,16 @@ class _CartScreenState extends State<CartScreen> {
             ),
             clipBehavior: Clip.antiAlias,
             child: item.imagePath.isEmpty
-                ? const Icon(Icons.image_not_supported_outlined, color: AppColors.gray)
-                : Image(image: item.imagePath.startsWith('http') ? NetworkImage(item.imagePath) : AssetImage(item.imagePath), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: AppColors.gray)),
+                ? const Icon(Icons.image_not_supported_outlined,
+                    color: AppColors.gray)
+                : Image(
+                    image: item.imagePath.startsWith('http')
+                        ? NetworkImage(item.imagePath)
+                        : AssetImage(item.imagePath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                        Icons.image_not_supported_outlined,
+                        color: AppColors.gray)),
           ),
           const SizedBox(width: 10),
           Expanded(

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../utils/auth_widgets.dart';
 import '../utils/buyer_registration.dart';
 import '../utils/colors.dart';
+import '../utils/philippine_postal_code_lookup.dart';
 
 // ============================================================
 // 📍 MOCK DATA - PHILIPPINES (walang binago)
@@ -353,6 +354,11 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
   List<Map<String, dynamic>> _provinces = [];
   List<Map<String, dynamic>> _cities = [];
   List<Map<String, dynamic>> _barangayRows = [];
+  bool _loadingRegions = true;
+  bool _loadingProvinces = false;
+  bool _loadingCities = false;
+  bool _loadingBarangays = false;
+  bool _postalCodeLookupFailed = false;
   String _regionCode = '';
   String _provinceCode = '';
   String _cityCode = '';
@@ -361,6 +367,8 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
   String _selectedMunicipality = '';
   String _selectedBarangay = '';
 
+  final TextEditingController _contactNumberController =
+      TextEditingController();
   final TextEditingController _houseNumberController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
   final TextEditingController _buildingNameController = TextEditingController();
@@ -379,12 +387,15 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
   void initState() {
     super.initState();
     BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
+    _contactNumberController.text =
+        widget.contactData?['contactNumber']?.toString() ?? '';
     _loadRegions();
   }
 
   @override
   void dispose() {
     BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
+    _contactNumberController.dispose();
     _houseNumberController.dispose();
     _streetController.dispose();
     _buildingNameController.dispose();
@@ -442,15 +453,25 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
       throw const FormatException(
           'The location service returned an invalid response.');
     }
-    return data.whereType<Map<String, dynamic>>().toList();
+    return data.whereType<Map<String, dynamic>>().map((row) {
+      final name = row['name'];
+      if (name is! String) return row;
+      return {
+        ...row,
+        'name': name.replaceAll('Ã±', 'ñ').replaceAll('Ã‘', 'Ñ'),
+      };
+    }).toList();
   }
 
   Future<void> _loadRegions() async {
+    setState(() => _loadingRegions = true);
     try {
       final rows = await _fetchOptions('regions');
       if (mounted) setState(() => _regions = rows);
     } catch (error) {
       if (mounted) _showAlert(error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingRegions = false);
     }
   }
 
@@ -461,6 +482,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
     setState(() {
       _attemptedContinue = false;
       _selectedRegion = value;
+      _postalCodeController.clear();
       _showRegion = false;
       _showProvince = false;
       _showMunicipality = false;
@@ -472,6 +494,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
       _provinces = [];
       _cities = [];
       _barangayRows = [];
+      _loadingProvinces = true;
     });
     BuyerRegistrationErrorStore.instance.clearField('region');
     try {
@@ -479,6 +502,10 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
       if (mounted && code == _regionCode) setState(() => _provinces = rows);
     } catch (error) {
       if (mounted) _showAlert(error.toString());
+    } finally {
+      if (mounted && code == _regionCode) {
+        setState(() => _loadingProvinces = false);
+      }
     }
   }
 
@@ -493,6 +520,8 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
       _selectedBarangay = '';
       _cities = [];
       _barangayRows = [];
+      _postalCodeController.clear();
+      _loadingCities = true;
     });
     BuyerRegistrationErrorStore.instance.clearField('province');
     try {
@@ -501,6 +530,10 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
       if (mounted && code == _provinceCode) setState(() => _cities = rows);
     } catch (error) {
       if (mounted) _showAlert(error.toString());
+    } finally {
+      if (mounted && code == _provinceCode) {
+        setState(() => _loadingCities = false);
+      }
     }
   }
 
@@ -513,14 +546,36 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
       _cityCode = code;
       _selectedBarangay = '';
       _barangayRows = [];
+      _postalCodeController.clear();
+      _loadingBarangays = true;
     });
     BuyerRegistrationErrorStore.instance.clearField('municipality');
+    try {
+      final suggestedCode = await PhilippinePostalCodeLookup.forLocality(
+        _selectedProvince,
+        value,
+      );
+      if (mounted && code == _cityCode && suggestedCode.isNotEmpty) {
+        setState(() {
+          _postalCodeController.text = suggestedCode;
+          _postalCodeLookupFailed = false;
+        });
+      }
+    } on Exception catch (error, stackTrace) {
+      debugPrint('Could not load locality postal-code suggestions: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) setState(() => _postalCodeLookupFailed = true);
+    }
     try {
       final rows = await _fetchOptions(
           'regions/$_regionCode/provinces/$_provinceCode/cities-municipalities/$code/barangays');
       if (mounted && code == _cityCode) setState(() => _barangayRows = rows);
     } catch (error) {
       if (mounted) _showAlert(error.toString());
+    } finally {
+      if (mounted && code == _cityCode) {
+        setState(() => _loadingBarangays = false);
+      }
     }
   }
 
@@ -558,17 +613,13 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
 
   void _handleContinue() {
     setState(() => _attemptedContinue = true);
+    final isFormValid = _formKey.currentState?.validate() ?? false;
     // Validate location selections before checking the text fields.
-    if (_selectedProvince.isEmpty ||
+    if (!isFormValid ||
+        _selectedProvince.isEmpty ||
         _selectedMunicipality.isEmpty ||
         _selectedBarangay.isEmpty ||
         _selectedRegion.isEmpty) {
-      setState(() {});
-      return;
-    }
-
-    final isFormValid = _formKey.currentState?.validate() ?? false;
-    if (!isFormValid) {
       return;
     }
 
@@ -589,7 +640,10 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
       '/register_account',
       arguments: {
         'personalData': widget.personalData ?? {},
-        'contactData': widget.contactData ?? {},
+        'contactData': {
+          ...?widget.contactData,
+          'contactNumber': _contactNumberController.text.trim(),
+        },
         'addressData': addressData,
       },
     );
@@ -608,47 +662,30 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
             horizontal: screenWidth * 0.05,
             vertical: screenHeight * 0.02,
           ),
-          child: Form(
-            // ✅ NEW: Form wrapper
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
+          child: RegistrationCard(
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // HEADER
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: AppColors.primary,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Create Account',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
                 // STEPPER
                 _buildStepper(currentStep: 2),
-                const SizedBox(height: 14),
+                const SizedBox(height: 22),
 
                 // INTRO
                 const Text(
-                  'Where are you located?',
+                  'Contact & address',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Choose the places couriers use to find you.',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.gray,
@@ -657,18 +694,36 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                 ),
                 const SizedBox(height: 18),
 
+                _buildLabel('CONTACT NUMBER *'),
+                _buildTextField(
+                  controller: _contactNumberController,
+                  hintText: '09171234567',
+                  validator: (value) =>
+                      _serverError('phone') ??
+                      BuyerRegistrationRules.validatePhone(value),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(11),
+                  ],
+                  onChanged: (_) =>
+                      BuyerRegistrationErrorStore.instance.clearField('phone'),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+
                 // LOCATION SECTION
-                _buildSectionTitle('LOCATION'),
+                _buildSectionTitle('PHILIPPINE LOCATION'),
                 const SizedBox(height: 6),
 
-                _buildLabel('REGION *'),
-                const SizedBox(height: 4),
                 _buildDropdown(
+                  label: 'Region',
+                  icon: Icons.map_outlined,
                   value: _selectedRegion,
-                  hint: _regions.isEmpty ? 'Loading regions…' : 'Select region',
+                  hint: _loadingRegions ? 'Loading regions…' : 'Select region',
                   isOpen: _showRegion,
                   items: _regions.map((row) => row['name'].toString()).toList(),
-                  isDisabled: _regions.isEmpty,
+                  isDisabled: _loadingRegions || _regions.isEmpty,
+                  isLoading: _loadingRegions,
                   onToggle: () => setState(() {
                     _showRegion = !_showRegion;
                     _showProvince = false;
@@ -684,15 +739,20 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                 const SizedBox(height: 10),
 
                 // PROVINCE
-                _buildLabel('PROVINCE *'),
-                const SizedBox(height: 4),
                 _buildDropdown(
+                  label: 'Province',
+                  icon: Icons.location_city_outlined,
                   value: _selectedProvince,
-                  hint: 'Select province',
+                  hint: _loadingProvinces
+                      ? 'Loading provinces…'
+                      : 'Select province',
                   isOpen: _showProvince,
                   items:
                       _provinces.map((row) => row['name'].toString()).toList(),
-                  isDisabled: _selectedRegion.isEmpty,
+                  isDisabled: _selectedRegion.isEmpty ||
+                      _loadingProvinces ||
+                      _provinces.isEmpty,
+                  isLoading: _loadingProvinces,
                   onToggle: () {
                     setState(() {
                       _showProvince = !_showProvince;
@@ -716,14 +776,19 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                 const SizedBox(height: 10),
 
                 // MUNICIPALITY
-                _buildLabel('MUNICIPALITY / CITY *'),
-                const SizedBox(height: 4),
                 _buildDropdown(
+                  label: 'City / Municipality',
+                  icon: Icons.location_city_outlined,
                   value: _selectedMunicipality,
-                  hint: 'Select municipality',
+                  hint: _loadingCities
+                      ? 'Loading cities / municipalities…'
+                      : 'Select city / municipality',
                   isOpen: _showMunicipality,
                   items: _getMunicipalities(),
-                  isDisabled: _selectedProvince.isEmpty,
+                  isDisabled: _selectedProvince.isEmpty ||
+                      _loadingCities ||
+                      _cities.isEmpty,
+                  isLoading: _loadingCities,
                   onToggle: () {
                     if (_selectedProvince.isEmpty || _cities.isEmpty) {
                       _showAlert(
@@ -751,14 +816,19 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
                 const SizedBox(height: 10),
 
                 // BARANGAY
-                _buildLabel('BARANGAY *'),
-                const SizedBox(height: 4),
                 _buildDropdown(
+                  label: 'Barangay',
+                  icon: Icons.place_outlined,
                   value: _selectedBarangay,
-                  hint: 'Select barangay',
+                  hint: _loadingBarangays
+                      ? 'Loading barangays…'
+                      : 'Select barangay',
                   isOpen: _showBarangay,
                   items: _getBarangays(),
-                  isDisabled: _selectedMunicipality.isEmpty,
+                  isDisabled: _selectedMunicipality.isEmpty ||
+                      _loadingBarangays ||
+                      _barangayRows.isEmpty,
+                  isLoading: _loadingBarangays,
                   onToggle: () {
                     if (_selectedMunicipality.isEmpty ||
                         _barangayRows.isEmpty) {
@@ -878,6 +948,17 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
 
                 _buildLabel('POSTAL CODE *'),
                 const SizedBox(height: 4),
+                Text(
+                  _postalCodeLookupFailed
+                      ? 'Postal-code suggestions are unavailable. Enter the correct four-digit code.'
+                      : 'Suggested from the locality reference when available. Please verify it is correct.',
+                  style: const TextStyle(
+                    color: AppColors.gray,
+                    fontSize: 11,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                const SizedBox(height: 6),
                 _buildTextField(
                   controller: _postalCodeController,
                   hintText: '4-digit postal code',
@@ -927,6 +1008,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -977,6 +1059,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
+    TextInputType? keyboardType,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -990,6 +1073,7 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.left,
         maxLines: maxLines,
+        keyboardType: keyboardType,
         validator: validator,
         inputFormatters: inputFormatters,
         onChanged: onChanged,
@@ -1023,6 +1107,8 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
   // DROPDOWN (walang binago)
   // ============================================================
   Widget _buildDropdown({
+    required String label,
+    required IconData icon,
     required String value,
     required String hint,
     required bool isOpen,
@@ -1030,84 +1116,245 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
     required VoidCallback onToggle,
     required Function(String) onSelect,
     bool isDisabled = false,
+    bool isLoading = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
-          onTap: isDisabled ? null : onToggle,
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDisabled ? AppColors.lightGray : AppColors.white,
-              border: Border.all(color: AppColors.lightGray),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    value.isEmpty ? hint : value,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color:
-                          value.isEmpty ? AppColors.gray : AppColors.darkGray,
-                      fontFamily: 'Poppins',
+          onTap: isDisabled
+              ? null
+              : () async {
+                  onToggle();
+                  final pickerName = hint.startsWith('Select ')
+                      ? hint.substring('Select '.length)
+                      : hint;
+                  final selected = await showModalBottomSheet<String>(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => _LocationPickerSheet(
+                      title: 'Choose $pickerName',
+                      options: items,
+                      selectedValue: value,
                     ),
+                  );
+                  if (!mounted) return;
+                  if (selected == null) {
+                    onToggle();
+                  } else {
+                    onSelect(selected);
+                  }
+                },
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 76),
+            decoration: BoxDecoration(
+              color: isDisabled ? const Color(0xFFFAF7F7) : Colors.white,
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: .28),
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+            child: Row(
+              children: [
+                Icon(icon, color: AppColors.primary, size: 23),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.gray,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value.isEmpty ? hint : value,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: value.isEmpty
+                              ? FontWeight.w400
+                              : FontWeight.w600,
+                          color: value.isEmpty
+                              ? AppColors.gray
+                              : AppColors.darkGray,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Icon(
-                  isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                  color: AppColors.gray,
-                ),
+                const SizedBox(width: 8),
+                isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        isOpen
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.primary,
+                      ),
               ],
             ),
           ),
         ),
-        if (isOpen && items.isNotEmpty)
+      ],
+    );
+  }
+}
+
+class _LocationPickerSheet extends StatefulWidget {
+  const _LocationPickerSheet({
+    required this.title,
+    required this.options,
+    required this.selectedValue,
+  });
+
+  final String title;
+  final List<String> options;
+  final String selectedValue;
+
+  @override
+  State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
+}
+
+class _LocationPickerSheetState extends State<_LocationPickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final options = widget.options
+        .where((option) => option.toLowerCase().contains(_query.toLowerCase()))
+        .toList();
+
+    return Container(
+      height: MediaQuery.sizeOf(context).height * .76,
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFF8F8),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
           Container(
-            margin: const EdgeInsets.only(top: 4),
-            constraints: const BoxConstraints(maxHeight: 150),
+            width: 44,
+            height: 5,
             decoration: BoxDecoration(
-              color: AppColors.white,
-              border: Border.all(color: AppColors.lightGray),
-              borderRadius: BorderRadius.circular(10),
+              color: AppColors.lightGray,
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return GestureDetector(
-                  onTap: () => onSelect(item),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 10, horizontal: 14),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: index == items.length - 1
-                              ? Colors.transparent
-                              : AppColors.lightGray,
-                        ),
-                      ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryDark,
+                      fontFamily: 'Poppins',
                     ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value.trim()),
+              decoration: InputDecoration(
+                hintText:
+                    'Search ${widget.title.replaceFirst('Choose ', '').toLowerCase()}...',
+                prefixIcon: const Icon(Icons.search_rounded),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: AppColors.lightGray),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: AppColors.lightGray),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: options.isEmpty
+                ? const Center(
                     child: Text(
-                      item,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.darkGray,
+                      'No matching locations',
+                      style: TextStyle(
+                        color: AppColors.gray,
                         fontFamily: 'Poppins',
                       ),
                     ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                    itemCount: options.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: AppColors.lightGray),
+                    itemBuilder: (context, index) {
+                      final option = options[index];
+                      final isSelected = option == widget.selectedValue;
+                      return ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 6),
+                        title: Text(
+                          option,
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.darkGray,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        trailing: Icon(
+                          isSelected
+                              ? Icons.check_circle_rounded
+                              : Icons.chevron_right_rounded,
+                          color: isSelected ? AppColors.primary : AppColors.gray,
+                        ),
+                        onTap: () => Navigator.pop(context, option),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }

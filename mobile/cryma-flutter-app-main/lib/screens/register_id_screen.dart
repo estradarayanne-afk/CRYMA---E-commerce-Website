@@ -28,6 +28,7 @@ class RegisterIDScreen extends StatefulWidget {
 class _RegisterIDScreenState extends State<RegisterIDScreen> {
   String? _selectedFile;
   String? _selectedFileName;
+  int? _selectedFileSize;
   String? _fileError;
 
   @override
@@ -64,6 +65,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
       return;
     }
     if (result == null || result.files.isEmpty) return;
+    if (!mounted) return;
     final file = result.files.single;
     final fileError = BuyerRegistrationRules.validateDocument(
       name: file.name,
@@ -79,8 +81,15 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
     setState(() {
       _selectedFile = file.path;
       _selectedFileName = file.name;
+      _selectedFileSize = file.size;
       _fileError = null;
     });
+  }
+
+  String _formatFileSize(int? bytes) {
+    if (bytes == null || bytes <= 0) return '';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).ceil()} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   void _handleContinue() {
@@ -119,47 +128,21 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
             horizontal: screenWidth * 0.05,
             vertical: screenHeight * 0.02,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // HEADER
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: AppColors.primary,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Create Account',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-              const SizedBox(height: 10),
-
+          child: RegistrationCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // STEPPER
               _buildStepper(currentStep: 4),
-              const SizedBox(height: 14),
+              const SizedBox(height: 22),
 
               // TITLE
               const Text(
-                'Identity Verification',
+                'Verification documents',
                 style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryDark,
                   fontFamily: 'Poppins',
                 ),
               ),
@@ -177,112 +160,181 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
               ),
               const SizedBox(height: 18),
 
-              // UPLOAD CONTAINER
+              // ID DOCUMENT PICKER
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 28,
-                ),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: AppColors.lightGray,
-                    width: 1.5,
+                    color: _selectedFile == null
+                        ? AppColors.lightGray
+                        : AppColors.primary,
+                    width: _selectedFile == null ? 1 : 1.5,
                   ),
                 ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Upload icon
-                    Container(
-                      width: 70,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F3F1),
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.file_upload_outlined,
-                          color: AppColors.primary,
-                          size: 38,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Upload title
-                    const Text(
-                      'Upload Valid ID',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Supported files
-                    const Text(
-                      'JPG, JPEG, PNG or PDF supported',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.gray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Maximum file size: 5MB',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.gray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Choose File
-                    SizedBox(
-                      height: 46,
-                      child: ElevatedButton(
-                        onPressed: _pickFile,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE8F3F1),
-                          foregroundColor: AppColors.primary,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 28),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                    if (_selectedFile == null) ...[
+                      Align(
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: AppColors.softRose,
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                        ),
-                        child: const Text(
-                          'Choose File',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                          child: const Icon(
+                            Icons.badge_outlined,
                             color: AppColors.primary,
-                            fontFamily: 'Poppins',
+                            size: 32,
                           ),
                         ),
                       ),
-                    ),
-
-                    if (_selectedFile != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        '✓ $_selectedFileName',
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Upload a government ID',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryDark,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Your ID image is used to verify your identity and keep CRYMA safe.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
                           fontSize: 12,
+                          color: AppColors.gray,
+                          height: 1.45,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _fileRequirements(),
+                      const SizedBox(height: 16),
+                      _chooseFileButton('Choose file'),
+                    ] else ...[
+                      Align(
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: AppColors.softRose,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: AppColors.primary,
+                            size: 38,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'ID successfully selected',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.primary,
                           fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Your ID image is ready for submission.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.gray,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _fileRequirements(),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          onPressed: _pickFile,
+                          icon: const Icon(Icons.refresh_rounded, size: 19),
+                          label: const Text('Change file'),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppColors.softRose,
+                            foregroundColor: AppColors.primary,
+                            side: BorderSide.none,
+                            textStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Poppins',
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.successSoft,
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(
+                            color: AppColors.success.withValues(alpha: .25),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.image_outlined,
+                              color: AppColors.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedFileName ?? 'Selected file',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.primaryDark,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _formatFileSize(_selectedFileSize),
+                                    style: const TextStyle(
+                                      color: AppColors.gray,
+                                      fontSize: 10,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: AppColors.success,
+                              size: 21,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -299,25 +351,54 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
                         ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ACCEPTED IDS
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  'Accepted: PhilSys ID, Driver\'s License, Passport, Voter\'s ID, SSS/GSIS Card',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.gray,
-                    fontFamily: 'Poppins',
-                    height: 1.4,
+                    ],
                   ),
                 ),
-              ),
+              const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.softRose,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Accepted government IDs',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            SizedBox(height: 5),
+                            Text(
+                              'PhilSys ID, Driver’s License, Passport, Voter’s ID, SSS/GSIS Card.',
+                              style: TextStyle(
+                                color: AppColors.gray,
+                                fontSize: 11,
+                                height: 1.45,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 24),
 
               // CONTINUE BUTTON
@@ -348,6 +429,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -356,5 +438,68 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
   // ============================================================
   Widget _buildStepper({required int currentStep}) {
     return RegistrationProgressHeader(currentStep: currentStep);
+  }
+
+  Widget _fileRequirements() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.lightGray),
+      ),
+      child: const Column(
+        children: [
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              Icon(Icons.image_outlined, color: AppColors.gray, size: 17),
+              Text(
+                'JPG, JPEG, PNG or PDF',
+                style: TextStyle(
+                  color: AppColors.gray,
+                  fontSize: 12,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Maximum file size: 5 MB',
+            style: TextStyle(
+              color: AppColors.gray,
+              fontSize: 11,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chooseFileButton(String label) {
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: _pickFile,
+        icon: const Icon(Icons.file_upload_outlined, size: 19),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 class BuyerRegistrationRules {
   static const maxEmailLength = 254;
@@ -18,6 +19,22 @@ class BuyerRegistrationRules {
   static final _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 
   static int characterLength(String value) => value.runes.length;
+
+  static DateTime latestEligibleBirthday({DateTime? today}) {
+    final current =
+        today ?? DateTime.now().toUtc().add(const Duration(hours: 8));
+    final year = current.year - 18;
+    final candidate = DateTime(year, current.month, current.day);
+    if (candidate.month != current.month || candidate.day != current.day) {
+      return DateTime(year, current.month + 1, 0);
+    }
+    return candidate;
+  }
+
+  static String capitalizeNameWords(String value) => value.replaceAllMapped(
+        RegExp(r"(^|[\s'-])(\p{L})", unicode: true),
+        (match) => '${match.group(1)}${match.group(2)!.toUpperCase()}',
+      );
 
   static String? validateName(String? value) {
     final trimmed = value?.trim() ?? '';
@@ -196,7 +213,8 @@ class BuyerRegistrationRules {
     }.contains(field)) {
       return '/register_personal';
     }
-    if (const {'email', 'phone'}.contains(field)) return '/register_contact';
+    if (field == 'phone') return '/register_address';
+    if (field == 'email') return '/register_account';
     if (const {
       'region',
       'province',
@@ -215,6 +233,35 @@ class BuyerRegistrationRules {
     }
     if (field == 'valid_id') return '/register_id';
     return null;
+  }
+}
+
+class CapitalizeNameWordsFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = BuyerRegistrationRules.capitalizeNameWords(newValue.text);
+    if (text == newValue.text) return newValue;
+
+    int transformOffset(int offset) {
+      if (offset < 0) return offset;
+      final safeOffset = offset.clamp(0, newValue.text.length);
+      return BuyerRegistrationRules.capitalizeNameWords(
+        newValue.text.substring(0, safeOffset),
+      ).length;
+    }
+
+    return newValue.copyWith(
+      text: text,
+      selection: TextSelection(
+        baseOffset: transformOffset(newValue.selection.baseOffset),
+        extentOffset: transformOffset(newValue.selection.extentOffset),
+        affinity: newValue.selection.affinity,
+        isDirectional: newValue.selection.isDirectional,
+      ),
+    );
   }
 }
 

@@ -354,10 +354,6 @@ function Settings() {
 
             <section className="settings-page-header">
                 <div>
-                    <span className="settings-eyebrow">
-                        CRYMA PLATFORM
-                    </span>
-
                     <h1>Platform Settings</h1>
 
                     <p>

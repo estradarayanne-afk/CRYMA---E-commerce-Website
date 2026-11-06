@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/api_service.dart';
 import '../services/favorites_store.dart';
 import '../utils/colors.dart';
+import '../widgets/buyer_bottom_navigation_bar.dart';
 
 // ============================================================
 // MODELS
@@ -76,7 +77,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
   final Map<String, bool> _isLiked = {};
   List<Product> _featuredProducts = [];
   bool _productsLoading = true;
@@ -103,10 +103,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _productsError = null;
     });
     try {
-      final rows = await ApiService.instance.getProducts();
+      final page = await ApiService.instance.getProductsPage(
+        perPage: 8,
+        sort: 'featured',
+      );
       if (!mounted) return;
       setState(() {
-        _featuredProducts = rows.map(Product.fromJson).toList();
+        _featuredProducts = page.items.map(Product.fromJson).toList();
         _productsLoading = false;
       });
     } catch (error) {
@@ -161,26 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        break;
-      case 1:
-        Navigator.pushNamed(context, '/categories');
-        break;
-      case 2:
-        Navigator.pushNamed(context, '/cart');
-        break;
-      case 3:
-        Navigator.pushNamed(context, '/my_orders');
-        break;
-      case 4:
-        Navigator.pushNamed(context, '/account');
-        break;
-    }
+    BuyerBottomNavigationBar.navigateToTab(context, index, 0);
   }
 
   @override
@@ -193,71 +177,96 @@ class _HomeScreenState extends State<HomeScreen> {
             // HEADER
             Container(
               color: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'CRYMA',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.softRose,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: const Icon(
+                      Icons.storefront_rounded,
                       color: AppColors.primary,
-                      fontFamily: 'Poppins',
+                      size: 22,
                     ),
                   ),
-                  Row(
+                  const SizedBox(width: 11),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        tooltip: 'Notifications',
-                        icon: const Icon(Icons.notifications_outlined,
-                            color: AppColors.primary),
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/notification'),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.chat_bubble_outline,
-                          color: AppColors.primary,
+                      Text(
+                        'CRYMA',
+                        style: TextStyle(
+                          fontSize: 19,
+                          height: 1.1,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.wine,
+                          fontFamily: 'Poppins',
+                          letterSpacing: 0.5,
                         ),
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/chat_list');
-                        },
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Good finds, closer to home',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.gray,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
                     ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Notifications',
+                    icon: const Icon(Icons.notifications_none_rounded),
+                    onPressed: () =>
+                        Navigator.pushNamed(context, '/notification'),
+                  ),
+                  IconButton(
+                    tooltip: 'Messages',
+                    icon: const Icon(Icons.chat_bubble_outline_rounded),
+                    onPressed: () => Navigator.pushNamed(context, '/chat_list'),
                   ),
                 ],
               ),
             ),
 
             // SEARCH BAR
-            GestureDetector(
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
               onTap: () {
                 Navigator.pushNamed(context, '/search');
               },
               child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
+                margin: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                height: 48,
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.lightGray),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.borderNeutral),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.search, color: AppColors.gray, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Search products, brands...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.gray,
-                        fontFamily: 'Poppins',
+                    Icon(Icons.search_rounded,
+                        color: AppColors.primary, size: 21),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Search products, brands...',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.gray,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
                     ),
+                    Icon(Icons.tune_rounded,
+                        color: AppColors.textSubtle, size: 18),
                   ],
                 ),
               ),
@@ -269,9 +278,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   children: [
                     _buildBanner(),
+                    const SizedBox(height: 8),
                     _buildCategoriesSection(),
+                    const SizedBox(height: 4),
                     _buildFeaturedProductsSection(),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 18),
                   ],
                 ),
               ),
@@ -279,226 +290,176 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
-      // ============================================================
-      // BOTTOM NAVIGATION
-      // ============================================================
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          border: Border(top: BorderSide(color: AppColors.lightGray, width: 1)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onNavItemTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppColors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.gray,
-          selectedLabelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 10,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_outlined),
-              label: 'Categories',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart_outlined),
-              label: 'Cart',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.list_alt_outlined),
-              label: 'Orders',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outlined),
-              label: 'Account',
-            ),
-          ],
-        ),
+      bottomNavigationBar: BuyerBottomNavigationBar(
+        currentIndex: 0,
+        onDestinationSelected: _onNavItemTapped,
       ),
     );
   }
 
-  // ============================================================
-  // HERO BANNER
-  // ============================================================
   Widget _buildBanner() {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.zero,
-      height: 250,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        image: const DecorationImage(
-          image: AssetImage('assets/image/welcome_page.jpg'),
-          fit: BoxFit.cover,
-        ),
-      ),
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, '/categories'),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
+        width: double.infinity,
+        height: 204,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              AppColors.primaryDark.withValues(alpha: .91),
-              AppColors.primary.withValues(alpha: .55),
-              AppColors.primaryDark.withValues(alpha: .08),
-            ],
-            stops: const [0, .58, 1],
+          borderRadius: BorderRadius.circular(22),
+          image: const DecorationImage(
+            image: AssetImage('assets/image/welcome_page.jpg'),
+            fit: BoxFit.cover,
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            const Text(
-              'LOCAL FINDS · REAL PEOPLE',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.white,
-                fontFamily: 'Poppins',
-                letterSpacing: 1.2,
-              ),
+        clipBehavior: Clip.antiAlias,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                AppColors.primaryDark.withValues(alpha: .94),
+                AppColors.primary.withValues(alpha: .72),
+                AppColors.primaryDark.withValues(alpha: .08),
+              ],
+              stops: const [0, .64, 1],
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Good things\nmove closer.',
-              style: TextStyle(
-                fontSize: 23,
-                fontWeight: FontWeight.bold,
-                color: AppColors.white,
-                fontFamily: 'Poppins',
-                height: 1.1,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'Shop Now →',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                  fontFamily: 'Poppins',
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 17, 18, 17),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: .16),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: .35),
+                    ),
+                  ),
+                  child: const Text(
+                    'LOCAL FINDS · REAL PEOPLE',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.white,
+                      fontFamily: 'Poppins',
+                      letterSpacing: 1,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 9),
+                const Text(
+                  'Good things\nmove closer.',
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.white,
+                    fontFamily: 'Poppins',
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 11),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Explore the shop',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryDark,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      SizedBox(width: 5),
+                      Icon(Icons.arrow_forward_rounded,
+                          size: 14, color: AppColors.primaryDark),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // ============================================================
-  // CATEGORIES SECTION
-  // ============================================================
   Widget _buildCategoriesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('Categories', 'See All', () {
+        _buildSectionHeader('Shop by category', 'See all', () {
           Navigator.pushNamed(context, '/categories');
         }),
         SizedBox(
-          height: 92,
-          child: ListView.builder(
+          height: 105,
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              final category = _categories[index];
-              return _buildCategoryItem(category);
+              return _buildCategoryItem(_categories[index]);
             },
           ),
         ),
-
-        // Scroll indicator
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 20,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 4),
-              ...List.generate(4, (index) {
-                return Container(
-                  width: 8,
-                  height: 3,
-                  margin: const EdgeInsets.only(right: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.lightGray,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                );
-              }),
-              const Spacer(),
-            ],
-          ),
-        ),
-        const SizedBox(height: 4),
       ],
     );
   }
 
-  // ============================================================
-  // CATEGORY ITEM
-  // ============================================================
   Widget _buildCategoryItem(Category category) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          '/search_results',
-          arguments: {'category': category.name},
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(right: 16),
+    return SizedBox(
+      width: 82,
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            '/search_results',
+            arguments: {'category': category.name},
+          );
+        },
+        borderRadius: BorderRadius.circular(14),
         child: Column(
           children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: AppColors.lightGray,
-                image: DecorationImage(
-                  image: AssetImage(category.imageUrl),
-                  fit: BoxFit.cover,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                category.imageUrl,
+                width: 62,
+                height: 62,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 62,
+                  height: 62,
+                  color: AppColors.softRose,
+                  child:
+                      FaIcon(category.icon, color: AppColors.primary, size: 23),
                 ),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               category.name,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 10,
+                height: 1.15,
                 fontWeight: FontWeight.w500,
                 color: AppColors.darkGray,
                 fontFamily: 'Poppins',
@@ -510,19 +471,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ============================================================
-  // FEATURED PRODUCTS
-  // ============================================================
   Widget _buildFeaturedProductsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('Featured Products', 'View All', () {
+        _buildSectionHeader('Picked for you', 'View all', () {
           Navigator.pushNamed(context, '/categories');
         }),
         if (_productsLoading)
           const Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(30),
             child: Center(child: CircularProgressIndicator()),
           )
         else if (_productsError != null)
@@ -533,7 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(_productsError!, textAlign: TextAlign.center),
                 TextButton(
                   onPressed: _loadFeaturedProducts,
-                  child: const Text('Retry'),
+                  child: const Text('Try again'),
                 ),
               ],
             ),
@@ -544,235 +502,243 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Center(child: Text('No products are available yet.')),
           )
         else
-          SizedBox(
-            height: 410,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.zero,
-              itemCount: _featuredProducts.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 15),
-              itemBuilder: (context, index) => SizedBox(
-                width: 205,
-                child: _buildProductCard(_featuredProducts[index]),
-              ),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 600 ? 3 : 2;
+              return GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  mainAxisExtent: 304,
+                ),
+                itemCount: _featuredProducts.length,
+                itemBuilder: (context, index) =>
+                    _buildProductCard(_featuredProducts[index]),
+              );
+            },
           ),
       ],
     );
   }
 
-  // ============================================================
-  // PRODUCT CARD
-  // ============================================================
   Widget _buildProductCard(Product product) {
     final isLiked = _isLiked[product.id] ?? false;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(context, '/product_detail', arguments: product.id);
-      },
-      child: Container(
-        height: 400,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(11),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product Image
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: AppColors.lightGray),
-                    clipBehavior: Clip.antiAlias,
-                    child: product.imageUrl.isEmpty
-                        ? const Center(
-                            child: Icon(Icons.image_not_supported_outlined,
-                                color: AppColors.gray, size: 34))
-                        : Image(
-                            image: product.imageUrl.startsWith('http')
-                                ? NetworkImage(product.imageUrl)
-                                : AssetImage(product.imageUrl) as ImageProvider,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(
-                                child: Icon(Icons.image_not_supported_outlined,
-                                    color: AppColors.gray, size: 34))),
-                  ),
-                ),
-
-                // SALE BADGE
-                if (product.isSale)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(17),
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(context, '/product_detail',
+              arguments: product.id);
+        },
+        borderRadius: BorderRadius.circular(17),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: product.imageUrl.isEmpty
+                            ? const ColoredBox(
+                                color: AppColors.softRose,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.image_not_supported_outlined,
+                                    color: AppColors.gray,
+                                    size: 34,
+                                  ),
+                                ),
+                              )
+                            : Image(
+                                image: product.imageUrl.startsWith('http')
+                                    ? NetworkImage(product.imageUrl)
+                                    : AssetImage(product.imageUrl),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const ColoredBox(
+                                  color: AppColors.softRose,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: AppColors.gray,
+                                      size: 34,
+                                    ),
+                                  ),
+                                ),
+                              ),
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.danger,
-                        borderRadius: BorderRadius.circular(4),
+                    ),
+                    if (product.isSale)
+                      Positioned(
+                        top: 7,
+                        left: 7,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: const Text(
+                            'SALE',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.white,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
                       ),
-                      child: const Text(
-                        'SALE',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.white,
-                          fontFamily: 'Poppins',
+                    Positioned(
+                      top: 5,
+                      right: 5,
+                      child: Material(
+                        color: AppColors.white.withValues(alpha: .94),
+                        shape: const CircleBorder(),
+                        child: IconButton(
+                          tooltip: isLiked
+                              ? 'Remove from wishlist'
+                              : 'Add to wishlist',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _toggleLike(product.id),
+                          icon: Icon(
+                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            size: 18,
+                            color: isLiked ? AppColors.danger : AppColors.wine,
+                          ),
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                product.category,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                  fontFamily: 'Poppins',
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                product.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.wine,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded,
+                      color: AppColors.gold, size: 14),
+                  const SizedBox(width: 3),
+                  Text(
+                    product.rating > 0
+                        ? product.rating.toStringAsFixed(1)
+                        : 'New',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.gray,
+                      fontFamily: 'Poppins',
+                    ),
                   ),
-
-                // LIKE BUTTON
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: () => _toggleLike(product.id),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: const BoxDecoration(
-                        color: Colors.black26,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isLiked ? Icons.favorite : Icons.favorite_border,
-                        size: 16,
-                        color: isLiked ? AppColors.danger : AppColors.white,
-                      ),
+                  const Spacer(),
+                  Text(
+                    '₱${product.price}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryDark,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ],
+              ),
+              if (product.isSale)
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text(
+                    '₱${product.originalPrice}',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      decoration: TextDecoration.lineThrough,
+                      color: AppColors.gray,
+                      fontFamily: 'Poppins',
                     ),
                   ),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // CATEGORY
-            Text(
-              product.category,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-                fontFamily: 'Poppins',
-                letterSpacing: 0.5,
-              ),
-            ),
-
-            // NAME
-            Text(
-              product.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-                fontFamily: 'Poppins',
-              ),
-            ),
-
-            const SizedBox(height: 4),
-
-            // RATING
-            Row(
-              children: [
-                const Icon(Icons.star, color: AppColors.gold, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  product.rating.toString(),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.gray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4),
-
-            // PRICE
-            Row(
-              children: [
-                Text(
-                  '₱${product.price}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '₱${product.originalPrice}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    decoration: TextDecoration.lineThrough,
-                    color: AppColors.gray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ============================================================
-  // SECTION HEADER
-  // ============================================================
   Widget _buildSectionHeader(
     String title,
     String actionText,
     VoidCallback onTap,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.fromLTRB(18, 14, 16, 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          GestureDetector(
-            onTap: onTap,
+          Expanded(
             child: Text(
-              actionText,
+              title,
               style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primary,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.wine,
                 fontFamily: 'Poppins',
               ),
+            ),
+          ),
+          TextButton(
+            onPressed: onTap,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              minimumSize: const Size(0, 34),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  actionText,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                const SizedBox(width: 2),
+                const Icon(Icons.chevron_right_rounded, size: 16),
+              ],
             ),
           ),
         ],
