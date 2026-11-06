@@ -61,9 +61,14 @@ class ReportController extends Controller
         |--------------------------------------------------------------------------
         | SALES SUMMARY
         |--------------------------------------------------------------------------
+        | Cancelled orders are intentionally excluded from all financial aggregates.
+        | New statuses are excluded by default until explicitly added to this whitelist.
         */
 
-        $orders = Order::whereBetween('created_at', [$from, $to]);
+        $revenueStatuses = ['PENDING', 'PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'DELIVERED', 'COMPLETED'];
+
+        $orders = Order::whereBetween('created_at', [$from, $to])
+            ->whereIn('status', $revenueStatuses);
 
         $salesSummary = [
             'total_orders' => (clone $orders)->count(),
@@ -114,7 +119,7 @@ class ReportController extends Controller
             $dayOrders = Order::whereBetween(
                 'created_at',
                 [$dayStart, $dayEnd]
-            );
+            )->whereIn('status', $revenueStatuses);
 
             $salesTrend[] = [
                 'date' => $currentDate->format('Y-m-d'),

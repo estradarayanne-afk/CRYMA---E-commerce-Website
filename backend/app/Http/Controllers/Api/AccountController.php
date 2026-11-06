@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -41,13 +40,6 @@ class AccountController extends Controller
 
     public function updateProfile(Request $request)
     {
-        if ($request->hasFile('profile_image') && !Schema::hasColumn('users', 'profile_image_path')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Profile image upload is unavailable until the account image schema is migrated.',
-            ], 503);
-        }
-
         if (is_string($request->input('phone'))) {
             $phone = preg_replace('/[\s()-]/u', '', $request->input('phone'));
             if (preg_match('/^9[0-9]{9}$/', $phone)) {
@@ -87,7 +79,6 @@ class AccountController extends Controller
 
     public function profileImage(Request $request)
     {
-        abort_unless(Schema::hasColumn('users', 'profile_image_path'), 404);
         $path = $request->user()->profile_image_path;
         abort_unless($path && Str::startsWith($path, 'profile-images/'.$request->user()->id.'/'), 404);
         abort_unless(Storage::disk('local')->exists($path), 404);
@@ -248,13 +239,10 @@ class AccountController extends Controller
 
     private function ensureAddressBookSchema(): void
     {
-        $requiredColumns = ['region', 'label', 'recipient_name', 'phone', 'is_default'];
-        if (
-            !Schema::hasTable('addresses') ||
-            collect($requiredColumns)->contains(fn (string $column) => !Schema::hasColumn('addresses', $column))
-        ) {
-            abort(503, 'The buyer address book is unavailable until the required address migrations are applied.');
-        }
+        // The addresses table with all required columns is present from migration
+        // 2026_08_21_111042_create_addresses_table and
+        // 2026_10_20_000000_add_region_to_addresses_table.
+        // Runtime Schema checks have been removed as all migrations are applied.
     }
 
     private function validatePhilippineAddress(array $address): void

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
+use App\Models\PlatformConfig;
 use App\Models\PlatformPolicy;
 use Illuminate\Http\Request;
 
@@ -147,6 +148,39 @@ class PlatformSettingsController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Platform policy deleted successfully.',
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Commission Rate
+    |--------------------------------------------------------------------------
+    */
+
+    public function getCommissionRate()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'rate' => (float) PlatformConfig::getValue('commission_rate_percent', '10.00'),
+            ],
+        ]);
+    }
+
+    public function updateCommissionRate(Request $request)
+    {
+        $validated = $request->validate([
+            'rate' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+        ]);
+
+        PlatformConfig::setValue('commission_rate_percent', number_format((float) $validated['rate'], 2, '.', ''));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commission rate updated.',
+            'data' => [
+                'rate' => (float) $validated['rate'],
+            ],
         ]);
     }
 }

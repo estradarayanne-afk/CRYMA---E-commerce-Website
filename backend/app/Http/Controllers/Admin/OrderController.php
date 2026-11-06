@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Commission;
+use App\Models\CodCollection;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\VoucherRedemption;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -115,6 +118,11 @@ class OrderController extends Controller
             }
             if ($currentStatus !== 'CANCELLED' && $validated['status'] === 'CANCELLED') {
                 $this->restoreOrderStock($order);
+                // Cancel associated financial records and reverse the voucher redemption.
+                Commission::where('order_id', $order->id)->whereIn('status', ['pending', 'available'])->update(['status' => 'cancelled']);
+                CodCollection::where('order_id', $order->id)->where('status', 'awaiting_collection')->update(['status' => 'cancelled']);
+                // Deleting the redemption returns the use count to the voucher.
+                VoucherRedemption::where('order_id', $order->id)->delete();
             }
             $order->status = $validated['status'];
             $order->save();

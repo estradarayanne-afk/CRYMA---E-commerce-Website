@@ -173,10 +173,12 @@ class LogisticsRoleTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
 
+        // The role field is silently ignored — the endpoint returns 200 but the
+        // role is unchanged. Role changes must go through the approve() workflow.
         $this->actingAs($admin, 'sanctum')
             ->patchJson("/api/admin/users/{$buyer->id}", ['role' => 'logistics'])
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Logistics access must be granted through the approved registration workflow.');
+            ->assertOk()
+            ->assertJsonPath('data.role', 'buyer');
         $this->assertSame('buyer', $buyer->fresh()->role);
     }
 

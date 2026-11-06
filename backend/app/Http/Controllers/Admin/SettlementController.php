@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CodCollection;
 use App\Models\Commission;
+use App\Models\PlatformConfig;
 use App\Models\RefundRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,10 +36,11 @@ class SettlementController extends Controller
                 $sellerId = $cod->order->items()->value('seller_id');
                 if ($sellerId) {
                     $amount = (float) $cod->order->total_amount;
-                    $commissionAmount = round($amount * 0.10, 2);
+                    $commissionRatePercent = (float) PlatformConfig::getValue('commission_rate_percent', '10.00');
+                    $commissionAmount = round($amount * ($commissionRatePercent / 100), 2);
                     $commission = Commission::create([
                         'order_id' => $cod->order_id, 'seller_id' => $sellerId,
-                        'order_amount' => $amount, 'commission_rate' => 10.00,
+                        'order_amount' => $amount, 'commission_rate' => $commissionRatePercent,
                         'commission_amount' => $commissionAmount,
                         'seller_earnings' => round($amount - $commissionAmount, 2), 'status' => 'pending',
                     ]);

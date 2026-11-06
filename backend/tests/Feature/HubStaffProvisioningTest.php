@@ -67,9 +67,11 @@ class HubStaffProvisioningTest extends TestCase
         $this->patchJson("/api/admin/hub-staff/{$staff->id}/activate")
             ->assertOk()->assertJsonPath('data.status', 'active');
         $this->patchJson("/api/admin/users/{$staff->id}", ['role' => 'logistics'])
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Logistics access must be granted through the approved registration workflow.');
-        $this->patchJson("/api/admin/users/{$staff->id}", ['role' => 'hub_staff'])->assertUnprocessable();
+            ->assertOk()
+            ->assertJsonPath('data.role', 'hub_staff'); // role field is silently ignored
+        $this->patchJson("/api/admin/users/{$staff->id}", ['role' => 'hub_staff'])
+            ->assertOk()
+            ->assertJsonPath('data.role', 'hub_staff'); // role field is silently ignored
 
         $this->patchJson("/api/admin/hub-staff/{$staff->id}/hub", ['hub_id' => $secondHub->id])
             ->assertOk()->assertJsonPath('data.hub.id', $secondHub->id);

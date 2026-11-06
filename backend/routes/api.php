@@ -536,6 +536,16 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         'deletePolicy'
     ])->middleware('role:admin');
 
+    Route::get('/admin/settings/commission-rate', [
+        PlatformSettingsController::class,
+        'getCommissionRate',
+    ])->middleware('role:admin');
+
+    Route::patch('/admin/settings/commission-rate', [
+        PlatformSettingsController::class,
+        'updateCommissionRate',
+    ])->middleware('role:admin');
+
     // Admin chat
     Route::get('/admin/chat/conversations', [
         ChatController::class,

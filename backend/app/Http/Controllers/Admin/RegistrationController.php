@@ -203,13 +203,16 @@ public function approve(int $id)
             return response()->json(['success' => false, 'message' => 'Archived accounts cannot be edited.'], 409);
         }
 
+        // NOTE: 'role' is intentionally absent from this validation.
+        // Role changes must go through the dedicated approve()/reject() workflow
+        // which enforces email verification and required document approval.
+        // Accepting a role field here would bypass those approval gates entirely.
         $data = $request->validate([
             'first_name'  => ['sometimes', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name'   => ['sometimes', 'string', 'max:100'],
             'email'       => ['sometimes', 'email', 'unique:users,email,' . $id],
             'phone'       => ['nullable', 'string', 'max:20'],
-            'role'        => ['sometimes', 'in:buyer,seller,rider,logistics'],
             'password'    => ['sometimes', 'required', 'string', 'min:8', 'max:128', 'confirmed'],
             'password_confirmation' => [
                 'sometimes',
@@ -224,13 +227,6 @@ public function approve(int $id)
         ]);
 
         unset($data['password_confirmation']);
-
-        if (($data['role'] ?? null) === 'logistics' && $user->role !== 'logistics') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Logistics access must be granted through the approved registration workflow.',
-            ], 422);
-        }
 
         $user = DB::transaction(function () use ($id, $data): User {
             $user = User::query()->lockForUpdate()->findOrFail($id);
