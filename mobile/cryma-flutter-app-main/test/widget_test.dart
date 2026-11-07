@@ -1,13 +1,13 @@
 import 'dart:convert';
 
 import 'package:cryma_flutter_app/models/buyer_category.dart';
-import 'package:cryma_flutter_app/screens/account_screen.dart';
-import 'package:cryma_flutter_app/screens/register_account_screen.dart';
-import 'package:cryma_flutter_app/screens/register_id_screen.dart';
-import 'package:cryma_flutter_app/screens/register_personal_screen.dart';
-import 'package:cryma_flutter_app/screens/register_review_screen.dart';
-import 'package:cryma_flutter_app/screens/welcome_screen.dart';
-import 'package:cryma_flutter_app/screens/login_screen.dart';
+import 'package:cryma_flutter_app/screens/account/account_screen.dart';
+import 'package:cryma_flutter_app/screens/auth/signup/register_account_screen.dart';
+import 'package:cryma_flutter_app/screens/auth/signup/register_id_screen.dart';
+import 'package:cryma_flutter_app/screens/auth/signup/register_personal_screen.dart';
+import 'package:cryma_flutter_app/screens/auth/signup/register_review_screen.dart';
+import 'package:cryma_flutter_app/screens/onboarding/welcome_screen.dart';
+import 'package:cryma_flutter_app/screens/auth/login/login_screen.dart';
 import 'package:cryma_flutter_app/services/api_service.dart';
 import 'package:cryma_flutter_app/utils/buyer_registration.dart';
 import 'package:cryma_flutter_app/utils/philippine_postal_code_lookup.dart';

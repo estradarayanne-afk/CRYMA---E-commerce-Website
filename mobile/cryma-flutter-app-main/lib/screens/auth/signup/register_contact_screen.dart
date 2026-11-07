@@ -1,0 +1,350 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../utils/auth_widgets.dart';
+import '../../../utils/buyer_registration.dart';
+import '../../../utils/colors.dart';
+
+class RegisterContactScreen extends StatefulWidget {
+  const RegisterContactScreen({
+    super.key,
+    this.personalData,
+  });
+
+  final Map<String, dynamic>? personalData;
+
+  @override
+  State<RegisterContactScreen> createState() => _RegisterContactScreenState();
+}
+
+class _RegisterContactScreenState extends State<RegisterContactScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _contactNumberController =
+      TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailKey = GlobalKey<FormFieldState>();
+  final _contactKey = GlobalKey<FormFieldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    BuyerRegistrationErrorStore.instance.addListener(_onServerErrorsChanged);
+  }
+
+  @override
+  void dispose() {
+    BuyerRegistrationErrorStore.instance.removeListener(_onServerErrorsChanged);
+    _emailController.dispose();
+    _contactNumberController.dispose();
+    super.dispose();
+  }
+
+  void _onServerErrorsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _formKey.currentState?.validate();
+    });
+  }
+
+  void _handleContinue() {
+    final isEmailValid = _emailKey.currentState?.validate() ?? false;
+    final isContactValid = _contactKey.currentState?.validate() ?? false;
+    if (!isEmailValid || !isContactValid) return;
+
+    Navigator.pushNamed(
+      context,
+      '/register_address',
+      arguments: {
+        'personalData': widget.personalData ?? {},
+        'contactData': {
+          'email': _emailController.text.trim(),
+          'contactNumber': _contactNumberController.text.trim(),
+        },
+      },
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: screenWidth * 0.05,
+            vertical: screenHeight * 0.02,
+          ),
+          child: Form(
+            // ✅ NEW: Form wrapper
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // HEADER
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: AppColors.primary,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Create Account',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // STEPPER
+                _buildStepper(currentStep: 2),
+                const SizedBox(height: 14),
+
+                // INTRO TEXT
+                const Text(
+                  'Provide your contact details so we can reach you.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.gray,
+                    fontFamily: 'Poppins',
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 22),
+
+                // EMAIL LABEL
+                _buildLabel('E-MAIL ADDRESS *'),
+                const SizedBox(height: 6),
+
+                // ✅ UPDATED: EMAIL FIELD with validation
+                _buildInputField(
+                  controller: _emailController,
+                  hintText: 'juan@email.com',
+                  icon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                  fieldKey: _emailKey,
+                  validator: (value) =>
+                      BuyerRegistrationErrorStore.instance.errorFor('email') ??
+                      BuyerRegistrationRules.validateEmail(value),
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(254),
+                    FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                  ],
+                  onChanged: (_) =>
+                      BuyerRegistrationErrorStore.instance.clearField('email'),
+                ),
+                const SizedBox(height: 8),
+
+                // EMAIL VERIFICATION CONTAINER (walang binago)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFFAF5),
+                    border: Border.all(
+                      color: const Color(0xFFD6EEE3),
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.email_outlined,
+                          size: 18,
+                          color: Color(0xFF9CCFC0),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'A six-digit verification code will be sent to this email after registration.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF687477),
+                            fontFamily: 'Poppins',
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+
+                // CONTACT NUMBER LABEL
+                _buildLabel('CONTACT NUMBER *'),
+                const SizedBox(height: 6),
+
+                // ✅ UPDATED: CONTACT NUMBER with 11-digit limit
+                _buildInputField(
+                  controller: _contactNumberController,
+                  hintText: '09171234567', // ✅ updated hint
+                  icon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  fieldKey: _contactKey,
+                  validator: (value) =>
+                      BuyerRegistrationErrorStore.instance.errorFor('phone') ??
+                      BuyerRegistrationRules.validatePhone(value),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(11),
+                  ],
+                  onChanged: (_) =>
+                      BuyerRegistrationErrorStore.instance.clearField('phone'),
+                ),
+
+                const SizedBox(height: 30),
+
+                // CONTINUE BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  height: screenHeight * 0.065,
+                  child: ElevatedButton(
+                    onPressed: _handleContinue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.white,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // STEPPER
+  // ============================================================
+  Widget _buildStepper({required int currentStep}) {
+    return RegistrationProgressHeader(currentStep: currentStep);
+  }
+
+  // ============================================================
+  // LABEL
+  // ============================================================
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ✅ UPDATED: INPUT FIELD with validation + inputFormatters
+  // ============================================================
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    required TextInputType keyboardType,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+    GlobalKey<FormFieldState>? fieldKey,
+    ValueChanged<String>? onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        // ✅ removed fixed height for error text
+        color: AppColors.white,
+        border: Border.all(
+          color: AppColors.lightGray,
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: TextFormField(
+        // ✅ UPDATED: TextField → TextFormField
+        key: fieldKey,
+        controller: controller,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.left,
+        keyboardType: keyboardType,
+        validator: validator,
+        inputFormatters: inputFormatters,
+        onChanged: onChanged,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.darkGray,
+          fontFamily: 'Poppins',
+        ),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          prefixIcon: Icon(
+            icon,
+            color: const Color(0xFFB0B6B7),
+            size: 22,
+          ),
+          hintText: hintText,
+          hintStyle: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFFB0B6B7),
+            fontFamily: 'Poppins',
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 15,
+          ),
+          // ✅ NEW: error style
+          errorStyle: const TextStyle(
+            fontSize: 11,
+            fontFamily: 'Poppins',
+            height: 1.3,
+          ),
+          errorMaxLines: 2,
+        ),
+      ),
+    );
+  }
+}
