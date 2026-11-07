@@ -1272,3 +1272,37 @@ a.product-seller-identity:hover .product-store-visit svg { transform: translate(
     .product-store-visit { margin-left: auto; }
     .product-contact-seller { flex: 1 0 100%; }
 }
+
+/* ─── Visual Improvements ─── */
+/* Scale up all tiny text */
+.product-detail-category { font-size: 11px; padding: 7px 13px; }
+.product-variant-group legend { font-size: 13px; font-weight: 750; margin-bottom: 10px; }
+.product-variant-buttons button { font-size: 13px; min-height: 42px; padding: 7px 16px; }
+.product-quantity > label { font-size: 13px; font-weight: 750; }
+.product-quantity-control input { font-size: 13px; }
+.product-cart-note { font-size: 12px; }
+.product-detail-tabs nav button { font-size: 13px; min-height: 54px; }
+.product-tab-content > p { font-size: 14px; line-height: 1.75; color: var(--color-text-secondary); }
+.product-specifications span { font-size: 11px; }
+.product-specifications strong { font-size: 13px; font-weight: 700; }
+/* Seller card */
+.product-seller-card > div:nth-child(2) span { font-size: 11px; }
+.product-seller-card > div:nth-child(2) strong { font-size: 14px; font-weight: 700; }
+.product-contact-seller { font-size: 13px; min-height: 42px; }
+/* Action message */
+.product-action-message { font-size: 14px; padding: 13px 15px; border-radius: var(--radius-sm); }
+/* Reviews section within ProductDetails */
+.product-review-average > strong { font-size: 32px; }
+.product-review-average span { font-size: 12px; }
+.product-review-link { font-size: 12px; min-height: 40px; border-radius: var(--radius-sm); }
+.product-review-top strong { font-size: 13px; }
+.product-review-top span { font-size: 11px; }
+.product-review-item p { font-size: 13px; line-height: 1.65; margin: 9px 0 0; }
+.product-reviews-empty strong { font-size: 14px; }
+.product-reviews-empty span { font-size: 13px; }
+/* Breadcrumb */
+.product-breadcrumb { font-size: 13px; gap: 8px; }
+.product-breadcrumb a { font-size: 13px; }
+.product-breadcrumb strong { font-size: 13px; }
+/* Stock row */
+.product-stock-row { font-size: 13px; }

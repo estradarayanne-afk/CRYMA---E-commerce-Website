@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+﻿import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import ProtectedRoute from "./shared/components/ProtectedRoute";
@@ -58,7 +58,6 @@ import SellerReports from "./seller/pages/Reports";
 import SellerReturns from "./seller/pages/Returns";
 import SellerChat from "./seller/pages/Chat";
 import SellerAccountSettings from "./seller/pages/AccountSettings";
-import CourierLayout from "./courier/layouts/CourierLayout";
 import AdminVouchers from "./admin/pages/Vouchers/Vouchers";
 import LogisticsLayout from "./logistics/layouts/LogisticsLayout";
 import LogisticsDashboard from "./logistics/pages/Dashboard";
@@ -76,18 +75,6 @@ const HubStaffIncomingTransfers = lazy(() => import("./hubStaff/pages/IncomingTr
 const HubStaffOutgoingTransfers = lazy(() => import("./hubStaff/pages/OutgoingTransfers"));
 const HubStaffActivity = lazy(() => import("./hubStaff/pages/Activity"));
 
-// â”€â”€ COURIER â”€â”€
-import CourierDashboard from "./courier/pages/Dashboard";
-import CourierChat from "./courier/pages/Chat";
-import CourierDeliveries from "./courier/pages/Deliveries";
-import CourierDeliveryDetails from "./courier/pages/DeliveryDetails";
-import CourierPickups from "./courier/pages/Pickups";
-import CourierPickupDetails from "./courier/pages/PickupDetails";
-import CourierEarnings from "./courier/pages/Earnings";
-import CourierHistory from "./courier/pages/History";
-import CourierProfile from "./courier/pages/Profile";
-import CourierAccountSettings from "./courier/pages/AccountSettings";
-import CourierParcelFlow from "./courier/pages/ParcelFlow";
 
 function App() {
     return (
@@ -360,27 +347,6 @@ function App() {
 
                     </Route>
 
-                </Route>
-
-                {/* =====================================================
-                    COURIER / RIDER - RIDER ONLY
-                   ===================================================== */}
-
-                <Route element={<ProtectedRoute allowedRoles={["rider"]} />}>
-                    <Route path="/courier" element={<CourierLayout />}>
-                        <Route index element={<Navigate to="/courier/dashboard" replace />} />
-                        <Route path="dashboard" element={<CourierDashboard />} />
-                        <Route path="pickups" element={<CourierPickups />} />
-                        <Route path="pickups/:id" element={<CourierPickupDetails />} />
-                        <Route path="deliveries" element={<CourierDeliveries />} />
-                        <Route path="deliveries/:id" element={<CourierDeliveryDetails />} />
-                        <Route path="parcel-flow" element={<CourierParcelFlow />} />
-                        <Route path="history" element={<CourierHistory />} />
-                        <Route path="earnings" element={<CourierEarnings />} />
-                        <Route path="chat" element={<CourierChat />} />
-                        <Route path="profile" element={<CourierProfile />} />
-                        <Route path="settings" element={<CourierAccountSettings />} />
-                    </Route>
                 </Route>
 
                 {/* LOGISTICS / SORTING CENTER - LOGISTICS ONLY */}

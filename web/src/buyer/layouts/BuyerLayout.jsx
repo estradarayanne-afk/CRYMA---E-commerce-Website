@@ -19,6 +19,7 @@ function BuyerLayout() {
     const location = useLocation();
     const buyerSession = isBuyerSession();
     const isHomePage = location.pathname === "/";
+    const [cartCount, setCartCount] = useState(() => getBuyerCart().length);
 
     useEffect(() => {
         const notify = (detail) => {
@@ -58,6 +59,17 @@ function BuyerLayout() {
         };
     }, []);
 
+    // Keep cart badge count in sync with cart changes.
+    useEffect(() => {
+        const syncCount = () => setCartCount(getBuyerCart().length);
+        window.addEventListener("cryma-cart-updated", syncCount);
+        window.addEventListener("storage", syncCount);
+        return () => {
+            window.removeEventListener("cryma-cart-updated", syncCount);
+            window.removeEventListener("storage", syncCount);
+        };
+    }, []);
+
     return (
         <div className={`buyer-global-shell${isHomePage ? " buyer-global-shell--home" : ""}`}>
             <BuyerNavbar />
@@ -68,38 +80,33 @@ function BuyerLayout() {
                 <Outlet />
             </main>
 
-            <nav className={`buyer-mobile-tab-bar${isHomePage ? " buyer-mobile-tab-bar--home" : ""}`} aria-label="Mobile shopping navigation">
-                {isHomePage || !buyerSession ? (
-                    <NavLink to="/" end className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
-                        <House size={20} aria-hidden="true" /><span>Home</span>
-                    </NavLink>
-                ) : (
+            <nav className="buyer-mobile-tab-bar" aria-label="Mobile shopping navigation">
+                {buyerSession ? (
                     <NavLink to="/orders" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
                         <Package size={20} aria-hidden="true" /><span>Orders</span>
                     </NavLink>
+                ) : (
+                    <NavLink to="/" end className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                        <House size={20} aria-hidden="true" /><span>Home</span>
+                    </NavLink>
                 )}
-                <NavLink to="/shop" className={({ isActive }) => `buyer-mobile-tab${isActive && location.pathname === "/shop" ? " active" : ""}`}>
+                <NavLink to="/shop" className={({ isActive }) => `buyer-mobile-tab${location.pathname === "/shop" && isActive ? " active" : ""}`}>
                     <Grid2X2 size={20} aria-hidden="true" /><span>Categories</span>
                 </NavLink>
-                {isHomePage ? (
-                    <>
-                        <NavLink to="/cart" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
-                            <ShoppingCart size={20} aria-hidden="true" /><span>Cart</span>
-                        </NavLink>
-                        <NavLink to="/orders" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
-                            <Package size={20} aria-hidden="true" /><span>Orders</span>
-                        </NavLink>
-                    </>
-                ) : (
-                    <>
-                        <button type="button" className="buyer-mobile-tab" onClick={() => window.dispatchEvent(new Event("cryma-open-mobile-search"))}>
-                            <Search size={20} aria-hidden="true" /><span>Search</span>
-                        </button>
-                        <NavLink to="/cart" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
-                            <ShoppingCart size={20} aria-hidden="true" /><span>Cart</span>
-                        </NavLink>
-                    </>
-                )}
+                <button type="button" className="buyer-mobile-tab" onClick={() => window.dispatchEvent(new Event("cryma-open-mobile-search"))} aria-label="Search products">
+                    <Search size={20} aria-hidden="true" /><span>Search</span>
+                </button>
+                <NavLink to="/cart" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
+                    <span className="buyer-mobile-tab-cart-wrap">
+                        <ShoppingCart size={20} aria-hidden="true" />
+                        {cartCount > 0 && (
+                            <span className="buyer-mobile-cart-badge" aria-label={`${cartCount} item${cartCount === 1 ? "" : "s"} in cart`}>
+                                {cartCount > 99 ? "99+" : cartCount}
+                            </span>
+                        )}
+                    </span>
+                    <span>Cart</span>
+                </NavLink>
                 <NavLink to="/account" className={({ isActive }) => `buyer-mobile-tab${isActive ? " active" : ""}`}>
                     <UserRound size={20} aria-hidden="true" /><span>Account</span>
                 </NavLink>

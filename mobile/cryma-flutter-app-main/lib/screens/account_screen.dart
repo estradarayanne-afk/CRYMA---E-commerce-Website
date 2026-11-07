@@ -77,16 +77,16 @@ class _AccountScreenState extends State<AccountScreen> {
                   ),
                   IconButton(
                     tooltip: _user == null
-                        ? 'Sign in to view notifications'
-                        : 'Notifications',
+                        ? 'Sign in to view messages'
+                        : 'Messages',
                     onPressed: () => Navigator.pushNamed(
                       context,
-                      _user == null ? '/login' : '/notification',
+                      _user == null ? '/login' : '/chat_list',
                     ),
                     icon: Icon(
                       _user == null
                           ? Icons.login_rounded
-                          : Icons.notifications_outlined,
+                          : Icons.chat_bubble_outline,
                       color: AppColors.primary,
                     ),
                   ),

@@ -17,6 +17,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
+import Dialog from "../../../shared/components/Dialog";
 
 import "./Orders.css";
 
@@ -142,6 +143,7 @@ function Orders() {
     const [filtersOpen, setFiltersOpen] =
         useState(false);
     const [orderActionId, setOrderActionId] = useState(null);
+    const [cancelTarget, setCancelTarget] = useState(null);
 
     const contactSeller = async (order) => {
         const productId = order.items?.[0]?.product_id || order.items?.[0]?.product?.id;
@@ -164,7 +166,7 @@ function Orders() {
     };
 
     const cancelOrder = async (order) => {
-        if (!window.confirm(`Cancel Order #${order.id}? This cancels all items in this order and returns the reserved stock to the seller.`)) return;
+        setCancelTarget(null);
         try {
             setOrderActionId(order.id);
             setError("");
@@ -715,6 +717,7 @@ function Orders() {
         );
 
     return (
+        <>
         <main className="orders-page">
             <header className="orders-header">
                 <div>
@@ -1351,7 +1354,7 @@ function Orders() {
                                                     <MessageCircle size={15} /> Contact seller
                                                 </button>
                                                 {["pending", "placed"].includes(String(order.status || "").toLowerCase()) && (
-                                                    <button type="button" className="orders-cancel-order" onClick={() => cancelOrder(order)} disabled={orderActionId === order.id}>
+                                                    <button type="button" className="orders-cancel-order" onClick={() => setCancelTarget(order)} disabled={orderActionId === order.id}>
                                                         <Ban size={15} /> Cancel order
                                                     </button>
                                                 )}
@@ -1496,6 +1499,38 @@ function Orders() {
                 </>
             )}
         </main>
+
+        {cancelTarget && (
+            <Dialog
+                ariaLabel={`Cancel Order #${cancelTarget.id}`}
+                onClose={() => setCancelTarget(null)}
+                busy={orderActionId === cancelTarget.id}
+            >
+                <div className="orders-cancel-dialog">
+                    <h2>Cancel Order #{cancelTarget.id}?</h2>
+                    <p>All items in this order will be cancelled and the reserved stock will be returned to the seller. This cannot be undone.</p>
+                    <div className="orders-cancel-dialog-actions">
+                        <button
+                            type="button"
+                            className="orders-cancel-dialog-confirm"
+                            onClick={() => cancelOrder(cancelTarget)}
+                            disabled={orderActionId === cancelTarget.id}
+                        >
+                            {orderActionId === cancelTarget.id ? "Cancelling…" : "Yes, cancel order"}
+                        </button>
+                        <button
+                            type="button"
+                            className="orders-cancel-dialog-dismiss"
+                            onClick={() => setCancelTarget(null)}
+                            disabled={orderActionId === cancelTarget.id}
+                        >
+                            Keep order
+                        </button>
+                    </div>
+                </div>
+            </Dialog>
+        )}
+        </>
     );
 }
 

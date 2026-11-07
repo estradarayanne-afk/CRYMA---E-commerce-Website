@@ -221,3 +221,48 @@
         border-bottom: 1px dashed var(--color-border);
     }
 }
+
+/* ─── Visual Improvements ─── */
+.buyer-vouchers-header {
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 16px rgba(75,23,37,.05);
+}
+.buyer-vouchers-eyebrow { font-size: 11px; letter-spacing: .12em; }
+.buyer-vouchers-header h1 { font-size: 28px; font-weight: 750; letter-spacing: -.03em; }
+.buyer-vouchers-header p:last-child { font-size: 14px; line-height: 1.55; }
+/* Tabs — bigger, clearer active state */
+.buyer-voucher-tabs { border-radius: var(--radius-sm); }
+.buyer-voucher-tabs button { font-size: 13px; min-height: 40px; padding: 0 16px; border-radius: var(--radius-sm); gap: 9px; }
+.buyer-voucher-tabs button span { font-size: 11px; padding: 3px 7px; border-radius: var(--radius-pill); }
+/* Alert */
+.buyer-vouchers-alert { font-size: 14px; padding: 13px 15px; border-radius: var(--radius-sm); }
+/* Empty/loading state */
+.buyer-vouchers-empty h2 { font-size: 18px; margin: 10px 0 5px; }
+.buyer-vouchers-empty p { font-size: 14px; line-height: 1.55; }
+/* Cards */
+.buyer-voucher-card {
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 14px rgba(75,23,37,.05);
+    transition: box-shadow .18s ease, transform .18s ease;
+}
+.buyer-voucher-card:hover {
+    box-shadow: 0 8px 22px rgba(75,23,37,.09);
+    transform: translateY(-2px);
+}
+.buyer-voucher-value strong { font-size: 20px; font-weight: 800; }
+.buyer-voucher-value span { font-size: 12px; font-weight: 700; }
+/* Code row */
+.buyer-voucher-code-row code { font-size: 16px; letter-spacing: .05em; }
+.buyer-voucher-code-row button, .buyer-voucher-claim, .buyer-voucher-shop-link {
+    min-height: 38px;
+    padding: 0 14px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+}
+/* Details */
+.buyer-voucher-details { padding: 18px 20px; }
+.buyer-voucher-details p { font-size: 14px; line-height: 1.5; }
+.buyer-voucher-seller { font-size: 12px !important; font-weight: 750 !important; }
+.buyer-voucher-status-reason { font-size: 13px !important; }
+.buyer-voucher-details ul { font-size: 12px; gap: 6px 20px; }
+.buyer-voucher-details ul li { line-height: 1.5; }

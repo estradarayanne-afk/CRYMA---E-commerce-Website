@@ -27,15 +27,18 @@ class FavoritesStore {
 
   Future<List<Map<String, dynamic>>> loadProducts(
       Future<Map<String, dynamic>> Function(String id) loadProduct) async {
-    final ids = await getIds();
-    final products = <Map<String, dynamic>>[];
-    for (final id in ids) {
-      try {
-        products.add(await loadProduct(id));
-      } catch (_) {
-        // Keep saved identifiers; a temporarily unavailable product can return later.
-      }
-    }
-    return products;
+    final ids = (await getIds()).toList();
+    if (ids.isEmpty) return const [];
+    // Fetch all wishlisted products in parallel rather than sequentially.
+    final results = await Future.wait(
+      ids.map((id) => loadProduct(id).then<Map<String, dynamic>?>(
+            (p) => p,
+          ).catchError(
+            // Keep saved identifiers; a temporarily unavailable product
+            // may return later. Return null and filter below.
+            (_) => null,
+          )),
+    );
+    return results.whereType<Map<String, dynamic>>().toList();
   }
 }

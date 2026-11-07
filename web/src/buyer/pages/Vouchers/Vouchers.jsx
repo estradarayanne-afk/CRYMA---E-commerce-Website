@@ -79,18 +79,28 @@ function BuyerVouchers() {
                 {loading ? (
                     <p className="buyer-vouchers-state" role="status">Loading vouchers…</p>
                 ) : <>
-                    <div className="buyer-voucher-tabs" role="group" aria-label="Voucher collection">
-                        <button type="button" aria-pressed={activeTab === "claimed"} className={activeTab === "claimed" ? "is-active" : ""} onClick={() => setActiveTab("claimed")}>My vouchers <span>{claimedVouchers.length}</span></button>
-                        <button type="button" aria-pressed={activeTab === "discover"} className={activeTab === "discover" ? "is-active" : ""} onClick={() => setActiveTab("discover")}>Available to claim <span>{claimableVouchers.length}</span></button>
+                    <div className="buyer-voucher-tabs" role="tablist" aria-label="Voucher collection">
+                        <button type="button" role="tab" aria-selected={activeTab === "claimed"} className={activeTab === "claimed" ? "is-active" : ""} onClick={() => setActiveTab("claimed")} id="voucher-tab-claimed" aria-controls="voucher-panel-claimed">My vouchers <span>{claimedVouchers.length}</span></button>
+                        <button type="button" role="tab" aria-selected={activeTab === "discover"} className={activeTab === "discover" ? "is-active" : ""} onClick={() => setActiveTab("discover")} id="voucher-tab-discover" aria-controls="voucher-panel-discover">Available to claim <span>{claimableVouchers.length}</span></button>
                     </div>
                 {visibleVouchers.length === 0 ? (
-                    <div className="buyer-vouchers-empty">
+                    <div
+                        className="buyer-vouchers-empty"
+                        role="tabpanel"
+                        id={activeTab === "claimed" ? "voucher-panel-claimed" : "voucher-panel-discover"}
+                        aria-labelledby={activeTab === "claimed" ? "voucher-tab-claimed" : "voucher-tab-discover"}
+                    >
                         <Ticket size={22} />
                         <h2>{activeTab === "claimed" ? "No claimed vouchers yet" : "No vouchers available to claim"}</h2>
                         <p>{activeTab === "claimed" ? "Browse available offers and claim one to save it here." : "Check back later for new store offers."}</p>
                     </div>
                 ) : (
-                    <div className="buyer-voucher-list">
+                    <div
+                        className="buyer-voucher-list"
+                        role="tabpanel"
+                        id={activeTab === "claimed" ? "voucher-panel-claimed" : "voucher-panel-discover"}
+                        aria-labelledby={activeTab === "claimed" ? "voucher-tab-claimed" : "voucher-tab-discover"}
+                    >
                         {visibleVouchers.map((voucher) => (
                             <article className={`buyer-voucher-card status-${voucher.buyer_status}`} key={voucher.id}>
                                 <div className="buyer-voucher-value">

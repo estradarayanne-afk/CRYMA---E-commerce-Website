@@ -1027,3 +1027,77 @@
     .orders-clear-button,.orders-apply-button { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .orders-filter-panel { animation: none; } }
+
+/* Cancel order confirmation dialog */
+.orders-cancel-dialog { padding: 8px 4px 4px; }
+.orders-cancel-dialog h2 { font-size: 1.05rem; font-weight: 700; color: var(--color-text-primary); margin: 0 0 10px; }
+.orders-cancel-dialog p { font-size: 0.9rem; color: var(--color-text-secondary); line-height: 1.5; margin: 0 0 20px; }
+.orders-cancel-dialog-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.orders-cancel-dialog-confirm {
+    flex: 1; min-width: 140px;
+    padding: 10px 16px; border-radius: var(--radius-sm);
+    background: var(--color-danger); color: #fff;
+    font-size: 0.875rem; font-weight: 600;
+    border: none; cursor: pointer; transition: opacity 160ms;
+}
+.orders-cancel-dialog-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+.orders-cancel-dialog-dismiss {
+    flex: 1; min-width: 120px;
+    padding: 10px 16px; border-radius: var(--radius-sm);
+    background: transparent; color: var(--color-text-secondary);
+    font-size: 0.875rem; font-weight: 600;
+    border: 1.5px solid var(--color-border); cursor: pointer; transition: border-color 160ms;
+}
+.orders-cancel-dialog-dismiss:hover { border-color: var(--color-border-strong); }
+
+/* ─── Visual Improvements ─── */
+/* Typography scale-up: nothing below 11px in the buyer workspace */
+.order-number, .order-date { font-size: 12px; }
+.order-status { font-size: 10px; letter-spacing: .04em; }
+.order-product-info strong { font-size: 14px; font-weight: 700; }
+.order-product-info span { font-size: 12px; margin-top: 5px; }
+.order-total span { font-size: 11px; }
+.order-total strong { font-size: 19px; }
+/* Action buttons — clear, readable labels */
+.orders-contact-seller, .orders-cancel-order {
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    gap: 8px;
+}
+.order-view-button {
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 800;
+    border-radius: var(--radius-sm);
+}
+/* Search and filters */
+.orders-search input { font-size: 14px; }
+.orders-search-button { font-size: 13px; padding: 0 20px; }
+.orders-filter-button { font-size: 13px; }
+.orders-filter-grid label > span { font-size: 12px; font-weight: 700; }
+.orders-filter-grid select, .orders-date-input { height: 46px; font-size: 13px; }
+.orders-date-input input { font-size: 13px; }
+.orders-clear-button, .orders-apply-button { min-height: 44px; font-size: 13px; padding: 0 18px; }
+/* State messages */
+.orders-state h2 { font-size: 20px; }
+.orders-state p { font-size: 14px; }
+.orders-state a, .orders-state button { min-height: 44px; font-size: 13px; }
+/* Pagination */
+.orders-pagination > button, .orders-page-numbers button { min-height: 40px; font-size: 13px; }
+/* Active filters chips */
+.orders-active-filters button { font-size: 12px; min-height: 30px; }
+.orders-eyebrow { font-size: 10px; letter-spacing: .16em; }
+/* List heading */
+.orders-list-heading h2 { font-size: 22px; }
+.orders-list-heading p { font-size: 13px; }
+/* Count badge in header */
+.orders-count strong { font-size: 24px; }
+.orders-count span { font-size: 11px; }
+/* Cancel dialog (from previous fix) */
+.orders-cancel-dialog h2 { font-size: 18px; }
+.orders-cancel-dialog p { font-size: 14px; line-height: 1.55; }
+.orders-cancel-dialog-confirm, .orders-cancel-dialog-dismiss { font-size: 14px; min-height: 46px; }

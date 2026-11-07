@@ -1,136 +1,104 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 
-class SecuritySettingsScreen extends StatefulWidget {
+/// Security Settings — shows account security information.
+/// Toggle controls for 2FA/biometric are removed because the backend has no
+/// endpoint for these features. Only change-password is connected.
+class SecuritySettingsScreen extends StatelessWidget {
   const SecuritySettingsScreen({super.key});
-
-  @override
-  State<SecuritySettingsScreen> createState() => _SecuritySettingsScreenState();
-}
-
-class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
-  bool _twoFactor = false;
-  bool _biometric = false;
-  bool _loginAlerts = true;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // HEADER
-            Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 22, color: AppColors.primary),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Security Settings',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-
-            // BODY
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border:
-                            Border.all(color: AppColors.lightGray, width: 1),
-                      ),
-                      child: Column(
-                        children: [
-                          _buildSwitchItem(
-                            'Two-Factor Authentication',
-                            'Add an extra layer of security',
-                            _twoFactor,
-                            (val) => setState(() => _twoFactor = val),
-                          ),
-                          const Divider(height: 1, color: AppColors.lightGray),
-                          _buildSwitchItem(
-                            'Biometric Login',
-                            'Use fingerprint or face ID',
-                            _biometric,
-                            (val) => setState(() => _biometric = val),
-                          ),
-                          const Divider(height: 1, color: AppColors.lightGray),
-                          _buildSwitchItem(
-                            'Login Alerts',
-                            'Get notified of new sign-ins',
-                            _loginAlerts,
-                            (val) => setState(() => _loginAlerts = val),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('Security Settings'),
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.primary,
+        elevation: 0,
       ),
-    );
-  }
-
-  Widget _buildSwitchItem(
-      String title, String subtitle, bool value, Function(bool) onChanged) {
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Info banner
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.softRose,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.darkGray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.gray,
-                    fontFamily: 'Poppins',
+                Icon(Icons.shield_outlined, color: AppColors.primary, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Keep your account safe',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: AppColors.primary,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Use a strong, unique password and never share it with anyone.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontFamily: 'Poppins',
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
+          const SizedBox(height: 16),
+          // Change password
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.lightGray),
+            ),
+            child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              leading: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F3F2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.key_outlined,
+                    size: 20, color: AppColors.primary),
+              ),
+              title: const Text(
+                'Change Password',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.darkGray,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              subtitle: const Text(
+                'Update your account password',
+                style: TextStyle(
+                    fontSize: 12, color: AppColors.gray, fontFamily: 'Poppins'),
+              ),
+              trailing:
+                  const Icon(Icons.chevron_right, color: AppColors.gray, size: 18),
+              onTap: () => Navigator.pushNamed(context, '/change_password'),
+            ),
           ),
         ],
       ),
