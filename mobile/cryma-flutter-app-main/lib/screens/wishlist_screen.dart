@@ -37,7 +37,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: Colors.transparent,
     appBar: AppBar(title: const Text('Wishlist'), backgroundColor: AppColors.white, foregroundColor: AppColors.primary, elevation: 0),
     body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null
       ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(_error!, textAlign: TextAlign.center), TextButton(onPressed: _load, child: const Text('Retry'))]))

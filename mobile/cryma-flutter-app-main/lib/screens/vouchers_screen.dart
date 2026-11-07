@@ -108,7 +108,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
             : !voucher.isClaimed && voucher.buyerStatus == 'available')
         .toList();
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('My Vouchers'),
         foregroundColor: AppColors.primary,
@@ -142,7 +142,13 @@ class _VouchersScreenState extends State<VouchersScreen> {
                       ? _StateMessage(
                           message: _showClaimed
                               ? 'No claimed vouchers yet.'
-                              : 'No vouchers are available to claim.')
+                              : 'No vouchers are available to claim.',
+                          action:
+                              _showClaimed ? 'Browse Available Vouchers' : null,
+                          onPressed: _showClaimed
+                              ? () => setState(() => _showClaimed = false)
+                              : null,
+                        )
                       : RefreshIndicator(
                           onRefresh: _load,
                           child: ListView.builder(

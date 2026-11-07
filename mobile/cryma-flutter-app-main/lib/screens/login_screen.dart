@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
@@ -294,6 +294,8 @@ class _LoginScreenState extends State<LoginScreen> {
           hintText: hintText,
           prefixIcon: Icon(icon, color: AppColors.primary),
           suffixIcon: suffixIcon,
+          suffixIconConstraints:
+              const BoxConstraints(minWidth: 48, minHeight: 48),
           filled: true,
           fillColor: AppColors.background,
           contentPadding:

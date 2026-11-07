@@ -327,12 +327,23 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
 
   Widget _buildColorOptions() {
     if (_productColors.isEmpty) return const SizedBox.shrink();
-    const colorMap = {
+    const colorMap = <String, Color>{
       'Black': Colors.black,
-      'Blue': Colors.blue,
-      'White': Colors.grey,
-      'Red': Colors.red,
-      'Green': Colors.green,
+      'Blue': Color(0xFF1E6FD9),
+      'White': Color(0xFFF0EDE8),
+      'Red': Color(0xFFD32F2F),
+      'Green': Color(0xFF388E3C),
+      'Yellow': Color(0xFFFBC02D),
+      'Orange': Color(0xFFF57C00),
+      'Purple': Color(0xFF7B1FA2),
+      'Pink': Color(0xFFE91E8C),
+      'Brown': Color(0xFF795548),
+      'Gray': Color(0xFF9E9E9E),
+      'Grey': Color(0xFF9E9E9E),
+      'Navy': Color(0xFF1A237E),
+      'Beige': Color(0xFFF5F0E8),
+      'Gold': Color(0xFFFFB800),
+      'Silver': Color(0xFFBDBDBD),
     };
 
     return Column(
@@ -381,8 +392,10 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                           width: 15,
                           height: 15,
                           decoration: BoxDecoration(
-                            color: colorMap[color] ?? Colors.grey,
+                            color: colorMap[color] ?? AppColors.borderStrong,
                             shape: BoxShape.circle,
+                            border: Border.all(
+                                color: AppColors.borderNeutral, width: 0.5),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -741,8 +754,8 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                     _buildThumbnails(),
                     _buildProductInfo(),
                     _buildSpecificationSection(),
-                    _buildReviewsSection(context), // ✅ Pass context
-                    const SizedBox(height: 20),
+                    _buildReviewsSection(context),
+                    const SizedBox(height: 104), // clears the 82dp bottom bar
                   ],
                 ),
               ),
@@ -761,25 +774,28 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Stack(
         children: [
-          Container(
-            width: double.infinity,
-            height: MediaQuery.of(context).size.width * 0.72,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F1F1),
-              borderRadius: BorderRadius.circular(26),
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceNeutral,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _imageProvider(_selectedImage) == null
+                  ? const Center(
+                      child: Icon(Icons.image_not_supported_outlined,
+                          size: 45, color: AppColors.gray))
+                  : Image(
+                      image: _imageProvider(_selectedImage)!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(
+                              child: Icon(Icons.image_not_supported_outlined,
+                                  size: 45, color: AppColors.gray)),
+                    ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: _imageProvider(_selectedImage) == null
-                ? const Center(
-                    child: Icon(Icons.image_not_supported_outlined,
-                        size: 45, color: AppColors.gray))
-                : Image(
-                    image: _imageProvider(_selectedImage)!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Center(
-                        child: Icon(Icons.image_not_supported_outlined,
-                            size: 45, color: AppColors.gray)),
-                  ),
           ),
           if ((_product['discount'] as int? ?? 0) > 0)
             Positioned(
@@ -823,7 +839,7 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final String imagePath = _product['images'][index] as String;
-          final bool isActive = _selectedImage == imagePath && index == 0;
+          final bool isActive = _selectedImage == imagePath;
 
           return GestureDetector(
             onTap: () => setState(() => _selectedImage = imagePath),
@@ -896,35 +912,76 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
             ),
           ),
           const SizedBox(height: 8),
-
-          // RATING
-          Row(
-            children: [
-              Row(
-                children: List.generate(
-                  5,
-                  (index) => const Padding(
-                    padding: EdgeInsets.only(right: 2),
-                    child: Icon(Icons.star, size: 17, color: AppColors.gold),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  '${_product['rating']} · ${_product['reviews']} reviews',
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.softRose,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.borderNeutral),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.storefront_outlined,
+                    color: AppColors.primaryDark, size: 15),
+                const SizedBox(width: 6),
+                Text(
+                  'Store: ${_product['seller']}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.gray,
+                    color: AppColors.primaryDark,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 10),
+
+          // RATING — only render when actual data exists
+          if ((_product['rating'] as num? ?? 0) > 0) ...[
+            Row(
+              children: [
+                Row(
+                  children: List.generate(5, (i) {
+                    final r = (_product['rating'] as num).toDouble();
+                    final full = r.floor();
+                    final hasHalf = (r - full) >= 0.5;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: Icon(
+                        i < full
+                            ? Icons.star_rounded
+                            : (i == full && hasHalf)
+                                ? Icons.star_half_rounded
+                                : Icons.star_outline_rounded,
+                        size: 17,
+                        color: AppColors.gold,
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    '${_product['rating']} · ${_product['reviews']} reviews',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.gray,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ] else
+            const SizedBox(height: 10),
 
           // PRICE
           Row(
@@ -939,33 +996,38 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                   fontFamily: 'Poppins',
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                '₱${_product['originalPrice']}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  decoration: TextDecoration.lineThrough,
-                  color: AppColors.gray,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFEEEE),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '-${_product['discount']}%',
+              // Only show the strikethrough original price when there actually
+              // is a discount — avoids showing ₱0 or identical prices.
+              if ((_product['originalPrice'] as int? ?? 0) > _currentPrice) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '₱${_product['originalPrice']}',
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.danger,
+                    fontSize: 14,
+                    decoration: TextDecoration.lineThrough,
+                    color: AppColors.gray,
                     fontFamily: 'Poppins',
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.dangerSoft,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '-${_product['discount']}%',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.danger,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ),
+              ], // closes if (originalPrice > currentPrice)
             ],
           ),
           const SizedBox(height: 16),
@@ -990,28 +1052,22 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
               ),
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: _decreaseQuantity,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE5E5E5)),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '−',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.darkGray,
-                          ),
-                        ),
-                      ),
+                  IconButton(
+                    tooltip: 'Decrease quantity',
+                    onPressed: _quantity > 1 ? _decreaseQuantity : null,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(40, 40),
+                      backgroundColor: AppColors.surface,
+                      disabledBackgroundColor: AppColors.surfaceNeutral,
+                      foregroundColor: AppColors.primaryDark,
+                      disabledForegroundColor: AppColors.textSubtle,
+                      side: const BorderSide(color: AppColors.borderNeutral),
+                      shape: const CircleBorder(),
+                      padding: EdgeInsets.zero,
                     ),
+                    icon: const Icon(Icons.remove_rounded, size: 18),
                   ),
-                  const SizedBox(width: 17),
+                  const SizedBox(width: 12),
                   Text(
                     '$_quantity',
                     style: const TextStyle(
@@ -1021,27 +1077,22 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                       fontFamily: 'Poppins',
                     ),
                   ),
-                  const SizedBox(width: 17),
-                  GestureDetector(
-                    onTap: _increaseQuantity,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE5E5E5)),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '+',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.darkGray,
-                          ),
-                        ),
-                      ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    tooltip: 'Increase quantity',
+                    onPressed:
+                        _quantity < _currentStock ? _increaseQuantity : null,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(40, 40),
+                      backgroundColor: AppColors.surface,
+                      disabledBackgroundColor: AppColors.surfaceNeutral,
+                      foregroundColor: AppColors.primaryDark,
+                      disabledForegroundColor: AppColors.textSubtle,
+                      side: const BorderSide(color: AppColors.borderNeutral),
+                      shape: const CircleBorder(),
+                      padding: EdgeInsets.zero,
                     ),
+                    icon: const Icon(Icons.add_rounded, size: 18),
                   ),
                 ],
               ),

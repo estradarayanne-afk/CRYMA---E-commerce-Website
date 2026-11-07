@@ -217,11 +217,18 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
       _personal['middleInitial'],
       _personal['lastName'],
     ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
+    final rawFileName =
+        widget.data['idFile']?.toString().split(RegExp(r'[/\\]')).last ?? '';
+    final fileExtension = rawFileName.contains('.')
+        ? rawFileName.split('.').last.toLowerCase()
+        : '';
     final fileName =
-        widget.data['idFile']?.toString().split(RegExp(r'[/\\]')).last;
+        rawFileName.length > 32 || RegExp(r'^\d{8,}').hasMatch(rawFileName)
+            ? 'Government_ID${fileExtension.isEmpty ? '' : '.$fileExtension'}'
+            : rawFileName;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
@@ -291,7 +298,7 @@ class _RegisterReviewScreenState extends State<RegisterReviewScreen> {
                 ),
                 _reviewSection(
                   'Verification document',
-                  [('Valid ID', fileName ?? '')],
+                  [('Valid ID', fileName)],
                   onEdit: () => _editSection('/register_id'),
                 ),
                 const SizedBox(height: 14),

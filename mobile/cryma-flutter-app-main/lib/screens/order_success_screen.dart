@@ -2,191 +2,202 @@ import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
 
-class OrderSuccessScreen extends StatelessWidget {
+class OrderSuccessScreen extends StatefulWidget {
   const OrderSuccessScreen({super.key});
+
+  @override
+  State<OrderSuccessScreen> createState() => _OrderSuccessScreenState();
+}
+
+class _OrderSuccessScreenState extends State<OrderSuccessScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _humanisePayment(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
+    return raw
+        .split('_')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
 
   @override
   Widget build(BuildContext context) {
     final result = ModalRoute.of(context)?.settings.arguments;
-    final order = result is Map<String, dynamic> ? result : <String, dynamic>{};
+    final order =
+        result is Map<String, dynamic> ? result : const <String, dynamic>{};
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // ============================================================
-                // SUCCESS ICON - WITH OUTER RING
-                // ============================================================
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.lightGray,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 70,
-                      height: 70,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        size: 40,
-                        color: AppColors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // ============================================================
-                // TITLE
-                // ============================================================
-                const Text(
-                  'Order Placed',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                const Text(
-                  'Successfully!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // ============================================================
-                // DESCRIPTION
-                // ============================================================
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    'Thank you for your order. We\'ve sent a confirmation to your email.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.gray,
-                      fontFamily: 'Poppins',
-                      height: 1.6,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ============================================================
-                // ORDER INFORMATION CARD
-                // ============================================================
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: AppColors.lightGray, width: 1),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: FadeTransition(
+              opacity: _fade,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // ── SUCCESS ICON ──────────────────────────────────
+                  ScaleTransition(
+                    scale: _scale,
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        _buildDetailRow(
-                          'Order Number',
-                          '#${order['id'] ?? '—'}',
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color:
+                                AppColors.success.withValues(alpha: 0.1),
+                          ),
                         ),
-                        const Divider(color: AppColors.lightGray, height: 14),
-                        _buildDetailRow(
-                          'Total Amount',
-                          '₱${order['total_amount'] ?? '—'}',
-                        ),
-                        const Divider(color: AppColors.lightGray, height: 14),
-                        _buildDetailRow('Est. Delivery', 'See order tracking'),
-                        const Divider(color: AppColors.lightGray, height: 14),
-                        _buildDetailRow(
-                          'Payment',
-                          order['payment_method']?.toString() ?? '—',
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.success,
+                          ),
+                          child: const Icon(Icons.check_rounded,
+                              size: 38, color: Colors.white),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 22),
 
-                // ============================================================
-                // TRACK ORDER BUTTON
-                // ============================================================
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () =>
-                        Navigator.pushReplacementNamed(context, '/my_orders'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                  // ── TITLE ─────────────────────────────────────────
+                  const Text(
+                    'Order placed!',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.wine,
+                      height: 1.1,
                     ),
-                    child: const Text(
-                      'View My Orders',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.white,
-                        fontFamily: 'Poppins',
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "We've received your order. You'll get updates as it's processed.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 14,
+                      color: AppColors.gray,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── ORDER SUMMARY CARD ────────────────────────────
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border:
+                          Border.all(color: AppColors.borderNeutral),
+                    ),
+                    child: Column(
+                      children: [
+                        _row('Order number',
+                            '#${order['id'] ?? '—'}'),
+                        const Divider(height: 18),
+                        _row(
+                          'Total amount',
+                          order['total_amount'] != null
+                              ? '₱${order['total_amount']}'
+                              : '—',
+                          valueStyle: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const Divider(height: 18),
+                        _row(
+                          'Payment',
+                          _humanisePayment(
+                              order['payment_method']?.toString()),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── ACTIONS ───────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pushReplacementNamed(
+                          context, '/my_orders'),
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text(
+                        'View my orders',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-
-                // ============================================================
-                // CONTINUE SHOPPING BUTTON
-                // ============================================================
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pushReplacementNamed(context, '/home');
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 2),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pushReplacementNamed(
+                          context, '/home'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                        side: const BorderSide(
+                            color: AppColors.borderStrong),
                       ),
-                    ),
-                    child: const Text(
-                      'Continue Shopping',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
+                      child: const Text(
+                        'Continue shopping',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -194,39 +205,32 @@ class OrderSuccessScreen extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // DETAIL ROW HELPER - NASA DULO NA ANG VALUE
-  // ============================================================
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // ✅ ITO ANG SUSI!
-        children: [
-          // Label - left aligned
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.gray,
-              fontFamily: 'Poppins',
-            ),
+  Widget _row(String label, String value, {TextStyle? valueStyle}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            color: AppColors.gray,
           ),
-          // Value - right aligned, dark teal, bold
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-                fontFamily: 'Poppins',
-              ),
-            ),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: valueStyle ??
+                const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.darkGray,
+                ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

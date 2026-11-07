@@ -15,6 +15,7 @@ class _RateFeedbackScreenState extends State<RateFeedbackScreen> {
   List<Map<String, dynamic>> _items = [];
   Map<String, dynamic>? _selectedItem;
   int _rating = 0;
+  int _hoverRating = 0;
   bool _loading = true;
   bool _submitting = false;
   String? _error;
@@ -53,10 +54,7 @@ class _RateFeedbackScreenState extends State<RateFeedbackScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() {
-        _error = error.toString();
-        _loading = false;
-      });
+      setState(() { _error = error.toString(); _loading = false; });
     }
   }
 
@@ -66,34 +64,33 @@ class _RateFeedbackScreenState extends State<RateFeedbackScreen> {
     final productId = product?['id']?.toString();
     final orderId = int.tryParse(widget.orderId ?? '');
     if (item == null || productId == null || orderId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Choose a product from a completed order.')));
+      _snack('Choose a product from a completed order.');
       return;
     }
     if (_rating < 1 || _rating > 5) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Select a star rating before submitting.')));
+      _snack('Select a star rating before submitting.');
       return;
     }
     setState(() => _submitting = true);
     try {
       await ApiService.instance.submitProductReview(
-          productId: productId,
-          orderId: orderId,
-          rating: _rating,
-          comment: _reviewController.text);
+        productId: productId,
+        orderId: orderId,
+        rating: _rating,
+        comment: _reviewController.text,
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Your review was submitted.')));
+      _snack('Your review was submitted.');
       Navigator.pop(context, true);
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
-      }
+      if (mounted) _snack(error.toString());
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -101,120 +98,212 @@ class _RateFeedbackScreenState extends State<RateFeedbackScreen> {
     final product = _selectedItem?['product'] as Map<String, dynamic>?;
     final productName = product?['name']?.toString() ?? 'Select a product';
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-          title: const Text('Rate & Review',
-              style:
-                  TextStyle(fontFamily: 'Poppins', color: AppColors.primary)),
-          backgroundColor: AppColors.white,
-          foregroundColor: AppColors.primary,
-          elevation: 0),
+        title: const Text('Rate & Review'),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.primary,
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
                   child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                            onPressed: _loadOrder,
-                            child: const Text('Try again'))
-                      ])))
+                    padding: const EdgeInsets.all(24),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.error_outline, size: 42, color: AppColors.danger),
+                      const SizedBox(height: 12),
+                      Text(_error!, textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.textSecondary, fontFamily: 'Poppins')),
+                      const SizedBox(height: 14),
+                      OutlinedButton(onPressed: _loadOrder, child: const Text('Try again')),
+                    ]),
+                  ),
+                )
               : _items.isEmpty
                   ? const Center(
-                      child: Text(
+                      child: Padding(
+                        padding: EdgeInsets.all(28),
+                        child: Text(
                           'No reviewable products were found in this order.',
-                          textAlign: TextAlign.center))
-                  : ListView(padding: const EdgeInsets.all(16), children: [
-                      if (_items.length > 1)
-                        DropdownButtonFormField<Map<String, dynamic>>(
-                          initialValue: _selectedItem,
-                          decoration: const InputDecoration(
-                              labelText: 'Product',
-                              border: OutlineInputBorder(),
-                              filled: true,
-                              fillColor: Colors.white),
-                          items: _items.map((item) {
-                            final p = item['product'] as Map<String, dynamic>;
-                            return DropdownMenuItem(
-                                value: item,
-                                child: Text(p['name']?.toString() ?? 'Product',
-                                    overflow: TextOverflow.ellipsis));
-                          }).toList(),
-                          onChanged: (item) =>
-                              setState(() => _selectedItem = item),
-                        )
-                      else
-                        Card(
-                            child: ListTile(
-                                leading: const Icon(Icons.inventory_2_outlined,
-                                    color: AppColors.primary),
-                                title: Text(productName,
-                                    style: const TextStyle(
-                                        fontFamily: 'Poppins')))),
-                      const SizedBox(height: 16),
-                      Card(
-                          child: Padding(
-                              padding: const EdgeInsets.all(18),
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Your rating',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontFamily: 'Poppins')),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                        children: List.generate(
-                                            5,
-                                            (index) => IconButton(
-                                                onPressed: () => setState(
-                                                    () => _rating = index + 1),
-                                                icon: Icon(
-                                                    index < _rating
-                                                        ? Icons.star
-                                                        : Icons.star_border,
-                                                    color: AppColors.gold,
-                                                    size: 30)))),
-                                    TextField(
-                                        controller: _reviewController,
-                                        maxLength: 1000,
-                                        minLines: 4,
-                                        maxLines: 7,
-                                        decoration: const InputDecoration(
-                                            labelText: 'Your review',
-                                            hintText:
-                                                'Share your experience with this product',
-                                            border: OutlineInputBorder(),
-                                            alignLabelWithHint: true)),
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton(
-                                        onPressed: _submitting ? null : _submit,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.primary,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 14),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Poppins', fontSize: 14,
+                            color: AppColors.gray,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                      children: [
+                        // ── PRODUCT SELECTOR ─────────────────────────────
+                        if (_items.length > 1)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.borderNeutral),
+                            ),
+                            child: DropdownButtonFormField<Map<String, dynamic>>(
+                              initialValue: _selectedItem,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                labelText: 'Product',
+                                labelStyle: TextStyle(fontFamily: 'Poppins'),
+                              ),
+                              items: _items.map((item) {
+                                final p = item['product'] as Map<String, dynamic>;
+                                return DropdownMenuItem(
+                                  value: item,
+                                  child: Text(p['name']?.toString() ?? 'Product',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontFamily: 'Poppins')),
+                                );
+                              }).toList(),
+                              onChanged: (item) =>
+                                  setState(() => _selectedItem = item),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.borderNeutral),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.inventory_2_outlined,
+                                    color: AppColors.primary, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(productName,
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins', fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.darkGray,
+                                      )),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 20),
+
+                        // ── RATING CARD ──────────────────────────────────
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.borderNeutral),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Your rating',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins', fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.darkGray,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              // Interactive star rating
+                              Row(
+                                children: List.generate(5, (index) {
+                                  final i = index + 1;
+                                  final active = i <= (_hoverRating > 0 ? _hoverRating : _rating);
+                                  return GestureDetector(
+                                    onTap: () => setState(() => _rating = i),
+                                    onPanUpdate: (details) {
+                                      // Allow swipe rating
+                                      final box = context.findRenderObject() as RenderBox;
+                                      final pos = box.globalToLocal(details.globalPosition);
+                                      // Calculate which star based on position — approximate
+                                      if (pos.dx > 0) setState(() => _rating = ((pos.dx / 50).ceil()).clamp(1, 5));
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: MouseRegion(
+                                        onEnter: (_) => setState(() => _hoverRating = i),
+                                        onExit: (_) => setState(() => _hoverRating = 0),
+                                        child: Icon(
+                                          active ? Icons.star_rounded : Icons.star_outline_rounded,
+                                          size: 36,
+                                          color: active ? AppColors.gold : AppColors.borderStrong,
                                         ),
-                                        child: _submitting
-                                            ? const SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: Colors.white,
-                                                ),
-                                              )
-                                            : const Text('Submit review'),
                                       ),
                                     ),
-                                  ]))),
-                    ]),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(height: 20),
+                              // ── COMMENT FIELD ────────────────────────────
+                              const Text(
+                                'Your review',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins', fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.darkGray,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _reviewController,
+                                maxLength: 1000,
+                                minLines: 4,
+                                maxLines: 8,
+                                decoration: InputDecoration(
+                                  hintText: 'Share your experience with this product',
+                                  hintStyle: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: AppColors.textSubtle,
+                                  ),
+                                  alignLabelWithHint: true,
+                                  filled: true,
+                                  fillColor: AppColors.background,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: FilledButton(
+                                  onPressed: _submitting ? null : _submit,
+                                  style: FilledButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: _submitting
+                                      ? const SizedBox(
+                                          width: 20, height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2, color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Submit review',
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins', fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
     );
   }
 }

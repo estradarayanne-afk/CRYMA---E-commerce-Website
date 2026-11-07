@@ -13,6 +13,7 @@ import '../screens/forgot_password_screen.dart';
 // REGISTER SCREENS
 // ============================================================
 import '../screens/register_personal_screen.dart';
+import '../screens/register_contact_screen.dart';
 import '../screens/register_address_screen.dart';
 import '../screens/register_id_screen.dart';
 import '../screens/register_account_screen.dart';
@@ -99,9 +100,8 @@ class AppRouter {
         final data = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => RegisterAddressScreen(
+          builder: (_) => RegisterContactScreen(
             personalData: data?['personalData'],
-            contactData: data?['contactData'],
           ),
         );
       case '/register_address':

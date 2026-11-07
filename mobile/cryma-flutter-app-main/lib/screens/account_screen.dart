@@ -33,13 +33,13 @@ class _AccountScreenState extends State<AccountScreen> {
           _user = jsonDecode(raw) as Map<String, dynamic>;
         } catch (_) {}
       });
-      if (_user?['profile_image_url'] != null) {
-        try {
-          final bytes = await ApiService.instance.getProfileImageBytes();
-          if (mounted) setState(() => _profileImage = bytes);
-        } catch (_) {}
-      } else if (mounted) {
-        setState(() => _profileImage = null);
+      // Always attempt to load the profile image — the URL check was preventing
+      // it from loading even when the server had an image stored.
+      try {
+        final bytes = await ApiService.instance.getProfileImageBytes();
+        if (mounted) setState(() => _profileImage = bytes);
+      } catch (_) {
+        if (mounted) setState(() => _profileImage = null);
       }
     }
   }
@@ -53,32 +53,41 @@ class _AccountScreenState extends State<AccountScreen> {
 
   String get _displayEmail => _user?['email']?.toString() ?? '';
 
+  String get _initials {
+    final first = _user?['first_name']?.toString() ?? '';
+    final last = _user?['last_name']?.toString() ?? '';
+    final i1 = first.isNotEmpty ? first[0] : '';
+    final i2 = last.isNotEmpty ? last[0] : '';
+    return '$i1$i2'.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
+            // ── HEADER ──────────────────────────────────────────────
             Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              color: AppColors.surface,
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Account',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
+                  const Expanded(
+                    child: Text(
+                      'Account',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.wine,
+                      ),
                     ),
                   ),
                   IconButton(
-                    tooltip: _user == null
-                        ? 'Sign in to view messages'
-                        : 'Messages',
+                    tooltip:
+                        _user == null ? 'Sign in to view messages' : 'Messages',
                     onPressed: () => Navigator.pushNamed(
                       context,
                       _user == null ? '/login' : '/chat_list',
@@ -87,183 +96,87 @@ class _AccountScreenState extends State<AccountScreen> {
                       _user == null
                           ? Icons.login_rounded
                           : Icons.chat_bubble_outline,
-                      color: AppColors.primary,
+                      color: AppColors.darkGray,
                     ),
                   ),
                 ],
               ),
             ),
+
+            // ── BODY ────────────────────────────────────────────────
             Expanded(
               child: _user == null
-                  ? _buildGuestAccount(context)
+                  ? _buildGuest(context)
                   : SingleChildScrollView(
                       child: Column(
                         children: [
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border:
-                                  Border.all(color: const Color(0xFFE8E8E8)),
-                            ),
-                            padding: const EdgeInsets.only(top: 24, bottom: 24),
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.lightGray,
+                          _buildProfileHeader(),
+                          const SizedBox(height: 16),
+                          _buildSection('MY SHOPPING', const [
+                            _MenuItem(Icons.star_outline, 'My Reviews',
+                                '/my_reviews'),
+                            _MenuItem(Icons.local_offer_outlined, 'Vouchers',
+                                '/vouchers'),
+                            _MenuItem(
+                                Icons.favorite_border, 'Wishlist', '/wishlist'),
+                          ]),
+                          _buildSection('ACCOUNT SETTINGS', const [
+                            _MenuItem(Icons.person_outline, 'Edit Profile',
+                                '/edit_profile'),
+                            _MenuItem(Icons.location_on_outlined,
+                                'Address Book', '/address_book'),
+                            _MenuItem(Icons.wallet_outlined, 'Payment Methods',
+                                '/payment_methods'),
+                            _MenuItem(Icons.key_outlined, 'Change Password',
+                                '/change_password'),
+                            _MenuItem(Icons.shield_outlined,
+                                'Security Settings', '/security_settings'),
+                          ]),
+                          _buildSection('HELP & SUPPORT', const [
+                            _MenuItem(Icons.support_agent, 'Customer Support',
+                                '/support'),
+                            _MenuItem(Icons.help_outline, 'Help Center',
+                                '/help_center'),
+                            _MenuItem(Icons.description_outlined,
+                                'Terms & Conditions', '/terms'),
+                            _MenuItem(Icons.privacy_tip_outlined,
+                                'Privacy Policy', '/privacy'),
+                          ]),
+                          // Logout
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pushNamed(
+                                    context, '/logout_confirmation'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.danger,
+                                  side:
+                                      const BorderSide(color: AppColors.danger),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
-                                  child: _profileImage == null
-                                      ? const Icon(Icons.person,
-                                          size: 56, color: AppColors.gray)
-                                      : ClipOval(
-                                          child: Image.memory(_profileImage!,
-                                              fit: BoxFit.cover,
-                                              width: 100,
-                                              height: 100)),
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _displayName,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                    fontFamily: 'Poppins',
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _displayEmail,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: AppColors.gray,
-                                    fontFamily: 'Poppins',
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                GestureDetector(
-                                  onTap: () async {
-                                    await Navigator.pushNamed(
-                                        context, '/edit_profile');
-                                    _loadUser();
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 28, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                          color: AppColors.primary, width: 1.5),
-                                    ),
-                                    child: const Text(
-                                      'Edit Profile',
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.logout_outlined, size: 19),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Logout',
                                       style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
                                         fontFamily: 'Poppins',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildMenuSection(context, 'MY ACCOUNT', const [
-                            _MenuItem(
-                                icon: Icons.person_outline,
-                                label: 'Personal Information',
-                                route: '/edit_profile'),
-                            _MenuItem(
-                                icon: Icons.location_on_outlined,
-                                label: 'Address Book',
-                                route: '/address_book'),
-                            _MenuItem(
-                                icon: Icons.wallet_outlined,
-                                label: 'Payment Methods',
-                                route: '/payment_methods'),
-                          ]),
-                          _buildMenuSection(context, 'MY SHOPPING', const [
-                            _MenuItem(
-                                icon: Icons.description_outlined,
-                                label: 'My Orders',
-                                route: '/my_orders'),
-                            _MenuItem(
-                                icon: Icons.star_outline,
-                                label: 'My Reviews',
-                                route: '/my_reviews'),
-                            _MenuItem(
-                                icon: Icons.local_offer_outlined,
-                                label: 'Vouchers',
-                                route: '/vouchers'),
-                            _MenuItem(
-                                icon: Icons.favorite_border,
-                                label: 'Wishlist',
-                                route: '/wishlist'),
-                          ]),
-                          _buildMenuSection(context, 'SUPPORT', const [
-                            _MenuItem(
-                                icon: Icons.chat_bubble_outline,
-                                label: 'Customer Support',
-                                route: '/support'),
-                            _MenuItem(
-                                icon: Icons.help_outline,
-                                label: 'Help Center',
-                                route: '/help_center'),
-                            _MenuItem(
-                                icon: Icons.description_outlined,
-                                label: 'Terms & Conditions',
-                                route: '/terms'),
-                            _MenuItem(
-                                icon: Icons.shield_outlined,
-                                label: 'Privacy Policy',
-                                route: '/privacy'),
-                          ]),
-                          _buildMenuSection(context, 'SECURITY', const [
-                            _MenuItem(
-                                icon: Icons.key_outlined,
-                                label: 'Change Password',
-                                route: '/change_password'),
-                            _MenuItem(
-                                icon: Icons.shield_outlined,
-                                label: 'Security Settings',
-                                route: '/security_settings'),
-                          ]),
-                          GestureDetector(
-                            onTap: () => Navigator.pushNamed(
-                                context, '/logout_confirmation'),
-                            child: Container(
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF5F5),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: const Color(0xFFFCD5D5)),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.logout_outlined,
-                                      size: 20, color: AppColors.danger),
-                                  SizedBox(width: 8),
-                                  Text('Logout',
-                                      style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.danger,
-                                          fontFamily: 'Poppins')),
-                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
                         ],
                       ),
                     ),
@@ -272,42 +185,138 @@ class _AccountScreenState extends State<AccountScreen> {
         ),
       ),
       bottomNavigationBar: BuyerBottomNavigationBar(
-        currentIndex: 4,
+        currentIndex: 3,
         onDestinationSelected: (index) =>
-            BuyerBottomNavigationBar.navigateToTab(context, index, 4),
+            BuyerBottomNavigationBar.navigateToTab(context, index, 3),
       ),
     );
   }
 
-  Widget _buildGuestAccount(BuildContext context) {
+  // ── PROFILE HEADER ──────────────────────────────────────────────────────
+  Widget _buildProfileHeader() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primaryDark, AppColors.primary],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.wine.withValues(alpha: .12),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.softRose,
+              border: Border.all(color: AppColors.primaryDark, width: 2.5),
+            ),
+            child: _profileImage == null
+                ? Center(
+                    child: Text(
+                      _initials.isEmpty ? '?' : _initials,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : ClipOval(
+                    child: Image.memory(_profileImage!,
+                        fit: BoxFit.cover, width: 88, height: 88),
+                  ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _displayName,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            _displayEmail,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 13,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Navigator.pushNamed(context, '/edit_profile');
+              _loadUser();
+            },
+            icon: const Icon(Icons.edit_outlined, size: 17),
+            label: const Text(
+              'Edit Profile',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primaryDark,
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              minimumSize: const Size(0, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── GUEST STATE ──────────────────────────────────────────────────────────
+  Widget _buildGuest(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 96,
-              height: 96,
+              width: 88,
+              height: 88,
               decoration: const BoxDecoration(
                 color: AppColors.softRose,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                color: AppColors.primary,
-                size: 52,
-              ),
+              child: const Icon(Icons.person_outline_rounded,
+                  color: AppColors.primary, size: 46),
             ),
             const SizedBox(height: 22),
             const Text(
               'Your CRYMA account',
               textAlign: TextAlign.center,
               style: TextStyle(
+                fontFamily: 'Poppins',
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-                fontFamily: 'Poppins',
+                color: AppColors.wine,
               ),
             ),
             const SizedBox(height: 8),
@@ -315,27 +324,53 @@ class _AccountScreenState extends State<AccountScreen> {
               'Sign in to manage your profile, track orders, and keep your shopping details in one place.',
               textAlign: TextAlign.center,
               style: TextStyle(
+                fontFamily: 'Poppins',
                 fontSize: 14,
                 height: 1.5,
                 color: AppColors.gray,
-                fontFamily: 'Poppins',
               ),
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
+              height: 50,
               child: FilledButton(
                 onPressed: () => Navigator.pushNamed(context, '/login'),
-                child: const Text('Sign in'),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Sign in',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
+              height: 46,
               child: OutlinedButton(
                 onPressed: () =>
                     Navigator.pushNamed(context, '/register_personal'),
-                child: const Text('Create account'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Create account',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ],
@@ -344,8 +379,15 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildMenuSection(
-      BuildContext context, String title, List<_MenuItem> items) {
+  // ── MENU SECTION ────────────────────────────────────────────────────────
+  Widget _buildSection(String title, List<_MenuItem> items) {
+    final iconBackground = switch (title) {
+      'MY SHOPPING' => AppColors.softRose,
+      'ACCOUNT SETTINGS' => AppColors.surfaceNeutral,
+      _ => const Color(0xFFF0F1F2),
+    };
+    final iconForeground =
+        title == 'HELP & SUPPORT' ? AppColors.gray : AppColors.primaryDark;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -353,67 +395,91 @@ class _AccountScreenState extends State<AccountScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 20, bottom: 8),
-            child: Text(title,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.gray,
-                    fontFamily: 'Poppins')),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSubtle,
+                letterSpacing: 0.8,
+              ),
+            ),
           ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1))
-              ],
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.borderNeutral),
             ),
             child: Column(
-              children: items.map((item) {
-                final isLast = item == items.last;
-                return GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, item.route),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 14),
-                    decoration: BoxDecoration(
-                      border: isLast
-                          ? null
-                          : const Border(
-                              bottom: BorderSide(color: Color(0xFFF0F0F0))),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFE8F3F2),
-                              borderRadius: BorderRadius.circular(10)),
-                          child: Icon(item.icon,
-                              size: 20, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                            child: Text(item.label,
-                                style: const TextStyle(
-                                    fontSize: 14,
-                                    color: AppColors.darkGray,
-                                    fontFamily: 'Poppins'))),
-                        const Icon(Icons.chevron_right,
-                            size: 18, color: AppColors.gray),
-                      ],
-                    ),
+              children: [
+                for (int i = 0; i < items.length; i++)
+                  _buildMenuRow(
+                    items[i],
+                    i == items.length - 1,
+                    iconBackground,
+                    iconForeground,
                   ),
-                );
-              }).toList(),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMenuRow(
+    _MenuItem item,
+    bool isLast,
+    Color iconBackground,
+    Color iconForeground,
+  ) {
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, item.route),
+      borderRadius: isLast
+          ? const BorderRadius.only(
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(16),
+            )
+          : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: AppColors.borderNeutral),
+                ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconBackground,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(item.icon, size: 19, color: iconForeground),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                item.label,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.darkGray,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: AppColors.textSubtle),
+          ],
+        ),
       ),
     );
   }
@@ -423,6 +489,5 @@ class _MenuItem {
   final IconData icon;
   final String label;
   final String route;
-  const _MenuItem(
-      {required this.icon, required this.label, required this.route});
+  const _MenuItem(this.icon, this.label, this.route);
 }

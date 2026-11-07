@@ -85,7 +85,7 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -273,6 +273,7 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
       fillColor: Colors.white,
       prefixIcon: Icon(icon, color: AppColors.gray),
       suffixIcon: suffixIcon,
+      suffixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 19),
       labelStyle: const TextStyle(
         color: AppColors.gray,
@@ -321,8 +322,9 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
       _ => 'Strong password',
     };
     final color = switch (score) {
-      0 || 1 => AppColors.danger,
-      2 => const Color(0xFFB7791F),
+      0 => AppColors.lightGray,
+      1 => const Color(0xFFE2B458),
+      2 => const Color(0xFFD19A38),
       _ => AppColors.success,
     };
 
@@ -338,6 +340,14 @@ class _RegisterAccountScreenState extends State<RegisterAccountScreen> {
                 decoration: BoxDecoration(
                   color: index < score ? color : AppColors.lightGray,
                   borderRadius: BorderRadius.circular(8),
+                  boxShadow: index < score
+                      ? [
+                          BoxShadow(
+                            color: color.withValues(alpha: .35),
+                            blurRadius: 7,
+                          ),
+                        ]
+                      : null,
                 ),
               ),
             );

@@ -14,7 +14,7 @@ class LogoutConfirmationScreen extends StatelessWidget {
         child: Center(
           child: Container(
             width: MediaQuery.of(context).size.width * 0.85,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(20),
@@ -32,17 +32,19 @@ class LogoutConfirmationScreen extends StatelessWidget {
                 // ============================================================
                 // ICON CONTAINER
                 // ============================================================
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF5F5),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.logout_outlined,
-                    size: 28,
-                    color: AppColors.danger,
+                Center(
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF5F5),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.logout_outlined,
+                      size: 28,
+                      color: AppColors.danger,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),

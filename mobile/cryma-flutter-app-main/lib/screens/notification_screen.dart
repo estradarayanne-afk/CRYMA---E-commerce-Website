@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../services/api_service.dart';
 import '../utils/colors.dart';
+import '../widgets/buyer_bottom_navigation_bar.dart';
 
 /// Order Activity — shows the buyer's recent orders as an activity feed.
 /// This is NOT a push-notification system; the backend does not have a
@@ -82,10 +83,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Order Activity'),
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surface,
         foregroundColor: AppColors.primary,
         elevation: 0,
       ),
@@ -232,6 +233,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         },
                       ),
                     ),
+      bottomNavigationBar: BuyerBottomNavigationBar(
+        currentIndex: 1,
+        onDestinationSelected: (i) =>
+            BuyerBottomNavigationBar.navigateToTab(context, i, 1),
+      ),
     );
   }
 }

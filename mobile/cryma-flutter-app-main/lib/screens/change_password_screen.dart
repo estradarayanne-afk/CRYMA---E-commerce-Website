@@ -26,6 +26,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       );
       return;
     }
+    if (_newController.text.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('New password must be at least 8 characters.')),
+      );
+      return;
+    }
     if (_newController.text != _confirmController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Passwords do not match')),
@@ -51,9 +58,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         Navigator.pop(context);
       }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to change password.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to change password.')));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -62,7 +75,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
@@ -115,6 +128,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       show: _showNew,
                       onToggle: () => setState(() => _showNew = !_showNew),
                     ),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 2, top: 4),
+                      child: Text(
+                        'Minimum 8 characters.',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          color: AppColors.textSubtle,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     _buildLabel('Confirm New Password'),
                     _buildPasswordField(
@@ -136,16 +160,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           ),
                         ),
                         child: _saving
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
-                      : const Text(
-                          'Save Changes',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.white,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: AppColors.white))
+                            : const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.white,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
                       ),
                     ),
                   ],
@@ -184,27 +212,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.lightGray, width: 1),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: !show,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.darkGray,
-                fontFamily: 'Poppins',
-              ),
-              decoration: const InputDecoration(
-                hintText: '••••••••',
-                hintStyle: TextStyle(color: AppColors.gray),
-                border: InputBorder.none,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              ),
-            ),
-          ),
-          IconButton(
+      child: TextField(
+        controller: controller,
+        obscureText: !show,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.darkGray,
+          fontFamily: 'Poppins',
+        ),
+        decoration: InputDecoration(
+          hintText: '••••••••',
+          hintStyle: const TextStyle(color: AppColors.gray),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+          suffixIconConstraints:
+              const BoxConstraints(minWidth: 48, minHeight: 48),
+          suffixIcon: IconButton(
             icon: Icon(
               show ? Icons.visibility : Icons.visibility_off,
               color: AppColors.gray,
@@ -212,7 +235,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             ),
             onPressed: onToggle,
           ),
-        ],
+        ),
       ),
     );
   }

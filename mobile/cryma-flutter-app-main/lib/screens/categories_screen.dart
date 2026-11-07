@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../models/buyer_category.dart';
 import '../utils/colors.dart';
-import '../widgets/buyer_bottom_navigation_bar.dart';
 
-// ============================================================
-// CATEGORIES SCREEN
-// ============================================================
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
 
@@ -14,172 +11,186 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
+  final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  List<BuyerCategory> get _filteredCategories {
-    if (_searchQuery.isEmpty) return _allCategories;
-    return _allCategories
-        .where((category) =>
-            category.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  List<BuyerCategory> get _allCategories => buyerCategories;
-
-  void _onNavItemTapped(int index) {
-    BuyerBottomNavigationBar.navigateToTab(context, index, 1);
+  List<BuyerCategory> get _filtered {
+    if (_searchQuery.isEmpty) return buyerCategories;
+    final q = _searchQuery.toLowerCase();
+    return buyerCategories
+        .where((c) => c.name.toLowerCase().contains(q))
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
-            // HEADER
+            // ── HEADER ─────────────────────────────────────────────────
             Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
-              child: Row(
+              color: AppColors.surface,
+              padding: const EdgeInsets.fromLTRB(4, 10, 8, 8),
+              child: const Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.softRose,
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: const Icon(Icons.grid_view_rounded,
-                        color: AppColors.primary, size: 21),
-                  ),
-                  const SizedBox(width: 11),
-                  const Expanded(
+                  const BackButton(color: AppColors.primary),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Explore categories',
+                          'Browse',
                           style: TextStyle(
-                            fontSize: 17,
-                            height: 1.15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.wine,
                             fontFamily: 'Poppins',
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.wine,
+                            height: 1.15,
                           ),
                         ),
-                        SizedBox(height: 3),
                         Text(
-                          'Find something you will love',
+                          "Find something you'll love",
                           style: TextStyle(
+                            fontFamily: 'Poppins',
                             fontSize: 10,
                             color: AppColors.gray,
-                            fontFamily: 'Poppins',
                           ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Order activity',
-                    icon: const Icon(Icons.notifications_none_rounded),
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/notification'),
-                  ),
-                  IconButton(
-                    tooltip: 'Messages',
-                    icon: const Icon(Icons.chat_bubble_outline_rounded),
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/chat_list');
-                    },
-                  ),
                 ],
               ),
             ),
 
-            // SEARCH BAR
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.borderNeutral),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search_rounded,
-                      size: 20, color: AppColors.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
-                      },
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.darkGray,
-                        fontFamily: 'Poppins',
+            // ── SEARCH ────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 11),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(27),
+                  border: Border.all(
+                    color: AppColors.borderNeutral.withValues(alpha: 0.8),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.wine.withValues(alpha: 0.07),
+                      blurRadius: 18,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        color: AppColors.softRose,
+                        shape: BoxShape.circle,
                       ),
-                      decoration: const InputDecoration(
-                        hintText: 'Search categories',
-                        hintStyle: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.gray,
+                      child: const Icon(
+                        Icons.search_rounded,
+                        size: 19,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (v) =>
+                            setState(() => _searchQuery = v.trim()),
+                        textAlignVertical: TextAlignVertical.center,
+                        cursorColor: AppColors.primary,
+                        style: const TextStyle(
                           fontFamily: 'Poppins',
+                          fontSize: 14,
+                          color: AppColors.darkGray,
                         ),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
+                        decoration: const InputDecoration(
+                          hintText: 'Search categories',
+                          hintStyle: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            color: AppColors.textSubtle,
+                          ),
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          isCollapsed: true,
+                        ),
                       ),
                     ),
-                  ),
-                  if (_searchQuery.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _searchQuery = '';
-                        });
-                      },
-                      child: const Icon(Icons.close_rounded,
-                          size: 18, color: AppColors.gray),
-                    ),
-                ],
+                    if (_searchQuery.isNotEmpty)
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: IconButton(
+                          tooltip: 'Clear',
+                          constraints: const BoxConstraints.expand(),
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            size: 17,
+                            color: AppColors.gray,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
 
-            // ============================================================
-            // CATEGORIES GRID - 3 COLUMNS - SCROLLABLE
-            // ============================================================
+            // ── GRID ──────────────────────────────────────────────────
             Expanded(
-              child: _filteredCategories.isEmpty
+              child: _filtered.isEmpty
                   ? const Center(
                       child: Text(
-                        'No categories found',
+                        'No categories found.',
                         style: TextStyle(
+                          fontFamily: 'Poppins',
                           fontSize: 14,
                           color: AppColors.gray,
-                          fontFamily: 'Poppins',
                         ),
                       ),
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {
-                        final columns = constraints.maxWidth >= 600 ? 3 : 2;
+                        final cols = constraints.maxWidth >= 600 ? 3 : 2;
                         return GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: columns,
-                            crossAxisSpacing: 13,
-                            mainAxisSpacing: 13,
-                            childAspectRatio: 0.9,
+                            crossAxisCount: cols,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.88,
                           ),
-                          itemCount: _filteredCategories.length,
+                          itemCount: _filtered.length,
                           itemBuilder: (context, index) =>
-                              _buildCategoryCard(_filteredCategories[index]),
+                              _buildCard(_filtered[index]),
                         );
                       },
                     ),
@@ -187,33 +198,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BuyerBottomNavigationBar(
-        currentIndex: 1,
-        onDestinationSelected: _onNavItemTapped,
-      ),
     );
   }
 
-  // ============================================================
-  // CATEGORY CARD - MAS MALIIT PARA MAGKASYA LAHAT
-  // ============================================================
-  Widget _buildCategoryCard(BuyerCategory category) {
+  Widget _buildCard(BuyerCategory category) {
     return Material(
-      color: AppColors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(
-            context,
-            '/search_results',
-            arguments: {'category': category.name},
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.pushNamed(
+          context,
+          '/search_results',
+          arguments: {'category': category.name},
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Image
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
@@ -221,58 +223,46 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   Image.asset(
                     category.imagePath,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const ColoredBox(
+                    errorBuilder: (_, __, ___) => Container(
                       color: AppColors.softRose,
                       child: Center(
-                        child: Icon(Icons.image_not_supported_outlined,
-                            size: 32, color: AppColors.gray),
+                        child: Icon(category.icon,
+                            color: AppColors.primary, size: 32),
                       ),
                     ),
                   ),
+                  // Arrow overlay
                   Positioned(
-                    right: 9,
-                    bottom: 9,
+                    right: 8,
+                    bottom: 8,
                     child: Container(
-                      width: 30,
-                      height: 30,
+                      width: 28,
+                      height: 28,
                       decoration: BoxDecoration(
-                        color: AppColors.white.withValues(alpha: .94),
-                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(9),
                       ),
                       child: const Icon(Icons.arrow_forward_rounded,
-                          size: 16, color: AppColors.primary),
+                          size: 15, color: AppColors.primary),
                     ),
                   ),
                 ],
               ),
             ),
+            // Label
             Padding(
-              padding: const EdgeInsets.fromLTRB(11, 9, 8, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    category.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.wine,
-                      fontFamily: 'Poppins',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    category.items,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.gray,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
+              child: Text(
+                category.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                  color: AppColors.wine,
+                ),
               ),
             ),
           ],
