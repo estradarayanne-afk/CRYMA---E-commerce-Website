@@ -14,8 +14,7 @@ class BuyerBottomNavigationBar extends StatelessWidget {
 
   static const _tabRoutes = [
     '/home',
-    '/categories',
-    '/cart',
+    '/notification',
     '/my_orders',
     '/account',
   ];
@@ -56,15 +55,10 @@ class BuyerBottomNavigationBar extends StatelessWidget {
           ),
         ),
         child: NavigationBar(
-          height: 76,
           selectedIndex: currentIndex,
           onDestinationSelected: onDestinationSelected,
-          backgroundColor: AppColors.white,
-          surfaceTintColor: AppColors.white,
-          elevation: 0,
-          indicatorColor: AppColors.softRose,
           indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
           ),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: const [
@@ -74,14 +68,9 @@ class BuyerBottomNavigationBar extends StatelessWidget {
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.grid_view_outlined),
-              selectedIcon: Icon(Icons.grid_view_rounded),
-              label: 'Categories',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.shopping_bag_outlined),
-              selectedIcon: Icon(Icons.shopping_bag_rounded),
-              label: 'Cart',
+              icon: Icon(Icons.notifications_none_rounded),
+              selectedIcon: Icon(Icons.notifications_rounded),
+              label: 'Activity',
             ),
             NavigationDestination(
               icon: Icon(Icons.receipt_long_outlined),

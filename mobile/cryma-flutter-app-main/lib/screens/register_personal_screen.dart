@@ -112,7 +112,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -124,169 +124,171 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
               key: _formKey,
               autovalidateMode: AutovalidateMode.onUserInteraction,
               child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // STEPPER
-                _buildStepper(currentStep: 1),
-                const SizedBox(height: 22),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // STEPPER
+                  _buildStepper(currentStep: 1),
+                  const SizedBox(height: 22),
 
-                // INTRO TEXT
-                const Text(
-                  'Personal information',
-                  style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryDark,
-                    fontFamily: 'Poppins',
+                  // INTRO TEXT
+                  const Text(
+                    'Personal information',
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryDark,
+                      fontFamily: 'Poppins',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Tell us a little about yourself.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.gray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // FIRST NAME
-                _buildLabel('FIRST NAME *'),
-                _buildTextField(
-                  controller: _firstNameController,
-                  hintText: 'Juan',
-                  validator: (value) =>
-                      _serverError('first_name') ??
-                      BuyerRegistrationRules.validateName(value),
-                  inputFormatters: [
-                    CapitalizeNameWordsFormatter(),
-                    LengthLimitingTextInputFormatter(30),
-                  ],
-                  onChanged: (_) => BuyerRegistrationErrorStore.instance
-                      .clearField('first_name'),
-                ),
-                const SizedBox(height: 10),
-
-                // MIDDLE INITIAL
-                _buildLabel('MIDDLE INITIAL'),
-                _buildTextField(
-                  controller: _middleInitialController,
-                  hintText: 'R.',
-                  validator: (value) =>
-                      _serverError('middle_name') ??
-                      BuyerRegistrationRules.validateMiddleInitial(value),
-                  inputFormatters: [
-                    CapitalizeNameWordsFormatter(),
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                  onChanged: (_) => BuyerRegistrationErrorStore.instance
-                      .clearField('middle_name'),
-                ),
-                const SizedBox(height: 10),
-
-                // LAST NAME
-                _buildLabel('LAST NAME *'),
-                _buildTextField(
-                  controller: _lastNameController,
-                  hintText: 'Dela Cruz',
-                  validator: (value) =>
-                      _serverError('last_name') ??
-                      BuyerRegistrationRules.validateName(value),
-                  inputFormatters: [
-                    CapitalizeNameWordsFormatter(),
-                    LengthLimitingTextInputFormatter(30),
-                  ],
-                  onChanged: (_) => BuyerRegistrationErrorStore.instance
-                      .clearField('last_name'),
-                ),
-                const SizedBox(height: 10),
-
-                // SEX
-                _buildLabel('SEX *'),
-                _buildSexDropdown(),
-                if (_serverError('sex') != null || _sexError != null)
-                  _fieldError(_serverError('sex') ?? _sexError!),
-                const SizedBox(height: 10),
-
-                // BIRTHDAY
-                _buildLabel('BIRTHDAY *'),
-                _buildDatePicker(),
-                if (_serverError('birthday') != null || _birthdayError != null)
-                  _fieldError(_serverError('birthday') ?? _birthdayError!),
-                const SizedBox(height: 10),
-
-                // AGE (AUTO-GENERATED)
-                _buildLabel('AGE (AUTO-GENERATED)'),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.lightGray,
-                    border: Border.all(color: AppColors.lightGray),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: TextField(
-                    controller: _ageController,
-                    enabled: false,
-                    style: const TextStyle(
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Tell us a little about yourself.',
+                    style: TextStyle(
                       fontSize: 13,
                       color: AppColors.gray,
                       fontFamily: 'Poppins',
                     ),
-                    decoration: const InputDecoration(
-                      hintText: '—',
-                      hintStyle: TextStyle(
+                  ),
+                  const SizedBox(height: 18),
+
+                  // FIRST NAME
+                  _buildLabel('FIRST NAME *'),
+                  _buildTextField(
+                    controller: _firstNameController,
+                    hintText: 'Juan',
+                    validator: (value) =>
+                        _serverError('first_name') ??
+                        BuyerRegistrationRules.validateName(value),
+                    inputFormatters: [
+                      CapitalizeNameWordsFormatter(),
+                      LengthLimitingTextInputFormatter(30),
+                    ],
+                    onChanged: (_) => BuyerRegistrationErrorStore.instance
+                        .clearField('first_name'),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // MIDDLE INITIAL
+                  _buildLabel('MIDDLE INITIAL'),
+                  _buildTextField(
+                    controller: _middleInitialController,
+                    hintText: 'R.',
+                    validator: (value) =>
+                        _serverError('middle_name') ??
+                        BuyerRegistrationRules.validateMiddleInitial(value),
+                    inputFormatters: [
+                      CapitalizeNameWordsFormatter(),
+                      LengthLimitingTextInputFormatter(2),
+                    ],
+                    onChanged: (_) => BuyerRegistrationErrorStore.instance
+                        .clearField('middle_name'),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // LAST NAME
+                  _buildLabel('LAST NAME *'),
+                  _buildTextField(
+                    controller: _lastNameController,
+                    hintText: 'Dela Cruz',
+                    validator: (value) =>
+                        _serverError('last_name') ??
+                        BuyerRegistrationRules.validateName(value),
+                    inputFormatters: [
+                      CapitalizeNameWordsFormatter(),
+                      LengthLimitingTextInputFormatter(30),
+                    ],
+                    onChanged: (_) => BuyerRegistrationErrorStore.instance
+                        .clearField('last_name'),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // SEX
+                  _buildLabel('SEX *'),
+                  _buildSexDropdown(),
+                  if (_serverError('sex') != null || _sexError != null)
+                    _fieldError(_serverError('sex') ?? _sexError!),
+                  const SizedBox(height: 10),
+
+                  // BIRTHDAY
+                  _buildLabel('BIRTHDAY *'),
+                  _buildDatePicker(),
+                  if (_serverError('birthday') != null ||
+                      _birthdayError != null)
+                    _fieldError(_serverError('birthday') ?? _birthdayError!),
+                  const SizedBox(height: 10),
+
+                  // AGE (AUTO-GENERATED)
+                  _buildLabel('AGE (AUTO-GENERATED)'),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.lightGray,
+                      border: Border.all(color: AppColors.lightGray),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: TextField(
+                      controller: _ageController,
+                      enabled: false,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.gray,
+                        fontFamily: 'Poppins',
                       ),
-                      border: InputBorder.none,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: const InputDecoration(
+                        hintText: '—',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.gray,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 28),
+                  const SizedBox(height: 28),
 
-                // CONTINUE BUTTON
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _handleContinue,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  // CONTINUE BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _handleContinue,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Continue',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.white,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: TextButton.icon(
-                    onPressed: () =>
-                        Navigator.pushReplacementNamed(context, '/login'),
-                    icon: const Icon(Icons.login_rounded, size: 17),
-                    label: const Text('Already have an account? Sign in'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primaryDark,
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Poppins',
+                      child: const Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.white,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          Navigator.pushReplacementNamed(context, '/login'),
+                      icon: const Icon(Icons.login_rounded, size: 17),
+                      label: const Text('Already have an account? Sign in'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primaryDark,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

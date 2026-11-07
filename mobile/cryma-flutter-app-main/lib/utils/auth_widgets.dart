@@ -62,7 +62,13 @@ class RegistrationProgressHeader extends StatelessWidget {
 
   final int currentStep;
 
-  static const _steps = ['Personal', 'Address', 'Account', 'Verify', 'Review'];
+  static const _steps = [
+    'Personal Information',
+    'Address',
+    'Account Security',
+    'Document Verification',
+    'Review Application',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -148,74 +154,63 @@ class RegistrationProgressHeader extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               for (var index = 0; index < _steps.length; index++) ...[
-                Expanded(
-                  child: Column(
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: index + 1 <= step
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: .08),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: .5),
-                          ),
-                        ),
-                        child: Center(
-                          child: index + 1 < step
-                              ? const Icon(Icons.check,
-                                  size: 15, color: AppColors.primaryDark)
-                              : Text(
-                                  '${index + 1}',
-                                  style: TextStyle(
-                                    color: index + 1 <= step
-                                        ? AppColors.primaryDark
-                                        : Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                        ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: index + 1 <= step
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: .08),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: .5),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: index + 1 <= step
+                            ? AppColors.primaryDark
+                            : Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
                       ),
-                      const SizedBox(height: 7),
-                      Text(
-                        _steps[index],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white
-                              .withValues(alpha: index + 1 <= step ? 1 : .68),
-                          fontSize: 9,
-                          fontWeight: index + 1 == step
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 if (index < _steps.length - 1)
                   Expanded(
                     child: Container(
-                      height: 24,
-                      alignment: Alignment.center,
-                      child: Container(
-                        height: 1.5,
-                        color: index + 1 < step
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: .3),
+                      height: 2,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: index + 1 < step
+                              ? const [Colors.white, Colors.white]
+                              : [
+                                  Colors.white.withValues(alpha: .65),
+                                  Colors.white.withValues(alpha: .2),
+                                ],
+                        ),
                       ),
                     ),
                   ),
               ],
             ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Step $step of ${_steps.length}: ${_steps[step - 1]}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

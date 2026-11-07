@@ -40,7 +40,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  /// Fetch fresh user data from the API on mount so the profile form always
+  /// reflects the current server state, not a potentially stale local cache.
   Future<void> _loadUser() async {
+    try {
+      final response =
+          await ApiService.instance.get('/api/user', authenticated: true);
+      final fresh = response['user'] as Map<String, dynamic>?;
+      if (fresh != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cryma_api_user', jsonEncode(fresh));
+        if (mounted) {
+          _firstNameController.text = fresh['first_name']?.toString() ?? '';
+          _lastNameController.text = fresh['last_name']?.toString() ?? '';
+          _middleNameController.text = fresh['middle_name']?.toString() ?? '';
+          _emailController.text = fresh['email']?.toString() ?? '';
+          _phoneController.text = fresh['phone']?.toString() ?? '';
+          setState(() => _loading = false);
+          return;
+        }
+      }
+    } catch (_) {
+      // Fall through to the local cache.
+    }
+    // Local cache fallback — used when the device is offline.
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('cryma_api_user');
     if (raw != null) {
@@ -70,9 +93,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (_profileImage != null) {
         response = await ApiService.instance.updateProfileImage(
           _profileImage!,
-          fields: profileFields.map(
-            (key, value) => MapEntry(key, value.toString()),
-          ),
+          fields:
+              profileFields.map((key, value) => MapEntry(key, value.toString())),
         );
       } else {
         response = await ApiService.instance.patch(
@@ -110,13 +132,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
             Container(
               color: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
                   IconButton(
@@ -125,13 +148,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Expanded(
-                    child: Text('Edit Profile',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                            fontFamily: 'Poppins')),
+                    child: Text(
+                      'Edit Profile',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 36),
                 ],
@@ -147,16 +173,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Center(
-                              child: Column(children: [
-                            CircleAvatar(
+                            child: Column(children: [
+                              CircleAvatar(
                                 radius: 38,
                                 backgroundColor: AppColors.softRose,
                                 foregroundImage: _profileImage == null
                                     ? null
                                     : FileImage(File(_profileImage!.path)),
                                 child: const Icon(Icons.person_outline,
-                                    size: 36, color: AppColors.primary)),
-                            TextButton.icon(
+                                    size: 36, color: AppColors.primary),
+                              ),
+                              TextButton.icon(
                                 onPressed: _saving
                                     ? null
                                     : () async {
@@ -165,12 +192,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                                 source: ImageSource.gallery,
                                                 imageQuality: 85);
                                         if (image != null && mounted) {
-                                          setState(() => _profileImage = image);
+                                          setState(
+                                              () => _profileImage = image);
                                         }
                                       },
                                 icon: const Icon(Icons.photo_camera_outlined),
-                                label: const Text('Choose profile photo')),
-                          ])),
+                                label: const Text('Choose profile photo'),
+                              ),
+                            ]),
+                          ),
                           _buildLabel('FIRST NAME'),
                           _buildTextField(controller: _firstNameController),
                           _buildLabel('LAST NAME'),
@@ -190,7 +220,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -206,13 +237,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           width: 22,
                           height: 22,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppColors.white))
-                      : const Text('Save Changes',
+                              strokeWidth: 2, color: AppColors.white),
+                        )
+                      : const Text(
+                          'Save Changes',
                           style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.white,
-                              fontFamily: 'Poppins')),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.white,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -225,12 +260,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 3),
-      child: Text(text,
-          style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-              fontFamily: 'Poppins')),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+          fontFamily: 'Poppins',
+        ),
+      ),
     );
   }
 
@@ -252,8 +290,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         style: const TextStyle(
             fontSize: 12, color: AppColors.darkGray, fontFamily: 'Poppins'),
         decoration: const InputDecoration(
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 9)),
+          border: InputBorder.none,
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        ),
       ),
     );
   }

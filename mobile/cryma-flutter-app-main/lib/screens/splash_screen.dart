@@ -93,24 +93,23 @@ class _SplashScreenState extends State<SplashScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // CRYMA logo icon
-                Container(
-                  width: screenWidth * 0.18,
-                  height: screenWidth * 0.18,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _logoLine(screenWidth * 0.045),
-                        const SizedBox(height: 4),
-                        _logoLine(screenWidth * 0.055),
-                        const SizedBox(height: 4),
-                        _logoLine(screenWidth * 0.045),
-                      ],
+                // CRYMA logo image
+                Image.asset(
+                  'assets/image/cryma-logo.png',
+                  width: screenWidth * 0.35,
+                  height: screenWidth * 0.35,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: screenWidth * 0.18,
+                    height: screenWidth * 0.18,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Icon(
+                      Icons.storefront_rounded,
+                      color: Colors.white,
+                      size: screenWidth * 0.08,
                     ),
                   ),
                 ),
@@ -182,17 +181,6 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _logoLine(double width) {
-    return Container(
-      width: width,
-      height: 4,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
       ),
     );
   }

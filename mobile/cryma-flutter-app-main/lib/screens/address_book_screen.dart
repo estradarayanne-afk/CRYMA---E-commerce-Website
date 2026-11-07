@@ -120,7 +120,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Address Book'),
         foregroundColor: AppColors.primary,
@@ -151,19 +151,14 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                             icon: const Icon(Icons.add),
                             label: const Text('Add New Address'),
                             style: OutlinedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 15)),
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
                           ),
                         ],
                       ),
                     ),
-      floatingActionButton: !_loading && _error == null && _addresses.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: _busy ? null : () => _openForm(),
-              icon: const Icon(Icons.add),
-              label: const Text('Add address'),
-            )
-          : null,
+      floatingActionButton: null,
     );
   }
 }

@@ -48,7 +48,7 @@ class _StorefrontScreenState extends State<StorefrontScreen> {
         .whereType<Map<String, dynamic>>()
         .toList();
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
           title: Text(store?['name']?.toString() ?? 'Storefront'),
           backgroundColor: AppColors.white,

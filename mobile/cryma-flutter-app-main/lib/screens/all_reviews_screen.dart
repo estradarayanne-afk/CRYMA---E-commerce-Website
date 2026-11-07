@@ -43,7 +43,7 @@ class _AllReviewsScreenState extends State<AllReviewsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(title: const Text('Product Reviews', style: TextStyle(fontFamily: 'Poppins', color: AppColors.primary)), backgroundColor: AppColors.white, foregroundColor: AppColors.primary, elevation: 0),
         body: _loading
             ? const Center(child: CircularProgressIndicator())

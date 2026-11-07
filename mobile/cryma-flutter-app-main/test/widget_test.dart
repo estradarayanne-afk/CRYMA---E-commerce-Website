@@ -106,11 +106,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Personal information'), findsOneWidget);
-    expect(find.text('Personal'), findsOneWidget);
-    expect(find.text('Address'), findsOneWidget);
-    expect(find.text('Account'), findsOneWidget);
-    expect(find.text('Verify'), findsOneWidget);
-    expect(find.text('Review'), findsOneWidget);
+    expect(find.text('Step 1 of 5: Personal Information'), findsOneWidget);
     expect(find.text('FIRST NAME *'), findsOneWidget);
     expect(find.text('MIDDLE INITIAL'), findsOneWidget);
     expect(find.text('LAST NAME *'), findsOneWidget);
@@ -153,7 +149,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Upload a government ID'), findsOneWidget);
+    expect(
+      find.text('Upload Government ID (JPG, PNG, PDF)'),
+      findsOneWidget,
+    );
     expect(find.text('Choose file'), findsOneWidget);
     expect(find.text('Maximum file size: 5 MB'), findsOneWidget);
     expect(find.text('Accepted government IDs'), findsOneWidget);
@@ -277,11 +276,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final label in ['Home', 'Categories', 'Cart', 'Orders', 'Account']) {
+    for (final label in ['Home', 'Browse', 'Cart', 'Orders', 'Account']) {
       expect(find.text(label), findsOneWidget);
     }
 
-    await tester.tap(find.text('Categories'));
+    await tester.tap(find.text('Browse'));
     await tester.pumpAndSettle();
 
     expect(selectedIndex, 1);
@@ -326,7 +325,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Categories'));
+    await tester.tap(find.text('Browse'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cart'));
     await tester.pumpAndSettle();

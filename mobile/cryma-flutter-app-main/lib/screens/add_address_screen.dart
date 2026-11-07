@@ -251,8 +251,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
-      appBar: AppBar(title: Text(_editing ? 'Edit Address' : 'Add New Address'), foregroundColor: AppColors.primary, backgroundColor: Colors.white),
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(title: Text(_editing ? 'Edit Address' : 'Add New Address'), foregroundColor: AppColors.primary, backgroundColor: AppColors.surface),
       body: _loadingLocations
           ? const Center(child: CircularProgressIndicator())
           : Form(
@@ -286,7 +286,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       title: const Text('Set as default address'),
                     ),
                   if (_error != null) ...[
-                    Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center)),
+                    Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(_error!, style: const TextStyle(color: AppColors.danger), textAlign: TextAlign.center)),
                     if (_locationLoadFailed)
                       TextButton(onPressed: _saving ? null : _loadLocationOptions, child: const Text('Retry loading locations')),
                   ],

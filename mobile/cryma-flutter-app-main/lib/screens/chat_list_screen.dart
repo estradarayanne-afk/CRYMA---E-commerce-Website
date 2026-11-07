@@ -25,7 +25,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
     try {
       final conversations = await ApiService.instance.getBuyerChatConversations();
       if (!mounted) return;
-      setState(() { _conversations = conversations; _loading = false; });
+      // Deduplicate: keep at most one CRYMA Support conversation
+      // (the one with no seller_id). Multiple support threads can accumulate;
+      // show only the most recent one so the list isn't cluttered.
+      final seen = <String>{};
+      final deduped = <Map<String, dynamic>>[];
+      for (final conv in conversations) {
+        final isSupportConv = conv['seller'] == null;
+        if (isSupportConv) {
+          if (seen.contains('support')) continue;
+          seen.add('support');
+        }
+        deduped.add(conv);
+      }
+      setState(() { _conversations = deduped; _loading = false; });
     } catch (error) {
       if (!mounted) return;
       setState(() { _error = error.toString(); _loading = false; });
@@ -55,7 +68,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Messages', style: TextStyle(fontFamily: 'Poppins', color: AppColors.primary, fontWeight: FontWeight.w600)),
         backgroundColor: AppColors.white,

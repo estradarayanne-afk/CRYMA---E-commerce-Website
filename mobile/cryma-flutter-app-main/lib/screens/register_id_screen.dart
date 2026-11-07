@@ -29,6 +29,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
   String? _selectedFile;
   String? _selectedFileName;
   int? _selectedFileSize;
+  Uint8List? _selectedPreviewBytes;
   String? _fileError;
 
   @override
@@ -56,6 +57,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
       result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
+        withData: true,
       );
     } on PlatformException catch (error) {
       if (mounted) {
@@ -82,8 +84,18 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
       _selectedFile = file.path;
       _selectedFileName = file.name;
       _selectedFileSize = file.size;
+      _selectedPreviewBytes = file.bytes;
       _fileError = null;
     });
+  }
+
+  String _displayFileName() {
+    final name = _selectedFileName ?? 'Selected file';
+    if (name.length <= 32 && !RegExp(r'^\d{8,}').hasMatch(name)) return name;
+    final extension = name.contains('.') ? name.split('.').last : '';
+    return extension.isEmpty
+        ? 'Government_ID'
+        : 'Government_ID.${extension.toLowerCase()}';
   }
 
   String _formatFileSize(int? bytes) {
@@ -121,7 +133,7 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -132,229 +144,247 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              // STEPPER
-              _buildStepper(currentStep: 4),
-              const SizedBox(height: 22),
+                // STEPPER
+                _buildStepper(currentStep: 4),
+                const SizedBox(height: 22),
 
-              // TITLE
-              const Text(
-                'Verification documents',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryDark,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // DESCRIPTION
-              const Text(
-                'Please upload a valid government-issued ID to verify your identity. This helps keep CRYMA safe for everyone.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.gray,
-                  fontFamily: 'Poppins',
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // ID DOCUMENT PICKER
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: _selectedFile == null
-                        ? AppColors.lightGray
-                        : AppColors.primary,
-                    width: _selectedFile == null ? 1 : 1.5,
+                // TITLE
+                const Text(
+                  'Verification documents',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark,
+                    fontFamily: 'Poppins',
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_selectedFile == null) ...[
-                      Align(
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: AppColors.softRose,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Icon(
-                            Icons.badge_outlined,
-                            color: AppColors.primary,
-                            size: 32,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Upload a government ID',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primaryDark,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      const Text(
-                        'Your ID image is used to verify your identity and keep CRYMA safe.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.gray,
-                          height: 1.45,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _fileRequirements(),
-                      const SizedBox(height: 16),
-                      _chooseFileButton('Choose file'),
-                    ] else ...[
-                      Align(
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: AppColors.softRose,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle_outline_rounded,
-                            color: AppColors.primary,
-                            size: 38,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'ID successfully selected',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      const Text(
-                        'Your ID image is ready for submission.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.gray,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _fileRequirements(),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        height: 48,
-                        child: OutlinedButton.icon(
-                          onPressed: _pickFile,
-                          icon: const Icon(Icons.refresh_rounded, size: 19),
-                          label: const Text('Change file'),
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: AppColors.softRose,
-                            foregroundColor: AppColors.primary,
-                            side: BorderSide.none,
-                            textStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Poppins',
+                const SizedBox(height: 4),
+
+                // DESCRIPTION
+                const Text(
+                  'Please upload a valid government-issued ID to verify your identity. This helps keep CRYMA safe for everyone.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.gray,
+                    fontFamily: 'Poppins',
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // ID DOCUMENT PICKER
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: _selectedFile == null
+                          ? AppColors.lightGray
+                          : AppColors.primary,
+                      width: _selectedFile == null ? 1 : 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_selectedFile == null) ...[
+                        Align(
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: AppColors.softRose,
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.successSoft,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: AppColors.success.withValues(alpha: .25),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.image_outlined,
+                            child: const Icon(
+                              Icons.badge_outlined,
                               color: AppColors.primary,
-                              size: 22,
+                              size: 32,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _selectedFileName ?? 'Selected file',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.primaryDark,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Poppins',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _formatFileSize(_selectedFileSize),
-                                    style: const TextStyle(
-                                      color: AppColors.gray,
-                                      fontSize: 10,
-                                      fontFamily: 'Poppins',
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Upload Government ID (JPG, PNG, PDF)',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryDark,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'Your ID image is used to verify your identity and keep CRYMA safe.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.gray,
+                            height: 1.45,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _fileRequirements(),
+                        const SizedBox(height: 16),
+                        _chooseFileButton('Choose file'),
+                      ] else ...[
+                        Align(
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: AppColors.softRose,
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            const SizedBox(width: 8),
-                            const Icon(
+                            child: const Icon(
                               Icons.check_circle_rounded,
                               color: AppColors.success,
-                              size: 21,
+                              size: 38,
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                    if (_fileError != null ||
-                        _serverError('valid_id') != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        _serverError('valid_id') ?? _fileError!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.danger,
-                          fontSize: 11,
-                          fontFamily: 'Poppins',
+                        const SizedBox(height: 14),
+                        const Text(
+                          '✓ ID Uploaded',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.success,
+                            fontFamily: 'Poppins',
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 5),
+                        const Text(
+                          'Your ID image is ready for submission.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.gray,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _fileRequirements(),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            onPressed: _pickFile,
+                            icon: const Icon(Icons.refresh_rounded, size: 19),
+                            label: const Text('Replace File'),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: AppColors.softRose,
+                              foregroundColor: AppColors.primary,
+                              side: BorderSide.none,
+                              textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Poppins',
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.successSoft,
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                              color: AppColors.success.withValues(alpha: .25),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: _selectedPreviewBytes != null &&
+                                        !(_selectedFileName
+                                                ?.toLowerCase()
+                                                .endsWith('.pdf') ??
+                                            false)
+                                    ? Image.memory(
+                                        _selectedPreviewBytes!,
+                                        width: 42,
+                                        height: 42,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : const SizedBox(
+                                        width: 42,
+                                        height: 42,
+                                        child: Icon(
+                                          Icons.description_outlined,
+                                          color: AppColors.success,
+                                          size: 22,
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _displayFileName(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: AppColors.primaryDark,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'Poppins',
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _formatFileSize(_selectedFileSize),
+                                      style: const TextStyle(
+                                        color: AppColors.gray,
+                                        fontSize: 10,
+                                        fontFamily: 'Poppins',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.success,
+                                size: 21,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (_fileError != null ||
+                          _serverError('valid_id') != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _serverError('valid_id') ?? _fileError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 11,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -399,37 +429,37 @@ class _RegisterIDScreenState extends State<RegisterIDScreen> {
                     ],
                   ),
                 ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-              // CONTINUE BUTTON
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _handleContinue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                // CONTINUE BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _handleContinue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'Continue',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.white,
-                      fontFamily: 'Poppins',
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.white,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 
