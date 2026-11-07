@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:cryma_flutter_app/screens/cart_screen.dart';
+import 'package:cryma_flutter_app/screens/cart/cart_screen.dart';
 import 'package:cryma_flutter_app/services/cart_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -11,3 +11,8 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 For a physical Android phone, use the computer's LAN IPv4 address instead of
 `10.0.2.2`. See [the mobile setup guide](../README.md) for backend startup,
 device setup, checkout requirements, and troubleshooting.
+
+## Screen organization
+
+Screens in `lib/screens` are grouped by feature: `auth/login`, `auth/signup`,
+`onboarding`, `catalog`, `cart`, `orders`, `chat`, `account`, and `support`.
