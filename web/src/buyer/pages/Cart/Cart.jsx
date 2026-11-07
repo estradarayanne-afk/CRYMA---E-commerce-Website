@@ -561,7 +561,7 @@ function Cart() {
                                                 ? "cart-item--unavailable"
                                                 : ""
                                         }`}
-                                        key={item.id}
+                                        key={getBuyerCartItemKey(item)}
                                     >
                                         <label className="cart-item-checkbox">
                                             <input
@@ -815,6 +815,12 @@ function Cart() {
                             <span>→</span>
                         </button>
 
+                        {checkingSellerStatus && (
+                            <p className="cart-availability-check" role="status" aria-live="polite">
+                                <span className="cart-availability-spinner" aria-hidden="true" />
+                                Checking seller availability…
+                            </p>
+                        )}
                         {hasVacationSelected && <p className="cart-vacation-message" role="alert">A selected seller is on vacation and is not accepting orders. Deselect or remove those items to continue.</p>}
                         <p className="cart-summary-note">
                             Only your selected products

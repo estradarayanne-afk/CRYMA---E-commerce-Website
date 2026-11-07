@@ -1122,3 +1122,64 @@
 @media (prefers-reduced-motion: reduce) {
     .order-back-link,.order-completed-panel > a,.order-support-panel > button { transition: none; }
 }
+
+/* ─── Visual Improvements ─── */
+/* Back link */
+.order-back-link { font-size: 13px; min-height: 42px; padding: 0 16px; }
+/* Header */
+.order-details-eyebrow { font-size: 10px; letter-spacing: .16em; }
+/* Current status */
+.order-current-status > div:last-child > span { font-size: 11px; font-weight: 700; letter-spacing: .07em; }
+.order-current-status h2 { font-size: 17px; margin: 5px 0 0; }
+.order-current-status p { font-size: 12px; margin: 6px 0 0; line-height: 1.55; }
+/* Panel headings */
+.order-panel-heading > div > span { font-size: 10px; letter-spacing: .13em; }
+.order-panel-heading h2 { font-size: 18px; margin: 6px 0 0; }
+.order-panel-heading > span { font-size: 12px; }
+/* Timeline */
+.order-timeline-content strong { font-size: 13px; font-weight: 700; }
+.order-timeline-content span { font-size: 11px; margin-top: 4px; line-height: 1.5; }
+/* Items */
+.order-item-info strong { font-size: 13px; font-weight: 700; line-height: 1.4; }
+.order-item-info span { font-size: 11px; margin-top: 6px; }
+.order-item-pricing span { font-size: 11px; }
+.order-item-pricing strong { font-size: 15px; margin-top: 5px; }
+/* Information box */
+.order-information-box strong { font-size: 11px; font-weight: 750; }
+.order-information-box p { font-size: 12px; margin: 6px 0 0; }
+/* Summary sidebar */
+.order-summary-line span { font-size: 12px; }
+.order-summary-line strong { font-size: 12px; }
+.order-summary-total span { font-size: 13px; }
+.order-summary-total strong { font-size: 22px; }
+.order-payment-method { font-size: 12px; }
+.order-payment-method strong { font-size: 12px; }
+/* Mini panel */
+.order-mini-panel span { font-size: 11px; }
+.order-mini-panel strong { font-size: 12px; }
+/* Exception */
+.order-exception-panel h2 { font-size: 18px; }
+.order-exception-panel p { font-size: 13px; line-height: 1.6; }
+/* Confirm received button */
+.order-confirm-received { min-height: 44px; padding: 0 18px; font-size: 13px; font-weight: 750; border-radius: var(--radius-sm); }
+/* Refund */
+.order-refund-panel .order-panel-heading h2 { font-size: 18px; }
+.order-refund-details > p { font-size: 13px; }
+.order-refund-start, .order-refund-chat-link { min-height: 44px; font-size: 13px; padding: 0 16px; }
+.order-refund-form > label { font-size: 13px; font-weight: 700; }
+.order-refund-form > label small { font-size: 12px; }
+.order-refund-amount input { font-size: 15px; }
+.order-refund-form textarea { font-size: 13px; line-height: 1.6; }
+.order-refund-actions button { min-height: 44px; font-size: 13px; padding: 0 16px; }
+/* Support panel */
+.order-support-panel > strong { font-size: 15px; }
+.order-support-panel > p { font-size: 13px; line-height: 1.6; }
+.order-support-panel > button { min-height: 44px; font-size: 13px; border-radius: var(--radius-sm); }
+/* Loading/error */
+.order-details-state h2 { font-size: 20px; }
+.order-details-state p { font-size: 14px; }
+.order-details-state a { font-size: 13px; min-height: 44px; }
+/* Completed panel */
+.order-completed-panel strong { font-size: 14px; }
+.order-completed-panel p { font-size: 12px; margin: 5px 0 0; }
+.order-completed-panel > a, .order-completed-panel > button { font-size: 13px; min-height: 40px; padding: 0 14px; }

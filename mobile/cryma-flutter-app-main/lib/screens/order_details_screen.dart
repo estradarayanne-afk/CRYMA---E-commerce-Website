@@ -328,14 +328,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               ),
                             ),
                           ),
-                        if (order['delivery_progress'] is Map<String, dynamic>)
-                          OutlinedButton.icon(
-                            onPressed: () => Navigator.pushNamed(
-                                context, '/order_tracking',
-                                arguments: order['id'].toString()),
-                            icon: const Icon(Icons.local_shipping_outlined),
-                            label: const Text('View tracking'),
-                          ),
                         if (['PENDING', 'PLACED'].contains(
                                 order['status']?.toString().toUpperCase()) &&
                             order['delivery_progress'] == null)

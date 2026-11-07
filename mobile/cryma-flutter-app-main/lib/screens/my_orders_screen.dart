@@ -192,36 +192,55 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'In Transit':
-      case 'Out for Delivery':
-        return const Color(0xFF2196F3);
-
-      case 'Delivered':
-        return const Color(0xFF4CAF50);
-
-      case 'Cancelled':
-      case 'Delivery Failed':
-        return const Color(0xFFF44336);
-
+    // Match the web's status-badge colour system using the normalised label.
+    switch (status.toLowerCase().replaceAll(' ', '_')) {
+      case 'pending':
+      case 'placed':
+        return const Color(0xFF79520D); // warning
+      case 'confirmed':
+      case 'preparing':
+      case 'ready_for_pickup':
+        return AppColors.primary;
+      case 'picked_up':
+      case 'at_sorting_center':
+      case 'sorted':
+      case 'assigned_to_rider':
+      case 'out_for_delivery':
+        return const Color(0xFF285C76); // info blue
+      case 'delivered':
+      case 'completed':
+        return AppColors.success;
+      case 'cancelled':
+      case 'delivery_failed':
+      case 'returned':
+        return AppColors.danger;
       default:
         return AppColors.primary;
     }
   }
 
   Color _getStatusBgColor(String status) {
-    switch (status) {
-      case 'In Transit':
-      case 'Out for Delivery':
-        return const Color(0xFFE3F2FD);
-
-      case 'Delivered':
-        return const Color(0xFFE8F5E9);
-
-      case 'Cancelled':
-      case 'Delivery Failed':
-        return const Color(0xFFFFEBEE);
-
+    switch (status.toLowerCase().replaceAll(' ', '_')) {
+      case 'pending':
+      case 'placed':
+        return const Color(0xFFFFF6DF); // warning-soft
+      case 'confirmed':
+      case 'preparing':
+      case 'ready_for_pickup':
+        return AppColors.softRose;
+      case 'picked_up':
+      case 'at_sorting_center':
+      case 'sorted':
+      case 'assigned_to_rider':
+      case 'out_for_delivery':
+        return const Color(0xFFEDF6FA); // info-soft
+      case 'delivered':
+      case 'completed':
+        return const Color(0xFFEDF7F2); // success-soft
+      case 'cancelled':
+      case 'delivery_failed':
+      case 'returned':
+        return const Color(0xFFFFF0F2); // danger-soft
       default:
         return AppColors.lightGray;
     }
@@ -664,29 +683,28 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   // ACTION BUTTON
   // ============================================================
   Widget _buildActionButton(String status, String orderId) {
-    String label;
-    VoidCallback onTap;
+    // Map display label to contextual action so the button communicates
+    // what happens next rather than always saying "View".
+    final normalised = status.toLowerCase().replaceAll(' ', '_');
 
-    switch (status) {
-      case 'In Transit':
-      case 'Delivered':
-      case 'Cancelled':
-        label = 'View Order';
-        onTap = () => _openOrderDetails(orderId);
+    final String label;
+    switch (normalised) {
+      case 'delivered':
+        label = 'Confirm Receipt';
         break;
-
+      case 'completed':
+        label = 'Rate Order';
+        break;
+      case 'pending':
+      case 'placed':
+        label = 'View / Cancel';
+        break;
       default:
-        label = 'View';
-
-        onTap = () {
-          _openOrderDetails(orderId);
-        };
-
-        break;
+        label = 'View Order';
     }
 
     return OutlinedButton(
-      onPressed: onTap,
+      onPressed: () => _openOrderDetails(orderId),
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(120, 44),
         side: const BorderSide(color: AppColors.primary, width: 1.5),

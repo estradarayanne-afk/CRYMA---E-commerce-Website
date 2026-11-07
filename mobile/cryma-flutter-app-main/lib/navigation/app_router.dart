@@ -33,7 +33,6 @@ import '../screens/all_reviews_screen.dart'; // ✅ BAGO
 import '../screens/cart_screen.dart';
 import '../screens/checkout_screen.dart';
 import '../screens/voucher_selection_screen.dart';
-import '../screens/payment_method_screen.dart';
 import '../screens/order_success_screen.dart';
 
 // ============================================================
@@ -209,8 +208,6 @@ class AppRouter {
         final items = settings.arguments as List<Map<String, dynamic>>? ?? [];
         return MaterialPageRoute(
             builder: (_) => VoucherSelectionScreen(items: items));
-      case '/payment_method':
-        return MaterialPageRoute(builder: (_) => const PaymentMethodScreen());
       case '/order_success':
         return MaterialPageRoute(builder: (_) => const OrderSuccessScreen());
 

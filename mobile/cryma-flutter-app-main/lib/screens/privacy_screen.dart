@@ -1,98 +1,118 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../utils/colors.dart';
 
-class PrivacyScreen extends StatelessWidget {
+/// Privacy Policy — fetched live from the backend via GET /api/policies/current.
+/// Falls back to a minimal placeholder only if the API is unreachable.
+class PrivacyScreen extends StatefulWidget {
   const PrivacyScreen({super.key});
+
+  @override
+  State<PrivacyScreen> createState() => _PrivacyScreenState();
+}
+
+class _PrivacyScreenState extends State<PrivacyScreen> {
+  String? _content;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final policies = await ApiService.instance.getCurrentPolicies();
+      final privacy = policies['privacy'];
+      if (!mounted) return;
+      setState(() {
+        _content = privacy is Map<String, dynamic>
+            ? privacy['content']?.toString()
+            : privacy?.toString();
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // HEADER
-            Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 22, color: AppColors.primary),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+      appBar: AppBar(
+        title: const Text('Privacy Policy'),
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.primary,
+        elevation: 0,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.error_outline,
+                          size: 42, color: AppColors.danger),
+                      const SizedBox(height: 12),
+                      Text(_error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontFamily: 'Poppins')),
+                      const SizedBox(height: 14),
+                      FilledButton(
+                          onPressed: _load, child: const Text('Retry')),
+                    ]),
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Privacy Policy',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                      fontFamily: 'Poppins',
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.lightGray),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Privacy Policy',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          _content ??
+                              'Privacy policy content is not available right now.',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            fontFamily: 'Poppins',
+                            height: 1.65,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-            // CONTENT
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.lightGray, width: 1),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Privacy Policy',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'Last updated: October 2026\n\n'
-                        '1. INFORMATION WE COLLECT\n'
-                        'We collect your name, email, phone number, and address when you register.\n\n'
-                        '2. HOW WE USE YOUR INFORMATION\n'
-                        'We use your information to process orders, deliver products, and improve our services.\n\n'
-                        '3. DATA PROTECTION\n'
-                        'We implement industry-standard security measures to protect your data.\n\n'
-                        '4. SHARING OF INFORMATION\n'
-                        'We do not sell your personal information to third parties.\n\n'
-                        '5. COOKIES\n'
-                        'We use cookies to enhance your browsing experience.\n\n'
-                        '6. YOUR RIGHTS\n'
-                        'You have the right to access, update, or delete your personal information.\n\n'
-                        '7. CONTACT\n'
-                        'For privacy concerns, email us at privacy@cryma.store',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                          fontFamily: 'Poppins',
-                          height: 1.6,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

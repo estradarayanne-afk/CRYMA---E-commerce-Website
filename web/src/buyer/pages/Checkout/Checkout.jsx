@@ -107,7 +107,6 @@ function Checkout() {
     const voucherValidationSequence = useRef(0);
     const voucherCartFingerprint = useRef("");
 
-    const [notice] = useState("");
 
     useEffect(() => {
         const syncCart = () => setCart(getBuyerCart());
@@ -828,13 +827,7 @@ function Checkout() {
                 </div>
             )}
 
-            {/* NOTICE */}
-
-            {notice && (
-                <div className="checkout-notice">
-                    {notice}
-                </div>
-            )}
+            
 
             <div className="checkout-layout">
 

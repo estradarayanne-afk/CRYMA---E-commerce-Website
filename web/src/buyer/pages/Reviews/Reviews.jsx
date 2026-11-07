@@ -587,6 +587,7 @@ function Reviews() {
                             <div className="reviews-message success">
                                 <Check size={15} />
                                 {successMessage}
+                                <Link to="/orders" className="reviews-back-to-orders">Back to orders</Link>
                             </div>
                         )}
                     </section>

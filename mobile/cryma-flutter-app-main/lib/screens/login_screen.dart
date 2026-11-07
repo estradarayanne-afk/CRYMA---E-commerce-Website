@@ -20,7 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _showPassword = false;
   bool _isSubmitting = false;
-  bool _checkingConnection = false;
 
   @override
   void dispose() {
@@ -58,35 +57,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  Future<void> _checkServerConnection() async {
-    if (_checkingConnection || _isSubmitting) return;
-    setState(() => _checkingConnection = true);
-    try {
-      await ApiService.instance.verifyApiConnection();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Connected to the CRYMA API.')),
-        );
-      }
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    } catch (error, stackTrace) {
-      debugPrint('Could not check the CRYMA API connection: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Could not check the CRYMA server connection.')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _checkingConnection = false);
     }
   }
 
@@ -292,21 +262,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ],
-                ),
-              ),
-              Align(
-                alignment: Alignment.center,
-                child: TextButton(
-                  onPressed: _checkingConnection || _isSubmitting
-                      ? null
-                      : _checkServerConnection,
-                  child: _checkingConnection
-                      ? const SizedBox(
-                          width: 17,
-                          height: 17,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Check server connection'),
                 ),
               ),
             ],

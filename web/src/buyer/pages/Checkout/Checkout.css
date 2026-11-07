@@ -1571,3 +1571,28 @@ button.checkout-summary-change { border-color: #e8d5dc; border-radius: 9px; colo
 .checkout-payment-current { display: block; margin-top: 4px; color: #752341; font-size: 14px; font-weight: 800; }
 .checkout-payment-method-badge { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 9px; border: 1px solid #d5e9df; border-radius: 999px; background: #f2faf5; color: #397253; font-size: 10px; font-weight: 750; white-space: nowrap; }
 .checkout-payment-hint { margin: 8px 0 0; color: #765e69; font-size: 11px; line-height: 1.55; }
+
+/* ─── Visual Improvements ─── */
+.checkout-eyebrow { font-size: 10px; letter-spacing: .15em; }
+.checkout-voucher-heading { font-size: 14px; font-weight: 750; }
+.checkout-voucher-label { font-size: 13px; font-weight: 700; }
+.checkout-voucher-form input { font-size: 14px; }
+.checkout-voucher-form button, .checkout-voucher-applied button { font-size: 13px; }
+.checkout-voucher-applied strong { font-size: 14px; }
+.checkout-voucher-applied span { font-size: 12px; }
+.checkout-voucher-available strong { font-size: 13px; }
+.checkout-voucher-available small, .checkout-voucher-status { font-size: 12px; line-height: 1.5; }
+.checkout-voucher-error { font-size: 13px; }
+.checkout-selected-label { font-size: 12px; }
+.checkout-item-category { font-size: 11px !important; letter-spacing: .07em; }
+.checkout-summary-method span { font-size: 12px; }
+.checkout-summary-method strong { font-size: 13px; }
+/* Confirmation modal */
+.checkout-confirm-modal h2 { font-size: 20px; }
+.checkout-confirm-modal > p { font-size: 13px; line-height: 1.6; }
+.checkout-confirm-summary span { font-size: 12px; }
+.checkout-confirm-summary strong { font-size: 13px; }
+.checkout-confirm-summary .total strong { font-size: 18px; }
+.checkout-confirm-actions button { min-height: 44px; font-size: 13px; border-radius: var(--radius-sm); }
+.checkout-secure-note { font-size: 12px; line-height: 1.6; }
+.checkout-payment-hint { font-size: 12px; line-height: 1.6; }

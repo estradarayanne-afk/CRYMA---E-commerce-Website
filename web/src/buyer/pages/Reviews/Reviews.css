@@ -421,3 +421,100 @@
         padding: 15px;
     }
 }
+
+.reviews-back-to-orders {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-success);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* ─── Visual Improvements ─── */
+.reviews-page { background: var(--color-brand-soft-background); }
+/* Back link */
+.reviews-back-link { min-height: 42px; padding: 0 16px; font-size: 13px; font-weight: 700; border-radius: var(--radius-sm); }
+/* Header */
+.reviews-header { margin: 26px 0 24px; }
+.reviews-eyebrow, .reviews-panel-heading span { font-size: 10px; letter-spacing: .14em; color: var(--color-brand-rose); }
+.reviews-header h1 { font-size: clamp(26px, 3vw, 36px); letter-spacing: -.035em; font-weight: 750; }
+.reviews-header p { font-size: 14px; line-height: 1.6; color: var(--color-text-secondary); }
+/* Completed badge */
+.reviews-completed-badge {
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 750;
+    border-radius: var(--radius-sm);
+    background: var(--color-success-soft);
+    border-color: var(--color-success-border);
+    color: var(--color-success);
+    gap: 7px;
+}
+/* Panel headings */
+.reviews-panel-heading h2 { font-size: 17px; letter-spacing: -.02em; color: var(--color-text-primary); }
+.reviews-panel-heading small { font-size: 12px; }
+/* Product buttons */
+.reviews-product {
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 8px rgba(41,35,38,.04);
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.reviews-product:hover { box-shadow: 0 6px 18px rgba(41,35,38,.08); }
+.reviews-product-info strong { font-size: 13px; line-height: 1.4; color: var(--color-text-primary); }
+.reviews-product-info span, .reviews-product-info small { font-size: 11px; }
+/* Rating section */
+.reviews-rating-section > span { font-size: 12px; font-weight: 750; color: var(--color-text-secondary); letter-spacing: .03em; }
+.reviews-rating-section small { font-size: 11px; margin-top: 7px; }
+/* Comment label */
+.reviews-comment-label { font-size: 12px; font-weight: 750; color: var(--color-text-secondary); margin-top: 20px; letter-spacing: .03em; }
+/* Textarea */
+.reviews-form-panel textarea { font-size: 14px; line-height: 1.6; border-radius: var(--radius-sm); min-height: 140px; padding: 13px; }
+.reviews-form-panel textarea:focus { border-color: var(--color-brand-rose); box-shadow: 0 0 0 3px rgba(168,63,89,.12); }
+/* Footer */
+.reviews-form-footer > span { font-size: 12px; color: var(--color-text-muted); }
+/* Submit button */
+.reviews-submit-button, .reviews-primary-button {
+    min-height: 46px;
+    padding: 0 22px;
+    font-size: 14px;
+    font-weight: 750;
+    border-radius: var(--radius-sm);
+    background: var(--color-brand-deep);
+    box-shadow: 0 6px 16px rgba(116,31,53,.18);
+    transition: background .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.reviews-submit-button:hover:not(:disabled), .reviews-primary-button:hover {
+    background: var(--color-brand-rose);
+    transform: translateY(-1px);
+    box-shadow: 0 9px 22px rgba(116,31,53,.26);
+}
+/* Messages */
+.reviews-message { font-size: 13px; padding: 12px 14px; border-radius: var(--radius-sm); }
+.reviews-message.success { background: var(--color-success-soft); border-color: var(--color-success-border); color: var(--color-success); }
+.reviews-message.error { background: var(--color-danger-soft); border-color: var(--color-danger-border); color: var(--color-danger); }
+/* State screens */
+.reviews-state { border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
+.reviews-state h1 { font-size: 22px; color: var(--color-text-primary); }
+.reviews-state p { font-size: 14px; line-height: 1.6; }
+/* Panels */
+.reviews-products-panel, .reviews-form-panel {
+    border-color: var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+}
+/* Check mark */
+.reviews-product-check { color: var(--color-brand-deep); }
+/* Stars — bigger, brand gold */
+.reviews-stars button { padding: 3px; }
+.reviews-stars button:hover, .reviews-stars button:focus-visible { color: #c08a2a; transform: scale(1.15); }
+/* Back to orders link (in success message) */
+.reviews-back-to-orders {
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    margin-top: 5px;
+    color: var(--color-success);
+}

@@ -1,7 +1,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Eye, Package, PackageX } from "lucide-react";
+import { AlertTriangle, ClipboardList, Eye, Package, PackageX } from "lucide-react";
 import api from "../../shared/services/api";
 import { formatStatusLabel } from "../../shared/utils/statusLabel";
 
@@ -11,6 +11,8 @@ function Dashboard() {
     const [inventoryLoading, setInventoryLoading] = useState(true);
     const [inventoryError, setInventoryError] = useState("");
     const [selectedInventoryStatus, setSelectedInventoryStatus] = useState("all");
+    const [pendingOrders, setPendingOrders] = useState(null);
+    const [ordersLoading, setOrdersLoading] = useState(true);
 
     const fetchProducts = useCallback(async () => {
         const { data } = await api.get("/seller/products", { params: { per_page: 100 } });
@@ -44,6 +46,21 @@ function Dashboard() {
         return () => { cancelled = true; };
     }, [fetchProducts]);
 
+    // Fetch pending order count for the dashboard summary card.
+    useEffect(() => {
+        let cancelled = false;
+        api.get("/seller/orders", { params: { status: "placed", per_page: 1 } })
+            .then(({ data }) => {
+                if (!cancelled) {
+                    const total = data?.data?.total ?? data?.total ?? null;
+                    setPendingOrders(total);
+                }
+            })
+            .catch(() => { if (!cancelled) setPendingOrders(null); })
+            .finally(() => { if (!cancelled) setOrdersLoading(false); });
+        return () => { cancelled = true; };
+    }, []);
+
     const user = (() => {
         try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
     })();
@@ -59,10 +76,11 @@ function Dashboard() {
     const selectedBreakdown = inventoryBreakdown.find((item) => item.key === selectedInventoryStatus);
     const currentProducts = selectedBreakdown ? selectedBreakdown.products : products;
     const inventoryStats = [
-        { label: "Products listed", value: products.length, change: `${activeProducts.length} active and approved`, icon: Package, tone: "total" },
-        { label: "Active products", value: activeProducts.length, change: "Visible to buyers", icon: Eye, tone: "active" },
-        { label: "Low stock", value: lowStockProducts.length, change: "Review and restock", icon: AlertTriangle, tone: "low" },
-        { label: "Out of stock", value: outOfStockProducts.length, change: "Unavailable to buyers", icon: PackageX, tone: "out" },
+        { label: "Pending orders", value: pendingOrders, loading: ordersLoading, change: "Awaiting your action", icon: ClipboardList, tone: "pending", onClick: () => navigate("/seller/orders") },
+        { label: "Products listed", value: products.length, loading: inventoryLoading, change: `${activeProducts.length} active and approved`, icon: Package, tone: "total" },
+        { label: "Active products", value: activeProducts.length, loading: inventoryLoading, change: "Visible to buyers", icon: Eye, tone: "active" },
+        { label: "Low stock", value: lowStockProducts.length, loading: inventoryLoading, change: "Review and restock", icon: AlertTriangle, tone: "low", onClick: () => navigate("/seller/inventory") },
+        { label: "Out of stock", value: outOfStockProducts.length, loading: inventoryLoading, change: "Unavailable to buyers", icon: PackageX, tone: "out" },
     ];
 
     return (
@@ -79,7 +97,7 @@ function Dashboard() {
                 <div className="sl-dashboard-error" role="alert">
                     <span>{inventoryError}</span>
                     <button type="button" onClick={() => void loadProducts()} disabled={inventoryLoading}>
-                        {inventoryLoading ? "Retryingâ€¦" : "Retry"}
+                        {inventoryLoading ? "Retrying…" : "Retry"}
                     </button>
                 </div>
             )}
@@ -88,13 +106,15 @@ function Dashboard() {
             <div className="sl-stats seller-dashboard-stats">
                 {inventoryStats.map((s) => {
                     const StatIcon = s.icon;
-                    return (
-                    <div className={`sl-stat-card seller-dashboard-stat seller-dashboard-stat--${s.tone}`} key={s.label}>
-                        <div className="seller-dashboard-stat-top"><span className="sl-stat-label">{s.label}</span><span className="seller-dashboard-stat-icon"><StatIcon size={18} aria-hidden="true" /></span></div>
-                        <strong className="sl-stat-value">{inventoryLoading || inventoryError ? "—" : s.value}</strong>
-                        <span className="sl-stat-change">{inventoryLoading ? "Loading inventory" : inventoryError ? "Unavailable" : s.change}</span>
-                    </div>
+                    const isLoading = s.loading;
+                    const card = (
+                        <div className={`sl-stat-card seller-dashboard-stat seller-dashboard-stat--${s.tone}${s.onClick ? " seller-dashboard-stat--clickable" : ""}`} key={s.label} role={s.onClick ? "button" : undefined} tabIndex={s.onClick ? 0 : undefined} onClick={s.onClick} onKeyDown={s.onClick ? (e) => { if (e.key === "Enter" || e.key === " ") s.onClick(); } : undefined} aria-label={s.onClick ? `${s.label}: ${isLoading ? "loading" : (s.value ?? "—")}. Click to manage.` : undefined}>
+                            <div className="seller-dashboard-stat-top"><span className="sl-stat-label">{s.label}</span><span className="seller-dashboard-stat-icon"><StatIcon size={18} aria-hidden="true" /></span></div>
+                            <strong className="sl-stat-value">{isLoading || inventoryError ? "—" : (s.value ?? "—")}</strong>
+                            <span className="sl-stat-change">{isLoading ? "Loading…" : inventoryError && s.tone !== "pending" ? "Unavailable" : s.change}</span>
+                        </div>
                     );
+                    return card;
                 })}
             </div>
 
@@ -167,7 +187,7 @@ function Dashboard() {
                     <button className="sl-panel-link" onClick={() => navigate("/seller/inventory")}>Manage inventory</button>
                 </div>
                 <div className="sl-list">
-                    {inventoryLoading ? <p className="sl-empty" role="status">Loading stock levelsâ€¦</p> : lowStockProducts.map((product) => (
+                    {inventoryLoading ? <p className="sl-empty" role="status">Loading stock levels…</p> : lowStockProducts.map((product) => (
                         <div className="sl-list-row" key={product.id}>
                             <span>{product.name}</span>
                             <span className="sl-badge sl-badge--red">{product.stock} left</span>

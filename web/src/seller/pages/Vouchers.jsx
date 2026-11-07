@@ -66,7 +66,7 @@ export default function SellerVouchers() {
         const amount = Number(form.discount_value);
         if (!Number.isFinite(amount) || amount <= 0 || (form.discount_type === "percentage" && amount > 100)) errors.discount_value = "Enter a valid discount amount. Percentage discounts can’t exceed 100%.";
         if (!Number.isFinite(Number(form.minimum_spend)) || Number(form.minimum_spend) < 0) errors.minimum_spend = "Enter a valid minimum spend.";
-        if (form.maximum_discount && (Number(form.maximum_discount) <= 0 || form.discount_type !== "percentage")) errors.maximum_discount = "A discount cap is only available for percentage vouchers.";
+        if (form.discount_type === "percentage" && form.maximum_discount && Number(form.maximum_discount) <= 0) errors.maximum_discount = "Enter a valid maximum discount amount.";
         if (form.starts_at && form.expires_at && Date.parse(form.expires_at) < Date.parse(form.starts_at)) errors.expires_at = "Expiry must be on or after the start date.";
         if (!/^\d+$/.test(String(form.per_buyer_limit)) || Number(form.per_buyer_limit) < 1) errors.per_buyer_limit = "Enter at least one use per buyer.";
         if (form.usage_limit && (!/^\d+$/.test(String(form.usage_limit)) || Number(form.usage_limit) < 1)) errors.usage_limit = "Leave blank or enter a positive whole number.";

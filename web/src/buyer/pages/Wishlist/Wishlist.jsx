@@ -38,44 +38,33 @@ function Wishlist() {
                 return;
             }
 
-            const wantedIds = new Set(wishlistIds.map(String));
-            const items = [];
-            let lastPage = 1;
+            // Fetch each wishlisted product directly by ID — much cheaper than
+            // paginating the full catalog looking for them.
+            const results = await Promise.allSettled(
+                wishlistIds.map((id) => api.get(`/products/${id}`))
+            );
 
-            for (let page = 1; page <= lastPage; page += 1) {
-                const response = await api.get("/products", {
-                    params: { per_page: 100, page },
-                });
-                const payload = response.data;
-                const pageItems = Array.isArray(payload)
-                    ? payload
-                    : Array.isArray(payload?.data?.data)
-                        ? payload.data.data
-                        : Array.isArray(payload?.data)
-                            ? payload.data
-                            : Array.isArray(payload?.products)
-                                ? payload.products
-                                : [];
-
-                items.push(...pageItems);
-                lastPage = Math.max(1, Number(payload?.data?.last_page) || 1);
-
-                if (wantedIds.size && items.filter((product) => wantedIds.has(String(product.id))).length >= wantedIds.size) {
-                    break;
+            const found = [];
+            const missing = [];
+            results.forEach((result, index) => {
+                if (result.status === "fulfilled") {
+                    const product = result.value?.data?.data ?? result.value?.data ?? null;
+                    if (product) found.push(product);
+                } else {
+                    missing.push(wishlistIds[index]);
                 }
+            });
+
+            // Silently remove any IDs that no longer exist (404 / deleted products).
+            if (missing.length) {
+                const remaining = wishlistIds.filter((id) => !missing.includes(id));
+                localStorage.setItem(WISHLIST_KEY, JSON.stringify(remaining));
+                window.dispatchEvent(new Event("cryma-wishlist-updated"));
             }
 
-            const savedProducts = items.filter((product) =>
-                wantedIds.has(String(product.id))
-            );
-
-            setProducts(savedProducts);
+            setProducts(found);
         } catch (error) {
-            console.error(
-                "Unable to load favorites:",
-                error
-            );
-
+            console.error("Unable to load favorites:", error);
             setProducts([]);
             setLoadError(true);
         } finally {

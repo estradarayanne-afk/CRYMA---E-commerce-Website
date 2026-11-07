@@ -1351,3 +1351,9 @@
 .sl-inventory-archive-policy { margin:-5px 0 12px; padding:9px 12px; border:1px solid #eadfc9; border-radius:8px; background:#fffcf5; color:#756347; font-size:10px; line-height:1.5; }
 .sl-archive-expiry { color:#806c4e; font-size:9px; line-height:1.4; }
 .sl-archive-expiry.is-retained { color:#6b7075; }
+
+/* Pending orders stat card */
+.seller-dashboard-stat--pending { --stat-accent: #285c76; }
+/* Clickable stat card */
+.seller-dashboard-stat--clickable { cursor: pointer; }
+.seller-dashboard-stat--clickable:focus-visible { outline: 3px solid var(--focus-ring-color); outline-offset: 2px; }

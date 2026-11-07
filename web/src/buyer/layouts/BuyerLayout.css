@@ -212,6 +212,7 @@
         border-top: 1px solid #f0dfe3;
         background: rgba(255, 255, 255, .97);
         box-shadow: 0 -5px 18px rgba(74, 17, 32, .08);
+        -webkit-backdrop-filter: blur(14px);
         backdrop-filter: blur(14px);
     }
     .buyer-mobile-tab {
@@ -257,4 +258,60 @@
     .buyer-mobile-tab { color: var(--color-text-muted); }
     .buyer-mobile-tab.active { color: var(--color-brand-deep); }
     .buyer-global-shell--home { background: var(--color-background); }
+}
+
+/* Cart badge on mobile tab bar */
+.buyer-mobile-tab-cart-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.buyer-mobile-cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--color-brand-deep);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    pointer-events: none;
+}
+
+/* ─── Visual Improvements ─── */
+/* Masthead — bump eyebrow and description sizes */
+.buyer-global-shell .buyer-page-masthead :where(.cart-eyebrow, .reviews-eyebrow,
+    .buyer-vouchers-eyebrow, .account-eyebrow, .buyer-chat-eyebrow) {
+    font-size: 10px;
+    letter-spacing: .16em;
+}
+.buyer-global-shell .buyer-page-masthead h1 {
+    font-size: clamp(28px, 3vw, 38px);
+}
+.buyer-global-shell .buyer-page-masthead :where(p, span) {
+    font-size: 14px;
+    line-height: 1.55;
+}
+/* Mobile tab bar — slightly taller, clearer labels */
+@media (max-width: 820px) {
+    .buyer-mobile-tab {
+        min-height: 52px;
+        font-size: 11px;
+        font-weight: 700;
+        gap: 4px;
+    }
+    .buyer-mobile-tab span { font-size: 11px; }
+    .buyer-mobile-cart-badge { font-size: 10px; min-width: 17px; height: 17px; line-height: 17px; top: -7px; right: -9px; }
+}
+/* Ensure focus ring uses brand color consistently */
+.buyer-global-shell :where(button, a, input, select, textarea):focus-visible {
+    outline-color: var(--color-brand-rose);
+    outline-width: 3px;
 }
