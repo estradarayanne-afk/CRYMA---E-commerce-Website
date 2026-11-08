@@ -36,7 +36,7 @@ return new class extends Migration
             $table->foreignId('rider_id')
                 ->constrained('users')
                 ->cascadeOnDelete();
-            $table->enum('status', ['pending', 'accepted', 'rejected'])
+            $table->enum('status', ['pending', 'accepted', 'rejected', 'expired'])
                 ->default('pending');
             $table->timestamp('expires_at');
             $table->timestamp('created_at')->useCurrent();
