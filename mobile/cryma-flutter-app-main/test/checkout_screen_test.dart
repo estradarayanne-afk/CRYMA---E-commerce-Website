@@ -313,5 +313,44 @@ void main() {
     expect(find.text('#12'), findsOneWidget);
     expect(find.text('Nora Home Store'), findsOneWidget);
     expect(find.text('Daily Finds'), findsOneWidget);
+    expect(find.text('Total amount'), findsOneWidget);
+    expect(find.text('₱1200'), findsOneWidget);
+    expect(find.text('View my orders'), findsOneWidget);
+  });
+
+  testWidgets('order success screen omits linked-order section for one seller',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  settings: const RouteSettings(
+                    arguments: {
+                      'id': 21,
+                      'total_amount': '350.00',
+                      'payment_method': 'cash_on_delivery',
+                    },
+                  ),
+                  builder: (_) => const OrderSuccessScreen(),
+                ),
+              );
+            },
+            child: const Text('continue'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Order placed!'), findsOneWidget);
+    expect(find.text('Order number'), findsOneWidget);
+    expect(find.text('#21'), findsOneWidget);
+    expect(find.text('Linked orders'), findsNothing);
+    expect(find.text('₱350'), findsOneWidget);
   });
 }
