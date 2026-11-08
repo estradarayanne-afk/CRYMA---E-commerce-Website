@@ -68,7 +68,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
     final isSplitOrder = linkedOrders.length > 1;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -138,9 +138,16 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: AppColors.borderNeutral),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.wine.withValues(alpha: 0.045),
+                          blurRadius: 16,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
                     child: Column(
                       children: [
