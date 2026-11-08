@@ -4,14 +4,17 @@ import '../../services/api_service.dart';
 import '../../utils/colors.dart';
 
 class OrderDetailsScreen extends StatefulWidget {
-  const OrderDetailsScreen({super.key, this.orderId});
+  const OrderDetailsScreen({super.key, this.orderId, this.apiService});
   final String? orderId;
+  final ApiService? apiService;
 
   @override
   State<OrderDetailsScreen> createState() => _OrderDetailsScreenState();
 }
 
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
+  ApiService get _api => widget.apiService ?? ApiService.instance;
+
   Map<String, dynamic>? _order;
   String? _error;
   bool _loading = true;
@@ -37,7 +40,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       _error = null;
     });
     try {
-      final order = await ApiService.instance.getBuyerOrder(widget.orderId!);
+      final order = await _api.getBuyerOrder(widget.orderId!);
       if (!mounted) return;
       setState(() {
         _order = order;
@@ -55,7 +58,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   Future<void> _confirmReceived() async {
     setState(() => _confirming = true);
     try {
-      await ApiService.instance.confirmOrderReceived(widget.orderId!);
+      await _api.confirmOrderReceived(widget.orderId!);
       await _loadOrder();
     } catch (error) {
       if (mounted) _snack(error.toString());
@@ -85,7 +88,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (confirmed != true || !mounted) return;
     setState(() => _acting = true);
     try {
-      await ApiService.instance.cancelBuyerOrder(widget.orderId!);
+      await _api.cancelBuyerOrder(widget.orderId!);
       await _loadOrder();
       if (mounted) _snack('Order cancelled.');
     } catch (error) {
@@ -117,7 +120,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
     setState(() => _acting = true);
     try {
-      await ApiService.instance.requestBuyerRefund(
+      await _api.requestBuyerRefund(
         orderId: widget.orderId!,
         reason: reasonText,
         requestedAmount: requested,
@@ -146,8 +149,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
     setState(() => _acting = true);
     try {
-      final response = await ApiService.instance
-          .startBuyerSellerConversation(productId: productId);
+      final response = await _api.startBuyerSellerConversation(
+        productId: productId,
+      );
       final conversationId =
           response['data']?['id']?.toString() ?? response['id']?.toString();
       if (conversationId == null || conversationId.isEmpty) {
@@ -233,13 +237,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final product = item['product'] is Map<String, dynamic>
         ? item['product'] as Map<String, dynamic>
         : <String, dynamic>{};
-    final productId =
-        (item['product_id'] ?? product['id'])?.toString();
+    final productId = (item['product_id'] ?? product['id'])?.toString();
     final productName = product['name']?.toString() ?? 'Product';
     final rawImages = product['images'];
-    String imagePath = product['image']?.toString() ??
-        product['image_url']?.toString() ??
-        '';
+    String imagePath =
+        product['image']?.toString() ?? product['image_url']?.toString() ?? '';
     if (imagePath.isEmpty && rawImages is List && rawImages.isNotEmpty) {
       final firstImage = rawImages.first;
       imagePath = firstImage is Map
@@ -250,13 +252,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       final media = product['media'] as List;
       if (media.isNotEmpty && media.first is Map) {
         final firstMedia = media.first as Map;
-        imagePath =
-            (firstMedia['url'] ?? firstMedia['path'] ?? '').toString();
+        imagePath = (firstMedia['url'] ?? firstMedia['path'] ?? '').toString();
       }
     }
-    final imageUrl = imagePath.isEmpty
-        ? ''
-        : ApiService.instance.resolveImageUrl(imagePath);
+    final imageUrl = imagePath.isEmpty ? '' : _api.resolveImageUrl(imagePath);
     final quantity = item['quantity']?.toString() ?? '0';
     final variant = item['variant_label']?.toString().trim() ?? '';
 
@@ -268,8 +267,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         child: InkWell(
           onTap: productId == null || productId.isEmpty
               ? null
-              : () => Navigator.pushNamed(
-                  context, '/product_detail',
+              : () => Navigator.pushNamed(context, '/product_detail',
                   arguments: productId),
           borderRadius: BorderRadius.circular(14),
           child: Container(
@@ -369,12 +367,19 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         : null;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Order Details'),
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.background,
         foregroundColor: AppColors.primary,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: const TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: AppColors.wine,
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -400,46 +405,70 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               : order == null
                   ? const Center(child: Text('Order not found.'))
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                       children: [
                         // ── ORDER SUMMARY HEADER ─────────────────────────
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(16),
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: AppColors.borderNeutral),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.wine.withValues(alpha: 0.045),
+                                blurRadius: 16,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    '#${order['id']}',
-                                    style: const TextStyle(
-                                      fontFamily: 'Poppins',
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.wine,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'ORDER NUMBER',
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.8,
+                                            color: AppColors.textSubtle,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '#${order['id']}',
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.wine,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
+                                        horizontal: 11, vertical: 7),
                                     decoration: BoxDecoration(
                                       color: _sb(
                                           order['status']?.toString() ?? ''),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
                                       _titleCase(order['status']?.toString() ??
                                           'Unknown'),
                                       style: TextStyle(
                                         fontFamily: 'Poppins',
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w700,
                                         color: _sc(
                                             order['status']?.toString() ?? ''),
@@ -448,30 +477,70 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 10),
-                              _infoRow('Placed',
-                                  _fmtDate(order['created_at']?.toString())),
+                              if (_fmtDate(order['created_at']?.toString())
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 5),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.schedule_rounded,
+                                      size: 14,
+                                      color: AppColors.textSubtle,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Placed ${_fmtDate(order['created_at']?.toString())}',
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 11,
+                                        color: AppColors.textSubtle,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 14),
+                                child: Divider(
+                                  height: 1,
+                                  color: AppColors.borderNeutral,
+                                ),
+                              ),
                               _infoRow(
-                                  'Payment',
-                                  _humanisePayment(
-                                      order['payment_method']?.toString())),
-                              _infoRow('Total',
-                                  '₱${order['total_amount'] ?? '0.00'}',
-                                  valueStyle: const TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.primary,
-                                  )),
+                                'Payment',
+                                _humanisePayment(
+                                    order['payment_method']?.toString()),
+                              ),
                               if ((order['delivery_address'] ?? '')
                                   .toString()
                                   .isNotEmpty)
                                 _infoRow('Delivery to',
                                     order['delivery_address'].toString()),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 13,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.softRose,
+                                  borderRadius: BorderRadius.circular(13),
+                                ),
+                                child: _infoRow(
+                                  'Order total',
+                                  '₱${order['total_amount'] ?? '0.00'}',
+                                  valueStyle: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 22),
 
                         // ── ITEMS ────────────────────────────────────────
                         _sectionTitle('Items'),
@@ -658,12 +727,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _sectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
       child: Text(
         title,
         style: const TextStyle(
           fontFamily: 'Poppins',
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: FontWeight.w700,
           color: AppColors.darkGray,
         ),
