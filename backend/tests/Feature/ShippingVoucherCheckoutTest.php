@@ -140,7 +140,29 @@ class ShippingVoucherCheckoutTest extends TestCase
             'postal_code' => '1000',
         ]);
 
-        $this->assertSame(27, ShippingZoneRate::query()->where('rate_source', 'cryma')->count());
+        $this->assertSame(55, ShippingZoneRate::count());
+        $this->assertSame(
+            27,
+            ShippingZoneRate::query()
+                ->where('provider', 'CRYMA Standard')
+                ->where('is_active', true)
+                ->count(),
+        );
+        $this->assertSame(
+            27,
+            ShippingZoneRate::query()
+                ->where('provider', 'CRYMA Standard (superseded)')
+                ->where('is_active', false)
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            ShippingZoneRate::query()
+                ->where('provider', 'CRYMA')
+                ->where('rate_source', 'courier')
+                ->where('is_active', false)
+                ->count(),
+        );
         $this->app['env'] = 'production';
 
         $this->actingAs($buyer, 'sanctum')
