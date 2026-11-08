@@ -8,6 +8,7 @@ use App\Mail\AccountReactivationMail;
 use App\Mail\AccountSuspensionMail;
 use App\Models\User;
 use App\Models\UserDocument;
+use App\Support\CourierNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -106,11 +107,22 @@ public function approve(int $id)
     }
 
     $user = $result['user'];
-    return response()->json([
-        'success' => true,
-        'message' => 'Registration approved successfully.',
-        'data' => $user,
-    ]);
+
+        // Notify the courier that their account has been approved.
+        if ($user->role === 'rider') {
+            CourierNotifier::notify(
+                $user,
+                'Courier account approved',
+                'Your Courier application has been approved. You can now sign in and start accepting deliveries.',
+                ['type' => 'registration_approved'],
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration approved successfully.',
+            'data' => $user,
+        ]);
 }
 
 
@@ -133,6 +145,16 @@ public function approve(int $id)
 
         $user->forceFill(['status' => 'rejected'])->save();
         $user->refresh();
+
+        // Notify the courier their application was rejected.
+        if ($user->role === 'rider') {
+            CourierNotifier::notify(
+                $user,
+                'Courier application not approved',
+                'Your Courier application was not approved at this time. Please contact support for assistance.',
+                ['type' => 'registration_rejected'],
+            );
+        }
 
         return response()->json([
             'success' => true,

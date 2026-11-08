@@ -21,6 +21,52 @@ import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 
 import "./OrderDetails.css";
 
+/** Small self-contained component that creates/opens a buyer↔courier chat. */
+function CourierChatButton({ orderId, navigate }) {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const handleClick = async () => {
+        setLoading(true);
+        setError("");
+        try {
+            const response = await api.post("/buyer/chat/courier-conversations", {
+                order_id: orderId,
+            });
+            const conversationId = response?.data?.data?.conversation_id;
+            if (conversationId) {
+                navigate(`/buyer/chat?conversation=${conversationId}`);
+            }
+        } catch (err) {
+            setError(
+                err?.response?.data?.message ||
+                "Could not open the courier chat. The courier may not be assigned yet."
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="order-courier-chat">
+            <button
+                type="button"
+                className="order-courier-chat-btn"
+                onClick={handleClick}
+                disabled={loading}
+            >
+                <MessageCircle size={15} />
+                {loading ? "Opening chat…" : "Message your courier"}
+            </button>
+            {error && (
+                <p className="order-courier-chat-error" role="alert">
+                    {error}
+                </p>
+            )}
+        </div>
+    );
+}
+
 const STATUS_STEPS = [
     {
         key: "PLACED",
@@ -937,6 +983,11 @@ function OrderDetails() {
                                 {order.delivery_progress?.pickup?.status && <small>Seller pickup: {formatStatusLabel(order.delivery_progress.pickup.status)}</small>}
                             </div>
                         </div>
+
+                        {/* Message Courier button — only shown when a courier is assigned */}
+                        {["ASSIGNED_TO_RIDER", "OUT_FOR_DELIVERY", "DELIVERED"].includes(currentStatus) && (
+                            <CourierChatButton orderId={order.id} navigate={navigate} />
+                        )}
                     </section>
 
                     {(isDelivered ||

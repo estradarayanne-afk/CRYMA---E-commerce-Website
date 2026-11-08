@@ -43,6 +43,8 @@ class AuthController extends Controller
 
         $token = $user->createToken('web-token')->plainTextToken;
 
+        $user->load(['courierProfile.vehicles', 'addresses', 'documents']);
+
         return response()->json([
             'message' => 'Login successful.',
             'token' => $token,

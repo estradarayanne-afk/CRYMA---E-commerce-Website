@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Courier;
 
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
+use App\Models\DeliveryRequest;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\CourierEligibility;
@@ -11,6 +12,7 @@ use App\Support\OrderDeliveryProjection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 class DeliveryController extends Controller
 {
@@ -171,5 +173,147 @@ class DeliveryController extends Controller
 
         $result->load(['order.items.product:id,name,image,weight_kg', 'deliveryArea:id,name', 'events']);
         return response()->json(['success' => true, 'message' => 'Delivery status updated.', 'data' => $this->parcelData($result)]);
+    }
+
+    public function acceptDelivery(Request $request, int $id, CourierEligibility $eligibility)
+    {
+        $profile = $this->profile($request->user(), $eligibility);
+        $result = DB::transaction(function () use ($request, $id, $profile, $eligibility) {
+            $deliveryRequest = DeliveryRequest::where('rider_id', $request->user()->id)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->find($id);
+            
+            abort_unless($deliveryRequest, 404, 'Delivery request not found or already processed.');
+            
+            $delivery = Delivery::lockForUpdate()->find($deliveryRequest->delivery_id);
+            abort_unless($delivery, 404, 'Delivery not found.');
+            
+            // Update delivery request status
+            $deliveryRequest->update(['status' => 'accepted']);
+            
+            // Update delivery with rider and change status to assigned (if not already assigned)
+            if ($delivery->status !== Delivery::ASSIGNED) {
+                $delivery->update([
+                    'status' => Delivery::ASSIGNED,
+                    'courier_profile_id' => $profile->id,
+                    'assigned_at' => now(),
+                ]);
+                
+                // Update order status to match delivery
+                Order::where('id', $delivery->order_id)->update(['status' => Delivery::ASSIGNED]);
+                
+                // Log event
+                OrderDeliveryProjection::event($delivery, [
+                    'actor_id' => $request->user()->id,
+                    'event_type' => 'assigned_to_rider',
+                    'previous_status' => $delivery->getOriginal('status'),
+                    'new_status' => Delivery::ASSIGNED,
+                    'courier_profile_id' => $profile->id,
+                ]);
+            }
+            
+            return $delivery->load(['order.items.product:id,name,image,weight_kg', 'deliveryArea:id,name', 'events']);
+        });
+        
+        return response()->json(['success' => true, 'delivery' => $this->parcelData($result)]);
+    }
+
+    public function rejectDelivery(Request $request, int $id, CourierEligibility $eligibility)
+    {
+        $profile = $this->profile($request->user(), $eligibility);
+        $result = DB::transaction(function () use ($request, $id, $profile, $eligibility) {
+            $deliveryRequest = DeliveryRequest::where('rider_id', $request->user()->id)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->find($id);
+            
+            abort_unless($deliveryRequest, 404, 'Delivery request not found or already processed.');
+            
+            $delivery = Delivery::lockForUpdate()->find($deliveryRequest->delivery_id);
+            abort_unless($delivery, 404, 'Delivery not found.');
+            
+            // Mark this delivery request as rejected
+            $deliveryRequest->update(['status' => 'rejected']);
+            
+            // Find next online rider in queue (ordered by is_online DESC, last_activity_at DESC)
+            $nextRider = User::where('role', 'rider')
+                ->where('status', 'active')
+                ->where('email_verified_at', '!=', null)
+                ->where('id', '!=', $request->user()->id)
+                ->where('is_online', 1)
+                ->orderBy('last_activity_at', 'desc')
+                ->first();
+            
+            $reassignedToRiderId = null;
+            
+            if ($nextRider) {
+                // Create new delivery request with 1.5 hour expiry
+                $newRequest = DeliveryRequest::create([
+                    'delivery_id' => $delivery->id,
+                    'rider_id' => $nextRider->id,
+                    'status' => 'pending',
+                    'expires_at' => now()->addSeconds(5400), // 1.5 hours
+                ]);
+                $reassignedToRiderId = $nextRider->id;
+                
+                // Send push notification to new rider
+                $this->sendDeliveryNotification($nextRider, $delivery, $newRequest->id);
+            } else {
+                // No riders available - mark delivery as failed
+                $delivery->update([
+                    'status' => Delivery::FAILED,
+                    'failure_reason' => 'No available riders',
+                ]);
+                Order::where('id', $delivery->order_id)->update(['status' => Delivery::FAILED]);
+                
+                // Log event
+                OrderDeliveryProjection::event($delivery, [
+                    'actor_id' => $request->user()->id,
+                    'event_type' => 'failed',
+                    'previous_status' => $delivery->status,
+                    'new_status' => Delivery::FAILED,
+                    'reason' => 'No available riders for delivery request',
+                ]);
+            }
+            
+            return [
+                'reassigned_to_rider_id' => $reassignedToRiderId,
+                'delivery' => $delivery,
+            ];
+        });
+        
+        return response()->json([
+            'success' => true,
+            'reassigned_to_rider_id' => $result['reassigned_to_rider_id'],
+            'delivery' => $result['delivery'] ? $this->parcelData($result['delivery']) : null,
+        ]);
+    }
+
+    private function sendDeliveryNotification(User $rider, Delivery $delivery, int $requestId)
+    {
+        // Send via push notification using Notification facade
+        // This uses the existing PushToken system
+        $notification = new \App\Notifications\DeliveryRequestNotification($delivery, $requestId);
+        $rider->notify($notification);
+    }
+
+    public function setAvailability(Request $request)
+    {
+        $validated = $request->validate([
+            'is_online' => ['required', 'in:0,1'],
+        ]);
+
+        $isOnline = (int) $validated['is_online'];
+        
+        $request->user()->update([
+            'is_online' => $isOnline,
+            'last_activity_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'is_online' => (bool) $isOnline,
+        ]);
     }
 }

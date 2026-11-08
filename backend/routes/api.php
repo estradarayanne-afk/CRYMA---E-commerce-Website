@@ -36,6 +36,9 @@ use App\Http\Controllers\Api\PasswordRecoveryController;
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Admin\DeliveryController as AdminDeliveryController;
 use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController;
+use App\Http\Controllers\Courier\LocationController as CourierLocationController;
+use App\Http\Controllers\Courier\ChatController as CourierChatController;
+use App\Http\Controllers\Courier\NotificationController as CourierNotificationController;
 use App\Http\Controllers\Admin\LogisticsController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\Courier\PickupController;
@@ -46,6 +49,8 @@ use App\Http\Controllers\Logistics\ParcelOperationsController;
 use App\Http\Controllers\Logistics\ParcelFlowController;
 use App\Http\Controllers\Admin\HubStaffProvisioningController;
 use App\Http\Controllers\Logistics\HubStaffParcelOperationsController;
+use App\Http\Controllers\Api\CourierProfileController;
+use App\Http\Controllers\Api\TrackingController;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:5,1');
@@ -80,8 +85,9 @@ Route::get('/products/{id}', [ProductController::class, 'publicShow']);
 
 
 Route::middleware(['auth:sanctum', 'active'])->get('/user', function (Request $request) {
+    $user = $request->user()->load(['courierProfile.vehicles', 'addresses', 'documents']);
     return response()->json([
-        'user' => $request->user(),
+        'user' => $user,
     ]);
 });
 
@@ -169,8 +175,32 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/courier/delivery-history', [CourierDeliveryController::class, 'history']);
         Route::get('/courier/deliveries/{id}', [CourierDeliveryController::class, 'show']);
         Route::patch('/courier/deliveries/{id}/status', [CourierDeliveryController::class, 'updateStatus']);
+        Route::patch('/courier/deliveries/{id}/accept', [CourierDeliveryController::class, 'acceptDelivery']);
+        Route::patch('/courier/deliveries/{id}/reject', [CourierDeliveryController::class, 'rejectDelivery']);
         Route::post('/courier/deliveries/{id}/proof', [DeliveryProofController::class, 'store']);
         Route::get('/courier/deliveries/{id}/proof/{kind}', [DeliveryProofController::class, 'showForCourier']);
+
+        // ── Courier availability and delivery routing ──────────────────────────
+        Route::post('/courier/availability', [CourierDeliveryController::class, 'setAvailability']);
+
+        // ── GPS location (Phase 6) ────────────────────────────────────────────
+        Route::post('/courier/deliveries/{id}/location', [CourierLocationController::class, 'store']);
+
+        // ── Buyer↔courier chat (Phase 7) ──────────────────────────────────────
+        Route::get('/courier/conversations', [CourierChatController::class, 'conversations']);
+        Route::get('/courier/conversations/{id}', [CourierChatController::class, 'show']);
+        Route::post('/courier/conversations/{id}/messages', [CourierChatController::class, 'sendMessage']);
+        Route::patch('/courier/conversations/{id}/read', [CourierChatController::class, 'markRead']);
+
+        // ── Courier notifications + push tokens (Phase 7) ─────────────────────
+        Route::get('/courier/notifications', [CourierNotificationController::class, 'index']);
+        Route::patch('/courier/notifications/{id}/read', [CourierNotificationController::class, 'markRead']);
+        Route::patch('/courier/notifications/read-all', [CourierNotificationController::class, 'markAllRead']);
+        Route::post('/courier/push-token', [CourierNotificationController::class, 'registerToken']);
+        Route::delete('/courier/push-token', [CourierNotificationController::class, 'removeToken']);
+
+        // ── Courier profile/approval status (Phase 4) ─────────────────────────
+        Route::get('/courier/profile/status', [CourierProfileController::class, 'show']);
     });
 
     Route::middleware('role:logistics')->group(function () {
@@ -197,6 +227,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::patch('/logistics/orders/{orderId}/sorting-receipt', [ParcelOperationsController::class, 'confirmSortingReceipt']);
         Route::patch('/logistics/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);
         Route::post('/logistics/parcels/scan', [LogisticsController::class, 'resolveAndScanParcel']);
+        Route::post('/logistics/parcels/{id}/direct-delivery-notice', [ParcelOperationsController::class, 'directDeliveryNotice']);
         Route::patch('/logistics/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
         Route::post('/logistics/orders/{orderId}/delivery-assignment', [LogisticsController::class, 'reassignDelivery']);
         Route::patch('/logistics/orders/{orderId}/delivery-resolution', [AdminDeliveryController::class, 'resolve']);
@@ -261,6 +292,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::post('/buyer/chat/conversations/{id}/attachments', [BuyerChatController::class, 'sendAttachment']);
     Route::get('/buyer/chat/conversations/{id}/messages/{message}/attachment', [BuyerChatController::class, 'downloadAttachment']);
     Route::patch('/buyer/chat/conversations/{id}/read', [BuyerChatController::class, 'markAsRead']);
+
+    // ── Buyer parcel tracking (Phase 6) ───────────────────────────────────────
+    Route::get('/buyer/orders/{orderId}/tracking', [TrackingController::class, 'show']);
+
+    // ── Buyer → courier chat initiation (Phase 7) ─────────────────────────────
+    Route::post('/buyer/chat/courier-conversations', [BuyerChatController::class, 'startCourierConversation']);
     });
 
     Route::get('/admin/registrations', [

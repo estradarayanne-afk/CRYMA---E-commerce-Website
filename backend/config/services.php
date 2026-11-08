@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    // Firebase Cloud Messaging — supply FCM_SERVER_KEY in .env to enable push.
+    'fcm' => [
+        'server_key' => env('FCM_SERVER_KEY'),
+    ],
+
 ];

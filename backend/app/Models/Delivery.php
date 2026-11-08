@@ -61,4 +61,5 @@ class Delivery extends Model
     public function events(): HasMany { return $this->hasMany(DeliveryEvent::class)->orderBy('created_at')->orderBy('id'); }
     public function currentHub() { return $this->belongsTo(LogisticsHub::class, 'current_hub_id'); }
     public function hubTransfers(): HasMany { return $this->hasMany(HubTransfer::class); }
+    public function locations(): HasMany { return $this->hasMany(DeliveryLocation::class); }
 }

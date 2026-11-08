@@ -13,6 +13,9 @@ class Conversation extends Model
         'admin_id',
         'seller_id',
         'product_id',
+        'courier_profile_id',
+        'delivery_id',
+        'type',
     ];
 
     public function buyer(): BelongsTo
@@ -38,5 +41,15 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
+    }
+
+    public function courierProfile(): BelongsTo
+    {
+        return $this->belongsTo(CourierProfile::class);
+    }
+
+    public function delivery(): BelongsTo
+    {
+        return $this->belongsTo(Delivery::class);
     }
 }

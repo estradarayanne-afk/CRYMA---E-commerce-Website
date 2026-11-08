@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\Delivery;
 use App\Models\Message;
 use App\Models\Order;
 use App\Models\User;
@@ -95,6 +96,8 @@ class BuyerChatController extends Controller
                 'seller:id,first_name,last_name',
                 'seller.sellerProfile:user_id,business_name,store_slug',
                 'product:id,name,price,discounted_price,stock,status,category',
+                'courierProfile.user:id,first_name,last_name',
+                'delivery:id,parcel_code,status',
                 'messages' => fn ($query) => $query->latest()->limit(1),
             ])
             ->orderByDesc('updated_at')
@@ -201,6 +204,8 @@ class BuyerChatController extends Controller
             'seller.sellerProfile:user_id,business_name,store_slug',
             'product:id,seller_id,name,price,discounted_price,stock,status,category',
             'product.media',
+            'courierProfile.user:id,first_name,last_name',
+            'delivery:id,parcel_code,status',
             'messages' => function ($query) {
                 $query
                     ->with('sender:id,first_name,last_name,role')
@@ -336,6 +341,24 @@ class BuyerChatController extends Controller
             ));
         }
 
+        // Notify the courier when the buyer sends a message in a delivery chat.
+        if ($conversation->type === 'courier' && $message->wasRecentlyCreated && $conversation->courier_profile_id) {
+            $conversation->loadMissing(['courierProfile.user:id,first_name,last_name']);
+            $courierUser = $conversation->courierProfile?->user;
+            if ($courierUser) {
+                $buyerName = trim(implode(' ', array_filter([
+                    $request->user()->first_name,
+                    $request->user()->last_name,
+                ]))) ?: 'Buyer';
+                \App\Support\CourierNotifier::notify(
+                    $courierUser,
+                    'New message from buyer',
+                    "{$buyerName} sent you a message about your delivery.",
+                    ['type' => 'new_buyer_message', 'conversation_id' => $conversation->id],
+                );
+            }
+        }
+
         $message->load(
             'sender:id,first_name,last_name,role',
             'order:id,status,total_amount,created_at',
@@ -449,6 +472,68 @@ class BuyerChatController extends Controller
         }
 
         return 'I do not have a confirmed answer for that yet. Customer Service can follow up in this same conversation. If this is about an order, select it above or include its order number.';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Buyer ↔ Courier conversation
+    |--------------------------------------------------------------------------
+    |
+    | Creates — or returns an existing — delivery-scoped conversation between
+    | the buyer and the assigned courier, using the shared conversations table.
+    | Only the buyer who owns the order may call this. The conversation is
+    | type='courier' and is also accessible to the courier via the mobile API.
+    |
+    */
+
+    public function startCourierConversation(Request $request)
+    {
+        $this->buyerOnly($request);
+
+        $validated = $request->validate([
+            'order_id' => ['required', 'integer'],
+        ]);
+
+        $buyer = $request->user();
+        $order = Order::where('user_id', $buyer->id)->findOrFail($validated['order_id']);
+
+        // The delivery must be assigned to a courier for a chat to be meaningful.
+        $delivery = Delivery::where('order_id', $order->id)
+            ->whereNotNull('courier_profile_id')
+            ->latest('id')
+            ->first();
+
+        abort_unless($delivery, 404, 'No assigned courier found for this order.');
+
+        $conversation = DB::transaction(function () use ($buyer, $order, $delivery) {
+            // Idempotent: return existing conversation if one already exists.
+            $existing = Conversation::where('buyer_id', $buyer->id)
+                ->where('delivery_id', $delivery->id)
+                ->where('type', 'courier')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            return Conversation::create([
+                'buyer_id'           => $buyer->id,
+                'courier_profile_id' => $delivery->courier_profile_id,
+                'delivery_id'        => $delivery->id,
+                'type'               => 'courier',
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'conversation_id' => $conversation->id,
+                'type'            => $conversation->type,
+                'delivery_id'     => $conversation->delivery_id,
+                'parcel_code'     => $delivery->parcel_code,
+            ],
+        ], 201);
     }
 
     /*

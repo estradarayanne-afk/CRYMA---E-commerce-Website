@@ -7,6 +7,19 @@ function personName(person) {
 }
 
 export function getConversationIdentity(conversation) {
+    // Courier delivery conversation (type added by logistics integration).
+    if (conversation?.type === "courier" || conversation?.courier_profile_id) {
+        const courierUser = conversation?.courier_profile?.user || conversation?.courierProfile?.user;
+        const courierName = personName(courierUser) || "CRYMA Courier";
+        const parcelCode = conversation?.delivery?.parcel_code;
+        return {
+            name: courierName,
+            description: parcelCode ? `Parcel ${parcelCode}` : "Delivery Courier",
+            initials: courierName.charAt(0).toUpperCase() || "C",
+            type: "courier",
+        };
+    }
+
     const isSupport = Boolean(
         conversation?.type === "support" ||
         conversation?.admin_id ||

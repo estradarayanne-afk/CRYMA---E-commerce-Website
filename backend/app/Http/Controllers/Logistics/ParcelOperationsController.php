@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Http\Controllers\Controller;
+use App\Models\Delivery;
 use Illuminate\Http\Request;
 use App\Services\ParcelReceivingService;
+use Illuminate\Support\Facades\DB;
 
 class ParcelOperationsController extends Controller
 {
@@ -22,6 +24,49 @@ class ParcelOperationsController extends Controller
             'success' => true,
             'message' => 'Sorting-center receipt confirmed.',
             'data' => $assignment,
+        ]);
+    }
+
+    public function directDeliveryNotice(Request $request, int $parcelId)
+    {
+        $validated = $request->validate([
+            'rider_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $delivery = Delivery::findOrFail($parcelId);
+
+        // Verify this is a same-municipality delivery that can be directly delivered
+        $order = $delivery->order;
+        abort_unless($order, 404, 'Order not found.');
+        
+        // Update delivery type to direct
+        $delivery->update(['delivery_type' => 'direct']);
+
+        // Log this for hub staff visibility - create a delivery event
+        \App\Support\OrderDeliveryProjection::event($delivery, [
+            'actor_id' => $request->user()->id,
+            'event_type' => 'direct_delivery_chosen',
+            'previous_status' => $delivery->status,
+            'new_status' => $delivery->status,
+            'courier_profile_id' => $delivery->courier_profile_id,
+        ]);
+
+        // TODO: Send notification to sorting center via email/webhook
+        // This would integrate with the sorting center system to notify them
+        // that this rider chose direct delivery instead of bringing it to the hub
+        // For now, we log it in the delivery events above
+
+        $noticeId = DB::table('direct_delivery_notices')->insertGetId([
+            'delivery_id' => $delivery->id,
+            'rider_id' => $validated['rider_id'],
+            'recorded_by' => $request->user()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'notice_id' => $noticeId,
         ]);
     }
 }

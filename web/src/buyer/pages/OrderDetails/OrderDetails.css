@@ -1122,3 +1122,39 @@
 @media (prefers-reduced-motion: reduce) {
     .order-back-link,.order-completed-panel > a,.order-support-panel > button { transition: none; }
 }
+
+/* ── Courier chat button (added for logistics integration) ─────────────────── */
+.order-courier-chat {
+    margin-top: 12px;
+}
+
+.order-courier-chat-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    background: transparent;
+    border: 1.5px solid var(--color-primary, #c0392b);
+    color: var(--color-primary, #c0392b);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.order-courier-chat-btn:hover:not(:disabled) {
+    background: var(--color-primary, #c0392b);
+    color: #fff;
+}
+
+.order-courier-chat-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.order-courier-chat-error {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--color-danger, #e74c3c);
+}
