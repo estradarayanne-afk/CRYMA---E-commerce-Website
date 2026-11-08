@@ -126,6 +126,7 @@ class ShippingVoucherCheckoutTest extends TestCase
     public function test_production_uses_cryma_rates_and_excludes_unverified_courier_rates(): void
     {
         [$buyer, $address] = $this->createCheckoutBuyer();
+        $address->update(['region' => 'Region IV-A (CALABARZON)']);
         [$seller, $product] = $this->sellerAndProduct();
         $seller->sellerPickupAddress()->create([
             'recipient_name' => 'Nora Seller',
