@@ -57,8 +57,25 @@ flutter run -d <device-id> --dart-define=API_BASE_URL=http://<computer-ip>:8000
 ```
 
 For example, replace `<computer-ip>` with the IPv4 address reported by
-`ipconfig`. Do not use `localhost` or `127.0.0.1` on the phone; those addresses
-refer to the phone itself.
+`ipconfig`. The phone and computer must be on the same network, and the IP can
+change after reconnecting to Wi-Fi.
+
+### Use USB port forwarding instead of Wi-Fi
+
+When USB debugging is enabled, ADB can forward the phone's local port 8000 to
+the computer's Laravel server. This avoids depending on the computer's LAN IP
+or the phone being on the same Wi-Fi:
+
+```powershell
+adb -s <device-id> reverse tcp:8000 tcp:8000
+flutter run -d <device-id> --dart-define=API_BASE_URL=http://127.0.0.1:8000
+```
+
+Replace `<device-id>` with the ID from `flutter devices`. Keep the phone
+connected over USB and Laravel running while using the app. If `adb` is not
+recognized, run it from Android SDK's `platform-tools` directory or add that
+directory to `PATH`. `localhost` and `127.0.0.1` only reach the computer in this
+setup because ADB forwards the phone's port over USB.
 
 To create an installable Android debug APK instead:
 
@@ -106,5 +123,20 @@ cleartext HTTP for local development only.
 - If requests time out, confirm Laravel is running, the phone/emulator can
   reach the computer, the selected `API_BASE_URL` is correct, and the firewall
   permits port `8000`.
+- If address regions fail with `cURL error 60`, the PHP server process needs a
+  trusted CA bundle. On this Windows setup, start Laravel's PHP server from
+  the backend `public` directory so those TLS settings apply to the serving
+  process:
+
+```powershell
+cd C:\Code\e-commerce\ecommerce-system\backend\public
+php -d curl.cainfo="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" `
+  -d openssl.cafile="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" `
+  -S 0.0.0.0:8000 -t . `
+  ..\vendor\laravel\framework\src\Illuminate\Foundation\resources\server.php
+```
+
+  Replace the example project path if needed. Do not disable TLS certificate
+  verification.
 - A physical phone needs the computer's current LAN IP; this can change when
   reconnecting to Wi-Fi.

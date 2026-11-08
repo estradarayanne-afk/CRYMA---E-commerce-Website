@@ -38,6 +38,7 @@ use App\Http\Controllers\Admin\DeliveryController as AdminDeliveryController;
 use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController;
 use App\Http\Controllers\Admin\LogisticsController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
+use App\Http\Controllers\Admin\ShippingRateController;
 use App\Http\Controllers\Courier\PickupController;
 use App\Http\Controllers\Courier\DeliveryProofController;
 use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboardController;
@@ -218,6 +219,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     ])->middleware('role:admin');
 
     Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/shipping-rates', [ShippingRateController::class, 'index']);
+        Route::post('/admin/shipping-rates', [ShippingRateController::class, 'store']);
+        Route::patch('/admin/shipping-rates/{id}', [ShippingRateController::class, 'update']);
+        Route::patch('/admin/shipping-rates/{id}/status', [ShippingRateController::class, 'updateStatus']);
         Route::get('/admin/vouchers', [AdminVoucherController::class, 'index']);
         Route::post('/admin/vouchers', [AdminVoucherController::class, 'store']);
         Route::get('/admin/vouchers/{id}', [AdminVoucherController::class, 'show']);
@@ -230,7 +235,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/buyer/vouchers', [BuyerVoucherController::class, 'index']);
     Route::post('/buyer/vouchers/{id}/claim', [BuyerVoucherController::class, 'claim']);
     Route::post('/buyer/vouchers/validate', [BuyerVoucherController::class, 'validateCode']);
+    Route::post('/buyer/shipping-quote', [BuyerOrderController::class, 'shippingQuote']);
     Route::get('/buyer/addresses', [AccountController::class, 'addresses']);
+    Route::get('/buyer/address-options', [AccountController::class, 'addressOptions']);
     Route::post('/buyer/addresses', [AccountController::class, 'storeAddress']);
     Route::patch('/buyer/addresses/{id}', [AccountController::class, 'updateAddress']);
     Route::patch('/buyer/addresses/{id}/default', [AccountController::class, 'setDefaultAddress']);

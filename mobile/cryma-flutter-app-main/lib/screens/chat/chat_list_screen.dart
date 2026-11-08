@@ -25,20 +25,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
     try {
       final conversations = await ApiService.instance.getBuyerChatConversations();
       if (!mounted) return;
-      // Deduplicate: keep at most one CRYMA Support conversation
-      // (the one with no seller_id). Multiple support threads can accumulate;
-      // show only the most recent one so the list isn't cluttered.
-      final seen = <String>{};
-      final deduped = <Map<String, dynamic>>[];
-      for (final conv in conversations) {
-        final isSupportConv = conv['seller'] == null;
-        if (isSupportConv) {
-          if (seen.contains('support')) continue;
-          seen.add('support');
-        }
-        deduped.add(conv);
-      }
-      setState(() { _conversations = deduped; _loading = false; });
+      setState(() {
+        _conversations = conversations
+            .where((conversation) => conversation['seller'] != null)
+            .toList();
+        _loading = false;
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() { _error = error.toString(); _loading = false; });

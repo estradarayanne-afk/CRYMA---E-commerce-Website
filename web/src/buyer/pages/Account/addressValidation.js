@@ -37,6 +37,14 @@ export function validateBuyerAddress(address) {
         else if (characterLength(value) > fieldLimits[field]) errors[field] = "This field exceeds the 100-character limit.";
     }
 
+    for (const field of ["house_number", "street"]) {
+        if (!String(address[field] ?? "").trim()) {
+            errors[field] = field === "house_number"
+                ? "House / lot number is required."
+                : "Street is required.";
+        }
+    }
+
     for (const [field, limit] of Object.entries(fieldLimits)) {
         if (["region", "province", "municipality", "barangay"].includes(field)) continue;
         if (characterLength(String(address[field] ?? "")) > limit) {
@@ -44,7 +52,7 @@ export function validateBuyerAddress(address) {
         }
     }
 
-    if (address.postal_code && !/^\d{4}$/.test(address.postal_code)) {
+    if (!/^\d{4}$/.test(String(address.postal_code ?? "").trim())) {
         errors.postal_code = "Enter a four-digit postal code.";
     }
 

@@ -172,6 +172,11 @@ class AppTheme {
           labelStyle: const TextStyle(color: AppColors.textSecondary),
           hintStyle: const TextStyle(color: AppColors.textSubtle),
         ),
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: AppColors.primary,
+          selectionColor: AppColors.floralPink,
+          selectionHandleColor: AppColors.primary,
+        ),
         cardTheme: CardThemeData(
           color: AppColors.surface,
           surfaceTintColor: Colors.transparent,

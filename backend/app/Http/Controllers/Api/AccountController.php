@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Address;
 use App\Models\User;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -102,6 +103,22 @@ class AccountController extends Controller
         ]);
     }
 
+    public function addressOptions(Request $request)
+    {
+        $validated = $request->validate([
+            'path' => [
+                'required',
+                'string',
+                'regex:/\Aregions(?:\/\d{10}(?:\/provinces(?:\/\d{10}(?:\/cities-municipalities(?:\/\d{10}\/barangays)?)?)?)?)?\z/',
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->psgcOptions($validated['path']),
+        ]);
+    }
+
     public function storeAddress(Request $request)
     {
         $this->ensureAddressBookSchema();
@@ -185,11 +202,11 @@ class AccountController extends Controller
             'province' => ['required', 'string', 'max:100'],
             'municipality' => ['required', 'string', 'max:100'],
             'barangay' => ['required', 'string', 'max:100'],
-            'street' => ['nullable', 'string', 'max:100'],
-            'house_number' => ['nullable', 'string', 'max:20'],
+            'street' => ['required', 'string', 'max:100'],
+            'house_number' => ['required', 'string', 'max:20'],
             'building_name' => ['nullable', 'string', 'max:80'],
             'unit_number' => ['nullable', 'string', 'max:30'],
-            'postal_code' => ['nullable', 'string', 'regex:/^[0-9]{4}$/'],
+            'postal_code' => ['required', 'string', 'regex:/^[0-9]{4}$/'],
         ]);
 
         $phone = preg_replace('/[\s()-]/u', '', $validated['phone']);
@@ -287,7 +304,11 @@ class AccountController extends Controller
     private function psgcOptions(string $path): array
     {
         return Cache::remember('psgc:'.$path, now()->addDay(), function () use ($path) {
-            $response = Http::timeout(5)->get('https://psgc.cloud/api/v2/'.$path);
+            try {
+                $response = Http::timeout(5)->get('https://psgc.cloud/api/v2/'.$path);
+            } catch (ConnectionException) {
+                abort(503, 'Philippine address options are temporarily unavailable. Please try again.');
+            }
             $options = $response->json('data');
 
             if (!$response->successful() || !is_array($options)) {

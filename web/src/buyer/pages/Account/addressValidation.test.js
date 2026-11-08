@@ -36,3 +36,16 @@ test("address validation rejects blank required values, invalid mobile and over-
     assert.ok(errors.region);
     assert.ok(errors.street);
 });
+
+test("address validation requires house number, street, and a four-digit postal code", () => {
+    const errors = validateBuyerAddress({
+        ...validAddress,
+        house_number: " ",
+        street: "",
+        postal_code: "",
+    });
+
+    assert.ok(errors.house_number);
+    assert.ok(errors.street);
+    assert.ok(errors.postal_code);
+});

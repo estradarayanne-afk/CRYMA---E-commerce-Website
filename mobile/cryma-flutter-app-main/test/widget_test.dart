@@ -276,11 +276,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final label in ['Home', 'Browse', 'Cart', 'Orders', 'Account']) {
+    for (final label in ['Home', 'Activity', 'Orders', 'Account']) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('Cart'), findsNothing);
 
-    await tester.tap(find.text('Browse'));
+    await tester.tap(find.text('Activity'));
     await tester.pumpAndSettle();
 
     expect(selectedIndex, 1);
@@ -316,19 +317,22 @@ void main() {
         routes: {
           '/': (_) => const Scaffold(body: Text('Root')),
           '/home': (_) => tabPage('Home page', 0),
-          '/categories': (_) => tabPage('Categories page', 1),
-          '/cart': (_) => tabPage('Cart page', 2),
-          '/my_orders': (_) => tabPage('Orders page', 3),
-          '/account': (_) => tabPage('Account page', 4),
+          '/notification': (_) => tabPage('Activity page', 1),
+          '/my_orders': (_) => tabPage('Orders page', 2),
+          '/account': (_) => tabPage('Account page', 3),
         },
       ),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Browse'));
+    await tester.tap(find.text('Activity'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cart'));
+    expect(find.text('Activity page'), findsOneWidget);
+
+    await tester.tap(find.text('Orders'));
     await tester.pumpAndSettle();
+    expect(find.text('Orders page'), findsOneWidget);
+
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
 

@@ -11,6 +11,7 @@ class Voucher extends Model
     protected $fillable = [
         'code',
         'seller_id',
+        'scope',
         'description',
         'discount_type',
         'discount_value',

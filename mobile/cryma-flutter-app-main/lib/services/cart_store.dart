@@ -31,11 +31,13 @@ class CartStore {
     return decoded.whereType<Map<String, dynamic>>().toList();
   }
 
-  Future<void> add(Map<String, dynamic> item) async {
+  Future<bool> add(Map<String, dynamic> item) async {
     final current = await items();
     final productId = (item['product_id'] ?? item['id']).toString();
     final variantId = item['variant_id']?.toString();
     final key = '$productId|${variantId ?? 'base'}';
+    final availableStock = int.tryParse(item['stock']?.toString() ?? '');
+    if (availableStock != null && availableStock < 1) return false;
     final existingIndex = current.indexWhere(
       (currentItem) =>
           currentItem['cart_key'] ==
@@ -43,19 +45,32 @@ class CartStore {
               '${currentItem['variant_id']?.toString() ?? 'base'}',
     );
     if (existingIndex == -1) {
+      final quantity = int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
       current.add({
         ...item,
         'product_id': productId,
         'cart_key': key,
-        'quantity': item['quantity'] ?? 1,
+        'quantity': availableStock == null
+            ? quantity.clamp(1, 99)
+            : quantity.clamp(1, availableStock),
         'selected': true,
       });
     } else {
-      current[existingIndex]['quantity'] =
-          (current[existingIndex]['quantity'] as int? ?? 1) +
-              (item['quantity'] as int? ?? 1);
+      final currentQuantity =
+          int.tryParse(current[existingIndex]['quantity']?.toString() ?? '') ??
+              1;
+      final addedQuantity =
+          int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
+      final requested = currentQuantity + addedQuantity;
+      current[existingIndex]['quantity'] = availableStock == null
+          ? requested.clamp(1, 99)
+          : requested.clamp(1, availableStock);
+      if (availableStock != null) {
+        current[existingIndex]['stock'] = availableStock;
+      }
     }
     await _save(current);
+    return true;
   }
 
   Future<void> save(List<Map<String, dynamic>> items) => _save(items);

@@ -178,6 +178,30 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getCachedBuyerProfile() async {
+    final preferences = await SharedPreferences.getInstance();
+    final rawUser = preferences.getString(_userKey);
+    if (rawUser == null) {
+      throw const ApiException(
+        'Buyer profile details are unavailable. Please sign in again.',
+      );
+    }
+
+    try {
+      final decoded = jsonDecode(rawUser);
+      if (decoded is Map<String, dynamic> && decoded['role'] == 'buyer') {
+        return decoded;
+      }
+    } on FormatException {
+      throw const ApiException(
+        'Saved buyer profile details are invalid. Please sign in again.',
+      );
+    }
+    throw const ApiException(
+      'Buyer profile details are unavailable. Please sign in again.',
+    );
+  }
+
   Future<Map<String, dynamic>> getCurrentPolicies() async {
     final response = await get('/api/policies/current');
     final data = response['data'];
@@ -435,6 +459,21 @@ class ApiService {
     final rows = response['data'];
     if (response['success'] != true || rows is! List) {
       throw const ApiException('The server returned an invalid address list.');
+    }
+    return rows.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getBuyerAddressOptions(String path) async {
+    final response = await get(
+      '/api/buyer/address-options',
+      query: {'path': path},
+      authenticated: true,
+    );
+    final rows = response['data'];
+    if (response['success'] != true || rows is! List) {
+      throw const ApiException(
+        'The server returned invalid Philippine address options.',
+      );
     }
     return rows.whereType<Map<String, dynamic>>().toList();
   }

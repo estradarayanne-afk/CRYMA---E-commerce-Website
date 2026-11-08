@@ -5,14 +5,22 @@ import '../../services/api_service.dart';
 import '../../utils/colors.dart';
 
 class VoucherSelectionScreen extends StatefulWidget {
-  const VoucherSelectionScreen({super.key, required this.items});
+  const VoucherSelectionScreen({
+    super.key,
+    required this.items,
+    this.apiService,
+  });
+
   final List<Map<String, dynamic>> items;
+  final ApiService? apiService;
 
   @override
   State<VoucherSelectionScreen> createState() => _VoucherSelectionScreenState();
 }
 
 class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
+  ApiService get _api => widget.apiService ?? ApiService.instance;
+
   final _codeController = TextEditingController();
   List<BuyerVoucher> _vouchers = [];
   String? _selectedCode;
@@ -33,9 +41,12 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final rows = await ApiService.instance.getBuyerVouchers();
+      final rows = await _api.getBuyerVouchers();
       if (!mounted) return;
       setState(() {
         _vouchers = rows
@@ -45,7 +56,12 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
         _loading = false;
       });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString(); _loading = false; });
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -56,9 +72,12 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
       return;
     }
     if (_validating) return;
-    setState(() { _validating = true; _error = null; });
+    setState(() {
+      _validating = true;
+      _error = null;
+    });
     try {
-      final data = await ApiService.instance.validateBuyerVoucher(
+      final data = await _api.validateBuyerVoucher(
         code: trimmed,
         items: widget.items,
       );
@@ -73,7 +92,10 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Unable to validate this voucher. Please try again.');
+      if (mounted) {
+        setState(() =>
+            _error = 'Unable to validate this voucher. Please try again.');
+      }
     } finally {
       if (mounted) setState(() => _validating = false);
     }
@@ -134,8 +156,9 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
                 ),
                 const SizedBox(width: 10),
                 FilledButton(
-                  onPressed:
-                      _validating ? null : () => _validateAndApply(_codeController.text),
+                  onPressed: _validating
+                      ? null
+                      : () => _validateAndApply(_codeController.text),
                   child: _validating
                       ? const SizedBox(
                           width: 18,
@@ -160,7 +183,8 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.dangerSoft,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: AppColors.danger.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   _error!,
@@ -181,7 +205,8 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
                     ? const Center(
                         child: Padding(
                           padding: EdgeInsets.all(28),
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
                             Icon(Icons.local_offer_outlined,
                                 size: 46, color: AppColors.primary),
                             SizedBox(height: 14),
@@ -317,7 +342,8 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
                                               fontFamily: 'Poppins',
                                               fontSize: 11,
                                               color: expiry.contains('today') ||
-                                                      expiry.contains('tomorrow')
+                                                      expiry
+                                                          .contains('tomorrow')
                                                   ? AppColors.warning
                                                   : AppColors.textSubtle,
                                               fontWeight: FontWeight.w600,
@@ -358,8 +384,8 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
             width: double.infinity,
             child: FilledButton(
               onPressed: hasInput && !_validating
-                  ? () => _validateAndApply(
-                      _selectedCode ?? _codeController.text)
+                  ? () =>
+                      _validateAndApply(_selectedCode ?? _codeController.text)
                   : null,
               style: FilledButton.styleFrom(
                 shape: RoundedRectangleBorder(

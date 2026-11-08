@@ -1,4 +1,5 @@
 import PhilippineAddressFields from "../../auth/components/PhilippineAddressFields";
+import { getPhilPostPostalCode } from "../../auth/utils/postalCode";
 import "./BuyerAddressForm.css";
 
 const detailFields = [
@@ -41,8 +42,8 @@ function BuyerAddressForm({ address, errors = {}, onChange, disabled = false, sh
         <div className="buyer-address-form-grid">
             {detailFields.map(({ name, label, maxLength }) => (
                 <label key={name}>
-                    {label}{name === "street" ? "" : " (optional)"}
-                    <input value={address[name]} onChange={(event) => update(name, event.target.value)} maxLength={maxLength} disabled={disabled} />
+                    {label}{name === "house_number" || name === "street" ? " *" : " (optional)"}
+                    <input value={address[name]} onChange={(event) => update(name, event.target.value)} maxLength={maxLength} disabled={disabled} required={name === "house_number" || name === "street"} />
                     {errors[name] && <small className="buyer-address-field-error">{errors[name]}</small>}
                 </label>
             ))}
@@ -70,7 +71,7 @@ function BuyerAddressForm({ address, errors = {}, onChange, disabled = false, sh
             />
 
             <label className="buyer-address-postal">
-                Postal code (optional)
+                Postal code *
                 <input
                     inputMode="numeric"
                     maxLength={4}
@@ -78,7 +79,16 @@ function BuyerAddressForm({ address, errors = {}, onChange, disabled = false, sh
                     value={address.postal_code}
                     onChange={(event) => update("postal_code", event.target.value)}
                     disabled={disabled}
+                    readOnly={Boolean(address.postal_code) && getPhilPostPostalCode(address.province, address.municipality) === address.postal_code}
+                    required
                 />
+                <small className="buyer-address-readonly-note">
+                    {address.postal_code && getPhilPostPostalCode(address.province, address.municipality) === address.postal_code
+                        ? "Generated from the selected locality."
+                        : address.municipality
+                          ? "No verified code is available for this locality. Enter the correct four-digit postal code."
+                          : "Select a city / municipality to generate a postal code."}
+                </small>
                 {errors.postal_code && <small className="buyer-address-field-error">{errors.postal_code}</small>}
             </label>
 

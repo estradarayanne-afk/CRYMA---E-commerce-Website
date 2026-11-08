@@ -1331,28 +1331,32 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                     itemBuilder: (context, index) {
                       final option = options[index];
                       final isSelected = option == widget.selectedValue;
-                      return ListTile(
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 6),
-                        title: Text(
-                          option,
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.darkGray,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w400,
-                            fontFamily: 'Poppins',
+                      return Material(
+                        color: Colors.transparent,
+                        child: ListTile(
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 6),
+                          title: Text(
+                            option,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.darkGray,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              fontFamily: 'Poppins',
+                            ),
                           ),
+                          trailing: Icon(
+                            isSelected
+                                ? Icons.check_circle_rounded
+                                : Icons.chevron_right_rounded,
+                            color:
+                                isSelected ? AppColors.primary : AppColors.gray,
+                          ),
+                          onTap: () => Navigator.pop(context, option),
                         ),
-                        trailing: Icon(
-                          isSelected
-                              ? Icons.check_circle_rounded
-                              : Icons.chevron_right_rounded,
-                          color:
-                              isSelected ? AppColors.primary : AppColors.gray,
-                        ),
-                        onTap: () => Navigator.pop(context, option),
                       );
                     },
                   ),

@@ -7,6 +7,25 @@ import '../../utils/colors.dart';
 import '../../widgets/buyer_auth_guard.dart';
 import '../../widgets/product_card.dart';
 
+class _SearchFieldSelectionControls extends MaterialTextSelectionControls {
+  _SearchFieldSelectionControls();
+
+  @override
+  Widget buildHandle(
+    BuildContext context,
+    TextSelectionHandleType type,
+    double textLineHeight, [
+    VoidCallback? onTap,
+  ]) {
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Size getHandleSize(double textLineHeight) => Size.zero;
+}
+
+final _searchFieldSelectionControls = _SearchFieldSelectionControls();
+
 class SearchResultsScreen extends StatefulWidget {
   const SearchResultsScreen({
     super.key,
@@ -35,6 +54,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   int _page = 1;
   int _lastPage = 1;
   int _totalResults = 0;
+  late final TextEditingController _searchController;
+  final FocusNode _searchFocusNode = FocusNode();
+  String _searchQuery = '';
   final Set<String> _favoriteIds = {};
   String? _error;
 
@@ -43,6 +65,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   @override
   void initState() {
     super.initState();
+    _searchQuery = widget.searchQuery ?? '';
+    _searchController = TextEditingController(text: _searchQuery);
     _selectedCategory = widget.category;
     _scrollController = ScrollController()..addListener(_onScroll);
     _loadFavorites();
@@ -52,7 +76,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitSearch(String value) async {
+    final query = value.trim();
+    _searchFocusNode.unfocus();
+    if (query == _searchQuery) return;
+    setState(() => _searchQuery = query);
+    await _loadResults();
   }
 
   void _onScroll() {
@@ -65,6 +99,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _loadFavorites() async {
+    if (!await hasBuyerSession()) {
+      if (mounted) setState(_favoriteIds.clear);
+      return;
+    }
     final ids = await FavoritesStore.instance.getIds();
     if (mounted) {
       setState(() {
@@ -105,7 +143,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     });
     try {
       final page = await ApiService.instance.getProductsPage(
-        search: widget.searchQuery,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
         category: _selectedCategory,
         minPrice: _minPrice,
         maxPrice: _maxPrice,
@@ -141,8 +179,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _showFilters() async {
-    final minCtrl = TextEditingController(text: _minPrice?.toString() ?? '');
-    final maxCtrl = TextEditingController(text: _maxPrice?.toString() ?? '');
+    final initialMin = _minPrice?.toString() ?? '';
+    final initialMax = _maxPrice?.toString() ?? '';
+    var minInput = initialMin;
+    var maxInput = initialMax;
+    var priceFieldsVersion = 0;
     var category =
         _categoryOptions.contains(_selectedCategory) ? _selectedCategory! : '';
     var inStock = _inStockOnly;
@@ -283,12 +324,16 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           children: [
                             Expanded(
                               child: TextFormField(
-                                controller: minCtrl,
+                                key: ValueKey(
+                                    'minimum-price-$priceFieldsVersion'),
+                                initialValue:
+                                    priceFieldsVersion == 0 ? initialMin : '',
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                   decimal: true,
                                 ),
                                 textInputAction: TextInputAction.next,
+                                onSaved: (value) => minInput = value ?? '',
                                 onChanged: (_) =>
                                     setLocal(() => priceRangeError = null),
                                 validator: _validatePrice,
@@ -301,12 +346,16 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextFormField(
-                                controller: maxCtrl,
+                                key: ValueKey(
+                                    'maximum-price-$priceFieldsVersion'),
+                                initialValue:
+                                    priceFieldsVersion == 0 ? initialMax : '',
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                   decimal: true,
                                 ),
                                 textInputAction: TextInputAction.done,
+                                onSaved: (value) => maxInput = value ?? '',
                                 onChanged: (_) =>
                                     setLocal(() => priceRangeError = null),
                                 validator: _validatePrice,
@@ -330,13 +379,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           ),
                         ],
                         const SizedBox(height: 22),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
+                        Material(
+                          color: AppColors.white,
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.borderNeutral),
+                            side: const BorderSide(
+                                color: AppColors.borderNeutral),
                           ),
                           child: SwitchListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             value: inStock,
                             onChanged: (value) =>
                                 setLocal(() => inStock = value),
@@ -375,9 +428,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          minCtrl.clear();
-                          maxCtrl.clear();
                           setLocal(() {
+                            priceFieldsVersion++;
+                            minInput = '';
+                            maxInput = '';
                             category = '';
                             inStock = false;
                             priceRangeError = null;
@@ -390,8 +444,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         child: FilledButton.icon(
                           onPressed: () {
                             if (!formKey.currentState!.validate()) return;
-                            final min = double.tryParse(minCtrl.text.trim());
-                            final max = double.tryParse(maxCtrl.text.trim());
+                            formKey.currentState!.save();
+                            final min = double.tryParse(minInput.trim());
+                            final max = double.tryParse(maxInput.trim());
                             if (min != null && max != null && min > max) {
                               setLocal(() {
                                 priceRangeError =
@@ -401,8 +456,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                             }
                             Navigator.pop(context, <String, Object?>{
                               'category': category,
-                              'min': minCtrl.text,
-                              'max': maxCtrl.text,
+                              'min': minInput,
+                              'max': maxInput,
                               'stock': inStock,
                             });
                           },
@@ -420,8 +475,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       ),
     );
 
-    minCtrl.dispose();
-    maxCtrl.dispose();
     if (values == null || !mounted) return;
 
     final min = double.tryParse((values['min'] as String).trim());
@@ -523,56 +576,66 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Container(
-                      height: 52,
-                      padding: const EdgeInsets.symmetric(horizontal: 11),
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: AppColors.white,
-                        borderRadius: BorderRadius.circular(27),
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: AppColors.borderNeutral.withValues(alpha: 0.8),
+                          color: AppColors.borderNeutral,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.wine.withValues(alpha: 0.07),
-                            blurRadius: 18,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: const BoxDecoration(
-                              color: AppColors.softRose,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.search_rounded,
-                              size: 19,
-                              color: AppColors.primary,
-                            ),
+                          const Icon(
+                            Icons.search_rounded,
+                            size: 19,
+                            color: AppColors.primary,
                           ),
                           const SizedBox(width: 9),
                           Expanded(
-                            child: Text(
-                              widget.category ??
-                                  (widget.searchQuery?.isNotEmpty == true
-                                      ? widget.searchQuery!
-                                      : 'Search products…'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                            child: TextField(
+                              key: const Key('buyer-results-search-field'),
+                              controller: _searchController,
+                              focusNode: _searchFocusNode,
+                              textInputAction: TextInputAction.search,
+                              onChanged: (_) => setState(() {}),
+                              onSubmitted: _submitSearch,
+                              cursorColor: AppColors.primary,
+                              selectionControls: _searchFieldSelectionControls,
+                              style: const TextStyle(
                                 fontFamily: 'Poppins',
                                 fontSize: 14,
-                                color: widget.category != null ||
-                                        widget.searchQuery?.isNotEmpty == true
-                                    ? AppColors.darkGray
-                                    : AppColors.textSubtle,
+                                color: AppColors.darkGray,
+                              ),
+                              decoration: const InputDecoration.collapsed(
+                                hintText: 'Search products…',
+                                hintStyle: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 14,
+                                  color: AppColors.textSubtle,
+                                ),
                               ),
                             ),
                           ),
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
+                              tooltip: 'Clear search',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 28,
+                                height: 32,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                _submitSearch('');
+                              },
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                              ),
+                              color: AppColors.gray,
+                            ),
                         ],
                       ),
                     ),
