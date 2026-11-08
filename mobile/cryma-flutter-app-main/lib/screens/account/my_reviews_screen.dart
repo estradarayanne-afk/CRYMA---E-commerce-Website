@@ -3,13 +3,17 @@ import '../../services/api_service.dart';
 import '../../utils/colors.dart';
 
 class MyReviewsScreen extends StatefulWidget {
-  const MyReviewsScreen({super.key});
+  const MyReviewsScreen({super.key, this.apiService});
+
+  final ApiService? apiService;
 
   @override
   State<MyReviewsScreen> createState() => _MyReviewsScreenState();
 }
 
 class _MyReviewsScreenState extends State<MyReviewsScreen> {
+  ApiService get _api => widget.apiService ?? ApiService.instance;
+
   List<Map<String, dynamic>> _orders = [];
   bool _loading = true;
   String? _error;
@@ -21,35 +25,69 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final page = await ApiService.instance.getBuyerOrdersPage(
+      final page = await _api.getBuyerOrdersPage(
         status: 'completed',
         sort: 'newest',
       );
       if (!mounted) return;
-      setState(() { _orders = page.items; _loading = false; });
+      setState(() {
+        _orders = page.items;
+        _loading = false;
+      });
     } catch (error) {
       if (!mounted) return;
-      setState(() { _error = error.toString(); _loading = false; });
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
     }
   }
 
   String _fmt(dynamic value) {
     final n = double.tryParse(value?.toString() ?? '') ?? 0;
-    final s = n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(2);
+    final s =
+        n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(2);
     return '₱${s.replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('My Reviews'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.primary,
+        toolbarHeight: 72,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('My Reviews'),
+            SizedBox(height: 2),
+            Text(
+              'Share your experience with completed orders.',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textSubtle,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.wine,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: const TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          color: AppColors.wine,
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -67,7 +105,8 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                               color: AppColors.textSecondary,
                               fontFamily: 'Poppins')),
                       const SizedBox(height: 14),
-                      FilledButton(onPressed: _load, child: const Text('Retry')),
+                      FilledButton(
+                          onPressed: _load, child: const Text('Retry')),
                     ]),
                   ),
                 )
@@ -75,7 +114,8 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.all(32),
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
                           Icon(Icons.rate_review_outlined,
                               size: 52, color: AppColors.primary),
                           SizedBox(height: 16),
@@ -127,10 +167,9 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                               itemBuilder: (context, index) {
                                 final order = _orders[index];
                                 final id = order['id'].toString();
-                                final items =
-                                    (order['items'] as List? ?? [])
-                                        .whereType<Map<String, dynamic>>()
-                                        .toList();
+                                final items = (order['items'] as List? ?? [])
+                                    .whereType<Map<String, dynamic>>()
+                                    .toList();
                                 final firstProduct = items.isNotEmpty
                                     ? items.first['product']
                                         as Map<String, dynamic>?
@@ -145,12 +184,18 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 10),
                                   child: Material(
-                                    color: AppColors.surface,
-                                    borderRadius: BorderRadius.circular(14),
+                                    color: AppColors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      side: const BorderSide(
+                                        color: AppColors.borderNeutral,
+                                      ),
+                                    ),
                                     clipBehavior: Clip.antiAlias,
                                     child: InkWell(
                                       onTap: () => Navigator.pushNamed(
-                                        context, '/rate_feedback',
+                                        context,
+                                        '/rate_feedback',
                                         arguments: id,
                                       ),
                                       child: Padding(
@@ -159,12 +204,12 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                                         child: Row(
                                           children: [
                                             Container(
-                                              width: 44,
-                                              height: 44,
+                                              width: 48,
+                                              height: 48,
                                               decoration: BoxDecoration(
                                                 color: AppColors.softRose,
                                                 borderRadius:
-                                                    BorderRadius.circular(12),
+                                                    BorderRadius.circular(14),
                                               ),
                                               child: const Icon(
                                                 Icons.star_outline_rounded,
@@ -186,7 +231,7 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                                                     style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
-                                                      fontSize: 14,
+                                                      fontSize: 13,
                                                       fontFamily: 'Poppins',
                                                       color: AppColors.darkGray,
                                                       height: 1.3,
@@ -197,15 +242,18 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                                                     'Order #$id · ${_fmt(order['total_amount'])}',
                                                     style: const TextStyle(
                                                       fontFamily: 'Poppins',
-                                                      fontSize: 12,
-                                                      color: AppColors.gray,
+                                                      fontSize: 11,
+                                                      color:
+                                                          AppColors.textSubtle,
                                                     ),
                                                   ),
                                                 ],
                                               ),
                                             ),
-                                            const Icon(Icons.chevron_right_rounded,
-                                                color: AppColors.gray, size: 20),
+                                            const Icon(
+                                                Icons.chevron_right_rounded,
+                                                color: AppColors.gray,
+                                                size: 20),
                                           ],
                                         ),
                                       ),
