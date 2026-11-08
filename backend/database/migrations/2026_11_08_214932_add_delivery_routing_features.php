@@ -25,6 +25,10 @@ return new class extends Migration
             $table->timestamp('last_activity_at')
                 ->nullable()
                 ->after('is_online');
+            $table->timestamp('came_online_at')
+                ->nullable()
+                ->after('last_activity_at')
+                ->comment('Tracks when rider came online for FIFO queue assignment');
         });
 
         // Create delivery_requests table
@@ -58,7 +62,7 @@ return new class extends Migration
         Schema::dropIfExists('delivery_requests');
 
         Schema::table('users', function (Blueprint $table): void {
-            $table->dropColumn(['is_online', 'last_activity_at']);
+            $table->dropColumn(['is_online', 'last_activity_at', 'came_online_at']);
         });
 
         Schema::table('deliveries', function (Blueprint $table): void {

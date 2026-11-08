@@ -241,13 +241,13 @@ class DeliveryController extends Controller
             // Mark this delivery request as rejected
             $deliveryRequest->update(['status' => 'rejected']);
             
-            // Find next online rider in queue (ordered by is_online DESC, last_activity_at DESC)
+            // Find next online rider in queue (ordered by came_online_at ASC for FIFO)
             $nextRider = User::where('role', 'rider')
                 ->where('status', 'active')
                 ->where('email_verified_at', '!=', null)
                 ->where('id', '!=', $request->user()->id)
                 ->where('is_online', 1)
-                ->orderBy('last_activity_at', 'desc')
+                ->orderBy('came_online_at', 'asc')
                 ->first();
             
             $reassignedToRiderId = null;
@@ -311,10 +311,19 @@ class DeliveryController extends Controller
 
         $isOnline = (int) $validated['is_online'];
         
-        $request->user()->update([
+        $updateData = [
             'is_online' => $isOnline,
             'last_activity_at' => now(),
-        ]);
+        ];
+        
+        // When going online, set came_online_at. When going offline, clear it.
+        if ($isOnline === 1) {
+            $updateData['came_online_at'] = now();
+        } else {
+            $updateData['came_online_at'] = null;
+        }
+        
+        $request->user()->update($updateData);
 
         return response()->json([
             'success' => true,

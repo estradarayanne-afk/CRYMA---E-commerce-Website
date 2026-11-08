@@ -49,13 +49,13 @@ class CheckExpiredDeliveryRequests implements ShouldQueue
                     return; // Delivery already handled
                 }
 
-                // Find next online rider in queue
+                // Find next online rider in queue (ordered by came_online_at ASC for FIFO)
                 $nextRider = User::where('role', 'rider')
                     ->where('status', 'active')
                     ->where('email_verified_at', '!=', null)
                     ->where('id', '!=', $request->rider_id)
                     ->where('is_online', 1)
-                    ->orderBy('last_activity_at', 'desc')
+                    ->orderBy('came_online_at', 'asc')
                     ->first();
 
                 if ($nextRider) {
