@@ -94,7 +94,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     icon: Icon(
                       _user == null
                           ? Icons.login_rounded
-                          : Icons.chat_bubble_outline,
+                          : Icons.forum_outlined,
                       color: AppColors.darkGray,
                     ),
                   ),
@@ -126,8 +126,6 @@ class _AccountScreenState extends State<AccountScreen> {
                                 'Address Book', '/address_book'),
                             _MenuItem(Icons.wallet_outlined, 'Payment Methods',
                                 '/payment_methods'),
-                            _MenuItem(Icons.key_outlined, 'Change Password',
-                                '/change_password'),
                             _MenuItem(Icons.shield_outlined,
                                 'Security Settings', '/security_settings'),
                           ]),

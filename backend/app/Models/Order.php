@@ -23,6 +23,9 @@ class Order extends Model
         'voucher_id',
         'voucher_code',
         'voucher_discount',
+        'shipping_voucher_id',
+        'shipping_voucher_code',
+        'shipping_voucher_discount',
         'status',
         'checkout_idempotency_key',
         'checkout_request_hash',
@@ -45,9 +48,9 @@ class Order extends Model
 
     public function codCollection(): HasOne { return $this->hasOne(CodCollection::class); }
 
-    public function voucherRedemption()
+    public function voucherRedemptions(): HasMany
     {
-        return $this->hasOne(VoucherRedemption::class);
+        return $this->hasMany(VoucherRedemption::class);
     }
 
     public function delivery(): HasOne

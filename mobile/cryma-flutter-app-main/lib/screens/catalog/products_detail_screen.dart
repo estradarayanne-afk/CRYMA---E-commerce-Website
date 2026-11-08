@@ -177,7 +177,9 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
         }
         _isLoading = false;
       });
-      _isFavorite = await FavoritesStore.instance.contains(widget.productId!);
+      if (await hasBuyerSession()) {
+        _isFavorite = await FavoritesStore.instance.contains(widget.productId!);
+      }
       if (mounted) setState(() {});
       await _loadProductReviews();
     } catch (error) {
@@ -540,14 +542,21 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       'name': _product['name'],
       'price': variantPrice?.toString() ?? _product['price'],
       'quantity': _quantity,
+      'stock': _currentStock,
       'image': _selectedImage,
       'seller': _product['seller'],
       'color': _selectedColor,
       'selected': true,
     };
     if (_selectedVariantId != null) item['variant_id'] = _selectedVariantId;
-    await CartStore.instance.add(item);
+    final added = await CartStore.instance.add(item);
     if (!mounted) return;
+    if (!added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This product is out of stock.')),
+      );
+      return;
+    }
     if (openCheckout) {
       Navigator.pushNamed(context, '/checkout');
       return;

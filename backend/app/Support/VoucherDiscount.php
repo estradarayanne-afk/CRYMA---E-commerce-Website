@@ -14,15 +14,14 @@ class VoucherDiscount
      */
     public function calculate(Voucher $voucher, array $items, int $buyerId): array
     {
+        $this->assertAvailable($voucher, $buyerId);
+        if ($voucher->scope !== 'product') {
+            $this->reject('This is a shipping voucher. Apply it to the shipping fee instead.');
+        }
+
         $discountValueCents = $this->toCents((string) $voucher->discount_value);
         if ($discountValueCents <= 0 || ($voucher->discount_type === 'percentage' && $discountValueCents > 10000)) {
             $this->reject('This voucher has an invalid discount configuration.');
-        }
-        if (!$voucher->is_active) {
-            $this->reject('This voucher is not active.');
-        }
-        if (!$voucher->claims()->where('buyer_id', $buyerId)->exists()) {
-            $this->reject('Claim this voucher before applying it to your order.');
         }
         if ($voucher->seller_id !== null) {
             $sellerIds = collect($items)->map(fn (array $item) => (int) $item[0]->seller_id)->unique();
@@ -30,21 +29,6 @@ class VoucherDiscount
                 $this->reject('This voucher is only valid for products from the seller who created it.');
             }
         }
-        if ($voucher->starts_at && $voucher->starts_at->isFuture()) {
-            $this->reject('This voucher is not available yet.');
-        }
-        if ($voucher->expires_at && $voucher->expires_at->isPast()) {
-            $this->reject('This voucher has expired.');
-        }
-
-        $redeemedCount = $voucher->redemptions()->count();
-        if ($voucher->usage_limit !== null && $redeemedCount >= $voucher->usage_limit) {
-            $this->reject('This voucher has reached its usage limit.');
-        }
-        if ($voucher->redemptions()->where('buyer_id', $buyerId)->count() >= $voucher->per_buyer_limit) {
-            $this->reject('You have already used this voucher the maximum number of times.');
-        }
-
         $eligibleSubtotalCents = $this->eligibleSubtotal($voucher, $items);
         if ($eligibleSubtotalCents <= 0) {
             $this->reject('This voucher does not apply to the selected products.');
@@ -78,6 +62,75 @@ class VoucherDiscount
             'eligible_subtotal_cents' => $eligibleSubtotalCents,
             'discount_cents' => $discountCents,
         ];
+    }
+
+    public function calculateShipping(
+        Voucher $voucher,
+        int $shippingFeeCents,
+        int $orderSubtotalCents,
+        int $buyerId
+    ): array {
+        $this->assertAvailable($voucher, $buyerId);
+        if ($voucher->scope !== 'shipping' || $voucher->seller_id !== null) {
+            $this->reject('This is not a platform shipping voucher.');
+        }
+        if ($voucher->product_ids || $voucher->categories) {
+            $this->reject('Shipping vouchers cannot be restricted to products or categories.');
+        }
+
+        $minimumSpendCents = $this->toCents((string) $voucher->minimum_spend);
+        if ($orderSubtotalCents < $minimumSpendCents) {
+            $this->reject('The order does not meet this shipping voucher’s minimum spend.');
+        }
+
+        $discountValueCents = $this->toCents((string) $voucher->discount_value);
+        if ($discountValueCents <= 0 || ($voucher->discount_type === 'percentage' && $discountValueCents > 10000)) {
+            $this->reject('This voucher has an invalid discount configuration.');
+        }
+
+        if ($voucher->discount_type === 'fixed') {
+            $discountCents = $discountValueCents;
+        } elseif ($voucher->discount_type === 'percentage') {
+            $discountCents = intdiv(($shippingFeeCents * $discountValueCents) + 5000, 10000);
+            if ($voucher->maximum_discount !== null) {
+                $discountCents = min($discountCents, $this->toCents((string) $voucher->maximum_discount));
+            }
+        } else {
+            $this->reject('This voucher has an unsupported discount type.');
+        }
+
+        $discountCents = min($shippingFeeCents, $discountCents);
+        if ($discountCents <= 0) {
+            $this->reject('This order has no shipping fee to discount.');
+        }
+
+        return [
+            'voucher' => $voucher,
+            'discount_cents' => $discountCents,
+        ];
+    }
+
+    private function assertAvailable(Voucher $voucher, int $buyerId): void
+    {
+        if (!$voucher->is_active) {
+            $this->reject('This voucher is not active.');
+        }
+        if (!$voucher->claims()->where('buyer_id', $buyerId)->exists()) {
+            $this->reject('Claim this voucher before applying it to your order.');
+        }
+        if ($voucher->starts_at && $voucher->starts_at->isFuture()) {
+            $this->reject('This voucher is not available yet.');
+        }
+        if ($voucher->expires_at && $voucher->expires_at->isPast()) {
+            $this->reject('This voucher has expired.');
+        }
+
+        if ($voucher->usage_limit !== null && $voucher->redemptions()->count() >= $voucher->usage_limit) {
+            $this->reject('This voucher has reached its usage limit.');
+        }
+        if ($voucher->redemptions()->where('buyer_id', $buyerId)->count() >= $voucher->per_buyer_limit) {
+            $this->reject('You have already used this voucher the maximum number of times.');
+        }
     }
 
     /**

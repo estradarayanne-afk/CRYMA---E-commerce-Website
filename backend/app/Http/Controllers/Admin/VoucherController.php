@@ -19,6 +19,7 @@ class VoucherController extends Controller
         $validated = $request->validate([
             'search' => ['sometimes', 'nullable', 'string', 'max:64'],
             'type' => ['sometimes', 'nullable', Rule::in(['all', 'fixed', 'percentage'])],
+            'scope' => ['sometimes', 'nullable', Rule::in(['all', 'product', 'shipping'])],
             'status' => ['sometimes', 'nullable', Rule::in(['all', 'active', 'inactive', 'upcoming', 'expired', 'exhausted'])],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
         ]);
@@ -37,6 +38,9 @@ class VoucherController extends Controller
 
         if (($validated['type'] ?? 'all') !== 'all') {
             $query->where('discount_type', $validated['type']);
+        }
+        if (($validated['scope'] ?? 'all') !== 'all') {
+            $query->where('scope', $validated['scope']);
         }
 
         $now = now();
@@ -110,6 +114,11 @@ class VoucherController extends Controller
     {
         $voucher = Voucher::findOrFail($id);
         $validated = $this->validatedVoucher($request, $voucher);
+        if ($voucher->scope !== $validated['scope'] && $voucher->redemptions()->exists()) {
+            throw ValidationException::withMessages([
+                'scope' => ['The voucher type cannot be changed after it has been redeemed.'],
+            ]);
+        }
 
         DB::transaction(function () use ($voucher, $validated) {
             $redemptions = $voucher->redemptions()->lockForUpdate();
@@ -163,6 +172,8 @@ class VoucherController extends Controller
         $requestData = $request->all();
         $requestData['code'] = mb_strtoupper(trim((string) ($requestData['code'] ?? '')));
         $isPercentage = ($requestData['discount_type'] ?? null) === 'percentage';
+        $scope = $requestData['scope'] ?? ($voucher?->scope ?? 'product');
+        $requestData['scope'] = $scope;
         $supportedCategories = Product::query()
             ->whereNotNull('category')
             ->distinct()
@@ -191,6 +202,7 @@ class VoucherController extends Controller
                 },
             ],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'scope' => ['required', Rule::in(['product', 'shipping'])],
             'discount_type' => ['required', Rule::in(['fixed', 'percentage'])],
             'discount_value' => ['required', 'numeric', 'decimal:0,2', 'gt:0', $isPercentage ? 'max:100' : 'max:9999999999.99'],
             'minimum_spend' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
@@ -207,6 +219,11 @@ class VoucherController extends Controller
         ]);
 
         $validator->after(function ($validator) use ($requestData) {
+            if (($requestData['scope'] ?? 'product') === 'shipping') {
+                if (!empty($requestData['product_ids'] ?? []) || !empty($requestData['categories'] ?? [])) {
+                    $validator->errors()->add('product_ids', 'Shipping vouchers cannot be restricted to products or categories.');
+                }
+            }
             if (
                 ($requestData['discount_type'] ?? null) === 'fixed'
                 && filled($requestData['maximum_discount'] ?? null)
@@ -240,8 +257,12 @@ class VoucherController extends Controller
         $validated['starts_at'] = $validated['starts_at'] ?? null;
         $validated['expires_at'] = $validated['expires_at'] ?? null;
         $validated['usage_limit'] = $validated['usage_limit'] ?? null;
-        $validated['product_ids'] = array_values(array_unique($validated['product_ids'] ?? []));
-        $validated['categories'] = array_values(array_unique(array_filter(
+        $validated['product_ids'] = $validated['scope'] === 'shipping'
+            ? null
+            : array_values(array_unique($validated['product_ids'] ?? []));
+        $validated['categories'] = $validated['scope'] === 'shipping'
+            ? null
+            : array_values(array_unique(array_filter(
             array_map(fn ($category) => trim($category), $validated['categories'] ?? []),
             fn ($category) => $category !== ''
         )));

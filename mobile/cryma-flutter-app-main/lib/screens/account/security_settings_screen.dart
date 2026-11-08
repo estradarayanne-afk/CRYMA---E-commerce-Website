@@ -62,11 +62,11 @@ class SecuritySettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           // Change password
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
+          Material(
+            color: AppColors.white,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.lightGray),
+              side: const BorderSide(color: AppColors.lightGray),
             ),
             child: ListTile(
               contentPadding:
@@ -95,8 +95,8 @@ class SecuritySettingsScreen extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 12, color: AppColors.gray, fontFamily: 'Poppins'),
               ),
-              trailing:
-                  const Icon(Icons.chevron_right, color: AppColors.gray, size: 18),
+              trailing: const Icon(Icons.chevron_right,
+                  color: AppColors.gray, size: 18),
               onTap: () => Navigator.pushNamed(context, '/change_password'),
             ),
           ),

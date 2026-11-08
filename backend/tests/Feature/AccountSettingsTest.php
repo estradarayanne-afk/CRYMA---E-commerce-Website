@@ -148,6 +148,50 @@ class AccountSettingsTest extends TestCase
         $this->assertDatabaseHas('addresses', ['id' => $otherAddress->id, 'user_id' => $otherBuyer->id]);
     }
 
+    public function test_buyer_can_load_only_supported_philippine_address_option_paths(): void
+    {
+        $this->fakePhilippineAddressSource();
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->getJson('/api/buyer/address-options?path=regions')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.name', 'Region VII');
+
+        $this->getJson(
+            '/api/buyer/address-options?path='.urlencode('regions/0700000000/provinces')
+        )
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Cebu');
+
+        $this->getJson(
+            '/api/buyer/address-options?path='.urlencode(
+                'regions/0700000000/provinces/0702200000/cities-municipalities'
+            )
+        )
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Carmen');
+
+        $this->getJson(
+            '/api/buyer/address-options?path='.urlencode(
+                'regions/0700000000/provinces/0702200000/cities-municipalities/0702215000/barangays'
+            )
+        )
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Luyang');
+
+        $this->getJson(
+            '/api/buyer/address-options?path='.urlencode('regions/070000000/provinces')
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['path']);
+
+        $this->getJson('/api/buyer/address-options?path=users')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['path']);
+    }
+
     public function test_address_api_requires_complete_valid_locality_fields(): void
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
@@ -159,6 +203,21 @@ class AccountSettingsTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['municipality', 'postal_code']);
+    }
+
+    public function test_address_api_requires_house_number_street_and_postal_code(): void
+    {
+        $this->fakePhilippineAddressSource();
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson('/api/buyer/addresses', $this->validAddressInput([
+                'house_number' => ' ',
+                'street' => '',
+                'postal_code' => '',
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['house_number', 'street', 'postal_code']);
     }
 
     public function test_buyer_can_change_default_address_and_deleting_it_promotes_another(): void
@@ -472,18 +531,18 @@ class AccountSettingsTest extends TestCase
         Cache::store('array')->flush();
         Http::fake([
             'psgc.cloud/api/v2/regions' => Http::response([
-                'data' => [['name' => 'Region VII', 'code' => '070000000']],
+                'data' => [['name' => 'Region VII', 'code' => '0700000000']],
             ]),
-            'psgc.cloud/api/v2/regions/070000000/provinces' => Http::response([
-                'data' => [['name' => 'Cebu', 'code' => '072200000']],
+            'psgc.cloud/api/v2/regions/0700000000/provinces' => Http::response([
+                'data' => [['name' => 'Cebu', 'code' => '0702200000']],
             ]),
-            'psgc.cloud/api/v2/regions/070000000/provinces/072200000/cities-municipalities' => Http::response([
-                'data' => [['name' => 'Carmen', 'code' => '072217000']],
+            'psgc.cloud/api/v2/regions/0700000000/provinces/0702200000/cities-municipalities' => Http::response([
+                'data' => [['name' => 'Carmen', 'code' => '0702215000']],
             ]),
-            'psgc.cloud/api/v2/regions/070000000/provinces/072200000/cities-municipalities/072217000/barangays' => Http::response([
+            'psgc.cloud/api/v2/regions/0700000000/provinces/0702200000/cities-municipalities/0702215000/barangays' => Http::response([
                 'data' => [
-                    ['name' => 'Luyang', 'code' => '072217001'],
-                    ['name' => 'Poblacion', 'code' => '072217002'],
+                    ['name' => 'Luyang', 'code' => '0702215015'],
+                    ['name' => 'Poblacion', 'code' => '0702215001'],
                 ],
             ]),
         ]);

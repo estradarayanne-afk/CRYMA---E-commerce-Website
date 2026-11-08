@@ -5,13 +5,17 @@ import '../../services/api_service.dart';
 import '../../utils/colors.dart';
 
 class AddressBookScreen extends StatefulWidget {
-  const AddressBookScreen({super.key});
+  const AddressBookScreen({super.key, this.apiService});
+
+  final ApiService? apiService;
 
   @override
   State<AddressBookScreen> createState() => _AddressBookScreenState();
 }
 
 class _AddressBookScreenState extends State<AddressBookScreen> {
+  ApiService get _api => widget.apiService ?? ApiService.instance;
+
   List<BuyerAddress> _addresses = [];
   bool _loading = true;
   bool _busy = false;
@@ -29,7 +33,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
       _error = null;
     });
     try {
-      final rows = await ApiService.instance.getBuyerAddresses();
+      final rows = await _api.getBuyerAddresses();
       final addresses = rows.map(BuyerAddress.fromJson).toList();
       if (!mounted) return;
       setState(() => _addresses = addresses);
@@ -69,7 +73,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
     if (_busy || address.isDefault) return;
     setState(() => _busy = true);
     try {
-      await ApiService.instance.setDefaultBuyerAddress(address.id);
+      await _api.setDefaultBuyerAddress(address.id);
       await _loadAddresses();
     } on ApiException catch (error) {
       if (mounted) _showMessage(error.message);
@@ -100,7 +104,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
     if (confirmed != true || _busy) return;
     setState(() => _busy = true);
     try {
-      await ApiService.instance.deleteBuyerAddress(address.id);
+      await _api.deleteBuyerAddress(address.id);
       await _loadAddresses();
       if (mounted) _showMessage('Address deleted.');
     } on ApiException catch (error) {
@@ -125,11 +129,38 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
         title: const Text('Address Book'),
         foregroundColor: AppColors.primary,
         backgroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Add new address',
+            onPressed: _busy ? null : () => _openForm(),
+            icon: const Icon(Icons.add_location_alt_outlined),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _LoadError(message: _error!, onRetry: _loadAddresses)
+              ? Column(
+                  children: [
+                    Expanded(
+                      child: _LoadError(
+                        message: _error!,
+                        onRetry: _loadAddresses,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _busy ? null : () => _openForm(),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add New Address'),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
               : _addresses.isEmpty
                   ? _EmptyAddresses(onAdd: () => _openForm())
                   : RefreshIndicator(
@@ -201,15 +232,18 @@ class _AddressCard extends StatelessWidget {
             if (address.isDefault)
               const Chip(
                   label: Text('Default'), visualDensity: VisualDensity.compact),
+            IconButton(
+              tooltip: 'Edit address',
+              onPressed: busy ? null : onEdit,
+              icon: const Icon(Icons.edit_outlined),
+            ),
             PopupMenuButton<String>(
               enabled: !busy,
               onSelected: (value) {
-                if (value == 'edit') onEdit();
                 if (value == 'delete') onDelete();
                 if (value == 'default') onDefault();
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit')),
                 if (!address.isDefault)
                   const PopupMenuItem(
                       value: 'default', child: Text('Set as default')),

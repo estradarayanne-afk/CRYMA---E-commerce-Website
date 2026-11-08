@@ -9,13 +9,17 @@ import '../../services/cart_store.dart';
 import '../../utils/colors.dart';
 
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key});
+  const CheckoutScreen({super.key, this.apiService});
+
+  final ApiService? apiService;
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  ApiService get _api => widget.apiService ?? ApiService.instance;
+
   List<Map<String, dynamic>> _cartItems = [];
   List<Map<String, dynamic>> _addresses = [];
   int? _addressId;
@@ -34,17 +38,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadCheckout() async {
-    if (mounted) setState(() { _loading = true; _error = null; });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final cartItems = await CartStore.instance.items();
-      final checkoutData = await ApiService.instance.getCheckoutData();
+      final checkoutData = await _api.getCheckoutData();
       final addresses = (checkoutData['addresses'] as List? ?? [])
-          .whereType<Map<String, dynamic>>().toList();
-      final selectedAddress = addresses.cast<Map<String, dynamic>?>().firstWhere(
-            (a) => a?['is_default'] == true,
-            orElse: () => addresses.isEmpty ? null : addresses.first,
-          );
-      final selectedItems = cartItems.where((i) => i['selected'] == true).toList();
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      final selectedAddress =
+          addresses.cast<Map<String, dynamic>?>().firstWhere(
+                (a) => a?['is_default'] == true,
+                orElse: () => addresses.isEmpty ? null : addresses.first,
+              );
+      final selectedItems =
+          cartItems.where((i) => i['selected'] == true).toList();
       final selectedAddressId =
           int.tryParse(selectedAddress?['id']?.toString() ?? '');
       final key = await _getOrCreateCheckoutKey(
@@ -59,7 +71,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() { _error = error.toString(); _loading = false; });
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -74,12 +89,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<String> _getOrCreateCheckoutKey(
       List<Map<String, dynamic>> items, int? addressId, String? voucher) async {
     final prefs = await SharedPreferences.getInstance();
-    final normalized = (items.map((item) => {
-          'product_id': item['product_id'] ?? item['id'],
-          'variant_id': item['variant_id'],
-          'quantity': item['quantity'],
-        }).toList()
-          ..sort((a, b) => a.toString().compareTo(b.toString())));
+    final normalized = (items
+        .map((item) => {
+              'product_id': item['product_id'] ?? item['id'],
+              'variant_id': item['variant_id'],
+              'quantity': item['quantity'],
+            })
+        .toList()
+      ..sort((a, b) => a.toString().compareTo(b.toString())));
     final fingerprint = '$addressId|${jsonEncode(normalized)}|${voucher ?? ''}';
     final existing = prefs.getString('cryma_pending_checkout');
     if (existing != null) {
@@ -116,17 +133,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       address['province'],
       address['region'],
       address['postal_code'],
+    ].where((p) => p != null && p.toString().trim().isNotEmpty).join(', ');
+  }
+
+  String _addressLocation(Map<String, dynamic> address) {
+    return [
+      address['house_number'],
+      address['building_name'],
+      address['unit_number'],
+      address['street'],
+      address['barangay'],
+      address['municipality'],
+      address['province'],
+      address['region'],
+      address['postal_code'],
     ]
-        .where((p) => p != null && p.toString().trim().isNotEmpty)
+        .where((part) => part != null && part.toString().trim().isNotEmpty)
         .join(', ');
+  }
+
+  Map<String, dynamic>? get _selectedAddress {
+    for (final address in _addresses) {
+      if (int.tryParse(address['id']?.toString() ?? '') == _addressId) {
+        return address;
+      }
+    }
+    return null;
   }
 
   List<Map<String, dynamic>> _orderItems() => _cartItems.map((item) {
         final value = <String, dynamic>{
-          'product_id': int.parse((item['product_id'] ?? item['id']).toString()),
+          'product_id':
+              int.parse((item['product_id'] ?? item['id']).toString()),
           'quantity': item['quantity'] as int? ?? 1,
         };
-        if (item['variant_id'] != null) value['variant_id'] = item['variant_id'];
+        if (item['variant_id'] != null) {
+          value['variant_id'] = item['variant_id'];
+        }
         return value;
       }).toList();
 
@@ -152,7 +195,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     final validIds = _addresses
         .map((a) => int.tryParse(a['id']?.toString() ?? ''))
-        .whereType<int>().toSet();
+        .whereType<int>()
+        .toSet();
     if (!validIds.contains(_addressId)) {
       _snack('Choose a valid saved delivery address.');
       return;
@@ -170,7 +214,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final selectedAddress = _addresses
           .firstWhere((a) => int.tryParse(a['id'].toString()) == _addressId);
-      final result = await ApiService.instance.createOrder(
+      final result = await _api.createOrder(
         addressId: _addressId!,
         deliveryAddress: _addressLabel(selectedAddress),
         paymentMethod: _paymentMethod,
@@ -181,8 +225,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('cryma_pending_checkout');
       final existingItems = await CartStore.instance.items();
-      await CartStore.instance.save(
-          existingItems.where((i) => i['selected'] != true).toList());
+      await CartStore.instance
+          .save(existingItems.where((i) => i['selected'] != true).toList());
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -238,8 +282,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 16),
             _summaryRow('Subtotal', '₱${subtotal.toStringAsFixed(2)}'),
             if (discount > 0)
-              _summaryRow('Voucher discount',
-                  '−₱${discount.toStringAsFixed(2)}',
+              _summaryRow(
+                  'Voucher discount', '−₱${discount.toStringAsFixed(2)}',
                   valueColor: AppColors.success),
             const Divider(height: 20),
             _summaryRow(
@@ -521,9 +565,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     value: id,
                                     child: Text(
                                       lbl.isNotEmpty
-                                          ? '$lbl · ${_addressLabel(address)}'
+                                          ? '$lbl · ${address['recipient_name'] ?? ''}'
                                           : _addressLabel(address),
-                                      maxLines: 2,
+                                      maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                           fontFamily: 'Poppins', fontSize: 13),
@@ -535,6 +579,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   await _refreshCheckoutKey();
                                 },
                               ),
+                              if (_selectedAddress case final address?) ...[
+                                const SizedBox(height: 10),
+                                _selectedAddressCard(address),
+                              ],
                               const SizedBox(height: 8),
                               Align(
                                 alignment: Alignment.centerLeft,
@@ -550,8 +598,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   icon: const Icon(Icons.add, size: 16),
                                   label: const Text('Add new address',
                                       style: TextStyle(
-                                          fontFamily: 'Poppins',
-                                          fontSize: 13)),
+                                          fontFamily: 'Poppins', fontSize: 13)),
                                   style: TextButton.styleFrom(
                                     minimumSize: Size.zero,
                                     padding: const EdgeInsets.symmetric(
@@ -574,8 +621,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             decoration: BoxDecoration(
                               color: AppColors.surface,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: AppColors.borderNeutral),
+                              border:
+                                  Border.all(color: AppColors.borderNeutral),
                             ),
                             child: const Row(
                               children: [
@@ -653,31 +700,62 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ? null
           : SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                child: SizedBox(
-                  height: 52,
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _submitting ? null : _placeOrder,
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: _submitting
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Text(
-                            'Place Order',
+                padding: const EdgeInsets.fromLTRB(18, 12, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Items subtotal',
                             style: TextStyle(
                               fontFamily: 'Poppins',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                              color: AppColors.textSubtle,
                             ),
                           ),
-                  ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '₱${_effectiveSubtotal.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    SizedBox(
+                      height: 50,
+                      width: 164,
+                      child: FilledButton(
+                        onPressed: _submitting ? null : _placeOrder,
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: _submitting
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Text(
+                                'Place Order',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -716,6 +794,96 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           const SizedBox(height: 12),
           child,
+        ],
+      ),
+    );
+  }
+
+  Widget _selectedAddressCard(Map<String, dynamic> address) {
+    final label = address['label']?.toString().trim() ?? '';
+    final recipient = address['recipient_name']?.toString().trim() ?? '';
+    final phone = address['phone']?.toString().trim() ?? '';
+    final location = _addressLocation(address);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.lightGray),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.location_on_outlined,
+              color: AppColors.primary, size: 19),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (label.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.softRose,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          label.toUpperCase(),
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    if (recipient.isNotEmpty)
+                      Text(
+                        recipient,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.darkGray,
+                        ),
+                      ),
+                    if (phone.isNotEmpty)
+                      Text(
+                        phone,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+                if (location.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    location,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 11,
+                      height: 1.35,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

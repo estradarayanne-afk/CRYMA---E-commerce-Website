@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../services/cart_store.dart';
 import '../../utils/colors.dart';
-import '../../widgets/buyer_bottom_navigation_bar.dart';
 
 class CartItem {
   CartItem({
@@ -13,6 +12,7 @@ class CartItem {
     required this.variantLabel,
     required this.price,
     this.quantity = 1,
+    required this.availableStock,
     required this.imagePath,
     required this.seller,
     this.selected = true,
@@ -28,6 +28,7 @@ class CartItem {
 
   final int price;
   int quantity;
+  final int availableStock;
   final String imagePath;
   final String seller;
   bool selected;
@@ -58,6 +59,10 @@ class _CartScreenState extends State<CartScreen> {
         final color = item['color']?.toString() ?? '';
         final variantLabel = item['variant_label']?.toString() ??
             (color.isNotEmpty && color != 'Standard' ? 'Color: $color' : '');
+        final quantity =
+            int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
+        final availableStock =
+            int.tryParse(item['stock']?.toString() ?? '') ?? quantity;
         return CartItem(
           id: item['cart_key']?.toString() ?? item['id'].toString(),
           productId: (item['product_id'] ?? item['id']).toString(),
@@ -66,7 +71,10 @@ class _CartScreenState extends State<CartScreen> {
           variantLabel: variantLabel,
           price:
               (double.tryParse(item['price']?.toString() ?? '') ?? 0).round(),
-          quantity: item['quantity'] as int? ?? 1,
+          quantity: availableStock > 0
+              ? quantity.clamp(1, availableStock)
+              : 0,
+          availableStock: availableStock,
           imagePath: item['image']?.toString() ?? '',
           seller: item['seller']?.toString() ?? 'Seller',
           selected: item['selected'] as bool? ?? true,
@@ -87,6 +95,7 @@ class _CartScreenState extends State<CartScreen> {
                 'variant_label': item.variantLabel,
                 'price': item.price,
                 'quantity': item.quantity,
+                'stock': item.availableStock,
                 'image': item.imagePath,
                 'seller': item.seller,
                 'selected': item.selected,
@@ -114,13 +123,37 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _updateQuantity(String id, int delta) {
+    final index = _cartItems.indexWhere((item) => item.id == id);
+    if (index == -1 || _cartItems[index].availableStock < 1) return;
     setState(() {
-      final i = _cartItems.indexWhere((item) => item.id == id);
-      if (i != -1) {
-        _cartItems[i].quantity = (_cartItems[i].quantity + delta).clamp(1, 99);
-      }
+      final item = _cartItems[index];
+      item.quantity =
+          (item.quantity + delta).clamp(1, item.availableStock);
     });
     _persistCart();
+  }
+
+  Future<void> _editQuantity(CartItem item) async {
+    if (item.availableStock < 1) return;
+    final quantity = await showDialog<int>(
+      context: context,
+      builder: (_) => _EditCartQuantityDialog(
+        initialQuantity: item.quantity,
+        maxQuantity: item.availableStock,
+      ),
+    );
+    if (quantity == null || !mounted) return;
+    setState(() {
+      final index = _cartItems.indexWhere((cartItem) => cartItem.id == item.id);
+      if (index != -1) {
+        _cartItems[index].quantity = quantity;
+      }
+    });
+    await _persistCart();
+  }
+
+  void _openProduct(CartItem item) {
+    Navigator.pushNamed(context, '/product_detail', arguments: item.productId);
   }
 
   void _deleteItem(String id) {
@@ -220,11 +253,6 @@ class _CartScreenState extends State<CartScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BuyerBottomNavigationBar(
-        currentIndex: 2,
-        onDestinationSelected: (i) =>
-            BuyerBottomNavigationBar.navigateToTab(context, i, 2),
-      ),
     );
   }
 
@@ -235,6 +263,22 @@ class _CartScreenState extends State<CartScreen> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Row(
         children: [
+          IconButton(
+            tooltip: 'Back',
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/home',
+                  (route) => false,
+                );
+              }
+            },
+            icon: const Icon(Icons.arrow_back_rounded),
+            color: AppColors.primary,
+          ),
           const Expanded(
             child: Text(
               'My Cart',
@@ -247,26 +291,30 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           if (_selectedItems.isNotEmpty)
-            TextButton(
-              onPressed: _confirmDeleteSelected,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.danger,
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.delete_outline, size: 18),
-                  SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      'Remove selected',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 12),
+            Tooltip(
+              message: 'Remove selected items',
+              child: TextButton(
+                onPressed: _confirmDeleteSelected,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.danger,
+                  minimumSize: Size.zero,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.delete_outline, size: 18),
+                    SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Remove selected',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontFamily: 'Poppins', fontSize: 12),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],
@@ -363,107 +411,141 @@ class _CartScreenState extends State<CartScreen> {
         child: const Icon(Icons.delete_outline_rounded,
             color: AppColors.danger, size: 24),
       ),
-      child: Container(
+      child: Material(
         color: AppColors.surface,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Checkbox
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Checkbox(
-                value: item.selected,
-                onChanged: (_) => _toggleSelect(item.id),
-                semanticLabel: 'Select ${item.name}',
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderNeutral),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Checkbox(
+                  value: item.selected,
+                  onChanged: (_) => _toggleSelect(item.id),
+                  semanticLabel: 'Select ${item.name}',
+                ),
               ),
-            ),
-            // Image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: 72,
-                height: 72,
-                child: item.imagePath.isEmpty
-                    ? Container(
-                        color: AppColors.softRose,
-                        child: const Icon(Icons.image_not_supported_outlined,
-                            color: AppColors.borderStrong))
-                    : Image(
-                        image: item.imagePath.startsWith('http')
-                            ? NetworkImage(item.imagePath)
-                            : AssetImage(item.imagePath) as ImageProvider,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.softRose,
-                          child: const Icon(Icons.image_not_supported_outlined,
-                              color: AppColors.borderStrong),
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.darkGray,
-                      height: 1.3,
-                    ),
-                  ),
-                  if (item.variantLabel.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      item.variantLabel,
-                      style: const TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 11,
-                        color: AppColors.textSubtle,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          '₱${_fmt(item.price)}',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary,
+              InkWell(
+                onTap: () => _openProduct(item),
+                borderRadius: BorderRadius.circular(10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: item.imagePath.isEmpty
+                        ? Container(
+                            color: AppColors.softRose,
+                            child: const Icon(
+                                Icons.image_not_supported_outlined,
+                                color: AppColors.borderStrong))
+                        : Image(
+                            image: item.imagePath.startsWith('http')
+                                ? NetworkImage(item.imagePath)
+                                : AssetImage(item.imagePath) as ImageProvider,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: AppColors.softRose,
+                              child: const Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: AppColors.borderStrong),
+                            ),
                           ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: () => _openProduct(item),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.darkGray,
+                                height: 1.3,
+                              ),
+                            ),
+                            if (item.variantLabel.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                item.variantLabel,
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 11,
+                                  color: AppColors.textSubtle,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Quantity stepper
-                      _QuantityStepper(
-                        quantity: item.quantity,
-                        onDecrease: item.quantity > 1
-                            ? () => _updateQuantity(item.id, -1)
-                            : null,
-                        onIncrease: item.quantity < 99
-                            ? () => _updateQuantity(item.id, 1)
-                            : null,
+                    ),
+                    if (item.availableStock == 0) ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Out of stock',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.danger,
+                        ),
                       ),
                     ],
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '₱${_fmt(item.price)}',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _QuantityStepper(
+                          quantity: item.quantity,
+                          onEdit: () => _editQuantity(item),
+                          onDecrease: item.quantity > 1
+                              ? () => _updateQuantity(item.id, -1)
+                              : null,
+                          onIncrease: item.quantity < item.availableStock
+                              ? () => _updateQuantity(item.id, 1)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -618,11 +700,13 @@ class _CartScreenState extends State<CartScreen> {
 class _QuantityStepper extends StatelessWidget {
   const _QuantityStepper({
     required this.quantity,
+    required this.onEdit,
     required this.onDecrease,
     required this.onIncrease,
   });
 
   final int quantity;
+  final VoidCallback onEdit;
   final VoidCallback? onDecrease;
   final VoidCallback? onIncrease;
 
@@ -635,16 +719,26 @@ class _QuantityStepper extends StatelessWidget {
             icon: Icons.remove_rounded,
             onTap: onDecrease,
             tooltip: 'Decrease quantity'),
-        SizedBox(
-          width: 32,
-          child: Text(
-            '$quantity',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.darkGray,
+        Tooltip(
+          message: 'Edit quantity',
+          child: InkWell(
+            onTap: onEdit,
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: Center(
+                child: Text(
+                  '$quantity',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkGray,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -652,6 +746,78 @@ class _QuantityStepper extends StatelessWidget {
             icon: Icons.add_rounded,
             onTap: onIncrease,
             tooltip: 'Increase quantity'),
+      ],
+    );
+  }
+}
+
+class _EditCartQuantityDialog extends StatefulWidget {
+  const _EditCartQuantityDialog({
+    required this.initialQuantity,
+    required this.maxQuantity,
+  });
+
+  final int initialQuantity;
+  final int maxQuantity;
+
+  @override
+  State<_EditCartQuantityDialog> createState() =>
+      _EditCartQuantityDialogState();
+}
+
+class _EditCartQuantityDialogState extends State<_EditCartQuantityDialog> {
+  late final TextEditingController _controller;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        TextEditingController(text: widget.initialQuantity.toString());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final quantity = int.tryParse(_controller.text.trim());
+    if (quantity == null || quantity < 1 || quantity > widget.maxQuantity) {
+      setState(() {
+        _error = 'Enter a quantity from 1 to ${widget.maxQuantity}.';
+      });
+      return;
+    }
+    Navigator.pop(context, quantity);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit quantity'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+        decoration: InputDecoration(
+          labelText: 'Quantity',
+          helperText: 'Available: ${widget.maxQuantity}',
+          errorText: _error,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Update'),
+        ),
       ],
     );
   }

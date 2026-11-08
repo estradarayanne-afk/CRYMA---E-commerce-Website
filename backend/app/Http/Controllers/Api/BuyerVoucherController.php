@@ -82,6 +82,11 @@ class BuyerVoucherController extends Controller
                 throw ValidationException::withMessages(['voucher' => ['You have already used this voucher the maximum number of times.']]);
             }
 
+            if ($voucher->scope === 'shipping') {
+                VoucherClaim::create(['voucher_id' => $voucher->id, 'buyer_id' => $buyerId]);
+                return $voucher;
+            }
+
             $products = Product::query()
                 ->where('status', 'active')
                 ->where('review_status', 'approved')
@@ -116,6 +121,7 @@ class BuyerVoucherController extends Controller
     {
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:64'],
+            'address_id' => ['sometimes', 'nullable', 'integer'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.product_id' => ['required', 'integer'],
             'items.*.variant_id' => ['sometimes', 'nullable', 'uuid'],
@@ -137,12 +143,43 @@ class BuyerVoucherController extends Controller
                 throw ValidationException::withMessages(['code' => ['This voucher code is not valid.']]);
             }
 
+            if ($voucher->scope === 'shipping') {
+                $addressId = $validated['address_id'] ?? null;
+                if (!$addressId) {
+                    throw ValidationException::withMessages([
+                        'address_id' => ['Choose a delivery address before applying a shipping voucher.'],
+                    ]);
+                }
+                $address = $request->user()->addresses()->findOrFail($addressId);
+                $rate = app(\App\Support\ShippingQuote::class)->forAddress($address);
+                $subtotalCents = collect($items)->sum(fn (array $item) => $item[2]);
+                $shippingFeeCents = $discounts->toCents((string) $rate->fee);
+                $result = $discounts->calculateShipping(
+                    $voucher,
+                    $shippingFeeCents,
+                    $subtotalCents,
+                    $request->user()->id
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'voucher' => $voucher,
+                        'scope' => 'shipping',
+                        'subtotal' => $discounts->formatCents($subtotalCents),
+                        'shipping_fee' => $rate->fee,
+                        'discount_amount' => $discounts->formatCents($result['discount_cents']),
+                    ],
+                ]);
+            }
+
             $result = $discounts->calculate($voucher, $items, $request->user()->id);
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'voucher' => $voucher,
+                    'scope' => 'product',
                     'subtotal' => $discounts->formatCents($result['subtotal_cents']),
                     'eligible_subtotal' => $discounts->formatCents($result['eligible_subtotal_cents']),
                     'discount_amount' => $discounts->formatCents($result['discount_cents']),

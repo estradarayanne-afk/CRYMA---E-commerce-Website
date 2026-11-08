@@ -77,7 +77,8 @@ class HelpCenterScreen extends StatelessWidget {
             child: ListTile(
               leading: const CircleAvatar(
                 backgroundColor: AppColors.softRose,
-                child: Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+                child:
+                    Icon(Icons.chat_bubble_outline, color: AppColors.primary),
               ),
               title: const Text(
                 'Still need help?',
@@ -98,42 +99,46 @@ class HelpCenterScreen extends StatelessWidget {
   }
 
   Widget _buildFaqItem(Map<String, String> faq) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.lightGray),
-      ),
-      child: Theme(
-        data: ThemeData().copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          iconColor: AppColors.primary,
-          collapsedIconColor: AppColors.gray,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-          title: Text(
-            faq['q']!,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.darkGray,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Text(
-                faq['a']!,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                  fontFamily: 'Poppins',
-                  height: 1.55,
-                ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.lightGray),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: ThemeData().copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            iconColor: AppColors.primary,
+            collapsedIconColor: AppColors.gray,
+            tilePadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            title: Text(
+              faq['q']!,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.darkGray,
+                fontFamily: 'Poppins',
               ),
             ),
-          ],
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Text(
+                  faq['a']!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    fontFamily: 'Poppins',
+                    height: 1.55,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

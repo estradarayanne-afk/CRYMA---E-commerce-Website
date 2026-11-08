@@ -232,9 +232,11 @@ class AppRouter {
         );
       case '/voucher_selection':
         final items = settings.arguments as List<Map<String, dynamic>>? ?? [];
-        return _buyerRoute(
+        return MaterialPageRoute<Map<String, dynamic>>(
           settings: settings,
-          child: VoucherSelectionScreen(items: items),
+          builder: (_) => BuyerAuthGuard(
+            child: VoucherSelectionScreen(items: items),
+          ),
         );
       case '/order_success':
         return _buyerRoute(
@@ -307,9 +309,11 @@ class AppRouter {
         );
       case '/add_address':
         final address = settings.arguments as BuyerAddress?;
-        return _buyerRoute(
+        return MaterialPageRoute<bool>(
           settings: settings,
-          child: AddAddressScreen(address: address),
+          builder: (_) => BuyerAuthGuard(
+            child: AddAddressScreen(address: address),
+          ),
         );
       case '/notification':
         return _buyerRoute(

@@ -116,6 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<String> _favoriteIds = {};
   int _cartCount = 0;
   bool _hasUnreadMessages = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -124,6 +125,21 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadFeaturedProducts();
     _loadCartCount();
     _loadGreeting();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _submitHomeSearch(String value) {
+    final query = value.trim();
+    if (query.isEmpty) {
+      Navigator.pushNamed(context, '/search');
+      return;
+    }
+    Navigator.pushNamed(context, '/search_results', arguments: query);
   }
 
   Future<void> _loadGreeting() async {
@@ -155,6 +171,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadFavorites() async {
+    if (!await hasBuyerSession()) {
+      if (mounted) setState(_favoriteIds.clear);
+      return;
+    }
     final ids = await FavoritesStore.instance.getIds();
     if (!mounted) return;
     setState(() {
@@ -165,6 +185,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCartCount() async {
+    if (!await hasBuyerSession()) {
+      if (mounted) setState(() => _cartCount = 0);
+      return;
+    }
     final items = await CartStore.instance.items();
     if (!mounted) return;
     setState(() => _cartCount = items.length);
@@ -233,13 +257,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   slivers: [
                     SliverToBoxAdapter(child: _buildWelcomeSection()),
                     SliverToBoxAdapter(child: _buildCategoriesSection()),
-                    SliverToBoxAdapter(
-                      child: SectionHeader(
-                        title: 'Picked for you',
-                        actionLabel: 'See all',
-                        onAction: () =>
-                            Navigator.pushNamed(context, '/search_results'),
-                      ),
+                    const SliverToBoxAdapter(
+                      child: SectionHeader(title: 'Picked for you'),
                     ),
                     _buildProductsGrid(),
                     const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -262,62 +281,98 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTopBar() {
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Row(
         children: [
-          // Logo image
           Image.asset(
             'assets/image/cryma-logo.png',
-            width: 32,
-            height: 32,
+            width: 30,
+            height: 30,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => Container(
-              width: 32,
-              height: 32,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(9),
               ),
               child: const Icon(Icons.storefront_rounded,
-                  color: Colors.white, size: 18),
+                  color: Colors.white, size: 17),
             ),
           ),
           const SizedBox(width: 8),
-          const Text(
-            'CRYMA',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.wine,
-              letterSpacing: 0.6,
+          Expanded(
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                key: const Key('buyer-home-search-field'),
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                onSubmitted: _submitHomeSearch,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 12,
+                  color: AppColors.darkGray,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search products',
+                  hintStyle: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                    color: AppColors.textSubtle,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: AppColors.primary,
+                    size: 19,
+                  ),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 36, minHeight: 40),
+                  filled: true,
+                  fillColor: AppColors.white,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-          const Spacer(),
-          // Search
-          IconButton(
-            tooltip: 'Search',
-            icon: const Icon(Icons.search_rounded,
-                color: AppColors.darkGray, size: 22),
-            onPressed: () => Navigator.pushNamed(context, '/search'),
-          ),
-          // Cart with badge
+          const SizedBox(width: 2),
           IconButton(
             tooltip: 'Cart',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 40),
+            style: IconButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.shopping_bag_outlined,
-                    color: AppColors.darkGray, size: 22),
+                const Icon(Icons.shopping_cart_rounded, size: 21),
                 if (_cartCount > 0)
                   Positioned(
-                    right: -2,
-                    top: -2,
+                    right: -5,
+                    top: -5,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: AppColors.primaryDark,
                         borderRadius: BorderRadius.circular(999),
                         border:
                             Border.all(color: AppColors.surface, width: 1.5),
@@ -337,23 +392,27 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onPressed: () => Navigator.pushNamed(context, '/cart'),
           ),
-          // Messages
           IconButton(
             tooltip: 'Messages',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 40),
+            style: IconButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.chat_bubble_outline_rounded,
-                    color: AppColors.darkGray, size: 22),
+                const Icon(Icons.forum_rounded, size: 20),
                 if (_hasUnreadMessages)
                   Positioned(
-                    right: -2,
-                    top: -2,
+                    right: -4,
+                    top: -4,
                     child: Container(
                       width: 9,
                       height: 9,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: AppColors.primaryDark,
                         shape: BoxShape.circle,
                         border:
                             Border.all(color: AppColors.surface, width: 1.5),
@@ -371,28 +430,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── WELCOME MESSAGE ──────────────────────────────────────────────────────
   Widget _buildWelcomeSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(18, 17, 16, 17),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary, AppColors.primaryDark],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.wine.withValues(alpha: 0.16),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome back${_firstName.isEmpty ? '' : ', $_firstName'}! 👋',
+            'Welcome back${_firstName.isEmpty ? '' : ', $_firstName'}!',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontFamily: 'Poppins',
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: AppColors.wine,
+              color: AppColors.white,
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           const Text(
             'Discover local finds near you.',
             style: TextStyle(
               fontFamily: 'Poppins',
-              fontSize: 13,
-              color: AppColors.textSubtle,
+              fontSize: 12,
+              color: Color(0xFFEEDDE2),
               height: 1.4,
             ),
           ),
@@ -406,10 +483,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
+        const SectionHeader(
           title: 'Shop by category',
-          actionLabel: 'See all',
-          onAction: () => Navigator.pushNamed(context, '/categories'),
         ),
         SizedBox(
           height: 52,
@@ -417,28 +492,32 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            itemCount: buyerCategories.length,
+            itemCount: buyerCategories.length + 1,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) =>
-                _buildCategoryChip(buyerCategories[index]),
+            itemBuilder: (context, index) => _buildCategoryChip(
+              index == 0 ? null : buyerCategories[index - 1],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildCategoryChip(BuyerCategory category) {
-    final selected = _selectedHomeCategory == category.name;
+  Widget _buildCategoryChip(BuyerCategory? category) {
+    final name = category?.name ?? 'All';
+    final selected = category == null
+        ? _selectedHomeCategory == null
+        : _selectedHomeCategory == category.name;
     final foreground = selected ? AppColors.white : AppColors.primaryDark;
     return Semantics(
       button: true,
       selected: selected,
-      label: category.name,
+      label: name,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () async {
-            final nextCategory = selected ? null : category.name;
+            final nextCategory = category?.name;
             setState(() => _selectedHomeCategory = nextCategory);
             await _loadFeaturedProducts(category: nextCategory);
           },
@@ -500,11 +579,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                   ),
-                  child: Icon(category.icon, size: 15, color: foreground),
+                  child: Icon(
+                    category?.icon ?? Icons.grid_view_rounded,
+                    size: 15,
+                    color: foreground,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  category.name,
+                  name,
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 12,
