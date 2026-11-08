@@ -31,7 +31,7 @@ class ParcelOperationsController extends Controller
     public function directDeliveryNotice(Request $request, int $parcelId, HubStaffHubResolver $hubResolver)
     {
         $validated = $request->validate([
-            'rider_id' => ['required', 'integer', 'exists:users,id'],
+            'rider_id' => ['required', 'integer', 'exists:users,id,role,rider', 'exists:users,id,status,active'],
         ]);
 
         // Verify hub authorization
@@ -58,11 +58,16 @@ class ParcelOperationsController extends Controller
             $deliveryMunicipality = $addressParts[count($addressParts) - 4] ?? null; // -4 to get before province
         }
         
-        // For same-municipality validation: verify delivery area's hub/municipality matches
+        // For same-municipality validation: verify delivery area exists and is assigned
         // This ensures the delivery area is in the same municipality as the delivery address
         if (!$delivery->deliveryArea) {
             abort(422, 'Delivery area not assigned. Cannot verify municipality match.');
         }
+        
+        // Validate delivery area is in the same municipality as the hub
+        // The hub must serve the municipality of this delivery area
+        $deliveryAreaHub = $delivery->deliveryArea->hub;
+        abort_unless($deliveryAreaHub && $deliveryAreaHub->id === $hub->id, 422, 'Delivery is not in the same municipality. It must be processed through the sorting center.');
         
         // Update delivery type to direct
         $delivery->update(['delivery_type' => 'direct']);

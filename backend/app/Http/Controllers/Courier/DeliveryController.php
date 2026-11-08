@@ -45,6 +45,7 @@ class DeliveryController extends Controller
             'order_id' => $delivery->order_id,
             'parcel_code' => $delivery->parcel_code,
             'status' => $delivery->status,
+            'delivery_type' => $delivery->delivery_type ?? 'via_sorting_center',
             'assigned_at' => $delivery->assigned_at,
             'delivery_picked_up_at' => $delivery->delivery_picked_up_at,
             'delivered_at' => $delivery->delivered_at,
@@ -179,10 +180,12 @@ class DeliveryController extends Controller
     {
         $profile = $this->profile($request->user(), $eligibility);
         $result = DB::transaction(function () use ($request, $id, $profile, $eligibility) {
-            $deliveryRequest = DeliveryRequest::where('rider_id', $request->user()->id)
+            // Accept delivery_id parameter and find the pending DeliveryRequest for that delivery
+            $deliveryRequest = DeliveryRequest::where('delivery_id', $id)
+                ->where('rider_id', $request->user()->id)
                 ->where('status', 'pending')
                 ->lockForUpdate()
-                ->find($id);
+                ->first();
             
             abort_unless($deliveryRequest, 404, 'Delivery request not found or already processed.');
             
@@ -223,10 +226,12 @@ class DeliveryController extends Controller
     {
         $profile = $this->profile($request->user(), $eligibility);
         $result = DB::transaction(function () use ($request, $id, $profile, $eligibility) {
-            $deliveryRequest = DeliveryRequest::where('rider_id', $request->user()->id)
+            // Accept delivery_id parameter and find the pending DeliveryRequest for that delivery
+            $deliveryRequest = DeliveryRequest::where('delivery_id', $id)
+                ->where('rider_id', $request->user()->id)
                 ->where('status', 'pending')
                 ->lockForUpdate()
-                ->find($id);
+                ->first();
             
             abort_unless($deliveryRequest, 404, 'Delivery request not found or already processed.');
             
