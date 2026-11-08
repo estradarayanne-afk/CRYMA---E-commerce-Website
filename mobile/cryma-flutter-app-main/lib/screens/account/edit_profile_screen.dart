@@ -93,8 +93,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (_profileImage != null) {
         response = await ApiService.instance.updateProfileImage(
           _profileImage!,
-          fields:
-              profileFields.map((key, value) => MapEntry(key, value.toString())),
+          fields: profileFields
+              .map((key, value) => MapEntry(key, value.toString())),
         );
       } else {
         response = await ApiService.instance.patch(
@@ -132,34 +132,54 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
             Container(
-              color: AppColors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              color: AppColors.background,
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        size: 22, color: AppColors.primary),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.white,
+                      foregroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                    ),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Expanded(
-                    child: Text(
-                      'Edit Profile',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Edit Profile',
+                            style: TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.wine,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          Text(
+                            'Keep your personal details up to date.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSubtle,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 36),
+                  const SizedBox(width: 40),
                 ],
               ),
             ),
@@ -167,68 +187,136 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Center(
-                            child: Column(children: [
-                              CircleAvatar(
-                                radius: 38,
-                                backgroundColor: AppColors.softRose,
-                                foregroundImage: _profileImage == null
-                                    ? null
-                                    : FileImage(File(_profileImage!.path)),
-                                child: const Icon(Icons.person_outline,
-                                    size: 36, color: AppColors.primary),
-                              ),
-                              TextButton.icon(
-                                onPressed: _saving
-                                    ? null
-                                    : () async {
-                                        final image = await ImagePicker()
-                                            .pickImage(
-                                                source: ImageSource.gallery,
-                                                imageQuality: 85);
-                                        if (image != null && mounted) {
-                                          setState(
-                                              () => _profileImage = image);
-                                        }
-                                      },
-                                icon: const Icon(Icons.photo_camera_outlined),
-                                label: const Text('Choose profile photo'),
-                              ),
-                            ]),
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 18),
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border:
+                                  Border.all(color: AppColors.borderNeutral),
+                            ),
+                            child: Column(
+                              children: [
+                                CircleAvatar(
+                                  radius: 43,
+                                  backgroundColor: AppColors.softRose,
+                                  foregroundImage: _profileImage == null
+                                      ? null
+                                      : FileImage(File(_profileImage!.path)),
+                                  child: const Icon(Icons.person_outline,
+                                      size: 38, color: AppColors.primary),
+                                ),
+                                const SizedBox(height: 4),
+                                TextButton.icon(
+                                  onPressed: _saving
+                                      ? null
+                                      : () async {
+                                          final image =
+                                              await ImagePicker().pickImage(
+                                            source: ImageSource.gallery,
+                                            imageQuality: 85,
+                                          );
+                                          if (image != null && mounted) {
+                                            setState(
+                                                () => _profileImage = image);
+                                          }
+                                        },
+                                  icon: const Icon(
+                                    Icons.photo_camera_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Choose profile photo'),
+                                ),
+                              ],
+                            ),
                           ),
-                          _buildLabel('FIRST NAME'),
-                          _buildTextField(controller: _firstNameController),
-                          _buildLabel('LAST NAME'),
-                          _buildTextField(controller: _lastNameController),
-                          _buildLabel('MIDDLE NAME'),
-                          _buildTextField(controller: _middleNameController),
-                          _buildLabel('EMAIL ADDRESS'),
-                          _buildTextField(
-                              controller: _emailController, enabled: false),
-                          _buildLabel('CONTACT NUMBER'),
-                          _buildTextField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone),
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'PERSONAL INFORMATION',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                                color: AppColors.textSubtle,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border:
+                                  Border.all(color: AppColors.borderNeutral),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('FIRST NAME'),
+                                _buildTextField(
+                                  controller: _firstNameController,
+                                  icon: Icons.person_outline_rounded,
+                                ),
+                                _buildLabel('LAST NAME'),
+                                _buildTextField(
+                                  controller: _lastNameController,
+                                  icon: Icons.person_outline_rounded,
+                                ),
+                                _buildLabel('MIDDLE NAME'),
+                                _buildTextField(
+                                  controller: _middleNameController,
+                                  icon: Icons.badge_outlined,
+                                ),
+                                _buildLabel('EMAIL ADDRESS'),
+                                _buildTextField(
+                                  controller: _emailController,
+                                  enabled: false,
+                                  icon: Icons.mail_outline_rounded,
+                                ),
+                                _buildLabel('CONTACT NUMBER'),
+                                _buildTextField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  icon: Icons.call_outlined,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(4, 10, 4, 0),
+                            child: Text(
+                              'Your email address is linked to your account and cannot be changed here.',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 10,
+                                color: AppColors.textSubtle,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 10),
                         ],
                       ),
                     ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
               child: SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                height: 50,
+                child: FilledButton(
                   onPressed: _saving ? null : _handleSave,
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                   ),
@@ -259,7 +347,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 3),
+      padding: const EdgeInsets.only(top: 11, bottom: 5),
       child: Text(
         text,
         style: const TextStyle(
@@ -276,23 +364,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
     bool enabled = true,
+    required IconData icon,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: enabled ? AppColors.white : AppColors.lightGray,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.lightGray),
+        color: enabled ? AppColors.white : AppColors.surfaceNeutral,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderNeutral),
       ),
       child: TextField(
         controller: controller,
         enabled: enabled,
         keyboardType: keyboardType,
         style: const TextStyle(
-            fontSize: 12, color: AppColors.darkGray, fontFamily: 'Poppins'),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          fontSize: 12,
+          color: AppColors.darkGray,
+          fontFamily: 'Poppins',
+        ),
+        decoration: InputDecoration(
+          prefixIcon: Icon(
+            icon,
+            size: 18,
+            color: enabled ? AppColors.textSubtle : AppColors.gray,
+          ),
+          suffixIcon: enabled
+              ? null
+              : const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 16,
+                  color: AppColors.textSubtle,
+                ),
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
         ),
       ),
     );
