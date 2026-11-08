@@ -15,6 +15,7 @@ const NAV = [
     { to: "/hub-staff/pickup-receiving", label: "Pickup receiving", icon: PackageCheck },
     { to: "/hub-staff/incoming-transfers", label: "Incoming transfers", icon: Truck },
     { to: "/hub-staff/outgoing-transfers", label: "Outgoing handoffs", icon: Handshake },
+    { to: "/hub-staff/direct-deliveries", label: "Direct deliveries", icon: Truck },
     { to: "/hub-staff/activity", label: "Activity history", icon: Activity },
 ];
 

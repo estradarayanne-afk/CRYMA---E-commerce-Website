@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
+import RidersOnlineByMunicipality from "./RidersOnlineByMunicipality";
 import "./Dashboard.css";
 
 const Icon = ({ name }) => {
@@ -707,6 +708,14 @@ function AdminDashboard() {
                     </div>
                 </article>
 
+            </section>
+
+            {/* =================================================
+                LOGISTICS OPERATIONS
+            ================================================= */}
+
+            <section style={{ marginBottom: "2rem" }}>
+                <RidersOnlineByMunicipality />
             </section>
 
             {/* =================================================

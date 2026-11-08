@@ -75,6 +75,7 @@ const HubStaffPickupReceiving = lazy(() => import("./hubStaff/pages/PickupReceiv
 const HubStaffIncomingTransfers = lazy(() => import("./hubStaff/pages/IncomingTransfers"));
 const HubStaffOutgoingTransfers = lazy(() => import("./hubStaff/pages/OutgoingTransfers"));
 const HubStaffActivity = lazy(() => import("./hubStaff/pages/Activity"));
+const HubStaffDirectDeliveries = lazy(() => import("./hubStaff/pages/DirectDeliveryNotices"));
 
 // â”€â”€ COURIER â”€â”€
 import CourierDashboard from "./courier/pages/Dashboard";
@@ -413,6 +414,7 @@ function App() {
                         <Route path="incoming-transfers" element={<HubStaffIncomingTransfers />} />
                         <Route path="outgoing-transfers" element={<HubStaffOutgoingTransfers />} />
                         <Route path="activity" element={<HubStaffActivity />} />
+                        <Route path="direct-deliveries" element={<HubStaffDirectDeliveries />} />
                     </Route>
                 </Route>
 

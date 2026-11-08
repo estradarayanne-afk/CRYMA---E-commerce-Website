@@ -56,3 +56,8 @@ export async function releaseOutgoingTransfer(id, payload) {
     const { data } = await api.post("/hub-staff/transfers/" + id + "/release", payload);
     return unwrapResponse(data);
 }
+
+export async function getDirectDeliveryNotices(params, hubId) {
+    const { data } = await api.get(`/hub-staff/direct-deliveries${hubStaffQuery(params)}`);
+    return data;
+}

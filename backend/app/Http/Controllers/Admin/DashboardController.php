@@ -76,4 +76,43 @@ class DashboardController extends Controller
             ],
         ]);
     }
+
+    public function ridersOnlineByMunicipality()
+    {
+        $riders = User::query()
+            ->where('role', 'rider')
+            ->where('is_online', 1)
+            ->with(['addresses' => function ($q) {
+                $q->where('is_primary', 1);
+            }])
+            ->get();
+
+        // Group by municipality
+        $byMunicipality = [];
+        foreach ($riders as $rider) {
+            $municipality = $rider->addresses->first()?->municipality ?? 'Unknown';
+            if (!isset($byMunicipality[$municipality])) {
+                $byMunicipality[$municipality] = 0;
+            }
+            $byMunicipality[$municipality]++;
+        }
+
+        // Sort by count descending
+        arsort($byMunicipality);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'municipalities' => collect($byMunicipality)->map(function ($count, $municipality) {
+                    return [
+                        'municipality' => $municipality,
+                        'online_count' => $count,
+                        'status' => $count > 1 ? 'green' : ($count === 1 ? 'yellow' : 'red'),
+                    ];
+                })->values(),
+                'last_updated' => now(),
+                'total_online' => collect($byMunicipality)->sum(),
+            ],
+        ]);
+    }
 }

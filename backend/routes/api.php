@@ -133,6 +133,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/parcels/scan', [HubStaffParcelOperationsController::class, 'scan']);
         Route::patch('/parcels/{parcelCode}/sort', [HubStaffParcelOperationsController::class, 'sort']);
         Route::get('/activity', [HubStaffParcelOperationsController::class, 'history']);
+        Route::get('/direct-deliveries', [HubStaffParcelOperationsController::class, 'directDeliveries']);
     });
 
     Route::middleware('role:admin')->group(function () {
@@ -246,6 +247,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/admin/dashboard', [
         DashboardController::class,
         'index'
+    ])->middleware('role:admin');
+    
+    Route::get('/admin/riders-online-by-municipality', [
+        DashboardController::class,
+        'ridersOnlineByMunicipality'
     ])->middleware('role:admin');
 
     Route::middleware('role:admin')->group(function () {

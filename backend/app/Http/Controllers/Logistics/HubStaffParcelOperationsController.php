@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Logistics;
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\DeliveryEvent;
+use App\Models\DeliveryRequest;
+use App\Models\DirectDeliveryNotice;
 use App\Models\HubTransfer;
 use App\Models\LogisticsHub;
 use App\Models\Order;
@@ -322,6 +324,65 @@ class HubStaffParcelOperationsController extends Controller
                 'actor' => $event->actor ? trim($event->actor->first_name.' '.$event->actor->last_name) : null,
                 'created_at' => $event->created_at,
             ]),
+        ]);
+    }
+
+    public function directDeliveries(Request $request, HubStaffHubResolver $resolver)
+    {
+        $values = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'hub_id' => ['prohibited'],
+        ]);
+        $hub = $resolver->resolve($request->user());
+        
+        $rows = DirectDeliveryNotice::query()
+            ->with([
+                'delivery' => function ($q) {
+                    $q->with(['order:id,buyer_id', 'order.buyer:id,first_name,last_name']);
+                },
+                'rider:id,first_name,last_name',
+            ])
+            ->whereHas('delivery', function ($q) use ($hub) {
+                $q->where('delivery_type', 'direct')
+                  ->where('current_hub_id', $hub->id);
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($values['per_page'] ?? 20);
+
+        return response()->json([
+            'success' => true,
+            'hub' => $hub->only(['id', 'name', 'code']),
+            'data' => $rows->through(function (DirectDeliveryNotice $notice) {
+                $delivery = $notice->delivery;
+                $rider = $notice->rider;
+                $order = $delivery->order;
+                
+                // Find delivery requests for accountability
+                $requests = DeliveryRequest::query()
+                    ->where('delivery_id', $delivery->id)
+                    ->where('rider_id', $rider->id)
+                    ->get();
+                
+                return [
+                    'id' => $notice->id,
+                    'rider' => [
+                        'id' => $rider->id,
+                        'name' => trim($rider->first_name . ' ' . $rider->last_name),
+                    ],
+                    'order_id' => $order->id,
+                    'buyer_location' => $order->buyer ? trim($order->buyer->first_name . ' ' . $order->buyer->last_name) : 'Buyer',
+                    'direct_choice_timestamp' => $notice->created_at,
+                    'commission_amount' => 0, // TODO: Get from commission model when available
+                    'confirmation_status' => $delivery->status,
+                    'delivery_requests' => $requests->map(fn (DeliveryRequest $req) => [
+                        'status' => $req->status,
+                        'created_at' => $req->created_at,
+                        'expires_at' => $req->expires_at,
+                    ])->all(),
+                ];
+            }),
         ]);
     }
 
