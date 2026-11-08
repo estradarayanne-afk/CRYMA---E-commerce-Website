@@ -30,6 +30,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _checkoutKey;
   String? _voucherCode;
   String? _voucherDiscount;
+  String? _shippingVoucherCode;
+  String? _shippingVoucherDiscount;
+  double _shippingFee = 0;
+  bool _shippingQuoteLoading = false;
+  String? _shippingQuoteError;
 
   @override
   void initState() {
@@ -59,13 +64,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           cartItems.where((i) => i['selected'] == true).toList();
       final selectedAddressId =
           int.tryParse(selectedAddress?['id']?.toString() ?? '');
+      Map<String, dynamic>? quote;
+      String? quoteError;
+      if (selectedAddressId != null) {
+        try {
+          quote = await _api.getShippingQuote(
+            selectedAddressId,
+            selectedItems.map(_normalizeOrderItem).toList(),
+          );
+        } on ApiException catch (error) {
+          quoteError = error.message;
+        }
+      }
       final key = await _getOrCreateCheckoutKey(
-          selectedItems, selectedAddressId, _voucherCode);
+          selectedItems, selectedAddressId, _voucherCode, _shippingVoucherCode);
       if (!mounted) return;
       setState(() {
         _cartItems = selectedItems;
         _addresses = addresses;
         _addressId = selectedAddressId;
+        _shippingFee =
+            double.tryParse(quote?['shipping_fee']?.toString() ?? '') ?? 0;
+        _shippingQuoteError = quoteError;
+        _shippingQuoteLoading = false;
         _checkoutKey = key;
         _loading = false;
       });
@@ -86,8 +107,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         '${(8 + r.nextInt(4)).toRadixString(16)}${seg(3)}-${seg(12)}';
   }
 
-  Future<String> _getOrCreateCheckoutKey(
-      List<Map<String, dynamic>> items, int? addressId, String? voucher) async {
+  Future<String> _getOrCreateCheckoutKey(List<Map<String, dynamic>> items,
+      int? addressId, String? voucher, String? shippingVoucher) async {
     final prefs = await SharedPreferences.getInstance();
     final normalized = (items
         .map((item) => {
@@ -97,7 +118,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             })
         .toList()
       ..sort((a, b) => a.toString().compareTo(b.toString())));
-    final fingerprint = '$addressId|${jsonEncode(normalized)}|${voucher ?? ''}';
+    final fingerprint =
+        '$addressId|${jsonEncode(normalized)}|${voucher ?? ''}|${shippingVoucher ?? ''}';
     final existing = prefs.getString('cryma_pending_checkout');
     if (existing != null) {
       try {
@@ -114,9 +136,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _refreshCheckoutKey() async {
-    final key =
-        await _getOrCreateCheckoutKey(_cartItems, _addressId, _voucherCode);
+    final key = await _getOrCreateCheckoutKey(
+        _cartItems, _addressId, _voucherCode, _shippingVoucherCode);
     if (mounted) setState(() => _checkoutKey = key);
+  }
+
+  Future<void> _refreshShippingQuote(int? addressId) async {
+    setState(() {
+      _shippingQuoteLoading = addressId != null;
+      _shippingQuoteError = null;
+      _shippingFee = 0;
+      _shippingVoucherCode = null;
+      _shippingVoucherDiscount = null;
+    });
+    if (addressId != null) {
+      try {
+        final quote = await _api.getShippingQuote(
+          addressId,
+          _orderItems(),
+        );
+        if (!mounted || _addressId != addressId) return;
+        setState(() {
+          _shippingFee =
+              double.tryParse(quote['shipping_fee']?.toString() ?? '') ?? 0;
+        });
+      } on ApiException catch (error) {
+        if (mounted && _addressId == addressId) {
+          setState(() => _shippingQuoteError = error.message);
+        }
+      } catch (error) {
+        if (mounted && _addressId == addressId) {
+          setState(() => _shippingQuoteError = error.toString());
+        }
+      } finally {
+        if (mounted && _addressId == addressId) {
+          setState(() => _shippingQuoteLoading = false);
+        }
+      }
+    }
+    await _refreshCheckoutKey();
   }
 
   String _addressLabel(Map<String, dynamic> address) {
@@ -161,28 +219,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return null;
   }
 
-  List<Map<String, dynamic>> _orderItems() => _cartItems.map((item) {
-        final value = <String, dynamic>{
-          'product_id':
-              int.parse((item['product_id'] ?? item['id']).toString()),
-          'quantity': item['quantity'] as int? ?? 1,
-        };
-        if (item['variant_id'] != null) {
-          value['variant_id'] = item['variant_id'];
-        }
-        return value;
-      }).toList();
+  Map<String, dynamic> _normalizeOrderItem(Map<String, dynamic> item) {
+    final value = <String, dynamic>{
+      'product_id': int.parse((item['product_id'] ?? item['id']).toString()),
+      'quantity': item['quantity'] as int? ?? 1,
+    };
+    if (item['variant_id'] != null) {
+      value['variant_id'] = item['variant_id'];
+    }
+    return value;
+  }
 
-  Future<void> _selectVoucher() async {
+  List<Map<String, dynamic>> _orderItems() =>
+      _cartItems.map(_normalizeOrderItem).toList();
+
+  Future<void> _selectVoucher({String scope = 'product'}) async {
     final selected = await Navigator.pushNamed<Map<String, dynamic>>(
       context,
       '/voucher_selection',
-      arguments: _orderItems(),
+      arguments: {
+        'items': _orderItems(),
+        'scope': scope,
+        if (scope == 'shipping' && _addressId != null) 'address_id': _addressId,
+      },
     );
     if (selected == null || !mounted) return;
     setState(() {
-      _voucherCode = selected['code']?.toString();
-      _voucherDiscount = selected['discount_amount']?.toString();
+      if (scope == 'shipping') {
+        _shippingVoucherCode = selected['code']?.toString();
+        _shippingVoucherDiscount = selected['discount_amount']?.toString();
+      } else {
+        _voucherCode = selected['code']?.toString();
+        _voucherDiscount = selected['discount_amount']?.toString();
+      }
     });
     await _refreshCheckoutKey();
   }
@@ -191,6 +260,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_submitting) return;
     if (_addressId == null) {
       _snack('Add a delivery address before checkout.');
+      return;
+    }
+    if (_shippingQuoteLoading || _shippingQuoteError != null) {
+      _snack(_shippingQuoteError ??
+          'Wait for the shipping fee to load before placing your order.');
       return;
     }
     final validIds = _addresses
@@ -221,6 +295,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: _orderItems(),
         idempotencyKey: _checkoutKey!,
         voucherCode: _voucherCode,
+        shippingVoucherCode: _shippingVoucherCode,
       );
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('cryma_pending_checkout');
@@ -246,7 +321,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<bool?> _showConfirmSheet() {
     final subtotal = _effectiveSubtotal;
     final discount = double.tryParse(_voucherDiscount ?? '') ?? 0;
-    final total = subtotal - discount;
+    final shippingDiscount =
+        double.tryParse(_shippingVoucherDiscount ?? '') ?? 0;
+    final total = subtotal - discount + _shippingFee - shippingDiscount;
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -282,8 +359,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 16),
             _summaryRow('Subtotal', '₱${subtotal.toStringAsFixed(2)}'),
             if (discount > 0)
-              _summaryRow(
-                  'Voucher discount', '−₱${discount.toStringAsFixed(2)}',
+              _summaryRow('Product voucher', '−₱${discount.toStringAsFixed(2)}',
+                  valueColor: AppColors.success),
+            _summaryRow('Shipping fee', '₱${_shippingFee.toStringAsFixed(2)}'),
+            if (shippingDiscount > 0)
+              _summaryRow('Shipping voucher',
+                  '−₱${shippingDiscount.toStringAsFixed(2)}',
                   valueColor: AppColors.success),
             const Divider(height: 20),
             _summaryRow(
@@ -377,6 +458,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return sum + price * (item['quantity'] as int? ?? 1);
       });
 
+  double get _estimatedTotal =>
+      _effectiveSubtotal -
+      (double.tryParse(_voucherDiscount ?? '') ?? 0) +
+      _shippingFee -
+      (double.tryParse(_shippingVoucherDiscount ?? '') ?? 0);
+
   void _snack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
@@ -465,7 +552,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         // ── VOUCHER ──────────────────────────────────
                         _buildSection(
                           icon: Icons.local_offer_outlined,
-                          title: 'Voucher',
+                          title: 'Product voucher',
                           child: _voucherCode == null
                               ? OutlinedButton.icon(
                                   onPressed: _submitting || _cartItems.isEmpty
@@ -540,6 +627,91 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         const SizedBox(height: 12),
 
+                        _buildSection(
+                          icon: Icons.local_shipping_outlined,
+                          title: 'Free Shipping voucher',
+                          child: _shippingVoucherCode == null
+                              ? OutlinedButton.icon(
+                                  onPressed: _submitting ||
+                                          _cartItems.isEmpty ||
+                                          _shippingQuoteError != null ||
+                                          _shippingQuoteLoading
+                                      ? null
+                                      : () => _selectVoucher(scope: 'shipping'),
+                                  icon: const Icon(
+                                      Icons.local_shipping_outlined,
+                                      size: 17),
+                                  label:
+                                      const Text('Select a shipping voucher'),
+                                  style: OutlinedButton.styleFrom(
+                                      minimumSize:
+                                          const Size(double.infinity, 44)),
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.successSoft,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                        color: AppColors.success
+                                            .withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle_outline,
+                                          color: AppColors.success, size: 18),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _shippingVoucherCode!,
+                                              style: const TextStyle(
+                                                fontFamily: 'Poppins',
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.success,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Shipping saved: −₱${_shippingVoucherDiscount ?? '0.00'}',
+                                              style: const TextStyle(
+                                                fontFamily: 'Poppins',
+                                                fontSize: 11,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: _submitting
+                                            ? null
+                                            : () => _selectVoucher(
+                                                scope: 'shipping'),
+                                        child: const Text('Change'),
+                                      ),
+                                      TextButton(
+                                        onPressed: _submitting
+                                            ? null
+                                            : () async {
+                                                setState(() {
+                                                  _shippingVoucherCode = null;
+                                                  _shippingVoucherDiscount =
+                                                      null;
+                                                });
+                                                await _refreshCheckoutKey();
+                                              },
+                                        child: const Text('Remove'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 12),
+
                         // ── DELIVERY ADDRESS ─────────────────────────
                         _buildSection(
                           icon: Icons.location_on_outlined,
@@ -576,13 +748,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 }).toList(),
                                 onChanged: (val) async {
                                   setState(() => _addressId = val);
-                                  await _refreshCheckoutKey();
+                                  await _refreshShippingQuote(val);
                                 },
                               ),
                               if (_selectedAddress case final address?) ...[
                                 const SizedBox(height: 10),
                                 _selectedAddressCard(address),
                               ],
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Shipping fee',
+                                      style: TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 13,
+                                          color: AppColors.textSecondary)),
+                                  Text(
+                                    _shippingQuoteLoading
+                                        ? 'Calculating…'
+                                        : _shippingQuoteError != null
+                                            ? 'Unavailable'
+                                            : '₱${_shippingFee.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.darkGray),
+                                  ),
+                                ],
+                              ),
+                              if (_shippingQuoteError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(_shippingQuoteError!,
+                                      style: const TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 12,
+                                          color: AppColors.danger)),
+                                ),
                               const SizedBox(height: 8),
                               Align(
                                 alignment: Alignment.centerLeft,
@@ -709,7 +914,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Items subtotal',
+                            'Estimated total',
                             style: TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: 11,
@@ -718,7 +923,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '₱${_effectiveSubtotal.toStringAsFixed(2)}',
+                            '₱${_estimatedTotal.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: 17,
@@ -734,7 +939,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       height: 50,
                       width: 164,
                       child: FilledButton(
-                        onPressed: _submitting ? null : _placeOrder,
+                        onPressed: _submitting ||
+                                _shippingQuoteLoading ||
+                                _shippingQuoteError != null
+                            ? null
+                            : _placeOrder,
                         style: FilledButton.styleFrom(
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14)),

@@ -15,13 +15,21 @@ class OrderItem extends Model
         'unit_price',
         'subtotal',
         'unit_weight_kg',
+        'unit_length_cm',
+        'unit_width_cm',
+        'unit_height_cm',
         'variant_label',
         'variant_id',
     ];
 
     protected function casts(): array
     {
-        return ['unit_weight_kg' => 'decimal:3'];
+        return [
+            'unit_weight_kg' => 'decimal:3',
+            'unit_length_cm' => 'decimal:2',
+            'unit_width_cm' => 'decimal:2',
+            'unit_height_cm' => 'decimal:2',
+        ];
     }
 
     public function order(): BelongsTo

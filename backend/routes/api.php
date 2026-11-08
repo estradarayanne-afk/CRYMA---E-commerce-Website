@@ -39,6 +39,9 @@ use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController
 use App\Http\Controllers\Admin\LogisticsController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\Admin\ShippingRateController;
+use App\Http\Controllers\Admin\ShippingZoneController;
+use App\Http\Controllers\Admin\ShippingZoneRateController;
+use App\Http\Controllers\Seller\PickupAddressController;
 use App\Http\Controllers\Courier\PickupController;
 use App\Http\Controllers\Courier\DeliveryProofController;
 use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboardController;
@@ -219,6 +222,13 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     ])->middleware('role:admin');
 
     Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/shipping-zones', [ShippingZoneController::class, 'index']);
+        Route::post('/admin/shipping-zones', [ShippingZoneController::class, 'store']);
+        Route::patch('/admin/shipping-zones/{id}', [ShippingZoneController::class, 'update']);
+        Route::post('/admin/shipping-zone-rates', [ShippingZoneRateController::class, 'store']);
+        Route::patch('/admin/shipping-zone-rates/{id}', [ShippingZoneRateController::class, 'update']);
+        Route::patch('/admin/shipping-zone-rates/{id}/status', [ShippingZoneRateController::class, 'updateStatus']);
+        Route::post('/admin/shipping-zone-rates/{id}/verify', [ShippingZoneRateController::class, 'verify']);
         Route::get('/admin/shipping-rates', [ShippingRateController::class, 'index']);
         Route::post('/admin/shipping-rates', [ShippingRateController::class, 'store']);
         Route::patch('/admin/shipping-rates/{id}', [ShippingRateController::class, 'update']);
@@ -320,6 +330,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::post('/admin/users/{id}/release-email', [AccountEmailReleaseController::class, 'store'])->middleware('role:admin');
 
     Route::middleware('role:seller')->group(function () {
+    Route::get('/seller/pickup-address', [PickupAddressController::class, 'show']);
+    Route::put('/seller/pickup-address', [PickupAddressController::class, 'update']);
     Route::get('/seller/parcel-returns', [ParcelFlowController::class, 'sellerReturns']);
     Route::patch('/seller/parcel-returns/{id}/receive', [ParcelFlowController::class, 'sellerReceiveReturn']);
     Route::get('/seller/earnings', [EarningsController::class, 'index']);

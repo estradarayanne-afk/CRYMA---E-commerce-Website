@@ -221,6 +221,7 @@ class AdminVoucherManagementTest extends TestCase
         $past = Voucher::where('code', 'PAST')->firstOrFail();
         $oneOnly = Voucher::where('code', 'ONEONLY')->firstOrFail();
         $secondBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($secondBuyer);
         $this->claim($firstBuyer, $scheduled);
         $this->claim($firstBuyer, $past);
         $this->claim($firstBuyer, $oneOnly);
@@ -333,6 +334,7 @@ class AdminVoucherManagementTest extends TestCase
     private function buyerAndProduct(): array
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($buyer);
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
         $product = Product::create([
             'seller_id' => $seller->id,
@@ -349,6 +351,7 @@ class AdminVoucherManagementTest extends TestCase
 
     private function checkout(User $buyer, Product $product, string $code)
     {
+        $this->checkoutAddressFor($buyer);
         return $this->actingAs($buyer, 'sanctum')
             ->withHeader('Idempotency-Key', (string) Str::uuid())
             ->postJson('/api/orders', [

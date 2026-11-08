@@ -18,12 +18,34 @@ function SellerAccountSettings() {
     const [profilePhotoFile, setProfilePhotoFile] = useState(null);
     const [profilePhotoError, setProfilePhotoError] = useState("");
     const profilePhotoPreviewRef = useRef("");
+    const [pickupRegions, setPickupRegions] = useState([]);
+    const [pickupAddress, setPickupAddress] = useState({
+        recipient_name: "",
+        phone: "",
+        region: "",
+        province: "",
+        municipality: "",
+        barangay: "",
+        street: "",
+        house_number: "",
+        building_name: "",
+        unit_number: "",
+        postal_code: "",
+    });
+    const [savingPickup, setSavingPickup] = useState(false);
+    const [pickupMessage, setPickupMessage] = useState("");
+    const [pickupError, setPickupError] = useState("");
 
     useEffect(() => {
-        api.get("/user").then((userResponse) => {
+        Promise.all([api.get("/user"), api.get("/seller/pickup-address")]).then(([userResponse, pickupResponse]) => {
             const u = userResponse.data.user;
             setUser(u);
             setProfileForm({ first_name: u.first_name || "", last_name: u.last_name || "", email: u.email || "", phone: u.phone || "" });
+            const pickupData = pickupResponse.data?.data || {};
+            setPickupRegions(Array.isArray(pickupData.regions) ? pickupData.regions : []);
+            if (pickupData.address) {
+                setPickupAddress((current) => ({ ...current, ...pickupData.address }));
+            }
         }).catch(() => setError("Unable to load account information."))
           .finally(() => setLoading(false));
     }, []);
@@ -49,6 +71,24 @@ function SellerAccountSettings() {
 
     const setP = (e) => setProfileForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     const setPw = (e) => setPasswordForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+    const setPickup = (event) => setPickupAddress((current) => ({ ...current, [event.target.name]: event.target.value }));
+
+    const savePickupAddress = async (event) => {
+        event.preventDefault();
+        setPickupError("");
+        setPickupMessage("");
+        setSavingPickup(true);
+        try {
+            const response = await api.put("/seller/pickup-address", pickupAddress);
+            setPickupAddress((current) => ({ ...current, ...response.data.data }));
+            setPickupMessage("Pickup address saved.");
+        } catch (requestError) {
+            const errors = requestError.response?.data?.errors || {};
+            setPickupError(Object.values(errors).flat()[0] || requestError.response?.data?.message || "Unable to save the pickup address.");
+        } finally {
+            setSavingPickup(false);
+        }
+    };
 
     const chooseProfilePhoto = (event) => {
         const file = event.target.files?.[0] || null;
@@ -207,6 +247,76 @@ function SellerAccountSettings() {
             </div>
             </div>
             <div className="sl-account-column">
+
+            <div className="sl-card sl-account-card">
+                <div className="sl-panel-head">
+                    <div><h3>Seller Pickup Address</h3><p>Used to calculate the shipping origin zone. This is separate from buyer delivery addresses.</p></div>
+                </div>
+                {pickupError && <div className="auth-notice auth-notice--error" role="alert" style={{ margin: "0 20px 14px" }}>{pickupError}</div>}
+                <form className="sl-account-form" onSubmit={savePickupAddress}>
+                    <div className="sl-form-row">
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-recipient">Pickup contact</label>
+                            <input id="seller-pickup-recipient" name="recipient_name" value={pickupAddress.recipient_name} onChange={setPickup} maxLength={120} required />
+                        </div>
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-phone">Contact number</label>
+                            <input id="seller-pickup-phone" name="phone" type="tel" value={pickupAddress.phone} onChange={setPickup} maxLength={13} placeholder="09XXXXXXXXX" required />
+                        </div>
+                    </div>
+                    <div className="sl-form-row">
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-region">Region</label>
+                            <select id="seller-pickup-region" name="region" value={pickupAddress.region} onChange={setPickup} required>
+                                <option value="">Select a region</option>
+                                {pickupRegions.map((region) => <option value={region} key={region}>{region}</option>)}
+                            </select>
+                        </div>
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-province">Province</label>
+                            <input id="seller-pickup-province" name="province" value={pickupAddress.province} onChange={setPickup} maxLength={160} required />
+                        </div>
+                    </div>
+                    <div className="sl-form-row">
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-municipality">City / Municipality</label>
+                            <input id="seller-pickup-municipality" name="municipality" value={pickupAddress.municipality} onChange={setPickup} maxLength={160} required />
+                        </div>
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-barangay">Barangay</label>
+                            <input id="seller-pickup-barangay" name="barangay" value={pickupAddress.barangay} onChange={setPickup} maxLength={160} required />
+                        </div>
+                    </div>
+                    <div className="sl-form-row">
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-house">House number</label>
+                            <input id="seller-pickup-house" name="house_number" value={pickupAddress.house_number} onChange={setPickup} maxLength={80} required />
+                        </div>
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-street">Street</label>
+                            <input id="seller-pickup-street" name="street" value={pickupAddress.street} onChange={setPickup} maxLength={255} required />
+                        </div>
+                    </div>
+                    <div className="sl-form-row">
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-building">Building <small>(optional)</small></label>
+                            <input id="seller-pickup-building" name="building_name" value={pickupAddress.building_name || ""} onChange={setPickup} maxLength={160} />
+                        </div>
+                        <div className="sl-field">
+                            <label htmlFor="seller-pickup-unit">Unit <small>(optional)</small></label>
+                            <input id="seller-pickup-unit" name="unit_number" value={pickupAddress.unit_number || ""} onChange={setPickup} maxLength={80} />
+                        </div>
+                    </div>
+                    <div className="sl-field">
+                        <label htmlFor="seller-pickup-postal">Postal code</label>
+                        <input id="seller-pickup-postal" name="postal_code" inputMode="numeric" value={pickupAddress.postal_code} onChange={setPickup} maxLength={4} pattern="[0-9]{4}" required />
+                    </div>
+                    {pickupMessage && <div className="auth-notice auth-notice--success" role="status">{pickupMessage}</div>}
+                    <button className="sl-btn-primary" type="submit" disabled={savingPickup || pickupRegions.length === 0}>
+                        {savingPickup ? "Saving…" : "Save Pickup Address"}
+                    </button>
+                </form>
+            </div>
 
             {/* ACCOUNT INFO */}
             <div className="sl-card sl-account-card sl-account-info-card">

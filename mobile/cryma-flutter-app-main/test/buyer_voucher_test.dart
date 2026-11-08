@@ -39,6 +39,86 @@ void main() {
       'discount_amount': '80.00',
     });
     expect(validation.discountAmount, '80.00');
+    expect(validation.scope, 'product');
+  });
+
+  test('shipping voucher validation carries the address ID', () async {
+    late http.Request request;
+    final api = ApiService(
+      baseUrl: 'https://qa.example.test',
+      client: MockClient((value) async {
+        request = value;
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'voucher': {'code': 'FREESHIP'},
+              'scope': 'shipping',
+              'subtotal': '800.00',
+              'shipping_fee': '85.00',
+              'discount_amount': '85.00',
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final result = await api.validateBuyerVoucher(
+      code: 'FREESHIP',
+      addressId: 17,
+      items: const [
+        {'product_id': 7, 'quantity': 1}
+      ],
+    );
+    expect(jsonDecode(request.body)['address_id'], 17);
+    expect(BuyerVoucherValidation.fromJson(result).scope, 'shipping');
+  });
+
+  test('shipping quote and shipping voucher checkout fields use server APIs',
+      () async {
+    final requests = <http.Request>[];
+    final api = ApiService(
+      baseUrl: 'https://qa.example.test',
+      client: MockClient((request) async {
+        requests.add(request);
+        final data = request.url.path.endsWith('/shipping-quote')
+            ? {
+                'region': 'NCR',
+                'province': 'Metro Manila',
+                'shipping_fee': '85.00',
+              }
+            : <String, dynamic>{'id': 42};
+        return http.Response(
+          jsonEncode({'success': true, 'data': data}),
+          request.url.path.endsWith('/orders') ? 201 : 200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    expect(
+      (await api.getShippingQuote(17, const [
+        {'product_id': 7, 'quantity': 1}
+      ]))['shipping_fee'],
+      '85.00',
+    );
+    expect(jsonDecode(requests.last.body), {
+      'address_id': 17,
+      'items': [
+        {'product_id': 7, 'quantity': 1}
+      ],
+    });
+    await api.createOrder(
+      addressId: 17,
+      deliveryAddress: 'Saved address',
+      paymentMethod: 'cash_on_delivery',
+      items: const [
+        {'product_id': 7, 'quantity': 1}
+      ],
+      idempotencyKey: 'shipping-order-key',
+      shippingVoucherCode: 'FREESHIP',
+    );
+    expect(jsonDecode(requests.last.body)['shipping_voucher_code'], 'FREESHIP');
   });
 
   test('list and claim use authenticated Buyer endpoints', () async {

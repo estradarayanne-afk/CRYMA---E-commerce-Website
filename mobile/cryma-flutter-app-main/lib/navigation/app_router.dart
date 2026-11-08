@@ -231,11 +231,23 @@ class AppRouter {
           child: const CheckoutScreen(),
         );
       case '/voucher_selection':
-        final items = settings.arguments as List<Map<String, dynamic>>? ?? [];
+        final arguments = settings.arguments;
+        final data = arguments is Map<String, dynamic>
+            ? arguments
+            : const <String, dynamic>{};
+        final items = arguments is List<Map<String, dynamic>>
+            ? arguments
+            : (data['items'] as List? ?? const [])
+                .whereType<Map<String, dynamic>>()
+                .toList();
         return MaterialPageRoute<Map<String, dynamic>>(
           settings: settings,
           builder: (_) => BuyerAuthGuard(
-            child: VoucherSelectionScreen(items: items),
+            child: VoucherSelectionScreen(
+              items: items,
+              scope: data['scope']?.toString() ?? 'product',
+              addressId: int.tryParse(data['address_id']?.toString() ?? ''),
+            ),
           ),
         );
       case '/order_success':

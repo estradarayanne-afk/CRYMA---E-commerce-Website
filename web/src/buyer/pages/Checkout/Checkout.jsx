@@ -22,7 +22,7 @@ import {
 } from "../../../shared/utils/buyerAccess";
 import { getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
 import { normalizeBuyerAddress, validateBuyerAddress } from "../Account/addressValidation";
-import { calculateVoucherTotal, formatVoucherDiscount } from "../../../shared/utils/voucherPresentation";
+import { formatVoucherDiscount } from "../../../shared/utils/voucherPresentation";
 import "./Checkout.css";
 
 const SELECTED_CART_KEY = "cryma_selected_cart_ids";
@@ -104,6 +104,14 @@ function Checkout() {
     const [voucherLoading, setVoucherLoading] = useState(false);
     const [claimingVoucherId, setClaimingVoucherId] = useState(null);
     const [voucherError, setVoucherError] = useState("");
+    const [shippingVoucherCodeInput, setShippingVoucherCodeInput] = useState("");
+    const [appliedShippingVoucherCode, setAppliedShippingVoucherCode] = useState("");
+    const [shippingVoucherPreview, setShippingVoucherPreview] = useState(null);
+    const [shippingVoucherLoading, setShippingVoucherLoading] = useState(false);
+    const [shippingVoucherError, setShippingVoucherError] = useState("");
+    const [shippingQuote, setShippingQuote] = useState(null);
+    const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
+    const [shippingQuoteError, setShippingQuoteError] = useState("");
     const voucherValidationSequence = useRef(0);
     const voucherCartFingerprint = useRef("");
 
@@ -157,11 +165,54 @@ function Checkout() {
         [selectedCartItems]
     );
 
-    const shippingFee = 0;
+    const shippingFee = Number(shippingQuote?.shipping_fee || 0);
 
     const checkoutSubtotal = Number(voucherPreview?.subtotal ?? subtotal);
     const voucherDiscount = Number(voucherPreview?.discount_amount || 0);
-    const total = calculateVoucherTotal(checkoutSubtotal, shippingFee, voucherDiscount);
+    const shippingVoucherDiscount = Number(shippingVoucherPreview?.discount_amount || 0);
+    const total = Math.max(0, checkoutSubtotal - voucherDiscount + shippingFee - shippingVoucherDiscount);
+
+    useEffect(() => {
+        if (!selectedSavedAddressId) return undefined;
+        let cancelled = false;
+        const timer = window.setTimeout(() => {
+            if (cancelled) return;
+            setShippingQuoteLoading(true);
+            setShippingQuoteError("");
+            api.post("/buyer/shipping-quote", {
+                address_id: Number(selectedSavedAddressId),
+                items: selectedCartItems.map((item) => ({
+                    product_id: Number(item.id),
+                    ...(item.variant_id ? { variant_id: item.variant_id } : {}),
+                    quantity: Number(item.quantity),
+                })),
+            })
+                .then(({ data }) => {
+                    if (!cancelled) setShippingQuote(data?.data || null);
+                })
+                .catch((requestError) => {
+                    if (cancelled) return;
+                    const errors = requestError.response?.data?.errors;
+                    setShippingQuoteError(errors ? Object.values(errors).flat()[0] : requestError.response?.data?.message || "Shipping is not configured for this address.");
+                })
+                .finally(() => {
+                    if (!cancelled) setShippingQuoteLoading(false);
+                });
+        }, 0);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [selectedSavedAddressId, selectedCartItems]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setAppliedShippingVoucherCode("");
+            setShippingVoucherPreview(null);
+            setShippingVoucherError("");
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [voucherCartKey]);
 
     useEffect(() => {
         if (!isLoggedIn) return undefined;
@@ -228,7 +279,7 @@ function Checkout() {
             });
             if (sequence !== voucherValidationSequence.current) return;
             const preview = data?.data;
-            if (!preview?.voucher?.code || preview.discount_amount === undefined) {
+            if (preview?.scope !== "product" || !preview?.voucher?.code || preview.discount_amount === undefined) {
                 throw new Error("Voucher validation response was incomplete.");
             }
             setAppliedVoucherCode(preview.voucher.code);
@@ -352,6 +403,14 @@ function Checkout() {
     */
 
     const selectSavedAddress = (id) => {
+        if (String(id) !== String(selectedSavedAddressId)) {
+            setAppliedShippingVoucherCode("");
+            setShippingVoucherPreview(null);
+            setShippingVoucherError("");
+            setShippingQuote(null);
+            setShippingQuoteError("");
+            setShippingQuoteLoading(Boolean(id));
+        }
         setSelectedSavedAddressId(id);
     };
 
@@ -386,6 +445,11 @@ function Checkout() {
                     : current;
                 return [savedAddress, ...next];
             });
+            setAppliedShippingVoucherCode("");
+            setShippingVoucherPreview(null);
+            setShippingQuote(null);
+            setShippingQuoteError("");
+            setShippingQuoteLoading(true);
             setSelectedSavedAddressId(String(savedAddress.id));
             setShowAddressForm(false);
             setAddressErrors({});
@@ -454,12 +518,14 @@ function Checkout() {
     }, [selectedCartItems]);
 
     const eligibleVouchers = useMemo(() => vouchers.filter((voucher) => {
+        if (voucher.scope === "shipping") return false;
         if (voucher.buyer_status !== "available") return false;
-        if (voucher.voucher_seller_id && (sellerIds.length !== 1 || String(voucher.voucher_seller_id) !== sellerIds[0])) return false;
+        if (voucher.voucher_seller_id && !sellerIds.includes(String(voucher.voucher_seller_id))) return false;
         const productIds = (voucher.product_ids || []).map(String);
         const categories = (voucher.categories || []).map((category) => String(category).trim().toLocaleLowerCase());
         const hasRestrictions = productIds.length > 0 || categories.length > 0;
         const eligibleItems = selectedCartItems.filter((item) => {
+            if (voucher.voucher_seller_id && String(item.seller_id ?? item.seller?.id ?? item.seller) !== String(voucher.voucher_seller_id)) return false;
             if (!hasRestrictions) return true;
             const matchesProduct = productIds.includes(String(item.product_id ?? item.id));
             const matchesCategory = categories.includes(String(item.category || "").trim().toLocaleLowerCase());
@@ -469,22 +535,72 @@ function Checkout() {
         return eligibleItems.length > 0 && eligibleSubtotal >= Number(voucher.minimum_spend || 0);
     }), [vouchers, selectedCartItems, sellerIds]);
 
-    const claimVoucher = async (voucher) => {
+    const eligibleShippingVouchers = useMemo(() => vouchers.filter((voucher) =>
+        voucher.scope === "shipping" &&
+        voucher.buyer_status === "available" &&
+        subtotal >= Number(voucher.minimum_spend || 0)
+    ), [vouchers, subtotal]);
+
+    const claimVoucher = async (voucher, reportError = setVoucherError) => {
         if (claimingVoucherId || voucher.is_claimed) return;
         setClaimingVoucherId(voucher.id);
         setVoucherError("");
         try {
             await api.post(`/buyer/vouchers/${voucher.id}/claim`);
             setVouchers((current) => current.map((item) => item.id === voucher.id ? { ...item, is_claimed: true } : item));
+            return true;
         } catch (requestError) {
-            setVoucherError(requestError.response?.data?.errors?.voucher?.[0] || requestError.response?.data?.message || "Unable to claim this voucher.");
+            reportError(requestError.response?.data?.errors?.voucher?.[0] || requestError.response?.data?.message || "Unable to claim this voucher.");
+            return false;
         } finally {
             setClaimingVoucherId(null);
         }
     };
 
-    const hasMultipleSellers =
-        sellerIds.length > 1;
+    const applyShippingVoucherCode = async (rawCode) => {
+        const code = String(rawCode || "").trim();
+        if (!code) {
+            setShippingVoucherError("Enter a shipping voucher code.");
+            return;
+        }
+        if (!selectedSavedAddressId || !shippingQuote) {
+            setShippingVoucherError(shippingQuoteError || "Choose an address with a configured shipping rate first.");
+            return;
+        }
+        setShippingVoucherLoading(true);
+        setShippingVoucherError("");
+        try {
+            const { data } = await api.post("/buyer/vouchers/validate", {
+                code,
+                address_id: Number(selectedSavedAddressId),
+                items: selectedCartItems.map((item) => ({
+                    product_id: item.id,
+                    ...(item.variant_id ? { variant_id: item.variant_id } : {}),
+                    quantity: Number(item.quantity),
+                })),
+            });
+            const preview = data?.data;
+            if (preview?.scope !== "shipping" || !preview?.voucher?.code || preview.discount_amount === undefined) {
+                throw new Error("Shipping voucher validation response was incomplete.");
+            }
+            setAppliedShippingVoucherCode(preview.voucher.code);
+            setShippingVoucherPreview(preview);
+            setShippingVoucherCodeInput("");
+        } catch (requestError) {
+            const errors = requestError.response?.data?.errors;
+            setShippingVoucherError(errors ? Object.values(errors).flat()[0] : requestError.response?.data?.message || requestError.message || "Unable to apply this shipping voucher.");
+            setAppliedShippingVoucherCode("");
+            setShippingVoucherPreview(null);
+        } finally {
+            setShippingVoucherLoading(false);
+        }
+    };
+
+    const removeShippingVoucher = () => {
+        setAppliedShippingVoucherCode("");
+        setShippingVoucherPreview(null);
+        setShippingVoucherError("");
+    };
 
     /*
     |--------------------------------------------------------------------------
@@ -513,6 +629,10 @@ function Checkout() {
             setError(voucherError || "Wait for the selected voucher to finish validating, or remove it before placing your order.");
             return false;
         }
+        if (appliedShippingVoucherCode && (shippingVoucherLoading || !shippingVoucherPreview)) {
+            setError(shippingVoucherError || "Wait for the shipping voucher to finish validating, or remove it before placing your order.");
+            return false;
+        }
 
         const selectedAddress = savedAddresses.find(
             (item) => String(item.id) === String(selectedSavedAddressId)
@@ -523,6 +643,10 @@ function Checkout() {
         }
         if (!selectedAddress.barangay || !selectedAddress.municipality || !selectedAddress.province) {
             setError("This saved address is incomplete. Edit it in My Account or add a complete address.");
+            return false;
+        }
+        if (shippingQuoteLoading || !shippingQuote) {
+            setError(shippingQuoteError || "Wait for the shipping fee to load or choose another address.");
             return false;
         }
 
@@ -542,14 +666,6 @@ function Checkout() {
         if (invalidItem) {
             setError(
                 `${invalidItem.name} has an invalid quantity or is no longer available.`
-            );
-
-            return false;
-        }
-
-        if (hasMultipleSellers) {
-            setError(
-                "Please checkout products from one seller at a time."
             );
 
             return false;
@@ -607,6 +723,7 @@ function Checkout() {
                 {
                     ...(selectedSavedAddressId ? { address_id: Number(selectedSavedAddressId) } : {}),
                     ...(appliedVoucherCode ? { voucher_code: appliedVoucherCode } : {}),
+                    ...(appliedShippingVoucherCode ? { shipping_voucher_code: appliedShippingVoucherCode } : {}),
                     delivery_address:
                         deliveryAddress,
 
@@ -672,9 +789,8 @@ function Checkout() {
 
             setShowConfirmModal(false);
 
-            navigate(
-                `/orders/${orderId}`
-            );
+            const checkoutOrders = data?.data?.checkout_orders;
+            navigate(checkoutOrders?.length > 1 ? "/orders" : `/orders/${orderId}`);
         } catch (err) {
             setShowConfirmModal(false);
 
@@ -1034,16 +1150,23 @@ function Checkout() {
                     </div>
 
                     <div className="checkout-summary-row">
-                        <span>Delivery fee</span>
-
-                        <strong className="checkout-free">
-                            ₱{shippingFee.toLocaleString()}
-                        </strong>
+                        <span>Shipping ({shippingQuote?.parcels?.length || 0} seller parcels)</span>
+                        <strong>{shippingQuoteLoading ? "Calculating…" : shippingQuote ? `₱${shippingFee.toLocaleString()}` : "Unavailable"}</strong>
                     </div>
+                    {shippingQuote?.is_provisional && <p className="checkout-shipping-provisional" role="note">Provisional demo estimate — not a verified courier quote.</p>}
+                    {shippingQuote?.parcels?.length > 1 && <div className="checkout-shipping-parcels">
+                        {shippingQuote.parcels.map((parcel) => (
+                            <div key={parcel.seller_id}>
+                                <span>{parcel.origin_zone} → {parcel.destination_zone} · {parcel.seller_name}</span>
+                                <strong>₱{Number(parcel.shipping_fee).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong>
+                            </div>
+                        ))}
+                    </div>}
+                    {shippingQuoteError && <p className="checkout-voucher-error" role="alert">{shippingQuoteError}</p>}
 
                     {voucherDiscount > 0 && (
                         <div className="checkout-summary-row checkout-voucher-discount-row">
-                            <span>Voucher discount</span>
+                            <span>Product voucher discount</span>
                             <strong>−₱{voucherDiscount.toLocaleString()}</strong>
                         </div>
                     )}
@@ -1107,6 +1230,63 @@ function Checkout() {
                         )}
                     </section>
 
+                    <section className="checkout-voucher-box" aria-labelledby="checkout-shipping-voucher-title">
+                        <div className="checkout-voucher-heading">
+                            <Ticket size={16} />
+                            <strong id="checkout-shipping-voucher-title">Free Shipping voucher</strong>
+                        </div>
+                        {appliedShippingVoucherCode && shippingVoucherPreview ? (
+                            <div className="checkout-voucher-applied">
+                                <div>
+                                    <strong>{shippingVoucherPreview.voucher.code}</strong>
+                                    <span>Saved ₱{Number(shippingVoucherPreview.discount_amount).toLocaleString()} on delivery</span>
+                                </div>
+                                <button type="button" onClick={removeShippingVoucher} disabled={submitting}>Remove</button>
+                            </div>
+                        ) : (
+                            <form className="checkout-voucher-form" onSubmit={(event) => {
+                                event.preventDefault();
+                                applyShippingVoucherCode(shippingVoucherCodeInput);
+                            }}>
+                                <label className="checkout-voucher-label" htmlFor="checkout-shipping-voucher-code">Shipping voucher code</label>
+                                <input
+                                    id="checkout-shipping-voucher-code"
+                                    value={shippingVoucherCodeInput}
+                                    onChange={(event) => setShippingVoucherCodeInput(event.target.value)}
+                                    placeholder="Enter shipping voucher code"
+                                    maxLength={64}
+                                    disabled={shippingVoucherLoading || submitting || !shippingQuote}
+                                />
+                                <button type="submit" disabled={shippingVoucherLoading || submitting || !shippingQuote}>
+                                    {shippingVoucherLoading ? "Checking…" : "Apply"}
+                                </button>
+                            </form>
+                        )}
+                        {shippingVoucherError && <p className="checkout-voucher-error" role="alert">{shippingVoucherError}</p>}
+                        {!appliedShippingVoucherCode && eligibleShippingVouchers.length > 0 && (
+                            <div className="checkout-voucher-available">
+                                <p className="checkout-voucher-status">Available for this delivery</p>
+                                {eligibleShippingVouchers.map((voucher) => (
+                                    <button
+                                        type="button"
+                                        key={voucher.id}
+                                        onClick={async () => {
+                                            if (!voucher.is_claimed && !(await claimVoucher(voucher, setShippingVoucherError))) return;
+                                            await applyShippingVoucherCode(voucher.code);
+                                        }}
+                                        disabled={shippingVoucherLoading || submitting || claimingVoucherId !== null || !shippingQuote}
+                                    >
+                                        <span><strong>{voucher.code}</strong><small>{formatVoucherDiscount(voucher)} off shipping</small></span>
+                                        <small>{claimingVoucherId === voucher.id ? "Claiming…" : voucher.is_claimed ? "Apply voucher" : "Claim voucher"}{Number(voucher.minimum_spend) > 0 ? ` · Min. ₱${Number(voucher.minimum_spend).toLocaleString()}` : ""}</small>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {!loadingVouchers && !appliedShippingVoucherCode && eligibleShippingVouchers.length === 0 && (
+                            <p className="checkout-voucher-status">No available shipping vouchers match this order.</p>
+                        )}
+                    </section>
+
                     {/* PAYMENT IS HERE */}
                     <div className="checkout-summary-payment">
                         <div className="checkout-summary-payment-heading">
@@ -1122,7 +1302,7 @@ function Checkout() {
                     <div className="checkout-summary-total">
                         <div>
                             <span>Estimated total</span>
-                            {voucherPreview && <small>Discount is applied to eligible merchandise only.</small>}
+                            {(voucherPreview || shippingVoucherPreview) && <small>Product discounts apply to eligible items; shipping discounts cannot exceed the delivery fee.</small>}
                         </div>
 
                         <strong>
@@ -1136,6 +1316,8 @@ function Checkout() {
                         onClick={requestPlaceOrder}
                         disabled={
                             submitting ||
+                            shippingQuoteLoading ||
+                            !shippingQuote ||
                             selectedCartItems.length === 0 ||
                             hasInvalidSelectedStock
                         }
@@ -1215,8 +1397,18 @@ function Checkout() {
 
                             {voucherPreview && (
                                 <div>
-                                    <span>Voucher ({voucherPreview.voucher.code})</span>
+                                    <span>Product voucher ({voucherPreview.voucher.code})</span>
                                     <strong>−₱{Number(voucherPreview.discount_amount).toLocaleString()}</strong>
+                                </div>
+                            )}
+                            <div>
+                                <span>Delivery fee</span>
+                                <strong>{shippingQuoteLoading ? "Calculating…" : `₱${shippingFee.toLocaleString()}`}</strong>
+                            </div>
+                            {shippingVoucherPreview && (
+                                <div>
+                                    <span>Shipping voucher ({shippingVoucherPreview.voucher.code})</span>
+                                    <strong>−₱{Number(shippingVoucherPreview.discount_amount).toLocaleString()}</strong>
                                 </div>
                             )}
 

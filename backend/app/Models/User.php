@@ -65,6 +65,11 @@ class User extends Authenticatable
         return $this->hasMany(Address::class);
     }
 
+    public function sellerPickupAddress(): HasOne
+    {
+        return $this->hasOne(SellerPickupAddress::class);
+    }
+
     /**
      * Get the user's uploaded documents.
      */

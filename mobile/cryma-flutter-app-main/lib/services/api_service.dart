@@ -522,16 +522,40 @@ class ApiService {
   Future<Map<String, dynamic>> validateBuyerVoucher({
     required String code,
     required List<Map<String, dynamic>> items,
+    int? addressId,
   }) async {
     final response = await post(
       '/api/buyer/vouchers/validate',
-      body: {'code': code.trim(), 'items': items},
+      body: {
+        'code': code.trim(),
+        'items': items,
+        if (addressId != null) 'address_id': addressId,
+      },
       authenticated: true,
     );
     final data = response['data'];
     if (response['success'] != true || data is! Map<String, dynamic>) {
       throw const ApiException(
           'The server returned an invalid voucher result.');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> getShippingQuote(
+    int addressId, [
+    List<Map<String, dynamic>> items = const [],
+  ]) async {
+    final response = await post(
+      '/api/buyer/shipping-quote',
+      body: {'address_id': addressId, 'items': items},
+      authenticated: true,
+    );
+    final data = response['data'];
+    if (response['success'] != true ||
+        data is! Map<String, dynamic> ||
+        data['shipping_fee'] == null) {
+      throw const ApiException(
+          'The server returned an invalid shipping quote.');
     }
     return data;
   }
@@ -543,6 +567,7 @@ class ApiService {
     required List<Map<String, dynamic>> items,
     required String idempotencyKey,
     String? voucherCode,
+    String? shippingVoucherCode,
   }) {
     final body = <String, dynamic>{
       'address_id': addressId,
@@ -552,6 +577,9 @@ class ApiService {
     };
     if (voucherCode != null && voucherCode.trim().isNotEmpty) {
       body['voucher_code'] = voucherCode.trim();
+    }
+    if (shippingVoucherCode != null && shippingVoucherCode.trim().isNotEmpty) {
+      body['shipping_voucher_code'] = shippingVoucherCode.trim();
     }
     return post(
       '/api/orders',

@@ -4,6 +4,7 @@ class BuyerVoucher {
     required this.code,
     required this.discountType,
     required this.discountValue,
+    required this.scope,
     required this.buyerStatus,
     required this.isClaimed,
     this.description,
@@ -21,6 +22,7 @@ class BuyerVoucher {
   final String code;
   final String discountType;
   final String discountValue;
+  final String scope;
   final String buyerStatus;
   final bool isClaimed;
   final String? description;
@@ -46,6 +48,7 @@ class BuyerVoucher {
       code: json['code'].toString(),
       discountType: json['discount_type']?.toString() ?? '',
       discountValue: json['discount_value']?.toString() ?? '',
+      scope: json['scope']?.toString() ?? 'product',
       buyerStatus: json['buyer_status']?.toString() ?? 'ineligible',
       isClaimed: json['is_claimed'] == true,
       description: json['description']?.toString(),
@@ -65,6 +68,7 @@ class BuyerVoucher {
         code: code,
         discountType: discountType,
         discountValue: discountValue,
+        scope: scope,
         buyerStatus: buyerStatus,
         isClaimed: isClaimed ?? this.isClaimed,
         description: description,
@@ -84,19 +88,23 @@ class BuyerVoucher {
     final amount = value == value.roundToDouble()
         ? value.toStringAsFixed(0)
         : value.toStringAsFixed(2);
-    return discountType == 'percentage' ? '$amount% off' : '₱$amount off';
+    final discount =
+        discountType == 'percentage' ? '$amount% off' : '₱$amount off';
+    return scope == 'shipping' ? '$discount shipping' : discount;
   }
 }
 
 class BuyerVoucherValidation {
   const BuyerVoucherValidation({
     required this.code,
+    required this.scope,
     required this.discountAmount,
     required this.subtotal,
     required this.eligibleSubtotal,
   });
 
   final String code;
+  final String scope;
   final String discountAmount;
   final String subtotal;
   final String eligibleSubtotal;
@@ -110,6 +118,7 @@ class BuyerVoucherValidation {
     }
     return BuyerVoucherValidation(
       code: voucher['code'].toString(),
+      scope: json['scope']?.toString() ?? 'product',
       discountAmount: json['discount_amount'].toString(),
       subtotal: json['subtotal']?.toString() ?? '',
       eligibleSubtotal: json['eligible_subtotal']?.toString() ?? '',

@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Commission;
 use App\Models\CodCollection;
+use App\Models\CheckoutGroup;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Order;
+use App\Models\OrderShippingCharge;
 use App\Models\PlatformConfig;
 use App\Models\Product;
 use App\Models\RefundRequest;
@@ -17,6 +19,7 @@ use App\Models\Voucher;
 use App\Models\VoucherRedemption;
 use App\Notifications\SellerActivityNotification;
 use App\Support\VoucherDiscount;
+use App\Support\ShippingQuote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
@@ -44,6 +47,55 @@ class BuyerOrderController extends Controller
                 'address' => $address,
                 'addresses' => $addresses,
             ],
+        ]);
+    }
+
+    public function shippingQuote(Request $request, ShippingQuote $shippingQuote)
+    {
+        $validated = $request->validate([
+            'address_id' => ['required', 'integer'],
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.product_id' => ['required', 'integer'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.variant_id' => ['sometimes', 'nullable', 'uuid'],
+        ]);
+        $address = $request->user()->addresses()->findOrFail($validated['address_id']);
+        $products = Product::query()
+            ->whereIn('id', collect($validated['items'])->pluck('product_id')->unique())
+            ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
+            ->get()
+            ->keyBy('id');
+        $items = [];
+        foreach ($validated['items'] as $requested) {
+            $product = $products->get($requested['product_id']);
+            if (!$product || $product->stock < $requested['quantity']) {
+                throw ValidationException::withMessages([
+                    'items' => ['A selected product is no longer available in the requested quantity.'],
+                ]);
+            }
+            if ($product->variants) {
+                $variant = collect($product->variants)->first(
+                    fn (array $candidate) => ($candidate['id'] ?? null) === ($requested['variant_id'] ?? null)
+                );
+                if (!$variant || (int) $variant['stock'] < $requested['quantity']) {
+                    throw ValidationException::withMessages([
+                        'items' => ['A selected product variant is no longer available in the requested quantity.'],
+                    ]);
+                }
+            } elseif (!empty($requested['variant_id'])) {
+                throw ValidationException::withMessages([
+                    'items' => ['A selected product variant is no longer available.'],
+                ]);
+            }
+            $items[] = ['product' => $product, 'quantity' => (int) $requested['quantity']];
+        }
+        $quote = $shippingQuote->quote($address, $items);
+
+        return response()->json([
+            'success' => true,
+            'data' => $quote,
         ]);
     }
 
@@ -224,7 +276,16 @@ class BuyerOrderController extends Controller
             CodCollection::where('order_id', $order->id)->where('status', 'awaiting_collection')->update(['status' => 'cancelled']);
             // Reverse the voucher redemption so the use count is returned to the voucher.
             // This must run inside the transaction so it rolls back if anything fails.
-            VoucherRedemption::where('order_id', $order->id)->delete();
+            if (
+                !$order->checkout_group_id
+                || !Order::where('checkout_group_id', $order->checkout_group_id)
+                    ->where('status', '!=', 'CANCELLED')
+                    ->exists()
+            ) {
+                VoucherRedemption::where('order_id', $order->id)
+                    ->orWhereIn('order_id', $order->checkoutGroup?->orders()->pluck('id') ?? [])
+                    ->delete();
+            }
 
             return $order->load('items.product');
         });
@@ -369,6 +430,7 @@ class BuyerOrderController extends Controller
             ],
             'address_id' => ['sometimes', 'nullable', 'integer'],
             'voucher_code' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'shipping_voucher_code' => ['sometimes', 'nullable', 'string', 'max:64'],
 
             'payment_method' => [
                 'required',
@@ -379,6 +441,7 @@ class BuyerOrderController extends Controller
                 'required',
                 'array',
                 'min:1',
+                'max:100',
             ],
 
             'items.*.product_id' => [
@@ -403,29 +466,38 @@ class BuyerOrderController extends Controller
         $validated['voucher_code'] = filled($validated['voucher_code'] ?? null)
             ? mb_strtoupper(trim($validated['voucher_code']))
             : null;
+        $validated['shipping_voucher_code'] = filled($validated['shipping_voucher_code'] ?? null)
+            ? mb_strtoupper(trim($validated['shipping_voucher_code']))
+            : null;
 
         $userId = $request->user()->id;
-        if (!empty($validated['address_id'])) {
-            $selectedAddress = $request->user()->addresses()->findOrFail($validated['address_id']);
-            $validated['delivery_address'] = collect([
-                $selectedAddress->label ? ucfirst($selectedAddress->label) : null,
-                'Recipient: '.($selectedAddress->recipient_name ?: trim(
-                    $request->user()->first_name.' '.$request->user()->last_name
-                )),
-                filled($selectedAddress->phone ?: $request->user()->phone)
-                    ? 'Contact: '.($selectedAddress->phone ?: $request->user()->phone)
-                    : null,
-                $selectedAddress->house_number,
-                $selectedAddress->building_name,
-                $selectedAddress->unit_number,
-                $selectedAddress->street,
-                $selectedAddress->barangay,
-                $selectedAddress->municipality,
-                $selectedAddress->province,
-                $selectedAddress->region,
-                $selectedAddress->postal_code,
-            ])->filter(fn ($part) => filled($part))->implode(', ');
+        $selectedAddress = !empty($validated['address_id'])
+            ? $request->user()->addresses()->findOrFail($validated['address_id'])
+            : $request->user()->addresses()->orderByDesc('is_default')->latest('id')->first();
+        if (!$selectedAddress) {
+            throw ValidationException::withMessages([
+                'address_id' => ['Save a delivery address before placing an order.'],
+            ]);
         }
+        $validated['address_id'] = $selectedAddress->id;
+        $validated['delivery_address'] = collect([
+            $selectedAddress->label ? ucfirst($selectedAddress->label) : null,
+            'Recipient: '.($selectedAddress->recipient_name ?: trim(
+                $request->user()->first_name.' '.$request->user()->last_name
+            )),
+            filled($selectedAddress->phone ?: $request->user()->phone)
+                ? 'Contact: '.($selectedAddress->phone ?: $request->user()->phone)
+                : null,
+            $selectedAddress->house_number,
+            $selectedAddress->building_name,
+            $selectedAddress->unit_number,
+            $selectedAddress->street,
+            $selectedAddress->barangay,
+            $selectedAddress->municipality,
+            $selectedAddress->province,
+            $selectedAddress->region,
+            $selectedAddress->postal_code,
+        ])->filter(fn ($part) => filled($part))->implode(', ');
         $canonicalItems = collect($validated['items'])
             ->map(fn (array $item): array => [
                 'product_id' => (int) $item['product_id'],
@@ -437,11 +509,15 @@ class BuyerOrderController extends Controller
             ->all();
         $requestDetails = [
             'delivery_address' => trim($validated['delivery_address']),
+            'address_id' => (int) $validated['address_id'],
             'payment_method' => $validated['payment_method'],
             'items' => $canonicalItems,
         ];
         if ($validated['voucher_code'] !== null) {
             $requestDetails['voucher_code'] = $validated['voucher_code'];
+        }
+        if ($validated['shipping_voucher_code'] !== null) {
+            $requestDetails['shipping_voucher_code'] = $validated['shipping_voucher_code'];
         }
         $requestHash = hash('sha256', json_encode($requestDetails, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $idempotencyKey = $validated['idempotency_key'];
@@ -456,11 +532,27 @@ class BuyerOrderController extends Controller
         }
 
         try {
-            $order = DB::transaction(function () use ($request, $validated, $userId, $idempotencyKey, $requestHash) {
+            $orders = DB::transaction(function () use ($request, $validated, $userId, $idempotencyKey, $requestHash) {
                 // Reserve the request key before stock checks. The unique index
                 // serializes concurrent retries of the same buyer request.
+                $group = CheckoutGroup::create([
+                    'buyer_id' => $userId,
+                    'address_id' => $validated['address_id'],
+                    'delivery_address' => trim($validated['delivery_address']),
+                    'payment_method' => $validated['payment_method'],
+                    'subtotal' => 0,
+                    'shipping_fee' => 0,
+                    'voucher_discount' => 0,
+                    'shipping_voucher_discount' => 0,
+                    'total_amount' => 0,
+                    'voucher_code' => $validated['voucher_code'],
+                    'shipping_voucher_code' => $validated['shipping_voucher_code'],
+                    'idempotency_key' => $idempotencyKey,
+                    'request_hash' => $requestHash,
+                ]);
                 $order = Order::create([
                     'buyer_id' => $userId,
+                    'checkout_group_id' => $group->id,
                     'delivery_address' => trim($validated['delivery_address']),
                     'payment_method' => $validated['payment_method'],
                     'subtotal' => 0,
@@ -468,6 +560,9 @@ class BuyerOrderController extends Controller
                     'total_amount' => 0,
                     'voucher_code' => null,
                     'voucher_discount' => 0,
+                    'shipping_voucher_id' => null,
+                    'shipping_voucher_code' => null,
+                    'shipping_voucher_discount' => 0,
                     'status' => 'pending',
                     'checkout_idempotency_key' => $idempotencyKey,
                     'checkout_request_hash' => $requestHash,
@@ -477,22 +572,6 @@ class BuyerOrderController extends Controller
                 $variantStocks = [];
                 $vacationSellers = [];
                 $subtotalCents = 0;
-
-                $sellerIds = collect($validated['items'])
-                    ->map(function ($item) {
-                        return Product::where('id', $item['product_id'])
-                            ->value('seller_id');
-                    })
-                    ->filter()
-                    ->unique()
-                    ->values();
-
-                if ($sellerIds->count() > 1) {
-                    abort(
-                        422,
-                        'Please checkout products from one seller at a time.'
-                    );
-                }
 
                 foreach ($validated['items'] as $requestedItem) {
                     $product = Product::with('seller')
@@ -582,6 +661,24 @@ class BuyerOrderController extends Controller
                     ];
                 }
 
+                $selectedAddress = !empty($validated['address_id'])
+                    ? $request->user()->addresses()->findOrFail($validated['address_id'])
+                    : null;
+                if (!$selectedAddress) {
+                    throw ValidationException::withMessages([
+                        'address_id' => ['Save a delivery address before placing an order.'],
+                    ]);
+                }
+                $shippingQuote = app(ShippingQuote::class)->quote(
+                    $selectedAddress,
+                    array_map(fn (array $item): array => [
+                        'product' => $item[0],
+                        'quantity' => $item[1],
+                    ], $items),
+                    true
+                );
+                $shippingFeeCents = $this->amountToCents($shippingQuote['shipping_fee']);
+
                 $voucherResult = null;
                 if ($validated['voucher_code'] !== null) {
                     $voucher = Voucher::query()
@@ -592,6 +689,11 @@ class BuyerOrderController extends Controller
                     if (!$voucher) {
                         throw ValidationException::withMessages([
                             'voucher_code' => ['This voucher code is not valid.'],
+                        ]);
+                    }
+                    if ($voucher->scope !== 'product') {
+                        throw ValidationException::withMessages([
+                            'voucher_code' => ['This is a shipping voucher. Apply it in the shipping voucher field.'],
                         ]);
                     }
 
@@ -605,10 +707,33 @@ class BuyerOrderController extends Controller
                     );
                 }
 
-                foreach (
-                    $items
-                    as [$product, $quantity, $lineSubtotal, $sellingPrice, $variantLabel, $variantId]
-                ) {
+                $shippingVoucherResult = null;
+                if ($validated['shipping_voucher_code'] !== null) {
+                    if (!$selectedAddress || !$shippingQuote) {
+                        throw ValidationException::withMessages([
+                            'shipping_voucher_code' => ['Choose a delivery address with a configured shipping rate first.'],
+                        ]);
+                    }
+
+                    $shippingVoucher = Voucher::query()
+                        ->whereRaw('UPPER(code) = ?', [$validated['shipping_voucher_code']])
+                        ->lockForUpdate()
+                        ->first();
+                    if (!$shippingVoucher) {
+                        throw ValidationException::withMessages([
+                            'shipping_voucher_code' => ['This shipping voucher code is not valid.'],
+                        ]);
+                    }
+
+                    $shippingVoucherResult = app(VoucherDiscount::class)->calculateShipping(
+                        $shippingVoucher,
+                        $shippingFeeCents,
+                        $subtotalCents,
+                        $userId
+                    );
+                }
+
+                foreach ($items as [$product, $quantity]) {
                     $updatedStockRows = Product::whereKey($product->id)
                         ->where('status', 'active')
                         ->where('stock', '>=', $quantity)
@@ -620,17 +745,6 @@ class BuyerOrderController extends Controller
                             "Not enough stock for {$product->name}."
                         );
                     }
-
-                    $order->items()->create([
-                        'product_id' => $product->id,
-                        'seller_id' => $product->seller_id,
-                        'quantity' => $quantity,
-                        'unit_price' => $sellingPrice,
-                        'subtotal' => $lineSubtotal,
-                        'unit_weight_kg' => $product->weight_kg,
-                        'variant_label' => $variantLabel,
-                        'variant_id' => $variantId,
-                    ]);
                 }
                 foreach ($variantStocks as $productId => $variants) {
                     Product::whereKey($productId)->update([
@@ -640,31 +754,117 @@ class BuyerOrderController extends Controller
 
                 $discountCents = $voucherResult['discount_cents'] ?? 0;
                 $voucher = $voucherResult['voucher'] ?? null;
-                $order->update([
-                    'subtotal' => $this->formatCents($subtotalCents),
-                    'total_amount' => $this->formatCents($subtotalCents - $discountCents),
-                    'voucher_id' => $voucher?->id,
-                    'voucher_code' => $voucher?->code,
-                    'voucher_discount' => $this->formatCents($discountCents),
-                ]);
-
-                $earningsBasisCents = max(0, $subtotalCents - $discountCents);
+                $shippingDiscountCents = $shippingVoucherResult['discount_cents'] ?? 0;
+                $shippingVoucher = $shippingVoucherResult['voucher'] ?? null;
+                $totalCents = $subtotalCents - $discountCents + $shippingFeeCents - $shippingDiscountCents;
+                if ($totalCents > 999_999_999_999) {
+                    abort(422, 'The order total exceeds the supported amount.');
+                }
+                $itemsBySeller = collect($items)->groupBy(fn (array $item) => (int) $item[0]->seller_id);
+                $shippingParcels = collect($shippingQuote['parcels'])->keyBy('seller_id');
+                $sellerSubtotals = $itemsBySeller->map(
+                    fn ($sellerItems) => $sellerItems->sum(fn (array $item) => $this->amountToCents($item[2]))
+                )->all();
+                $productDiscountBySeller = $voucherResult
+                    ? $this->allocateCents($discountCents, $voucherResult['eligible_subtotal_by_seller_cents'])
+                    : [];
+                $sellerShippingFees = $shippingParcels->map(
+                    fn (array $parcel) => $this->amountToCents($parcel['shipping_fee'])
+                )->all();
+                $shippingDiscountBySeller = $shippingVoucherResult
+                    ? $this->allocateCents($shippingDiscountCents, $sellerShippingFees)
+                    : [];
                 $commissionRatePercent = (float) PlatformConfig::getValue('commission_rate_percent', '10.00');
-                $commissionCents = (int) round($earningsBasisCents * ($commissionRatePercent / 100));
-                $sellerId = $order->items()->value('seller_id');
-                Commission::create([
-                    'order_id' => $order->id,
-                    'seller_id' => $sellerId,
-                    'order_amount' => $this->formatCents($earningsBasisCents),
-                    'commission_rate' => $commissionRatePercent,
-                    'commission_amount' => $this->formatCents($commissionCents),
-                    'seller_earnings' => $this->formatCents($earningsBasisCents - $commissionCents),
-                    'status' => 'pending',
-                ]);
-                CodCollection::create([
-                    'order_id' => $order->id,
-                    'expected_amount' => $this->formatCents($subtotalCents - $discountCents),
-                    'status' => 'awaiting_collection',
+                $orders = collect();
+                foreach ($itemsBySeller as $sellerId => $sellerItems) {
+                    $parcel = $shippingParcels->get((int) $sellerId);
+                    if (!$parcel) {
+                        abort(422, 'A shipping quote could not be matched to every seller parcel.');
+                    }
+                    $sellerSubtotalCents = (int) $sellerSubtotals[$sellerId];
+                    $sellerDiscountCents = (int) ($productDiscountBySeller[$sellerId] ?? 0);
+                    $sellerShippingCents = (int) $sellerShippingFees[$sellerId];
+                    $sellerShippingDiscountCents = (int) ($shippingDiscountBySeller[$sellerId] ?? 0);
+                    $sellerTotalCents = $sellerSubtotalCents - $sellerDiscountCents
+                        + $sellerShippingCents - $sellerShippingDiscountCents;
+                    $suborder = $orders->isEmpty()
+                        ? $order
+                        : Order::create([
+                            'buyer_id' => $userId,
+                            'checkout_group_id' => $group->id,
+                            'delivery_address' => trim($validated['delivery_address']),
+                            'payment_method' => $validated['payment_method'],
+                            'subtotal' => 0,
+                            'shipping_fee' => 0,
+                            'total_amount' => 0,
+                            'status' => 'pending',
+                        ]);
+                    $suborder->update([
+                        'subtotal' => $this->formatCents($sellerSubtotalCents),
+                        'shipping_fee' => $this->formatCents($sellerShippingCents),
+                        'total_amount' => $this->formatCents($sellerTotalCents),
+                        'voucher_id' => $voucher?->id,
+                        'voucher_code' => $voucher?->code,
+                        'voucher_discount' => $this->formatCents($sellerDiscountCents),
+                        'shipping_voucher_id' => $shippingVoucher?->id,
+                        'shipping_voucher_code' => $shippingVoucher?->code,
+                        'shipping_voucher_discount' => $this->formatCents($sellerShippingDiscountCents),
+                    ]);
+
+                    foreach ($sellerItems as [$product, $quantity, $lineSubtotal, $sellingPrice, $variantLabel, $variantId]) {
+                        $suborder->items()->create([
+                            'product_id' => $product->id,
+                            'seller_id' => $product->seller_id,
+                            'quantity' => $quantity,
+                            'unit_price' => $sellingPrice,
+                            'subtotal' => $lineSubtotal,
+                            'unit_weight_kg' => $product->weight_kg,
+                            'unit_length_cm' => $product->length_cm,
+                            'unit_width_cm' => $product->width_cm,
+                            'unit_height_cm' => $product->height_cm,
+                            'variant_label' => $variantLabel,
+                            'variant_id' => $variantId,
+                        ]);
+                    }
+                    OrderShippingCharge::create([
+                        'order_id' => $suborder->id,
+                        'seller_id' => (int) $sellerId,
+                        'rate_id' => $parcel['rate_id'],
+                        'provider' => $parcel['provider'],
+                        'origin_zone' => $parcel['origin_zone'],
+                        'destination_zone' => $parcel['destination_zone'],
+                        'actual_weight_kg' => $parcel['actual_weight_kg'],
+                        'volumetric_weight_kg' => $parcel['volumetric_weight_kg'],
+                        'billable_weight_kg' => $parcel['billable_weight_kg'],
+                        'fee' => $parcel['shipping_fee'],
+                        'is_provisional' => $parcel['is_provisional'],
+                    ]);
+
+                    $earningsBasisCents = max(0, $sellerSubtotalCents - $sellerDiscountCents);
+                    $commissionCents = (int) round($earningsBasisCents * ($commissionRatePercent / 100));
+                    Commission::create([
+                        'order_id' => $suborder->id,
+                        'seller_id' => (int) $sellerId,
+                        'order_amount' => $this->formatCents($earningsBasisCents),
+                        'commission_rate' => $commissionRatePercent,
+                        'commission_amount' => $this->formatCents($commissionCents),
+                        'seller_earnings' => $this->formatCents($earningsBasisCents - $commissionCents),
+                        'status' => 'pending',
+                    ]);
+                    CodCollection::create([
+                        'order_id' => $suborder->id,
+                        'expected_amount' => $this->formatCents($sellerTotalCents),
+                        'status' => 'awaiting_collection',
+                    ]);
+                    $orders->push($suborder);
+                }
+
+                $group->update([
+                    'subtotal' => $this->formatCents($subtotalCents),
+                    'shipping_fee' => $this->formatCents($shippingFeeCents),
+                    'voucher_discount' => $this->formatCents($discountCents),
+                    'shipping_voucher_discount' => $this->formatCents($shippingDiscountCents),
+                    'total_amount' => $this->formatCents($totalCents),
                 ]);
 
                 if ($voucher) {
@@ -675,8 +875,25 @@ class BuyerOrderController extends Controller
                         'discount_amount' => $this->formatCents($discountCents),
                     ]);
                 }
+                if ($shippingVoucher) {
+                    VoucherRedemption::create([
+                        'voucher_id' => $shippingVoucher->id,
+                        'buyer_id' => $userId,
+                        'order_id' => $order->id,
+                        'discount_amount' => $this->formatCents($shippingDiscountCents),
+                    ]);
+                }
 
-                return $order->load('items.product');
+                $orders = $orders->map(fn (Order $suborder) => $suborder->load('items.product', 'shippingCharge'));
+                $this->attachSellerStorefrontNames($orders);
+                $primaryOrder = $orders->first();
+                $primaryOrder->setAttribute(
+                    'checkout_orders',
+                    $orders->map(fn (Order $suborder) => $suborder->toArray())->values()
+                );
+                $primaryOrder->setAttribute('checkout_group_summary', $group);
+
+                return $orders;
             });
         } catch (QueryException $exception) {
             $existingOrder = Order::with('items.product')
@@ -691,24 +908,46 @@ class BuyerOrderController extends Controller
             return $this->idempotentOrderResponse($existingOrder, $requestHash);
         }
 
-        $order->loadMissing('items');
         $buyerName = trim(implode(' ', array_filter([$request->user()->first_name, $request->user()->last_name]))) ?: 'A buyer';
-        foreach ($order->items->groupBy('seller_id') as $sellerId => $sellerItems) {
-            $seller = User::query()->where('role', 'seller')->find($sellerId);
+        foreach ($orders as $suborder) {
+            $sellerItems = $suborder->items;
+            $seller = User::query()->where('role', 'seller')->find($sellerItems->first()?->seller_id);
             $seller?->notify(new SellerActivityNotification(
                 'New order received',
-                "{$buyerName} placed order #{$order->id} with {$sellerItems->count()} product item".($sellerItems->count() === 1 ? '.' : 's.'),
+                "{$buyerName} placed order #{$suborder->id} with {$sellerItems->count()} product item".($sellerItems->count() === 1 ? '.' : 's.'),
                 'new_order',
                 '/seller/orders',
-                ['order_id' => $order->id],
+                ['order_id' => $suborder->id],
             ));
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Order placed successfully.',
-            'data' => $order,
+            'message' => $orders->count() > 1
+                ? 'Checkout placed successfully. Each seller parcel has its own order.'
+                : 'Order placed successfully.',
+            'data' => $orders->first(),
         ], 201);
+    }
+
+    private function attachSellerStorefrontNames($orders): void
+    {
+        $sellerIds = $orders
+            ->flatMap(fn (Order $suborder) => $suborder->items->pluck('seller_id'))
+            ->filter()
+            ->unique()
+            ->values();
+        $storefrontNames = SellerProfile::query()
+            ->whereIn('user_id', $sellerIds)
+            ->pluck('business_name', 'user_id');
+
+        foreach ($orders as $suborder) {
+            $sellerId = $suborder->items->pluck('seller_id')->filter()->first();
+            $suborder->setAttribute(
+                'seller_storefront_name',
+                $storefrontNames->get($sellerId) ?: 'Seller'
+            );
+        }
     }
 
     private function idempotentOrderResponse(Order $order, string $requestHash)
@@ -721,11 +960,66 @@ class BuyerOrderController extends Controller
             ], 409);
         }
 
+        $order->loadMissing([
+            'items.product',
+            'shippingCharge',
+            'checkoutGroup.orders.items.product',
+            'checkoutGroup.orders.shippingCharge',
+        ]);
+        $checkoutGroup = $order->checkoutGroup;
+        $orders = $checkoutGroup?->orders ?? collect([$order]);
+        $this->attachSellerStorefrontNames($orders);
+        $order->setAttribute(
+            'checkout_orders',
+            $orders->map(fn (Order $suborder) => $suborder->toArray())->values()
+        );
+        $checkoutGroup?->unsetRelation('orders');
+        $order->unsetRelation('checkoutGroup');
+        $order->setAttribute('checkout_group_summary', $checkoutGroup);
+
         return response()->json([
             'success' => true,
-            'message' => 'This order was already placed.',
+            'message' => $orders->count() > 1
+                ? 'This checkout was already placed.'
+                : 'This order was already placed.',
             'data' => $order,
         ], 200);
+    }
+
+    /**
+     * @param array<int, int> $weights keyed by seller ID
+     * @return array<int, int>
+     */
+    private function allocateCents(int $totalCents, array $weights): array
+    {
+        $positiveWeights = array_filter($weights, fn (int $weight) => $weight > 0);
+        $weightTotal = array_sum($positiveWeights);
+        if ($totalCents <= 0) {
+            return array_fill_keys(array_keys($weights), 0);
+        }
+        if ($weightTotal <= 0) {
+            throw new \LogicException('A checkout discount cannot be allocated without an eligible seller amount.');
+        }
+
+        $allocations = array_fill_keys(array_keys($weights), 0);
+        $remainders = [];
+        $allocated = 0;
+        foreach ($positiveWeights as $sellerId => $weight) {
+            $share = ($totalCents * $weight) / $weightTotal;
+            $allocations[$sellerId] = (int) floor($share);
+            $remainders[$sellerId] = $share - $allocations[$sellerId];
+            $allocated += $allocations[$sellerId];
+        }
+        arsort($remainders, SORT_NUMERIC);
+        foreach (array_keys($remainders) as $sellerId) {
+            if ($allocated >= $totalCents) {
+                break;
+            }
+            $allocations[$sellerId]++;
+            $allocated++;
+        }
+
+        return $allocations;
     }
 
     private function amountToCents(string $amount): int

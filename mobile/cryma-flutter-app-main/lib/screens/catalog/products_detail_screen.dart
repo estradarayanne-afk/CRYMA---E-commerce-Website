@@ -8,15 +8,18 @@ import '../../utils/colors.dart';
 import '../../widgets/buyer_auth_guard.dart';
 
 class ProductsDetailScreen extends StatefulWidget {
-  const ProductsDetailScreen({super.key, this.productId});
+  const ProductsDetailScreen({super.key, this.productId, this.apiService});
 
   final String? productId;
+  final ApiService? apiService;
 
   @override
   State<ProductsDetailScreen> createState() => _ProductsDetailScreenState();
 }
 
 class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
+  ApiService get _api => widget.apiService ?? ApiService.instance;
+
   // ============================================================
   // PRODUCT DATA
   // ============================================================
@@ -41,10 +44,6 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   // ============================================================
   List<Map<String, String>> get _specifications => [
         {'label': 'Category', 'value': _product['category'].toString()},
-        {
-          'label': 'Shop',
-          'value': _product['seller']?.toString() ?? 'CRYMA Shop'
-        },
         {'label': 'Available Stock', 'value': _currentStock.toString()},
       ];
 
@@ -52,12 +51,20 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   String _selectedColor = 'Black';
   String _selectedSize = '';
   int _quantity = 1;
+  final TextEditingController _quantityController =
+      TextEditingController(text: '1');
   List<Map<String, dynamic>> _variants = [];
   final List<Map<String, dynamic>> _reviews = [];
   String? _selectedVariantId;
   bool _isLoading = true;
   bool _isFavorite = false;
   String? _loadError;
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
 
   Map<String, dynamic>? get _selectedVariant {
     for (final variant in _variants) {
@@ -101,14 +108,14 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       return;
     }
     try {
-      final json = await ApiService.instance.getProduct(widget.productId!);
+      final json = await _api.getProduct(widget.productId!);
       final rawImages = json['images'] as List? ?? [];
       final imagePaths = rawImages
-          .map((image) => ApiService.instance.resolveImageUrl(image.toString()))
+          .map((image) => _api.resolveImageUrl(image.toString()))
           .toList();
       if (imagePaths.isEmpty && json['image'] != null) {
         imagePaths.add(
-          ApiService.instance.resolveImageUrl(json['image'].toString()),
+          _api.resolveImageUrl(json['image'].toString()),
         );
       }
       final variants = (json['variants'] as List? ?? [])
@@ -166,7 +173,7 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           'store_slug': sellerProfile['store_slug']?.toString(),
         };
         _selectedImage = colorImage.isNotEmpty
-            ? ApiService.instance.resolveImageUrl(colorImage)
+            ? _api.resolveImageUrl(colorImage)
             : imagePaths.isEmpty
                 ? ''
                 : imagePaths.first;
@@ -217,41 +224,11 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
     }
   }
 
-  Future<void> _chatWithSeller() async {
-    final id = widget.productId;
-    if (id == null) return;
-    if (!await requireBuyerSignIn(
-      context,
-      title: 'Sign in to message this seller',
-      message: 'Create an account or sign in to contact this seller.',
-    )) {
-      return;
-    }
-    try {
-      final response =
-          await ApiService.instance.startBuyerSellerConversation(productId: id);
-      final conversation = response['data'] as Map<String, dynamic>?;
-      final conversationId = conversation?['id']?.toString();
-      if (!mounted) return;
-      if (conversationId == null) {
-        throw const ApiException(
-            'The seller conversation could not be opened.');
-      }
-      await Navigator.pushNamed(context, '/chat_conversation',
-          arguments: conversationId);
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
-      }
-    }
-  }
-
   Future<void> _loadProductReviews() async {
     final id = widget.productId;
     if (id == null) return;
     try {
-      final data = await ApiService.instance.getProductReviews(id);
+      final data = await _api.getProductReviews(id);
       final rows = (data['reviews'] as List? ?? const [])
           .whereType<Map<String, dynamic>>();
       if (!mounted) return;
@@ -289,8 +266,9 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       _selectedColor = variant['color']?.toString() ?? '';
       _selectedSize = variant['size']?.toString() ?? '';
       _quantity = 1;
+      _quantityController.text = '1';
       if (colorImage.isNotEmpty) {
-        _selectedImage = ApiService.instance.resolveImageUrl(colorImage);
+        _selectedImage = _api.resolveImageUrl(colorImage);
       }
     });
   }
@@ -508,24 +486,71 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   // ============================================================
   void _increaseQuantity() {
     if (_quantity < _currentStock) {
-      setState(() {
-        _quantity++;
-      });
+      _setQuantity(_quantity + 1);
     }
   }
 
   void _decreaseQuantity() {
     if (_quantity > 1) {
-      setState(() {
-        _quantity--;
-      });
+      _setQuantity(_quantity - 1);
     }
   }
 
-  // ============================================================
-  // ADD TO CART
-  // ============================================================
+  int _boundedQuantity(int quantity) {
+    if (_currentStock <= 0) return 1;
+    return quantity.clamp(1, _currentStock).toInt();
+  }
+
+  void _setQuantity(int quantity) {
+    final bounded = _boundedQuantity(quantity);
+    setState(() => _quantity = bounded);
+    final text = bounded.toString();
+    if (_quantityController.text != text) {
+      _quantityController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+  }
+
+  void _handleQuantityInput(String value) {
+    if (value.isEmpty) {
+      setState(() => _quantity = 0);
+      return;
+    }
+    final parsed = int.tryParse(value);
+    if (parsed == null) return;
+    final bounded = _boundedQuantity(parsed);
+    setState(() => _quantity = bounded);
+    if (bounded != parsed) {
+      _quantityController.value = TextEditingValue(
+        text: '$bounded',
+        selection: TextSelection.collapsed(offset: bounded.toString().length),
+      );
+    }
+  }
+
+  void _onQuantityTapOutside(PointerDownEvent _) {
+    _commitQuantityInput();
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  void _commitQuantityInput() {
+    _setQuantity(int.tryParse(_quantityController.text) ?? 1);
+  }
+
+  void _showQuantityError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Enter a quantity from 1 to available stock.')),
+    );
+  }
+
   Future<void> _addToCart({bool openCheckout = false}) async {
+    if (_quantity < 1 || _quantity > _currentStock) {
+      _showQuantityError();
+      return;
+    }
     if (!await requireBuyerSignIn(
       context,
       title: openCheckout ? 'Sign in to checkout' : 'Sign in to add to cart',
@@ -598,7 +623,7 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       return;
     }
     try {
-      final response = await ApiService.instance.startBuyerSellerConversation(
+      final response = await _api.startBuyerSellerConversation(
         productId: widget.productId,
       );
       final conversation = response['data'];
@@ -657,15 +682,22 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
               SizedBox(
                 width: 48,
                 height: 54,
-                child: OutlinedButton(
-                  onPressed: _messageSeller,
-                  style: OutlinedButton.styleFrom(
+                child: Tooltip(
+                  message: 'Message seller',
+                  child: OutlinedButton(
+                    onPressed: _messageSeller,
+                    style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.zero,
                       side: const BorderSide(color: AppColors.primary),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                  child: const Icon(Icons.chat_bubble_outline,
-                      color: AppColors.primary),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.chat_bubble_outline,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -919,8 +951,13 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
   Widget _buildProductInfo() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-      color: AppColors.white,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderNeutral),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1107,13 +1144,50 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                     icon: const Icon(Icons.remove_rounded, size: 18),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    '$_quantity',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.darkGray,
-                      fontFamily: 'Poppins',
+                  SizedBox(
+                    width: 44,
+                    height: 40,
+                    child: TextField(
+                      key: const ValueKey('product-quantity'),
+                      controller: _quantityController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      onChanged: _handleQuantityInput,
+                      onSubmitted: (_) => _commitQuantityInput(),
+                      onTapOutside: _onQuantityTapOutside,
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.zero,
+                        filled: true,
+                        fillColor: AppColors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(11),
+                          borderSide:
+                              const BorderSide(color: AppColors.borderNeutral),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(11),
+                          borderSide:
+                              const BorderSide(color: AppColors.borderNeutral),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(11),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.darkGray,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1162,15 +1236,15 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.lightGray),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderNeutral),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Specification',
+            'Product details',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -1182,20 +1256,75 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
           ..._specifications.map(
             (spec) => _buildSpecRow(spec['label']!, spec['value']!),
           ),
-          if ((_product['store_slug'] ?? '').toString().isNotEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/storefront',
-                    arguments: _product['store_slug']),
-                icon: const Icon(Icons.storefront_outlined),
-                label: const Text('Visit this store'),
+          if ((_product['store_slug'] ?? '').toString().isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Divider(height: 1, color: AppColors.borderNeutral),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/storefront',
+                arguments: _product['store_slug'],
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                side: const BorderSide(color: AppColors.borderNeutral),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                foregroundColor: AppColors.primary,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppColors.softRose,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.storefront_outlined,
+                      size: 19,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _product['seller']?.toString() ?? 'CRYMA Shop',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkGray,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Visit this store',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.gray,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, size: 20),
+                ],
               ),
             ),
-          TextButton.icon(
-              onPressed: _chatWithSeller,
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Message seller')),
+          ],
         ],
       ),
     );
@@ -1244,8 +1373,8 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.lightGray),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderNeutral),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

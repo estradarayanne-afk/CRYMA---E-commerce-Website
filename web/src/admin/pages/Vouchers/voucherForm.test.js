@@ -55,3 +55,18 @@ test("builds backend-compatible payload with normalized code and null optional c
     assert.deepEqual(payload.product_ids, []);
     assert.deepEqual(payload.categories, []);
 });
+
+test("shipping vouchers cannot carry product restrictions", () => {
+    const form = {
+        ...validForm,
+        scope: "shipping",
+        productIds: "1",
+        categories: "",
+    };
+
+    assert.ok(validateVoucherForm(form).productIds);
+    const payload = buildVoucherPayload({ ...form, productIds: "", categories: "" });
+    assert.equal(payload.scope, "shipping");
+    assert.equal(payload.product_ids, null);
+    assert.equal(payload.categories, null);
+});

@@ -14,6 +14,9 @@ const EMPTY_FORM = {
     discounted_price: "",
     stock: "",
     weight_kg: "",
+    length_cm: "",
+    width_cm: "",
+    height_cm: "",
     variants: [],
     status: "active",
 };
@@ -182,6 +185,9 @@ function Inventory() {
             discounted_price: p.discounted_price ? String(p.discounted_price) : "",
             stock: String(p.stock),
             weight_kg: p.weight_kg ? String(p.weight_kg) : "",
+            length_cm: p.length_cm ? String(p.length_cm) : "",
+            width_cm: p.width_cm ? String(p.width_cm) : "",
+            height_cm: p.height_cm ? String(p.height_cm) : "",
             variants: Array.isArray(p.variants) ? p.variants.map((variant) => ({ ...variant, price: variant.price == null ? "" : String(variant.price), discounted_price: variant.discounted_price == null ? "" : String(variant.discounted_price), stock: variant.stock == null ? "" : String(variant.stock) })) : [],
             status: p.status || "active",
         });
@@ -290,6 +296,11 @@ function Inventory() {
             setFormErrors((current) => ({ ...current, weight_kg: "Enter a product weight greater than 0 kg and no more than 100,000 kg." }));
             return;
         }
+        const dimensions = [form.length_cm, form.width_cm, form.height_cm];
+        if (dimensions.some(Boolean) && dimensions.some((value) => !Number.isFinite(Number(value)) || Number(value) <= 0)) {
+            setFormErrors((current) => ({ ...current, dimensions: "Enter all three positive package dimensions, or leave all blank." }));
+            return;
+        }
         if (form.variants.length > MAX_VARIANTS) {
             setFormErrors((current) => ({ ...current, variants: `You can add up to ${MAX_VARIANTS} variants per product.` }));
             return;
@@ -309,6 +320,9 @@ function Inventory() {
             payload.append("store_category", form.store_category);
             payload.append("description", form.description);
             payload.append("weight_kg", form.weight_kg);
+            payload.append("length_cm", form.length_cm);
+            payload.append("width_cm", form.width_cm);
+            payload.append("height_cm", form.height_cm);
             const variantPrices = form.variants
                 .map((variant) => Number(variant.price))
                 .filter(Number.isFinite);
@@ -605,6 +619,21 @@ function Inventory() {
                                     {formErrors.weight_kg ? <small id="inventory-product-weight-error" className="sl-field-error">{formErrors.weight_kg}</small> : <small id="inventory-product-weight-help" className="sl-opt">Enter the weight of one item in kilograms.</small>}
                                 </div>
                             </div>
+                            <div className="sl-form-row">
+                                <div className="sl-field">
+                                    <label htmlFor="inventory-product-length">Package length (cm) <span className="sl-opt">(optional)</span></label>
+                                    <input id="inventory-product-length" name="length_cm" type="number" min="0.01" max="100000" step="0.01" value={form.length_cm} onChange={set} placeholder="e.g. 20" disabled={saving} aria-invalid={Boolean(formErrors.dimensions)} />
+                                </div>
+                                <div className="sl-field">
+                                    <label htmlFor="inventory-product-width">Package width (cm) <span className="sl-opt">(optional)</span></label>
+                                    <input id="inventory-product-width" name="width_cm" type="number" min="0.01" max="100000" step="0.01" value={form.width_cm} onChange={set} placeholder="e.g. 15" disabled={saving} aria-invalid={Boolean(formErrors.dimensions)} />
+                                </div>
+                                <div className="sl-field">
+                                    <label htmlFor="inventory-product-height">Package height (cm) <span className="sl-opt">(optional)</span></label>
+                                    <input id="inventory-product-height" name="height_cm" type="number" min="0.01" max="100000" step="0.01" value={form.height_cm} onChange={set} placeholder="e.g. 8" disabled={saving} aria-invalid={Boolean(formErrors.dimensions)} />
+                                </div>
+                            </div>
+                            {formErrors.dimensions && <small className="sl-field-error" role="alert">{formErrors.dimensions}</small>}
                             <div className="sl-field">
                                 <label htmlFor="inventory-product-description">Description <span className="sl-opt">(optional)</span></label>
                                 <textarea id="inventory-product-description" name="description" rows={4} value={form.description} maxLength={2000} onChange={set} placeholder="Describe the item, materials, fit, and useful care details…" disabled={saving} aria-invalid={Boolean(formErrors.description)} aria-describedby={formErrors.description ? "inventory-product-description-error" : undefined} />

@@ -15,6 +15,7 @@ class Order extends Model
 
     protected $fillable = [
         'buyer_id',
+        'checkout_group_id',
         'delivery_address',
         'payment_method',
         'subtotal',
@@ -39,6 +40,21 @@ class Order extends Model
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function checkoutGroup()
+    {
+        return $this->belongsTo(CheckoutGroup::class);
+    }
+
+    public function shippingCharge()
+    {
+        return $this->hasOne(OrderShippingCharge::class);
+    }
+
+    public function commissions(): HasMany
+    {
+        return $this->hasMany(Commission::class);
     }
 
     public function commission()
