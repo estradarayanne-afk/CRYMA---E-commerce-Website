@@ -1153,7 +1153,7 @@ function Checkout() {
                         <span>Shipping ({shippingQuote?.parcels?.length || 0} seller parcels)</span>
                         <strong>{shippingQuoteLoading ? "Calculating…" : shippingQuote ? `₱${shippingFee.toLocaleString()}` : "Unavailable"}</strong>
                     </div>
-                    {shippingQuote?.is_provisional && <p className="checkout-shipping-provisional" role="note">Provisional demo estimate — not a verified courier quote.</p>}
+                    {shippingQuote?.is_provisional && <p className="checkout-shipping-provisional" role="note">Estimated delivery fee — courier price has not been verified.</p>}
                     {shippingQuote?.parcels?.length > 1 && <div className="checkout-shipping-parcels">
                         {shippingQuote.parcels.map((parcel) => (
                             <div key={parcel.seller_id}>

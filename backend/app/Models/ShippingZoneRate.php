@@ -11,6 +11,7 @@ class ShippingZoneRate extends Model
         'origin_zone_id',
         'destination_zone_id',
         'provider',
+        'rate_source',
         'min_weight_kg',
         'max_weight_kg',
         'fee',

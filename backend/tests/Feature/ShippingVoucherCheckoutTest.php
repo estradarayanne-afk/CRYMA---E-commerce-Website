@@ -123,6 +123,101 @@ class ShippingVoucherCheckoutTest extends TestCase
         $this->assertSame(5, $product->fresh()->stock);
     }
 
+    public function test_production_uses_cryma_rates_and_excludes_unverified_courier_rates(): void
+    {
+        [$buyer, $address] = $this->createCheckoutBuyer();
+        [$seller, $product] = $this->sellerAndProduct();
+        $seller->sellerPickupAddress()->create([
+            'recipient_name' => 'Nora Seller',
+            'phone' => '09171234567',
+            'region' => 'National Capital Region',
+            'province' => 'Metro Manila',
+            'municipality' => 'Manila',
+            'barangay' => 'Sample',
+            'street' => 'Market Street',
+            'house_number' => '1',
+            'postal_code' => '1000',
+        ]);
+
+        $this->assertSame(27, ShippingZoneRate::query()->where('rate_source', 'cryma')->count());
+        $this->app['env'] = 'production';
+
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson('/api/buyer/shipping-quote', [
+                'address_id' => $address->id,
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.shipping_fee', '80.00')
+            ->assertJsonPath('data.is_provisional', false)
+            ->assertJsonPath('data.parcels.0.provider', 'CRYMA Standard');
+
+        $origin = ShippingZone::query()->where('slug', 'luzon')->firstOrFail();
+        $destination = ShippingZone::query()->where('slug', 'luzon')->firstOrFail();
+        ShippingZoneRate::query()
+            ->where('origin_zone_id', $origin->id)
+            ->where('destination_zone_id', $destination->id)
+            ->where('rate_source', 'cryma')
+            ->update(['is_active' => false]);
+        ShippingZoneRate::create([
+            'origin_zone_id' => $origin->id,
+            'destination_zone_id' => $destination->id,
+            'provider' => 'Unverified courier',
+            'rate_source' => 'courier',
+            'min_weight_kg' => '0.000',
+            'max_weight_kg' => '1.000',
+            'fee' => '45.00',
+            'is_provisional' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson('/api/buyer/shipping-quote', [
+                'address_id' => $address->id,
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['address_id']);
+    }
+
+    public function test_production_admin_can_activate_cryma_rates_but_not_unverified_courier_rates(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $luzon = ShippingZone::query()->where('slug', 'luzon')->firstOrFail();
+        $visayas = ShippingZone::query()->where('slug', 'visayas')->firstOrFail();
+        $this->app['env'] = 'production';
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/admin/shipping-zone-rates', [
+                'origin_zone_id' => $luzon->id,
+                'destination_zone_id' => $visayas->id,
+                'provider' => 'CRYMA Test',
+                'rate_source' => 'cryma',
+                'min_weight_kg' => '0.000',
+                'max_weight_kg' => '1.000',
+                'fee' => '150.00',
+                'is_provisional' => true,
+                'is_active' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.rate_source', 'cryma')
+            ->assertJsonPath('data.is_provisional', false);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/admin/shipping-zone-rates', [
+                'origin_zone_id' => $luzon->id,
+                'destination_zone_id' => $visayas->id,
+                'provider' => 'Unverified courier',
+                'rate_source' => 'courier',
+                'min_weight_kg' => '0.000',
+                'max_weight_kg' => '1.000',
+                'fee' => '45.00',
+                'is_provisional' => true,
+                'is_active' => true,
+            ])
+            ->assertUnprocessable();
+    }
+
     public function test_product_and_shipping_vouchers_are_recalculated_capped_and_reversed_on_cancellation(): void
     {
         [$buyer, $address] = $this->createCheckoutBuyer();
@@ -145,6 +240,11 @@ class ShippingVoucherCheckoutTest extends TestCase
             'postal_code' => '1000',
         ]);
         $luzon = ShippingZone::query()->where('slug', 'luzon')->firstOrFail();
+        ShippingZoneRate::query()
+            ->where('origin_zone_id', $luzon->id)
+            ->where('destination_zone_id', $luzon->id)
+            ->where('rate_source', 'cryma')
+            ->update(['is_active' => false]);
         ShippingZoneRate::create([
             'origin_zone_id' => $luzon->id,
             'destination_zone_id' => $luzon->id,
