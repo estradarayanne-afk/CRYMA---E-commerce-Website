@@ -46,26 +46,11 @@ class ParcelOperationsController extends Controller
         // Verify delivery belongs to this hub
         abort_unless($delivery->current_hub_id === $hub->id, 403, 'This delivery is not assigned to your hub.');
         
-        // Extract municipality from delivery address string (last municipality-like component before region/province)
-        // Format: "..., municipality, province, region, postal_code"
-        $addressParts = array_map('trim', explode(',', $order->delivery_address));
-        $deliveryMunicipality = null;
+        // Verify delivery area exists and is in the same municipality as the hub
+        abort_unless($delivery->deliveryArea, 422, 'Delivery area not assigned. Cannot verify municipality match.');
         
-        // Municipality is typically 3-4 positions from the end (before province, region, postal_code)
-        if (count($addressParts) >= 3) {
-            // Find municipality in address parts (it's usually near the end, after street/barangay)
-            // Format analysis: [street, barangay, municipality, province, region, postal_code]
-            $deliveryMunicipality = $addressParts[count($addressParts) - 4] ?? null; // -4 to get before province
-        }
-        
-        // For same-municipality validation: verify delivery area exists and is assigned
-        // This ensures the delivery area is in the same municipality as the delivery address
-        if (!$delivery->deliveryArea) {
-            abort(422, 'Delivery area not assigned. Cannot verify municipality match.');
-        }
-        
-        // Validate delivery area is in the same municipality as the hub
-        // The hub must serve the municipality of this delivery area
+        // Get the delivery area's hub and verify it matches the current hub
+        // This ensures the delivery is in the same municipality
         $deliveryAreaHub = $delivery->deliveryArea->hub;
         abort_unless($deliveryAreaHub && $deliveryAreaHub->id === $hub->id, 422, 'Delivery is not in the same municipality. It must be processed through the sorting center.');
         
