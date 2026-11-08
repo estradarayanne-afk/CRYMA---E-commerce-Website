@@ -224,6 +224,27 @@
     flex: 1;
 }
 
+.shipping-rate-modal {
+    width: min(760px, 100%);
+}
+
+.shipping-rate-modal .voucher-form-grid {
+    padding: 18px 20px;
+}
+
+.shipping-rate-verify-content {
+    display: grid;
+    gap: 14px;
+    padding: 18px 20px;
+}
+
+.shipping-rate-verify-content > p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
 .voucher-search {
     display: flex;
     min-width: 200px;
@@ -985,4 +1006,203 @@
 @media (prefers-reduced-motion:reduce) {
     .voucher-list-heading .voucher-primary-button,.voucher-table tbody tr,.voucher-table td,.voucher-row-actions button,.voucher-usage-meter span { transition:none; }
     .voucher-list-heading .voucher-primary-button:hover:not(:disabled),.voucher-table tbody tr:hover,.voucher-row-actions button:hover { transform:none; }
+}
+
+.voucher-admin-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 5px;
+    border: 1px solid rgba(126,24,48,.12);
+    border-radius: 12px;
+    background: linear-gradient(110deg,#f9eff1,#fff 48%,#f9f0f2);
+}
+
+.voucher-admin-tabs button {
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: #80636b;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color .15s ease,background .15s ease,box-shadow .15s ease;
+}
+
+.voucher-admin-tabs button:hover {
+    color: var(--wine);
+}
+
+.voucher-admin-tabs button.active {
+    border-color: rgba(126,24,48,.12);
+    background: linear-gradient(145deg,#fff,#fff8f9);
+    color: var(--wine);
+    box-shadow: 0 3px 9px rgba(64,15,31,.1),inset 0 1px #fff;
+}
+
+.voucher-admin-tabs button:focus-visible {
+    outline: 3px solid var(--crimson);
+    outline-offset: 2px;
+}
+
+.voucher-admin-page [role="tabpanel"][hidden] {
+    display: none;
+}
+
+.shipping-rate-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 17px;
+    border-bottom: 1px solid rgba(126,24,48,.1);
+    background: linear-gradient(110deg,#f9eff1,#fff 48%,#f9f0f2);
+}
+
+.shipping-rate-toolbar .voucher-search {
+    max-width: 500px;
+}
+
+.shipping-rate-toolbar > span {
+    color: var(--text-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.shipping-rate-pagination {
+    border-top: 0;
+}
+
+.shipping-zone-section-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    padding: 6px 2px 0;
+}
+
+.shipping-zone-section-heading strong {
+    color: var(--wine);
+    font-size: 12px;
+}
+
+.shipping-zone-section-heading span {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.shipping-zone-coverage {
+    margin: 0 17px 16px;
+    overflow: hidden;
+    border: 1px solid rgba(126,24,48,.11);
+    border-radius: 12px;
+    background: linear-gradient(145deg,#fff,#fffafa);
+}
+
+.shipping-zone-coverage > summary {
+    display: flex;
+    min-height: 58px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 14px;
+    color: var(--wine);
+    cursor: pointer;
+    list-style: none;
+}
+
+.shipping-zone-coverage > summary::-webkit-details-marker {
+    display: none;
+}
+
+.shipping-zone-coverage > summary::after {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-right: 2px solid #8c5c6a;
+    border-bottom: 2px solid #8c5c6a;
+    content: "";
+    transform: rotate(45deg) translateY(-2px);
+    transition: transform .15s ease;
+}
+
+.shipping-zone-coverage[open] > summary::after {
+    transform: rotate(225deg) translate(-2px,-1px);
+}
+
+.shipping-zone-coverage > summary > span:first-child {
+    display: grid;
+    gap: 3px;
+}
+
+.shipping-zone-coverage > summary strong {
+    font-size: 12px;
+}
+
+.shipping-zone-coverage > summary small {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.shipping-zone-count {
+    margin-left: auto;
+    padding: 5px 9px;
+    border-radius: 99px;
+    background: #f7e9ed;
+    color: #78354a;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.shipping-zone-coverage .shipping-zone-list {
+    padding: 0 12px 12px;
+    border-top: 1px solid rgba(126,24,48,.09);
+}
+
+.shipping-zone-coverage .shipping-zone-section-heading {
+    justify-content: space-between;
+    padding: 10px 2px 2px;
+}
+
+.shipping-zone-coverage .shipping-zone-section-heading span {
+    max-width: 650px;
+    line-height: 1.5;
+}
+
+.shipping-zone-coverage .shipping-zone-card > header {
+    padding-bottom: 8px;
+}
+
+.shipping-zone-coverage .shipping-zone-card > p {
+    max-height: 84px;
+    overflow: auto;
+}
+
+@media (max-width: 600px) {
+    .voucher-admin-tabs button {
+        flex: 1;
+        padding: 0 8px;
+        font-size: 11px;
+    }
+
+    .shipping-rate-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    .shipping-rate-toolbar .voucher-search {
+        max-width: none;
+    }
+
+    .shipping-zone-coverage {
+        margin-inline: 12px;
+    }
+
+    .shipping-zone-coverage .shipping-zone-section-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
 }

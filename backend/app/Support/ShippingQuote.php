@@ -66,7 +66,7 @@ class ShippingQuote
             }
             $routeRates = $ratesQuery->get();
             if ($routeRates->isEmpty()) {
-                $this->reject('address_id', 'A verified shipping rate is not available for one or more seller routes.');
+                $this->reject('address_id', 'A shipping rate is not available for one or more seller routes.');
             }
 
             $actualWeight = 0.0;
@@ -140,7 +140,15 @@ class ShippingQuote
     private function applyEnvironmentGuard(Builder $query): void
     {
         if (app()->environment('production')) {
-            $query->where('is_provisional', false)->whereNotNull('verified_at');
+            $query->where(function (Builder $rates) {
+                $rates
+                    ->where(fn (Builder $crymaRates) => $crymaRates
+                        ->where('rate_source', 'cryma')
+                        ->where('is_provisional', false))
+                    ->orWhere(fn (Builder $courierRates) => $courierRates
+                        ->where('is_provisional', false)
+                        ->whereNotNull('verified_at'));
+            });
         }
     }
 

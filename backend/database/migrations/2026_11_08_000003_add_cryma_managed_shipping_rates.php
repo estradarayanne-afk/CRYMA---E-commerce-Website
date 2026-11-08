@@ -1,21 +1,27 @@
 <?php
 
-namespace Database\Seeders;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-use App\Models\ShippingZone;
-use App\Models\ShippingZoneRate;
-use Illuminate\Database\Seeder;
-use RuntimeException;
-
-class ShippingZoneDemoSeeder extends Seeder
+return new class extends Migration
 {
-    public function run(): void
+    public function up(): void
     {
-        if (! app()->environment(['local', 'development', 'testing'])) {
-            throw new RuntimeException('Provisional shipping rates may only be seeded in local, development, or testing environments.');
-        }
+        Schema::table('shipping_zone_rates', function (Blueprint $table) {
+            $table->string('rate_source', 16)->default('courier')->after('provider');
+        });
 
-        $zones = ShippingZone::query()->pluck('id', 'slug');
+        DB::table('shipping_zone_rates')
+            ->where('provider', 'CRYMA Demo')
+            ->update([
+                'rate_source' => 'cryma',
+                'is_provisional' => false,
+                'is_active' => false,
+            ]);
+
+        $zones = DB::table('shipping_zones')->pluck('id', 'slug');
         $routePrices = [
             ['luzon', 'luzon', ['80.00', '110.00', '150.00']],
             ['visayas', 'visayas', ['80.00', '110.00', '150.00']],
@@ -35,24 +41,39 @@ class ShippingZoneDemoSeeder extends Seeder
 
         foreach ($routePrices as [$origin, $destination, $fees]) {
             foreach ($brackets as $index => $bracket) {
-                ShippingZoneRate::query()->updateOrCreate(
+                DB::table('shipping_zone_rates')->updateOrInsert(
                     [
                         'origin_zone_id' => $zones[$origin],
                         'destination_zone_id' => $zones[$destination],
-                        'provider' => 'CRYMA Demo',
+                        'provider' => 'CRYMA Standard',
                         'min_weight_kg' => $bracket['min'],
                     ],
                     [
+                        'rate_source' => 'cryma',
                         'max_weight_kg' => $bracket['max'],
                         'fee' => $fees[$index],
                         'volumetric_divisor_cm3_per_kg' => null,
-                        'is_provisional' => true,
+                        'is_provisional' => false,
                         'is_active' => true,
+                        'verification_note' => null,
                         'verified_by' => null,
                         'verified_at' => null,
-                    ]
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ],
                 );
             }
         }
     }
-}
+
+    public function down(): void
+    {
+        DB::table('shipping_zone_rates')
+            ->where('rate_source', 'cryma')
+            ->update(['is_active' => false]);
+
+        Schema::table('shipping_zone_rates', function (Blueprint $table) {
+            $table->dropColumn('rate_source');
+        });
+    }
+};

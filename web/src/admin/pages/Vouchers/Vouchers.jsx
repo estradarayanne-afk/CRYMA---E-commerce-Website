@@ -91,6 +91,7 @@ function Vouchers() {
     const [typeFilter, setTypeFilter] = useState("all");
     const [scopeFilter, setScopeFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [activeTab, setActiveTab] = useState("vouchers");
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -305,9 +306,39 @@ function Vouchers() {
             {error && <div className="voucher-alert error" role="alert">{error}</div>}
             {success && <div className="voucher-alert success" role="status"><Check size={16} />{success}</div>}
 
-            <ShippingZonesPanel />
+            <div className="voucher-admin-tabs" role="tablist" aria-label="Promotion settings">
+                <button
+                    type="button"
+                    id="voucher-tab"
+                    role="tab"
+                    aria-selected={activeTab === "vouchers"}
+                    aria-controls="voucher-tab-panel"
+                    className={activeTab === "vouchers" ? "active" : ""}
+                    onClick={() => setActiveTab("vouchers")}
+                >
+                    Vouchers
+                </button>
+                <button
+                    type="button"
+                    id="delivery-tab"
+                    role="tab"
+                    aria-selected={activeTab === "delivery"}
+                    aria-controls="delivery-tab-panel"
+                    className={activeTab === "delivery" ? "active" : ""}
+                    onClick={() => setActiveTab("delivery")}
+                >
+                    Delivery configuration
+                </button>
+            </div>
 
-            <section className="voucher-list-card" aria-label="Voucher list">
+            <section
+                id="voucher-tab-panel"
+                role="tabpanel"
+                aria-labelledby="voucher-tab"
+                className="voucher-list-card"
+                aria-label="Voucher list"
+                hidden={activeTab !== "vouchers"}
+            >
                 <div className="voucher-list-heading">
                     <div>
                         <span>VOUCHER LIBRARY</span>
@@ -464,6 +495,9 @@ function Vouchers() {
                     </footer>
                 )}
             </section>
+            <div id="delivery-tab-panel" role="tabpanel" aria-labelledby="delivery-tab" hidden={activeTab !== "delivery"}>
+                <ShippingZonesPanel />
+            </div>
 
             {formOpen && (
                 <Dialog
