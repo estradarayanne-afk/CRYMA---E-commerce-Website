@@ -130,9 +130,16 @@ class ShippingQuote
 
     private function zoneForRegion(string $region): ?ShippingZone
     {
+        $normalizedRegion = mb_strtolower(trim($region));
+        $regionAlias = preg_match('/\(([^)]+)\)\s*$/u', trim($region), $matches)
+            ? mb_strtolower(trim($matches[1]))
+            : null;
+
         return ShippingZone::query()
             ->whereHas('regions', fn (Builder $query) => $query
-                ->whereRaw('LOWER(TRIM(region_name)) = ?', [mb_strtolower(trim($region))])
+                ->whereRaw('LOWER(TRIM(region_name)) = ?', [$normalizedRegion])
+                ->when($regionAlias !== null, fn (Builder $regions) => $regions
+                    ->orWhereRaw('LOWER(TRIM(region_name)) = ?', [$regionAlias]))
             )
             ->first();
     }
