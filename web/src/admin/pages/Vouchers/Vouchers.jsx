@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Eye, LoaderCircle, Plus, Search, Ticket, X } from "lucide-react";
 import api from "../../../shared/services/api";
 import Dialog from "../../../shared/components/Dialog";
+import ShippingZonesPanel from "./ShippingZonesPanel";
 import { buildVoucherPayload, validateVoucherForm } from "./voucherForm";
 import "./Vouchers.css";
 
 const EMPTY_FORM = {
     code: "",
     description: "",
+    scope: "product",
     discountType: "fixed",
     discountValue: "",
     minimumSpend: "0",
@@ -47,9 +49,10 @@ function formatMoney(value) {
 
 function discountText(voucher) {
     const value = Number(voucher.discount_value || 0);
-    return voucher.discount_type === "percentage"
+    const discount = voucher.discount_type === "percentage"
         ? `${value.toLocaleString()}% off`
         : `${formatMoney(value)} off`;
+    return voucher.scope === "shipping" ? `${discount} shipping` : discount;
 }
 
 function voucherStatus(voucher) {
@@ -65,6 +68,7 @@ function formFromVoucher(voucher) {
     return {
         code: voucher.code || "",
         description: voucher.description || "",
+        scope: voucher.scope || "product",
         discountType: voucher.discount_type,
         discountValue: String(voucher.discount_value ?? ""),
         minimumSpend: String(voucher.minimum_spend ?? "0"),
@@ -85,6 +89,7 @@ function Vouchers() {
     const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState("all");
+    const [scopeFilter, setScopeFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -112,6 +117,7 @@ function Vouchers() {
                 params: {
                     search: search.trim() || undefined,
                     type: typeFilter,
+                    scope: scopeFilter,
                     status: statusFilter,
                     page: requestedPage,
                     per_page: 10,
@@ -133,7 +139,7 @@ function Vouchers() {
         } finally {
             if (requestId === listRequestRef.current) setLoading(false);
         }
-    }, [page, search, statusFilter, typeFilter]);
+    }, [page, scopeFilter, search, statusFilter, typeFilter]);
 
     useEffect(() => {
         const timer = window.setTimeout(() => { void loadVouchers(page); }, 250);
@@ -299,6 +305,8 @@ function Vouchers() {
             {error && <div className="voucher-alert error" role="alert">{error}</div>}
             {success && <div className="voucher-alert success" role="status"><Check size={16} />{success}</div>}
 
+            <ShippingZonesPanel />
+
             <section className="voucher-list-card" aria-label="Voucher list">
                 <div className="voucher-list-heading">
                     <div>
@@ -324,6 +332,17 @@ function Vouchers() {
                                 setSearch(event.target.value);
                             }}
                         />
+                    </label>
+                    <label className="voucher-filter">
+                        <span>Voucher scope</span>
+                        <select value={scopeFilter} onChange={(event) => {
+                            setPage(1);
+                            setScopeFilter(event.target.value);
+                        }}>
+                            <option value="all">All scopes</option>
+                            <option value="product">Product</option>
+                            <option value="shipping">Shipping</option>
+                        </select>
                     </label>
                     <label className="voucher-filter">
                         <span>Type</span>
@@ -357,8 +376,8 @@ function Vouchers() {
                 ) : vouchers.length === 0 ? (
                     <div className="voucher-state voucher-empty">
                         <Ticket size={25} />
-                        <strong>{search || typeFilter !== "all" || statusFilter !== "all" ? "No matching vouchers" : "No vouchers created yet"}</strong>
-                        <span>{search || typeFilter !== "all" || statusFilter !== "all" ? "Try a different search or filter." : "Create a voucher to make it available to eligible buyers."}</span>
+                        <strong>{search || typeFilter !== "all" || scopeFilter !== "all" || statusFilter !== "all" ? "No matching vouchers" : "No vouchers created yet"}</strong>
+                        <span>{search || typeFilter !== "all" || scopeFilter !== "all" || statusFilter !== "all" ? "Try a different search or filter." : "Create a voucher to make it available to eligible buyers."}</span>
                     </div>
                 ) : (
                     <div className="voucher-table-scroll">
@@ -366,6 +385,7 @@ function Vouchers() {
                             <thead>
                                 <tr>
                                     <th scope="col">Voucher</th>
+                                    <th scope="col">Scope</th>
                                     <th scope="col">Discount</th>
                                     <th scope="col">Minimum spend</th>
                                     <th scope="col">Validity</th>
@@ -385,6 +405,7 @@ function Vouchers() {
                                                     {voucher.description && <span title={voucher.description}>{voucher.description}</span>}
                                                 </div>
                                             </td>
+                                            <td>{voucher.scope === "shipping" ? "Shipping" : "Product"}</td>
                                             <td>
                                                 <strong>{discountText(voucher)}</strong>
                                                 {voucher.discount_type === "percentage" && voucher.maximum_discount !== null && (
@@ -463,6 +484,34 @@ function Vouchers() {
                                     <input value={form.code} maxLength={64} autoComplete="off" onChange={(event) => setField("code", event.target.value.toUpperCase())} aria-invalid={Boolean(fieldError("code"))} aria-describedby={fieldError("code") ? "voucher-code-error" : undefined} />
                                     {fieldError("code") && <small className="voucher-field-error" id="voucher-code-error">{fieldError("code")}</small>}
                                 </label>
+                                <div className="voucher-form-field">
+                                    <span>Voucher scope <b>*</b></span>
+                                    <div className="voucher-scope-pills" role="radiogroup" aria-label="Voucher scope">
+                                        {[
+                                            { value: "product", label: "Product voucher" },
+                                            { value: "shipping", label: "Shipping voucher" },
+                                        ].map((option) => (
+                                            <label className={`voucher-scope-pill${form.scope === option.value ? " selected" : ""}${editing?.redemptions_count ? " disabled" : ""}`} key={option.value}>
+                                                <input
+                                                    type="radio"
+                                                    name="voucherScope"
+                                                    value={option.value}
+                                                    checked={form.scope === option.value}
+                                                    disabled={Boolean(editing?.redemptions_count)}
+                                                    onChange={() => {
+                                                        setField("scope", option.value);
+                                                        if (option.value === "shipping") {
+                                                            setField("productIds", "");
+                                                            setField("categories", "");
+                                                        }
+                                                    }}
+                                                />
+                                                <span>{option.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    {fieldError("scope") && <small className="voucher-field-error">{fieldError("scope")}</small>}
+                                </div>
                                 <label className="voucher-form-field">
                                     <span>Discount type <b>*</b></span>
                                     <select value={form.discountType} onChange={(event) => {
@@ -515,17 +564,18 @@ function Vouchers() {
                                     <input type="number" min="1" step="1" value={form.perBuyerLimit} onChange={(event) => setField("perBuyerLimit", event.target.value)} />
                                     {fieldError("perBuyerLimit") && <small className="voucher-field-error">{fieldError("perBuyerLimit")}</small>}
                                 </label>
-                                <label className="voucher-form-field full">
+                                {form.scope === "product" && <label className="voucher-form-field full">
                                     <span>Description <em>Optional</em></span>
                                     <textarea rows={2} maxLength={1000} value={form.description} onChange={(event) => setField("description", event.target.value)} />
                                     {fieldError("description") && <small className="voucher-field-error">{fieldError("description")}</small>}
-                                </label>
-                                <label className="voucher-form-field full">
+                                </label>}
+                                {form.scope === "product" && <label className="voucher-form-field full">
                                     <span>Eligible product IDs <em>Optional, comma-separated</em></span>
                                     <input value={form.productIds} placeholder="Example: 12, 24" onChange={(event) => setField("productIds", event.target.value)} />
                                     <small>Product IDs must exist. Leave blank to include every product.</small>
                                     {fieldError("productIds") && <small className="voucher-field-error">{fieldError("productIds")}</small>}
-                                </label>
+                                </label>}
+                                {form.scope === "shipping" && <p className="voucher-form-field full">Shipping discounts are capped at the configured shipping fee. Set delivery fees in Shipping rates below.</p>}
                                 <label className="voucher-form-field full">
                                     <span>Eligible categories <em>Optional, comma-separated</em></span>
                                     <input list="voucher-supported-categories" value={form.categories} placeholder="Choose names from the existing product categories" onChange={(event) => setField("categories", event.target.value)} />

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ShippingRate;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ShippingRateController extends Controller
 {
@@ -56,21 +55,34 @@ class ShippingRateController extends Controller
 
     private function validateRate(Request $request, ?ShippingRate $rate = null): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'region' => ['required', 'string', 'max:120', 'not_regex:/^\s*$/u'],
             'province' => [
                 'required',
                 'string',
                 'max:120',
                 'not_regex:/^\s*$/u',
-                Rule::unique('shipping_rates', 'province')
-                    ->where(fn ($query) => $query->whereRaw('LOWER(region) = ?', [
-                        mb_strtolower(trim((string) $request->input('region'))),
-                    ]))
-                    ->ignore($rate?->id),
+                function (string $attribute, mixed $value, \Closure $fail) use ($request, $rate) {
+                    $duplicate = ShippingRate::query()
+                        ->whereRaw('LOWER(TRIM(region)) = ?', [
+                            mb_strtolower(trim((string) $request->input('region'))),
+                        ])
+                        ->whereRaw('LOWER(TRIM(province)) = ?', [
+                            mb_strtolower(trim((string) $value)),
+                        ])
+                        ->when($rate, fn ($query) => $query->where('id', '!=', $rate->id))
+                        ->exists();
+                    if ($duplicate) {
+                        $fail('A shipping rate already exists for this region and province.');
+                    }
+                },
             ],
             'fee' => ['required', 'numeric', 'decimal:0,2', 'min:0.01', 'max:9999999999.99'],
             'is_active' => ['required', 'boolean'],
         ]);
+        $validated['region'] = trim($validated['region']);
+        $validated['province'] = trim($validated['province']);
+
+        return $validated;
     }
 }

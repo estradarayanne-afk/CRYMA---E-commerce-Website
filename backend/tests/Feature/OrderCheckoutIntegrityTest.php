@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\Address;
 use App\Models\Product;
+use App\Models\ShippingRate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -27,7 +28,7 @@ class OrderCheckoutIntegrityTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.subtotal', '99.90')
-            ->assertJsonPath('data.shipping_fee', 0)
+            ->assertJsonPath('data.shipping_fee', '0.00')
             ->assertJsonPath('data.total_amount', '99.90')
             ->assertJsonPath('data.payment_method', 'cash_on_delivery')
             ->assertJsonMissingPath('data.checkout_idempotency_key')
@@ -144,6 +145,7 @@ class OrderCheckoutIntegrityTest extends TestCase
     {
         [$firstBuyer, $product] = $this->buyerAndProduct(price: '25.00', stock: 3);
         $secondBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($secondBuyer);
         $key = '0546b0c4-b3be-4f67-b445-57907223ea88';
         $payload = $this->checkoutPayload($product, 1);
 
@@ -165,6 +167,7 @@ class OrderCheckoutIntegrityTest extends TestCase
     public function test_existing_orders_with_null_idempotency_keys_can_coexist(): void
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($buyer);
         $orderFields = [
             'buyer_id' => $buyer->id,
             'delivery_address' => 'Existing order address',
@@ -342,6 +345,12 @@ class OrderCheckoutIntegrityTest extends TestCase
             'municipality' => 'Carmen', 'barangay' => 'Luyang', 'street' => 'Market Road',
             'house_number' => '18', 'postal_code' => '6005',
         ]);
+        ShippingRate::create([
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'fee' => '0.00',
+            'is_active' => true,
+        ]);
 
         $this->actingAs($buyer, 'sanctum')
             ->withHeader('Idempotency-Key', '70f9d981-2b65-42bb-ae15-7a426f67f5a4')
@@ -380,6 +389,7 @@ class OrderCheckoutIntegrityTest extends TestCase
     private function buyerAndProduct(string $price, int $stock): array
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($buyer);
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
         $product = Product::create([
             'seller_id' => $seller->id,

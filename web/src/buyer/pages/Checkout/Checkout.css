@@ -1583,6 +1583,35 @@ button.checkout-summary-change { border-color: #e8d5dc; border-radius: 9px; colo
 .checkout-voucher-available strong { font-size: 13px; }
 .checkout-voucher-available small, .checkout-voucher-status { font-size: 12px; line-height: 1.5; }
 .checkout-voucher-error { font-size: 13px; }
+
+.checkout-shipping-provisional {
+    margin: 8px 0 0;
+    color: #74511b;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.checkout-shipping-parcels {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: #fbf8f8;
+}
+
+.checkout-shipping-parcels > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.checkout-shipping-parcels strong {
+    color: var(--text-primary);
+    white-space: nowrap;
+}
 .checkout-selected-label { font-size: 12px; }
 .checkout-item-category { font-size: 11px !important; letter-spacing: .07em; }
 .checkout-summary-method span { font-size: 12px; }

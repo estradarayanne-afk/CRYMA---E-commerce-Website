@@ -236,6 +236,7 @@ class BuyerVoucherCheckoutTest extends TestCase
     private function buyerAndProduct(string $price, int $stock): array
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($buyer);
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
         $product = Product::create([
             'seller_id' => $seller->id,
@@ -271,6 +272,7 @@ class BuyerVoucherCheckoutTest extends TestCase
 
     private function checkout(User $buyer, Product $product, array $extra = [])
     {
+        $this->checkoutAddressFor($buyer);
         return $this->actingAs($buyer, 'sanctum')
             ->withHeader('Idempotency-Key', (string) Str::uuid())
             ->postJson('/api/orders', [

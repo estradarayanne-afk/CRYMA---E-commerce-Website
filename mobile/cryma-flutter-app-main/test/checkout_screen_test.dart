@@ -4,6 +4,7 @@ import 'package:cryma_flutter_app/models/buyer_address.dart';
 import 'package:cryma_flutter_app/navigation/app_router.dart';
 import 'package:cryma_flutter_app/screens/account/add_address_screen.dart';
 import 'package:cryma_flutter_app/screens/cart/checkout_screen.dart';
+import 'package:cryma_flutter_app/screens/cart/order_success_screen.dart';
 import 'package:cryma_flutter_app/screens/cart/voucher_selection_screen.dart';
 import 'package:cryma_flutter_app/services/api_service.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,20 @@ ApiService _apiWith({
           jsonEncode({
             'success': true,
             'data': {'addresses': addresses},
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (request.url.path == '/api/buyer/shipping-quote') {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'region': 'National Capital Region',
+              'province': 'Metro Manila',
+              'shipping_fee': '85.00',
+            },
           }),
           200,
           headers: {'content-type': 'application/json'},
@@ -141,9 +156,13 @@ void main() {
         home: CheckoutScreen(apiService: api),
         onGenerateRoute: (settings) {
           if (settings.name == '/voucher_selection') {
+            final arguments = settings.arguments as Map<String, dynamic>;
             return MaterialPageRoute<Map<String, dynamic>>(
               builder: (_) => VoucherSelectionScreen(
-                items: settings.arguments as List<Map<String, dynamic>>,
+                items: arguments['items'] as List<Map<String, dynamic>>,
+                scope: arguments['scope']?.toString() ?? 'product',
+                addressId:
+                    int.tryParse(arguments['address_id']?.toString() ?? ''),
                 apiService: api,
               ),
             );
@@ -171,8 +190,8 @@ void main() {
 
     await tester.tap(find.text('Select a voucher'));
     await tester.pumpAndSettle();
-    expect(find.text('Select Voucher'), findsOneWidget);
-    expect(find.text('No claimed vouchers'), findsOneWidget);
+    expect(find.text('Select Product Voucher'), findsOneWidget);
+    expect(find.text('No claimed product vouchers'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'save10');
     await tester.pump();
@@ -247,5 +266,52 @@ void main() {
     expect(find.text('Philippine mobile number'), findsNothing);
     expect(find.text('PHILIPPINE LOCATION'), findsOneWidget);
     expect(find.text('MANUAL ADDRESS'), findsOneWidget);
+  });
+
+  testWidgets(
+      'order success screen shows linked order ids for split seller orders',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  settings: const RouteSettings(
+                    arguments: {
+                      'id': 11,
+                      'total_amount': '1200.00',
+                      'payment_method': 'cash_on_delivery',
+                      'checkout_orders': [
+                        {
+                          'id': 11,
+                          'seller_storefront_name': 'Nora Home Store',
+                        },
+                        {
+                          'id': 12,
+                          'seller_storefront_name': 'Daily Finds',
+                        },
+                      ],
+                    },
+                  ),
+                  builder: (_) => const OrderSuccessScreen(),
+                ),
+              );
+            },
+            child: const Text('continue'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your orders are placed!'), findsOneWidget);
+    expect(find.text('Linked orders'), findsOneWidget);
+    expect(find.text('#12'), findsOneWidget);
+    expect(find.text('Nora Home Store'), findsOneWidget);
+    expect(find.text('Daily Finds'), findsOneWidget);
   });
 }

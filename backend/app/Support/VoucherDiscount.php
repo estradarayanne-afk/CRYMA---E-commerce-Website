@@ -25,11 +25,12 @@ class VoucherDiscount
         }
         if ($voucher->seller_id !== null) {
             $sellerIds = collect($items)->map(fn (array $item) => (int) $item[0]->seller_id)->unique();
-            if ($sellerIds->count() !== 1 || !$sellerIds->contains((int) $voucher->seller_id)) {
+            if (!$sellerIds->contains((int) $voucher->seller_id)) {
                 $this->reject('This voucher is only valid for products from the seller who created it.');
             }
         }
-        $eligibleSubtotalCents = $this->eligibleSubtotal($voucher, $items);
+        $eligibleBySeller = $this->eligibleSubtotalBySeller($voucher, $items);
+        $eligibleSubtotalCents = array_sum($eligibleBySeller);
         if ($eligibleSubtotalCents <= 0) {
             $this->reject('This voucher does not apply to the selected products.');
         }
@@ -60,6 +61,7 @@ class VoucherDiscount
             'voucher' => $voucher,
             'subtotal_cents' => collect($items)->sum(fn (array $item): int => $item[2]),
             'eligible_subtotal_cents' => $eligibleSubtotalCents,
+            'eligible_subtotal_by_seller_cents' => $eligibleBySeller,
             'discount_cents' => $discountCents,
         ];
     }
@@ -135,24 +137,32 @@ class VoucherDiscount
 
     /**
      * @param array<int, array{0: Product, 1: int, 2: int}> $items
+     * @return array<int, int>
      */
-    private function eligibleSubtotal(Voucher $voucher, array $items): int
+    public function eligibleSubtotalBySeller(Voucher $voucher, array $items): array
     {
         $productIds = collect($voucher->product_ids ?? [])->map(fn ($id) => (string) $id);
         $categories = collect($voucher->categories ?? [])->map(fn ($category) => mb_strtolower(trim((string) $category)));
         $hasRestrictions = $productIds->isNotEmpty() || $categories->isNotEmpty();
 
-        return collect($items)->sum(function (array $item) use ($productIds, $categories, $hasRestrictions): int {
-            [$product, , $lineSubtotalCents] = $item;
-            if (!$hasRestrictions) {
-                return $lineSubtotalCents;
-            }
+        return collect($items)->groupBy(fn (array $item) => (int) $item[0]->seller_id)
+            ->map(function ($sellerItems) use ($voucher, $productIds, $categories, $hasRestrictions): int {
+                return $sellerItems->sum(function (array $item) use ($voucher, $productIds, $categories, $hasRestrictions): int {
+                    [$product, , $lineSubtotalCents] = $item;
+                    if ($voucher->seller_id !== null && (int) $product->seller_id !== (int) $voucher->seller_id) {
+                        return 0;
+                    }
+                    if (!$hasRestrictions) {
+                        return $lineSubtotalCents;
+                    }
 
-            $matchesProduct = $productIds->contains((string) $product->id);
-            $matchesCategory = $categories->contains(mb_strtolower((string) $product->category));
+                    $matchesProduct = $productIds->contains((string) $product->id);
+                    $matchesCategory = $categories->contains(mb_strtolower((string) $product->category));
 
-            return ($matchesProduct || $matchesCategory) ? $lineSubtotalCents : 0;
-        });
+                    return ($matchesProduct || $matchesCategory) ? $lineSubtotalCents : 0;
+                });
+            })
+            ->all();
     }
 
     public function toCents(string $amount): int

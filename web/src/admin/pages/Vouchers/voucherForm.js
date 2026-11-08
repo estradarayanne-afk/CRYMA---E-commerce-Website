@@ -10,7 +10,11 @@ export function validateVoucherForm(form) {
     const perBuyerLimit = String(form.perBuyerLimit || "").trim();
     const productIds = parseCommaList(form.productIds);
     const categories = parseCommaList(form.categories);
+    const scope = form.scope || "product";
 
+    if (!["product", "shipping"].includes(scope)) {
+        errors.scope = "Choose a supported voucher scope.";
+    }
     if (!code) errors.code = "Enter a voucher code.";
     else if (code.length > 64 || !/^[A-Z0-9_-]+$/i.test(code)) {
         errors.code = "Use up to 64 letters, numbers, hyphens, or underscores.";
@@ -54,16 +58,19 @@ export function validateVoucherForm(form) {
     if (!/^\d+$/.test(perBuyerLimit) || Number(perBuyerLimit) < 1) {
         errors.perBuyerLimit = "Enter a positive whole number.";
     }
-    if (productIds.length > 100 || productIds.some((id) => !/^\d+$/.test(id) || Number(id) < 1)) {
+    if (scope === "shipping" && (productIds.length > 0 || categories.length > 0)) {
+        errors.productIds = "Shipping vouchers cannot be restricted to products or categories.";
+    }
+    if (scope === "product" && (productIds.length > 100 || productIds.some((id) => !/^\d+$/.test(id) || Number(id) < 1))) {
         errors.productIds = "Enter up to 100 valid product IDs separated by commas.";
     }
-    if (new Set(productIds).size !== productIds.length) {
+    if (scope === "product" && new Set(productIds).size !== productIds.length) {
         errors.productIds = "Product IDs must not be repeated.";
     }
-    if (categories.length > 100 || categories.some((category) => category.length > 100)) {
+    if (scope === "product" && (categories.length > 100 || categories.some((category) => category.length > 100))) {
         errors.categories = "Enter up to 100 category names, each no longer than 100 characters.";
     }
-    if (new Set(categories.map((category) => category.toLocaleLowerCase())).size !== categories.length) {
+    if (scope === "product" && new Set(categories.map((category) => category.toLocaleLowerCase())).size !== categories.length) {
         errors.categories = "Category names must not be repeated.";
     }
 
@@ -74,6 +81,7 @@ export function buildVoucherPayload(form) {
     return {
         code: String(form.code || "").trim().toUpperCase(),
         description: String(form.description || "").trim() || null,
+        scope: form.scope || "product",
         discount_type: form.discountType,
         discount_value: String(form.discountValue).trim(),
         minimum_spend: String(form.minimumSpend || "0").trim(),
@@ -82,8 +90,8 @@ export function buildVoucherPayload(form) {
         expires_at: form.expiresAt || null,
         usage_limit: form.usageLimit ? Number(form.usageLimit) : null,
         per_buyer_limit: Number(form.perBuyerLimit),
-        product_ids: parseCommaList(form.productIds).map(Number),
-        categories: parseCommaList(form.categories),
+        product_ids: form.scope === "shipping" ? null : parseCommaList(form.productIds).map(Number),
+        categories: form.scope === "shipping" ? null : parseCommaList(form.categories),
         is_active: Boolean(form.isActive),
     };
 }

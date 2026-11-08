@@ -43,6 +43,7 @@ class SellerVacationModeTest extends TestCase
     public function test_checkout_is_rejected_without_creating_order_when_seller_is_on_vacation(): void
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($buyer);
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
         SellerProfile::create([
             'user_id' => $seller->id,

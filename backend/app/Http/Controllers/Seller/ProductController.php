@@ -187,6 +187,9 @@ class ProductController extends Controller
             'price' => ['required', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'weight_kg' => ['required', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
+            'length_cm' => ['nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'width_cm' => ['nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'height_cm' => ['nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
             'stock' => ['required', 'integer', 'min:0', 'max:4294967295'],
             'store_category' => ['nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
             'status' => ['sometimes', 'required', 'in:active,inactive,out_of_stock'],
@@ -210,6 +213,7 @@ class ProductController extends Controller
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        $this->validateDimensions($validated);
         $validated['category'] = $this->registeredBusinessCategory($user);
         $validated['variants'] = $this->normalizeVariantRows($validated['variants'] ?? []);
         $this->validateVariantMediaInputs($validated['variants'], $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? [], [], $validated['color_photos'] ?? [], $validated['color_photo_colors'] ?? []);
@@ -238,6 +242,9 @@ class ProductController extends Controller
                     'price' => $validated['price'],
                     'discounted_price' => $validated['discounted_price'] ?? null,
                     'weight_kg' => $validated['weight_kg'],
+                    'length_cm' => $validated['length_cm'] ?? null,
+                    'width_cm' => $validated['width_cm'] ?? null,
+                    'height_cm' => $validated['height_cm'] ?? null,
                     'variants' => $validated['variants'] ?: null,
                     'stock' => $validated['stock'],
                     'category' => $validated['category'],
@@ -294,6 +301,9 @@ class ProductController extends Controller
             'price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'discounted_price' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'weight_kg' => ['nullable', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
+            'length_cm' => ['nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'width_cm' => ['nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'height_cm' => ['nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
             'stock' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
             'store_category' => ['nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
             'variants' => ['sometimes', 'array', 'max:20'],
@@ -312,6 +322,7 @@ class ProductController extends Controller
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        $this->validateDimensions($validated);
         $validated['category'] = $this->registeredBusinessCategory($user);
         $variants = $this->normalizeDraftVariantRows($validated['variants'] ?? []);
         $this->validateDraftVariantMediaReferences($variants, $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? []);
@@ -327,6 +338,9 @@ class ProductController extends Controller
                     'price' => $validated['price'] ?? null,
                     'discounted_price' => $validated['discounted_price'] ?? null,
                     'weight_kg' => $validated['weight_kg'] ?? null,
+                    'length_cm' => $validated['length_cm'] ?? null,
+                    'width_cm' => $validated['width_cm'] ?? null,
+                    'height_cm' => $validated['height_cm'] ?? null,
                     'variants' => $variants ?: null,
                     'stock' => $validated['stock'] ?? 0,
                     'category' => $validated['category'],
@@ -360,6 +374,9 @@ class ProductController extends Controller
             'price' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'discounted_price' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'weight_kg' => ['sometimes', 'nullable', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
+            'length_cm' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'width_cm' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'height_cm' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
             'stock' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:4294967295'],
             'store_category' => ['sometimes', 'nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
             'variants' => ['sometimes', 'array', 'max:20'],
@@ -381,6 +398,7 @@ class ProductController extends Controller
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        $this->validateDimensions($validated);
         $variants = array_key_exists('variants', $validated) ? $this->normalizeDraftVariantRows($validated['variants']) : ($product->variants ?? []);
         $this->validateDraftVariantMediaReferences($variants, $validated['variant_media'] ?? [], $validated['variant_media_ids'] ?? []);
         $this->validateMediaTotal($validated);
@@ -388,7 +406,7 @@ class ProductController extends Controller
         $mediaPathsToDelete = [];
         try {
             DB::transaction(function () use ($request, $product, $user, $validated, &$variants, &$storedPaths, &$mediaPathsToDelete) {
-                $fields = collect($validated)->only(['name', 'sku', 'description', 'price', 'discounted_price', 'weight_kg', 'stock', 'store_category'])->all();
+                $fields = collect($validated)->only(['name', 'sku', 'description', 'price', 'discounted_price', 'weight_kg', 'length_cm', 'width_cm', 'height_cm', 'stock', 'store_category'])->all();
                 $fields['category'] = $this->registeredBusinessCategory($user);
                 if (array_key_exists('variants', $validated)) {
                     $oldVariants = $product->variants ?? [];
@@ -547,6 +565,9 @@ class ProductController extends Controller
             'price' => ['sometimes', 'required', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'discounted_price' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'weight_kg' => ['sometimes', 'required', 'numeric', 'min:0.001', 'max:100000', 'decimal:0,3'],
+            'length_cm' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'width_cm' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
+            'height_cm' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:100000', 'decimal:0,2'],
             'stock' => ['sometimes', 'required', 'integer', 'min:0', 'max:4294967295'],
             'store_category' => ['sometimes', 'nullable', 'string', 'max:100', Rule::in($this->storeCategoriesFor($user))],
             'is_draft' => ['sometimes', 'boolean'],
@@ -578,6 +599,7 @@ class ProductController extends Controller
             'videos' => ['sometimes', 'array', 'max:2'],
             'videos.*' => ['file', 'mimes:mp4,webm', 'max:1536'],
         ]);
+        $this->validateDimensions($validated);
         $validated['category'] = $this->registeredBusinessCategory($user);
         if (array_key_exists('variants', $validated)) {
             $validated['variants'] = $this->normalizeVariantRows($validated['variants']);
@@ -776,6 +798,19 @@ class ProductController extends Controller
         }
 
         return $data;
+    }
+
+    private function validateDimensions(array $values): void
+    {
+        $dimensionFields = ['length_cm', 'width_cm', 'height_cm'];
+        $provided = collect($dimensionFields)->filter(
+            fn (string $field) => array_key_exists($field, $values) && filled($values[$field])
+        );
+        if ($provided->isNotEmpty() && $provided->count() !== count($dimensionFields)) {
+            throw ValidationException::withMessages([
+                'length_cm' => ['Enter length, width, and height together, or leave all dimensions blank.'],
+            ]);
+        }
     }
 
     private function sellerProductData(Product $product): array

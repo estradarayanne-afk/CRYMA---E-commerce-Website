@@ -106,6 +106,7 @@ class VoucherController extends Controller
 
         $validated = $validator->validate();
         $validated['seller_id'] = $sellerId;
+        $validated['scope'] = 'product';
         $validated['description'] = trim((string) ($validated['description'] ?? '')) ?: null;
         $validated['maximum_discount'] = $validated['maximum_discount'] ?? null;
         $validated['starts_at'] = $validated['starts_at'] ?? null;

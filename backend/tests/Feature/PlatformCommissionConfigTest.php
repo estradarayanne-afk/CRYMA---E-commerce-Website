@@ -26,6 +26,7 @@ class PlatformCommissionConfigTest extends TestCase
     private function buyerAndProduct(string $price, int $stock): array
     {
         $buyer  = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->checkoutAddressFor($buyer);
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
         $product = Product::create([
             'seller_id'   => $seller->id,

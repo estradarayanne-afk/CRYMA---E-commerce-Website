@@ -8,10 +8,14 @@ class VoucherSelectionScreen extends StatefulWidget {
   const VoucherSelectionScreen({
     super.key,
     required this.items,
+    this.scope = 'product',
+    this.addressId,
     this.apiService,
   });
 
   final List<Map<String, dynamic>> items;
+  final String scope;
+  final int? addressId;
   final ApiService? apiService;
 
   @override
@@ -51,7 +55,10 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
       setState(() {
         _vouchers = rows
             .map(BuyerVoucher.fromJson)
-            .where((v) => v.isClaimed && v.buyerStatus == 'available')
+            .where((v) =>
+                v.scope == widget.scope &&
+                v.isClaimed &&
+                v.buyerStatus == 'available')
             .toList();
         _loading = false;
       });
@@ -80,11 +87,17 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
       final data = await _api.validateBuyerVoucher(
         code: trimmed,
         items: widget.items,
+        addressId: widget.addressId,
       );
       final validation = BuyerVoucherValidation.fromJson(data);
+      if (validation.scope != widget.scope) {
+        throw const FormatException(
+            'Choose a voucher for the correct order category.');
+      }
       if (!mounted) return;
       Navigator.pop(context, {
         'code': validation.code,
+        'scope': validation.scope,
         'discount_amount': validation.discountAmount,
         'subtotal': validation.subtotal,
         'eligible_subtotal': validation.eligibleSubtotal,
@@ -119,7 +132,9 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Select Voucher'),
+        title: Text(widget.scope == 'shipping'
+            ? 'Free Shipping voucher'
+            : 'Select Product Voucher'),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.primary,
         elevation: 0,
@@ -138,8 +153,12 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (v) => _validateAndApply(v),
                     decoration: InputDecoration(
-                      labelText: 'Voucher code',
-                      hintText: 'e.g. WELCOME10',
+                      labelText: widget.scope == 'shipping'
+                          ? 'Shipping voucher code'
+                          : 'Product voucher code',
+                      hintText: widget.scope == 'shipping'
+                          ? 'e.g. FREESHIP'
+                          : 'e.g. WELCOME10',
                       prefixIcon: const Icon(Icons.local_offer_outlined,
                           color: AppColors.primary, size: 18),
                       suffixIcon: _codeController.text.isNotEmpty
@@ -202,26 +221,28 @@ class _VoucherSelectionScreenState extends State<VoucherSelectionScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _vouchers.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Padding(
-                          padding: EdgeInsets.all(28),
+                          padding: const EdgeInsets.all(28),
                           child:
                               Column(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.local_offer_outlined,
+                            const Icon(Icons.local_offer_outlined,
                                 size: 46, color: AppColors.primary),
-                            SizedBox(height: 14),
+                            const SizedBox(height: 14),
                             Text(
-                              'No claimed vouchers',
-                              style: TextStyle(
+                              widget.scope == 'shipping'
+                                  ? 'No claimed shipping vouchers'
+                                  : 'No claimed product vouchers',
+                              style: const TextStyle(
                                 fontFamily: 'Poppins',
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.darkGray,
                               ),
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Claim a voucher first, or enter a code above and tap Apply.',
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Claim a matching voucher first, or enter a code above and tap Apply.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontFamily: 'Poppins',

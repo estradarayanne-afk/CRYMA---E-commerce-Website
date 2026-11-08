@@ -151,9 +151,15 @@ class BuyerVoucherController extends Controller
                     ]);
                 }
                 $address = $request->user()->addresses()->findOrFail($addressId);
-                $rate = app(\App\Support\ShippingQuote::class)->forAddress($address);
+                $quote = app(\App\Support\ShippingQuote::class)->quote(
+                    $address,
+                    array_map(fn (array $item): array => [
+                        'product' => $item[0],
+                        'quantity' => $item[1],
+                    ], $items)
+                );
                 $subtotalCents = collect($items)->sum(fn (array $item) => $item[2]);
-                $shippingFeeCents = $discounts->toCents((string) $rate->fee);
+                $shippingFeeCents = $discounts->toCents($quote['shipping_fee']);
                 $result = $discounts->calculateShipping(
                     $voucher,
                     $shippingFeeCents,
@@ -167,7 +173,9 @@ class BuyerVoucherController extends Controller
                         'voucher' => $voucher,
                         'scope' => 'shipping',
                         'subtotal' => $discounts->formatCents($subtotalCents),
-                        'shipping_fee' => $rate->fee,
+                        'shipping_fee' => $quote['shipping_fee'],
+                        'shipping_parcels' => $quote['parcels'],
+                        'shipping_is_provisional' => $quote['is_provisional'],
                         'discount_amount' => $discounts->formatCents($result['discount_cents']),
                     ],
                 ]);
@@ -195,7 +203,6 @@ class BuyerVoucherController extends Controller
     private function loadItems(array $requestedItems, VoucherDiscount $discounts): array
     {
         $result = [];
-        $sellerIds = [];
         $totalCents = 0;
         foreach ($requestedItems as $requested) {
             $product = Product::query()
@@ -217,7 +224,6 @@ class BuyerVoucherController extends Controller
             } elseif (!empty($requested['variant_id'])) {
                 throw ValidationException::withMessages(['items' => ['The selected product does not have that variant.']]);
             }
-            $sellerIds[] = $product->seller_id;
             $priceCents = $discounts->toCents(
                 $variant
                     ? (string) ($variant['discounted_price'] ?? $variant['price'])
@@ -235,10 +241,6 @@ class BuyerVoucherController extends Controller
             $lineCents = $priceCents * $quantity;
             $totalCents += $lineCents;
             $result[] = [$product, $quantity, $lineCents];
-        }
-
-        if (count(array_unique($sellerIds)) > 1) {
-            throw ValidationException::withMessages(['items' => ['Please checkout products from one seller at a time.']]);
         }
 
         return $result;
