@@ -23,6 +23,7 @@ const NAV_GROUPS = [
     ] },
     { label: "Operations", items: [
         { to: "/admin/parcel-flow", label: "Parcel Flow & Hubs", icon: "deliveries" },
+        { to: "/admin/hub-staff", label: "Hub Staff", icon: "users" },
         { to: "/admin/vouchers", label: "Vouchers", icon: "vouchers" },
     ] },
     { label: "Platform", items: [

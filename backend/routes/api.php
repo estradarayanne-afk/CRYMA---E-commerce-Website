@@ -1,55 +1,55 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\RegistrationController;
-use App\Http\Controllers\Api\EmailVerificationController;
-use App\Http\Controllers\Api\ApplicantDocumentCorrectionController;
-use App\Http\Controllers\Api\BuyerOrderController;
-use App\Http\Controllers\Api\BuyerVoucherController;
-use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
 use App\Http\Controllers\Admin\AccountEmailReleaseController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\DashboardController;
-// use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
-use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\ChatController;
-use App\Http\Controllers\Seller\ProductController;
-use App\Http\Controllers\Seller\StorefrontController;
-use App\Http\Controllers\Seller\NotificationController as SellerNotificationController;
-use App\Http\Controllers\Seller\OrderController as SellerOrderController;
-use App\Http\Controllers\Seller\ChatController as SellerChatController;
-use App\Http\Controllers\Seller\ReportController as SellerReportController;
-use App\Http\Controllers\Admin\SellerComplianceController;
-use App\Http\Controllers\Admin\ComplaintController;
 use App\Http\Controllers\Admin\CommissionController;
-use App\Http\Controllers\Admin\OrderController;
-use App\Http\Controllers\Admin\RefundRequestController;
-use App\Http\Controllers\Admin\SettlementController;
-use App\Http\Controllers\Seller\EarningsController;
-use App\Http\Controllers\Seller\VoucherController as SellerVoucherController;
-use App\Http\Controllers\Admin\ReportController;
-use App\Http\Controllers\Admin\PlatformSettingsController;
-use App\Http\Controllers\Api\ReviewController;
-use App\Http\Controllers\Api\BuyerChatController;
-use App\Http\Controllers\Api\PasswordRecoveryController;
-use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Admin\ComplaintController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DeliveryController as AdminDeliveryController;
-use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController;
+use App\Http\Controllers\Admin\DocumentController;
+use App\Http\Controllers\Admin\HubStaffProvisioningController;
 use App\Http\Controllers\Admin\LogisticsController;
-use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
+use App\Http\Controllers\Admin\OrderController;
+use App\Http\Controllers\Admin\PlatformSettingsController;
+// use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
+use App\Http\Controllers\Admin\RefundRequestController;
+use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
+use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\SellerComplianceController;
+use App\Http\Controllers\Admin\SettlementController;
 use App\Http\Controllers\Admin\ShippingRateController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Admin\ShippingZoneRateController;
-use App\Http\Controllers\Seller\PickupAddressController;
-use App\Http\Controllers\Courier\PickupController;
+use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
+use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\ApplicantDocumentCorrectionController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BuyerChatController;
+use App\Http\Controllers\Api\BuyerOrderController;
+use App\Http\Controllers\Api\BuyerVoucherController;
+use App\Http\Controllers\Api\EmailVerificationController;
+use App\Http\Controllers\Api\PasswordRecoveryController;
+use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController;
 use App\Http\Controllers\Courier\DeliveryProofController;
+use App\Http\Controllers\Courier\PickupController;
 use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboardController;
-use App\Http\Controllers\Logistics\RiderManagementController;
-use App\Http\Controllers\Logistics\ParcelOperationsController;
-use App\Http\Controllers\Logistics\ParcelFlowController;
-use App\Http\Controllers\Admin\HubStaffProvisioningController;
 use App\Http\Controllers\Logistics\HubStaffParcelOperationsController;
+use App\Http\Controllers\Logistics\ParcelFlowController;
+use App\Http\Controllers\Logistics\ParcelOperationsController;
+use App\Http\Controllers\Logistics\RiderManagementController;
+use App\Http\Controllers\Seller\ChatController as SellerChatController;
+use App\Http\Controllers\Seller\EarningsController;
+use App\Http\Controllers\Seller\NotificationController as SellerNotificationController;
+use App\Http\Controllers\Seller\OrderController as SellerOrderController;
+use App\Http\Controllers\Seller\PickupAddressController;
+use App\Http\Controllers\Seller\ProductController;
+use App\Http\Controllers\Seller\ReportController as SellerReportController;
+use App\Http\Controllers\Seller\StorefrontController;
+use App\Http\Controllers\Seller\VoucherController as SellerVoucherController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:5,1');
@@ -82,8 +82,6 @@ Route::get(
 );
 Route::get('/products/{id}', [ProductController::class, 'publicShow']);
 
-
-
 Route::middleware(['auth:sanctum', 'active'])->get('/user', function (Request $request) {
     return response()->json([
         'user' => $request->user(),
@@ -101,6 +99,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Admin managed courier assignment and delivery audit.
     Route::middleware('role:admin')->group(function () {
         Route::get('/admin/hub-staff', [HubStaffProvisioningController::class, 'index']);
+        Route::get('/admin/hub-staff/logistics-managers', [HubStaffProvisioningController::class, 'logisticsManagers']);
         Route::post('/admin/hub-staff', [HubStaffProvisioningController::class, 'store']);
         Route::get('/admin/hub-staff/{id}', [HubStaffProvisioningController::class, 'show']);
         Route::patch('/admin/hub-staff/{id}/hub', [HubStaffProvisioningController::class, 'reassign']);
@@ -219,7 +218,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     Route::get('/admin/dashboard', [
         DashboardController::class,
-        'index'
+        'index',
     ])->middleware('role:admin');
 
     Route::middleware('role:admin')->group(function () {
@@ -243,59 +242,58 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // Buyer orders
     Route::middleware('role:buyer')->group(function () {
-    Route::get('/buyer/vouchers', [BuyerVoucherController::class, 'index']);
-    Route::post('/buyer/vouchers/{id}/claim', [BuyerVoucherController::class, 'claim']);
-    Route::post('/buyer/vouchers/validate', [BuyerVoucherController::class, 'validateCode']);
-    Route::post('/buyer/shipping-quote', [BuyerOrderController::class, 'shippingQuote']);
-    Route::get('/buyer/addresses', [AccountController::class, 'addresses']);
-    Route::get('/buyer/address-options', [AccountController::class, 'addressOptions']);
-    Route::post('/buyer/addresses', [AccountController::class, 'storeAddress']);
-    Route::patch('/buyer/addresses/{id}', [AccountController::class, 'updateAddress']);
-    Route::patch('/buyer/addresses/{id}/default', [AccountController::class, 'setDefaultAddress']);
-    Route::delete('/buyer/addresses/{id}', [AccountController::class, 'deleteAddress']);
-    Route::get('/buyer/checkout-data', [
-        BuyerOrderController::class,
-        'checkoutData'
-    ]);
+        Route::get('/buyer/vouchers', [BuyerVoucherController::class, 'index']);
+        Route::post('/buyer/vouchers/{id}/claim', [BuyerVoucherController::class, 'claim']);
+        Route::post('/buyer/vouchers/validate', [BuyerVoucherController::class, 'validateCode']);
+        Route::post('/buyer/shipping-quote', [BuyerOrderController::class, 'shippingQuote']);
+        Route::get('/buyer/addresses', [AccountController::class, 'addresses']);
+        Route::get('/buyer/address-options', [AccountController::class, 'addressOptions']);
+        Route::post('/buyer/addresses', [AccountController::class, 'storeAddress']);
+        Route::patch('/buyer/addresses/{id}', [AccountController::class, 'updateAddress']);
+        Route::patch('/buyer/addresses/{id}/default', [AccountController::class, 'setDefaultAddress']);
+        Route::delete('/buyer/addresses/{id}', [AccountController::class, 'deleteAddress']);
+        Route::get('/buyer/checkout-data', [
+            BuyerOrderController::class,
+            'checkoutData',
+        ]);
 
-    Route::get('/orders', [
-        BuyerOrderController::class,
-        'index'
-    ]);
+        Route::get('/orders', [
+            BuyerOrderController::class,
+            'index',
+        ]);
 
-    Route::get('/orders/{id}', [BuyerOrderController::class, 'show']);
-    Route::post('/orders/{id}/cancel', [BuyerOrderController::class, 'cancel']);
-    Route::post('/orders/{id}/confirm-received', [BuyerOrderController::class, 'confirmReceived']);
-    Route::post('/orders/{id}/refund-requests', [BuyerOrderController::class, 'requestRefund']);
-    Route::post('/orders', [BuyerOrderController::class, 'store']);
+        Route::get('/orders/{id}', [BuyerOrderController::class, 'show']);
+        Route::post('/orders/{id}/cancel', [BuyerOrderController::class, 'cancel']);
+        Route::post('/orders/{id}/confirm-received', [BuyerOrderController::class, 'confirmReceived']);
+        Route::post('/orders/{id}/refund-requests', [BuyerOrderController::class, 'requestRefund']);
+        Route::post('/orders', [BuyerOrderController::class, 'store']);
 
-    Route::post('/products/{productId}/reviews', [ReviewController::class, 'store']);
+        Route::post('/products/{productId}/reviews', [ReviewController::class, 'store']);
 
-    Route::get('/buyer/chat/conversations', [BuyerChatController::class, 'conversations']);
-    Route::post('/buyer/chat/seller-conversations', [BuyerChatController::class, 'startSellerConversation']);
-    Route::get('/buyer/chat/conversations/{id}', [BuyerChatController::class, 'showConversation']);
-    Route::post('/buyer/chat/conversations/{id}/products', [BuyerChatController::class, 'shareConversationProduct']);
-    Route::post('/buyer/chat/conversations/{id}/messages', [BuyerChatController::class, 'sendMessage']);
-    Route::post('/buyer/chat/conversations/{id}/attachments', [BuyerChatController::class, 'sendAttachment']);
-    Route::get('/buyer/chat/conversations/{id}/messages/{message}/attachment', [BuyerChatController::class, 'downloadAttachment']);
-    Route::patch('/buyer/chat/conversations/{id}/read', [BuyerChatController::class, 'markAsRead']);
+        Route::get('/buyer/chat/conversations', [BuyerChatController::class, 'conversations']);
+        Route::post('/buyer/chat/seller-conversations', [BuyerChatController::class, 'startSellerConversation']);
+        Route::get('/buyer/chat/conversations/{id}', [BuyerChatController::class, 'showConversation']);
+        Route::post('/buyer/chat/conversations/{id}/products', [BuyerChatController::class, 'shareConversationProduct']);
+        Route::post('/buyer/chat/conversations/{id}/messages', [BuyerChatController::class, 'sendMessage']);
+        Route::post('/buyer/chat/conversations/{id}/attachments', [BuyerChatController::class, 'sendAttachment']);
+        Route::get('/buyer/chat/conversations/{id}/messages/{message}/attachment', [BuyerChatController::class, 'downloadAttachment']);
+        Route::patch('/buyer/chat/conversations/{id}/read', [BuyerChatController::class, 'markAsRead']);
     });
 
     Route::get('/admin/registrations', [
         AdminRegistrationController::class,
-        'index'
+        'index',
     ])->middleware('role:admin');
 
     Route::patch('/admin/registrations/{id}/approve', [
         AdminRegistrationController::class,
-        'approve'
+        'approve',
     ])->middleware('role:admin');
 
     Route::patch('/admin/registrations/{id}/reject', [
         AdminRegistrationController::class,
-        'reject'
+        'reject',
     ])->middleware('role:admin');
-
 
     // Admin document management
     Route::get(
@@ -326,180 +324,179 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Route::patch('/admin/users/{id}', [RegistrationController::class, 'updateUser']);
     // Route::patch('/admin/users/{id}/status', [RegistrationController::class, 'updateStatus']);
     Route::get('/admin/users', [AdminRegistrationController::class, 'users'])->middleware('role:admin');
-    Route::patch('/admin/users/{id}', [AdminRegistrationController::class,'updateUser'])->middleware('role:admin');
-    Route::patch('/admin/users/{id}/status', [AdminRegistrationController::class,'updateStatus'])->middleware('role:admin');
+    Route::patch('/admin/users/{id}', [AdminRegistrationController::class, 'updateUser'])->middleware('role:admin');
+    Route::patch('/admin/users/{id}/status', [AdminRegistrationController::class, 'updateStatus'])->middleware('role:admin');
     Route::post('/admin/users/{id}/release-email', [AccountEmailReleaseController::class, 'store'])->middleware('role:admin');
 
     Route::middleware('role:seller')->group(function () {
-    Route::get('/seller/pickup-address', [PickupAddressController::class, 'show']);
-    Route::put('/seller/pickup-address', [PickupAddressController::class, 'update']);
-    Route::get('/seller/parcel-returns', [ParcelFlowController::class, 'sellerReturns']);
-    Route::patch('/seller/parcel-returns/{id}/receive', [ParcelFlowController::class, 'sellerReceiveReturn']);
-    Route::get('/seller/earnings', [EarningsController::class, 'index']);
-    Route::get('/seller/vouchers', [SellerVoucherController::class, 'index']);
-    Route::post('/seller/vouchers', [SellerVoucherController::class, 'store']);
-    Route::patch('/seller/vouchers/{id}/status', [SellerVoucherController::class, 'updateStatus']);
-    Route::get('/seller/storefront', [StorefrontController::class, 'show']);
-    Route::patch('/seller/storefront', [StorefrontController::class, 'update']);
-    Route::patch('/seller/storefront/vacation-mode', [StorefrontController::class, 'updateVacationMode']);
-    Route::patch('/seller/storefront/name', [StorefrontController::class, 'updateName']);
-    Route::get('/seller/notifications', [SellerNotificationController::class, 'index']);
-    Route::patch('/seller/notifications/read-all', [SellerNotificationController::class, 'markAllRead']);
-    Route::patch('/seller/notifications/{id}/read', [SellerNotificationController::class, 'markRead']);
-    Route::post('/seller/chat/assistant', [SellerChatController::class, 'assistant']);
-    Route::get('/seller/chat/conversations', [SellerChatController::class, 'conversations']);
-    Route::get('/seller/chat/conversations/{id}', [SellerChatController::class, 'showConversation']);
-    Route::post('/seller/chat/conversations/{id}/messages', [SellerChatController::class, 'sendMessage']);
-    Route::patch('/seller/chat/conversations/{id}/read', [SellerChatController::class, 'markAsRead']);
-    // Seller order management
-    Route::get('/seller/orders', [
-        SellerOrderController::class,
-        'index'
-    ]);
+        Route::get('/seller/pickup-address', [PickupAddressController::class, 'show']);
+        Route::put('/seller/pickup-address', [PickupAddressController::class, 'update']);
+        Route::get('/seller/parcel-returns', [ParcelFlowController::class, 'sellerReturns']);
+        Route::patch('/seller/parcel-returns/{id}/receive', [ParcelFlowController::class, 'sellerReceiveReturn']);
+        Route::get('/seller/earnings', [EarningsController::class, 'index']);
+        Route::get('/seller/vouchers', [SellerVoucherController::class, 'index']);
+        Route::post('/seller/vouchers', [SellerVoucherController::class, 'store']);
+        Route::patch('/seller/vouchers/{id}/status', [SellerVoucherController::class, 'updateStatus']);
+        Route::get('/seller/storefront', [StorefrontController::class, 'show']);
+        Route::patch('/seller/storefront', [StorefrontController::class, 'update']);
+        Route::patch('/seller/storefront/vacation-mode', [StorefrontController::class, 'updateVacationMode']);
+        Route::patch('/seller/storefront/name', [StorefrontController::class, 'updateName']);
+        Route::get('/seller/notifications', [SellerNotificationController::class, 'index']);
+        Route::patch('/seller/notifications/read-all', [SellerNotificationController::class, 'markAllRead']);
+        Route::patch('/seller/notifications/{id}/read', [SellerNotificationController::class, 'markRead']);
+        Route::post('/seller/chat/assistant', [SellerChatController::class, 'assistant']);
+        Route::get('/seller/chat/conversations', [SellerChatController::class, 'conversations']);
+        Route::get('/seller/chat/conversations/{id}', [SellerChatController::class, 'showConversation']);
+        Route::post('/seller/chat/conversations/{id}/messages', [SellerChatController::class, 'sendMessage']);
+        Route::patch('/seller/chat/conversations/{id}/read', [SellerChatController::class, 'markAsRead']);
+        // Seller order management
+        Route::get('/seller/orders', [
+            SellerOrderController::class,
+            'index',
+        ]);
 
-    Route::get('/seller/orders/{id}', [
-        SellerOrderController::class,
-        'show'
-    ]);
+        Route::get('/seller/orders/{id}', [
+            SellerOrderController::class,
+            'show',
+        ]);
 
-    Route::patch('/seller/orders/{id}/status', [
-        SellerOrderController::class,
-        'updateStatus'
-    ]);
-    Route::post('/seller/orders/{id}/pickup-request', [SellerOrderController::class, 'requestPickup']);
+        Route::patch('/seller/orders/{id}/status', [
+            SellerOrderController::class,
+            'updateStatus',
+        ]);
+        Route::post('/seller/orders/{id}/pickup-request', [SellerOrderController::class, 'requestPickup']);
 
-    // Seller product management
-    Route::post('/seller/products', [
-        ProductController::class,
-        'store'
-    ]);
+        // Seller product management
+        Route::post('/seller/products', [
+            ProductController::class,
+            'store',
+        ]);
 
-    Route::get('/seller/products', [
-        ProductController::class,
-        'index'
-    ]);
+        Route::get('/seller/products', [
+            ProductController::class,
+            'index',
+        ]);
 
-    Route::patch('/seller/products/bulk-store-category', [
-        ProductController::class,
-        'bulkStoreCategory'
-    ]);
+        Route::patch('/seller/products/bulk-store-category', [
+            ProductController::class,
+            'bulkStoreCategory',
+        ]);
 
-    Route::get('/seller/products/{id}', [
-        ProductController::class,
-        'show'
-    ]);
+        Route::get('/seller/products/{id}', [
+            ProductController::class,
+            'show',
+        ]);
 
-    Route::patch('/seller/products/{id}', [
-        ProductController::class,
-        'update'
-    ]);
+        Route::patch('/seller/products/{id}', [
+            ProductController::class,
+            'update',
+        ]);
 
-    Route::delete('/seller/products/{id}', [
-        ProductController::class,
-        'destroy'
-    ]);
+        Route::delete('/seller/products/{id}', [
+            ProductController::class,
+            'destroy',
+        ]);
 
-    Route::patch('/seller/products/{id}/archive', [
-        ProductController::class,
-        'archive'
-    ]);
+        Route::patch('/seller/products/{id}/archive', [
+            ProductController::class,
+            'archive',
+        ]);
 
-    Route::patch('/seller/products/{id}/restore', [
-        ProductController::class,
-        'restore'
-    ]);
+        Route::patch('/seller/products/{id}/restore', [
+            ProductController::class,
+            'restore',
+        ]);
 
-    Route::get('/seller/reports', [
-        SellerReportController::class,
-        'index'
-    ]);
+        Route::get('/seller/reports', [
+            SellerReportController::class,
+            'index',
+        ]);
 
-    Route::get('/seller/reviews', [ReviewController::class, 'sellerIndex']);
+        Route::get('/seller/reviews', [ReviewController::class, 'sellerIndex']);
     });
-
 
     // Admin seller compliance
     Route::get('/admin/seller-compliance', [
         SellerComplianceController::class,
-        'index'
+        'index',
     ])->middleware('role:admin');
 
     Route::get('/admin/seller-compliance/{id}', [
         SellerComplianceController::class,
-        'show'
+        'show',
     ])->middleware('role:admin');
 
     Route::patch('/admin/seller-compliance/{id}/approve', [
         SellerComplianceController::class,
-        'approve'
+        'approve',
     ])->middleware('role:admin');
 
     Route::patch('/admin/seller-compliance/{id}/reject', [
         SellerComplianceController::class,
-        'reject'
+        'reject',
     ])->middleware('role:admin');
 
     Route::post('/admin/seller-compliance/{id}/violation-action', [
         SellerComplianceController::class,
-        'takeViolationAction'
+        'takeViolationAction',
     ])->middleware('role:admin');
 
     Route::patch('/admin/seller-compliance/{id}/products/{productId}/review', [
         SellerComplianceController::class,
-        'reviewProduct'
+        'reviewProduct',
     ])->middleware('role:admin');
 
     // Admin complaint management
     Route::get('/admin/complaints', [
         ComplaintController::class,
-        'index'
+        'index',
     ])->middleware('role:admin');
 
     Route::get('/admin/complaints/{id}', [
         ComplaintController::class,
-        'show'
+        'show',
     ])->middleware('role:admin');
 
     Route::patch('/admin/complaints/{id}/status', [
         ComplaintController::class,
-        'updateStatus'
+        'updateStatus',
     ])->middleware('role:admin');
 
     Route::patch('/admin/complaints/{id}/resolve', [
         ComplaintController::class,
-        'resolve'
+        'resolve',
     ])->middleware('role:admin');
 
     // Admin commission management
     Route::get('/admin/commissions/overview', [
         CommissionController::class,
-        'overview'
+        'overview',
     ])->middleware('role:admin');
 
     Route::get('/admin/commissions', [
         CommissionController::class,
-        'index'
+        'index',
     ])->middleware('role:admin');
 
     Route::get('/admin/commissions/{id}', [
         CommissionController::class,
-        'show'
+        'show',
     ])->middleware('role:admin');
 
     // Admin order management
     Route::get('/admin/orders', [
         OrderController::class,
-        'index'
+        'index',
     ])->middleware('role:admin');
 
     Route::get('/admin/orders/{id}', [
         OrderController::class,
-        'show'
+        'show',
     ])->middleware('role:admin');
 
     Route::patch('/admin/orders/{id}/status', [
         OrderController::class,
-        'updateStatus'
+        'updateStatus',
     ])->middleware('role:admin');
 
     Route::get('/admin/refund-requests', [RefundRequestController::class, 'index'])->middleware('role:admin');
@@ -512,48 +509,48 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Admin reports
     Route::get('/admin/reports', [
         ReportController::class,
-        'index'
+        'index',
     ])->middleware('role:admin');
 
     // Admin platform settings
     Route::get('/admin/settings/announcements', [
         PlatformSettingsController::class,
-        'announcements'
+        'announcements',
     ])->middleware('role:admin');
 
     Route::post('/admin/settings/announcements', [
         PlatformSettingsController::class,
-        'storeAnnouncement'
+        'storeAnnouncement',
     ])->middleware('role:admin');
 
     Route::patch('/admin/settings/announcements/{id}', [
         PlatformSettingsController::class,
-        'updateAnnouncement'
+        'updateAnnouncement',
     ])->middleware('role:admin');
 
     Route::delete('/admin/settings/announcements/{id}', [
         PlatformSettingsController::class,
-        'deleteAnnouncement'
+        'deleteAnnouncement',
     ])->middleware('role:admin');
 
     Route::get('/admin/settings/policies', [
         PlatformSettingsController::class,
-        'policies'
+        'policies',
     ])->middleware('role:admin');
 
     Route::post('/admin/settings/policies', [
         PlatformSettingsController::class,
-        'storePolicy'
+        'storePolicy',
     ])->middleware('role:admin');
 
     Route::patch('/admin/settings/policies/{id}', [
         PlatformSettingsController::class,
-        'updatePolicy'
+        'updatePolicy',
     ])->middleware('role:admin');
 
     Route::delete('/admin/settings/policies/{id}', [
         PlatformSettingsController::class,
-        'deletePolicy'
+        'deletePolicy',
     ])->middleware('role:admin');
 
     Route::get('/admin/settings/commission-rate', [
@@ -569,12 +566,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Admin chat
     Route::get('/admin/chat/conversations', [
         ChatController::class,
-        'conversations'
+        'conversations',
     ])->middleware('role:admin');
 
     Route::get('/admin/chat/conversations/{id}', [
         ChatController::class,
-        'showConversation'
+        'showConversation',
     ])->middleware('role:admin');
 
     Route::get('/admin/chat/conversations/{id}/messages/{message}/attachment', [BuyerChatController::class, 'downloadAttachment'])
@@ -582,12 +579,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     Route::post('/admin/chat/conversations/{id}/messages', [
         ChatController::class,
-        'sendMessage'
+        'sendMessage',
     ])->middleware('role:admin');
 
     Route::patch('/admin/chat/conversations/{id}/read', [
         ChatController::class,
-        'markAsRead'
+        'markAsRead',
     ])->middleware('role:admin');
 
 });

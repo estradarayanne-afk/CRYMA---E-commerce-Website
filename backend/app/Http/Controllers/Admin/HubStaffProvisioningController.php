@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\RegistrationOtpMail;
 use App\Models\HubStaffAuditEvent;
 use App\Models\HubStaffProfile;
 use App\Models\LogisticsHub;
 use App\Models\LogisticsProfile;
 use App\Models\User;
-use App\Mail\RegistrationOtpMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -19,13 +19,78 @@ use Throwable;
 
 class HubStaffProvisioningController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $rows = User::query()->where('role', 'hub_staff')
-            ->with('hubStaffProfile.hub:id,name,code,is_active')
-            ->orderBy('last_name')->orderBy('first_name')->get();
+        $validated = $request->validate([
+            'search' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'status' => ['sometimes', 'nullable', Rule::in(['all', 'active', 'pending', 'suspended'])],
+            'hub_id' => ['sometimes', 'nullable', 'integer', Rule::exists('logistics_hubs', 'id')],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+        ]);
+        $query = User::query()->where('role', 'hub_staff')
+            ->with('hubStaffProfile.hub:id,name,code,is_active,address,psgc_code,location_label')
+            ->orderBy('last_name')->orderBy('first_name');
 
-        return response()->json(['success' => true, 'data' => $rows->map(fn (User $user) => $this->serialize($user))]);
+        if (filled($validated['search'] ?? null)) {
+            $search = trim($validated['search']);
+            $query->where(function ($users) use ($search) {
+                $users->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhereHas('hubStaffProfile.hub', function ($hubs) use ($search) {
+                        $hubs->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%")
+                            ->orWhere('location_label', 'like', "%{$search}%")
+                            ->orWhere('psgc_code', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if (($validated['status'] ?? 'all') !== 'all') {
+            $query->where('status', $validated['status']);
+        }
+        if (filled($validated['hub_id'] ?? null)) {
+            $query->whereHas('hubStaffProfile', fn ($profiles) => $profiles->where('hub_id', $validated['hub_id']));
+        }
+
+        $rows = $query->paginate($validated['per_page'] ?? 12)->withQueryString()
+            ->through(fn (User $user) => $this->serialize($user));
+
+        $hubStaff = User::query()->where('role', 'hub_staff');
+        $summary = [
+            'active' => (clone $hubStaff)->where('status', 'active')->count(),
+            'pending' => (clone $hubStaff)->where('status', 'pending')->count(),
+            'suspended' => (clone $hubStaff)->where('status', 'suspended')->count(),
+            'unassigned_hubs' => LogisticsHub::query()->where('is_active', true)
+                ->whereDoesntHave('hubStaffProfiles', fn ($profiles) => $profiles->whereHas('user', fn ($users) => $users->where('status', 'active')))
+                ->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $rows,
+            'meta' => ['summary' => $summary],
+        ]);
+    }
+
+    public function logisticsManagers()
+    {
+        $rows = User::query()->where('role', 'logistics')
+            ->whereNull('account_archived_at')
+            ->with('logisticsProfile')
+            ->orderBy('last_name')->orderBy('first_name')->get()
+            ->map(fn (User $user): array => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'status' => $user->status,
+                'can_manage_hub_staff' => (bool) $user->logisticsProfile?->can_manage_hub_staff,
+            ]);
+
+        return response()->json(['success' => true, 'data' => $rows]);
     }
 
     public function store(Request $request)
@@ -74,7 +139,7 @@ class HubStaffProvisioningController extends Controller
                 'created_at' => now(),
             ]);
 
-            return $user->load('hubStaffProfile.hub:id,name,code,is_active');
+            return $user->load('hubStaffProfile.hub:id,name,code,is_active,address,psgc_code,location_label');
         });
 
         try {
@@ -96,7 +161,7 @@ class HubStaffProvisioningController extends Controller
 
     public function show(int $id)
     {
-        $user = User::query()->where('role', 'hub_staff')->with('hubStaffProfile.hub:id,name,code,is_active')->findOrFail($id);
+        $user = User::query()->where('role', 'hub_staff')->with('hubStaffProfile.hub:id,name,code,is_active,address,psgc_code,location_label')->findOrFail($id);
         $events = HubStaffAuditEvent::query()->where('subject_user_id', $user->id)
             ->with(['actor:id,first_name,last_name', 'fromHub:id,name,code', 'toHub:id,name,code'])
             ->latest('created_at')->get();
@@ -139,7 +204,7 @@ class HubStaffProvisioningController extends Controller
                 ]);
             }
 
-            return $user->load('hubStaffProfile.hub:id,name,code,is_active');
+            return $user->load('hubStaffProfile.hub:id,name,code,is_active,address,psgc_code,location_label');
         });
 
         return response()->json(['success' => true, 'message' => 'Hub Staff assignment updated.', 'data' => $this->serialize($user)]);
@@ -163,7 +228,7 @@ class HubStaffProvisioningController extends Controller
                 ]);
             }
 
-            return $user->load('hubStaffProfile.hub:id,name,code,is_active');
+            return $user->load('hubStaffProfile.hub:id,name,code,is_active,address,psgc_code,location_label');
         });
 
         return response()->json(['success' => true, 'message' => 'Hub Staff account suspended.', 'data' => $this->serialize($user)]);
@@ -190,7 +255,7 @@ class HubStaffProvisioningController extends Controller
                 ]);
             }
 
-            return $user->load('hubStaffProfile.hub:id,name,code,is_active');
+            return $user->load('hubStaffProfile.hub:id,name,code,is_active,address,psgc_code,location_label');
         });
 
         return response()->json(['success' => true, 'message' => 'Hub Staff account activated.', 'data' => $this->serialize($user)]);
@@ -200,7 +265,7 @@ class HubStaffProvisioningController extends Controller
     {
         $profile = DB::transaction(function () use ($request, $id): LogisticsProfile {
             $user = User::query()->where('role', 'logistics')->whereKey($id)->lockForUpdate()->firstOrFail();
-            abort_unless($user->status === 'active' && !$user->account_archived_at, 422, 'Capability can only be granted to an active Logistics account.');
+            abort_unless($user->status === 'active' && ! $user->account_archived_at, 422, 'Capability can only be granted to an active Logistics account.');
             $profile = LogisticsProfile::query()->where('user_id', $user->id)->lockForUpdate()->firstOrFail();
             $profile->update([
                 'can_manage_hub_staff' => true,
@@ -272,7 +337,7 @@ class HubStaffProvisioningController extends Controller
             'role' => $user->role,
             'status' => $user->status,
             'email_verified_at' => $user->email_verified_at,
-            'hub' => $profile?->hub?->only(['id', 'name', 'code', 'is_active']),
+            'hub' => $profile?->hub?->only(['id', 'name', 'code', 'is_active', 'address', 'psgc_code', 'location_label']),
             'assigned_by' => $profile?->assigned_by,
             'assigned_at' => $profile?->assigned_at,
         ];

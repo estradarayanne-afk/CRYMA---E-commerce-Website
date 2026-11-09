@@ -26,6 +26,7 @@ import AdminChat from "./admin/pages/Chat/Chat";
 import AdminRefundRequests from "./admin/pages/RefundRequests/RefundRequests";
 import AdminFinance from "./admin/pages/Finance/Finance";
 import AdminParcelFlow from "./admin/pages/ParcelFlow/ParcelFlow";
+import HubStaffManagement from "./admin/pages/HubStaff/HubStaffManagement";
 import SellerCompliance from "./admin/pages/SellerCompliance/SellerCompliance";
 
 // â”€â”€ BUYER â”€â”€
@@ -246,6 +247,7 @@ function App() {
                         <Route path="refund-requests" element={<AdminRefundRequests />} />
                         <Route path="settlements" element={<Navigate to="/admin/finance?view=settlements" replace />} />
                         <Route path="parcel-flow" element={<AdminParcelFlow />} />
+                        <Route path="hub-staff" element={<HubStaffManagement />} />
 
                         <Route path="commission" element={<Navigate to="/admin/finance?view=commission" replace />} />
                         <Route path="finance" element={<AdminFinance />} />
@@ -359,6 +361,7 @@ function App() {
                         <Route path="incoming-parcels" element={<ParcelOperations section="incoming" />} />
                         <Route path="sorting" element={<ParcelOperations section="sorting" />} />
                         <Route path="parcel-flow" element={<AdminParcelFlow base="/logistics" />} />
+                        <Route path="hub-staff" element={<HubStaffManagement base="/logistics" />} />
                         <Route path="delivery-assignment" element={<ParcelOperations section="assignment" />} />
                         <Route path="delivery-monitoring" element={<ParcelOperations section="monitoring" />} />
                         <Route path="reports" element={<LogisticsReports />} />

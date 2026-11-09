@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Http\Controllers\Controller;
+use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\HubTransfer;
@@ -41,13 +42,35 @@ class ParcelFlowController extends Controller
             $transfer->setAttribute('rider_collection_actor', $collectionActor);
         });
 
+        $hubs = LogisticsHub::orderBy('name')->get();
+        $hubsById = $hubs->keyBy('id');
+        $areas = DeliveryArea::orderBy('name')->get();
+        $areas->each(fn (DeliveryArea $area) => $area->setRelation('hub', $hubsById->get($area->hub_id)));
+
+        $assignments = DB::table('courier_delivery_areas')
+            ->get(['delivery_area_id', 'courier_profile_id'])
+            ->groupBy('delivery_area_id');
+        $assignedCourierIds = $assignments->flatten(1)->pluck('courier_profile_id')->unique()->values();
+        $assignedCouriers = $assignedCourierIds->isEmpty()
+            ? collect()
+            : CourierProfile::with([
+                'user:id,first_name,last_name',
+                'vehicles:id,courier_profile_id,vehicle_type',
+            ])->whereIn('id', $assignedCourierIds)->get()->keyBy('id');
+
+        foreach ($assignments as $areaId => $areaAssignments) {
+            $area = $areas->firstWhere('id', (int) $areaId);
+            if ($area) {
+                $area->setAttribute('couriers', $areaAssignments
+                    ->map(fn (object $assignment) => $assignedCouriers->get($assignment->courier_profile_id))
+                    ->filter()
+                    ->values());
+            }
+        }
+
         return response()->json(['success' => true, 'data' => [
-            'hubs' => LogisticsHub::orderBy('name')->get(),
-            'areas' => DeliveryArea::with([
-                'hub:id,name,code,is_active',
-                'couriers.user:id,first_name,last_name',
-                'couriers.vehicles:id,courier_profile_id,vehicle_type',
-            ])->orderBy('name')->get(),
+            'hubs' => $hubs,
+            'areas' => $areas,
             'transfers' => $transfers,
             'returns' => ReturnShipment::with(['refundRequest:id,status,requested_amount,approved_amount','delivery:id,order_id,parcel_code','order.items.product:id,name','buyer:id,first_name,last_name','seller:id,first_name,last_name','pickupCourier.user:id,first_name,last_name','deliveryCourier.user:id,first_name,last_name','currentHub:id,name,code'])->latest()->limit(100)->get(),
             'deliveries' => Delivery::with(['order:id,status,delivery_address','currentHub:id,name,code','deliveryArea:id,name,hub_id','deliveryArea.hub:id,name,code,is_active','events'])->whereIn('status', [Delivery::AT_SORTING_CENTER, Delivery::SORTED])->whereNotNull('current_hub_id')->latest()->limit(100)->get(),

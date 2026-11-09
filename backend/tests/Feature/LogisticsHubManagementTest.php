@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class LogisticsHubManagementTest extends TestCase
@@ -58,9 +59,38 @@ class LogisticsHubManagementTest extends TestCase
 
         $this->getJson('/api/logistics/parcel-flow')->assertOk()
             ->assertJsonFragment(['id' => $otherHub->id, 'code' => 'SOUTH-HUB', 'is_active' => false])
-            ->assertJsonPath('data.areas.0.hub.code', 'SOUTH-HUB');
+            ->assertJsonFragment(['id' => $area['id'], 'name' => 'North District', 'hub_id' => $otherHub->id])
+            ->assertJsonFragment(['code' => 'SOUTH-HUB']);
         $this->assertDatabaseHas('logistics_hubs', ['id' => $hubId, 'is_active' => 1]);
         $this->assertDatabaseHas('delivery_areas', ['id' => $area['id'], 'hub_id' => $otherHub->id]);
+    }
+
+    public function test_all_psgc_cities_and_municipalities_have_active_mapped_hub_nodes(): void
+    {
+        $expectedLguCount = DB::table('geographic_locations')
+            ->whereIn('level', ['City', 'Mun'])
+            ->count();
+
+        $this->assertGreaterThan(0, $expectedLguCount);
+        $this->assertSame(
+            $expectedLguCount,
+            LogisticsHub::query()->whereNotNull('psgc_code')->where('is_active', true)->count(),
+        );
+        $this->assertSame(
+            $expectedLguCount,
+            DeliveryArea::query()->whereNotNull('psgc_code')->where('is_active', true)->whereNotNull('hub_id')->count(),
+        );
+        $this->assertDatabaseHas('logistics_hubs', [
+            'psgc_code' => DB::table('geographic_locations')
+                ->where('level', 'City')->value('code'),
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('delivery_areas', [
+            'psgc_code' => DB::table('geographic_locations')
+                ->where('level', 'City')->value('code'),
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('logistics_hubs', ['code' => 'CRYMA-CENTRAL', 'is_active' => true]);
     }
 
     public function test_area_rider_management_reuses_eligibility_and_prevents_duplicate_assignments(): void
@@ -89,7 +119,7 @@ class LogisticsHubManagementTest extends TestCase
         $hub = LogisticsHub::where('is_active', true)->firstOrFail();
         foreach (['buyer', 'seller', 'rider'] as $role) {
             $user = User::factory()->create(['role' => $role, 'status' => 'active']);
-            $this->actingAs($user, 'sanctum')->postJson('/api/logistics/hubs', ['name' => 'Denied', 'code' => strtoupper($role) . '-DENIED'])->assertForbidden();
+            $this->actingAs($user, 'sanctum')->postJson('/api/logistics/hubs', ['name' => 'Denied', 'code' => strtoupper($role).'-DENIED'])->assertForbidden();
             $this->postJson('/api/logistics/delivery-areas', ['name' => 'Denied Area', 'hub_id' => $hub->id])->assertForbidden();
             $this->postJson('/api/logistics/parcels/scan', ['parcel_code' => 'CRYMA-PCL-AAAAAAAAAAAAAAAAAAAA'])->assertForbidden();
             $this->patchJson('/api/logistics/orders/1/sorting-receipt', ['expected_status' => Delivery::PICKED_UP, 'hub_id' => $hub->id, 'parcel_code' => 'CRYMA-PCL-AAAAAAAAAAAAAAAAAAAA'])->assertForbidden();
@@ -210,6 +240,7 @@ class LogisticsHubManagementTest extends TestCase
             }
             Vehicle::create(['courier_profile_id' => $profile->id, 'vehicle_type' => 'motorcycle', 'plate_number' => 'HUB'.str_pad((string) $profile->id, 6, '0', STR_PAD_LEFT)]);
         }
+
         return [$user, $profile];
     }
 }

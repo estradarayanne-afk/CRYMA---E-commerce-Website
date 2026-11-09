@@ -2,11 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\RegistrationOtpMail;
 use App\Models\HubStaffProfile;
 use App\Models\LogisticsHub;
 use App\Models\LogisticsProfile;
 use App\Models\User;
-use App\Mail\RegistrationOtpMail;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -61,6 +62,7 @@ class HubStaffProvisioningTest extends TestCase
         $otp = null;
         Mail::assertSent(RegistrationOtpMail::class, function (RegistrationOtpMail $mail) use (&$otp): bool {
             $otp = $mail->otp;
+
             return true;
         });
         $this->postJson('/api/verify-email', ['email' => $staff->email, 'otp' => $otp])->assertOk();
@@ -101,6 +103,9 @@ class HubStaffProvisioningTest extends TestCase
         $manager = $this->logistics(true);
         $targetLogistics = $this->logistics(false);
         $hub = $this->hub('MANAGER-HUB');
+
+        $this->actingAs($manager, 'sanctum')->getJson('/api/logistics/profile')
+            ->assertOk()->assertJsonPath('data.can_manage_hub_staff', true);
 
         $response = $this->actingAs($manager, 'sanctum')->postJson('/api/logistics/hub-staff', $this->staffPayload($hub->id))
             ->assertCreated()->assertJsonPath('data.hub.id', $hub->id);
@@ -151,6 +156,7 @@ class HubStaffProvisioningTest extends TestCase
             'event_type' => 'logistics_hub_staff_capability_granted',
         ]);
 
+        $manager->forceFill(['status' => 'suspended'])->save();
         $this->deleteJson("/api/admin/logistics-users/{$manager->id}/hub-staff-capability")
             ->assertOk()->assertJsonPath('data.can_manage_hub_staff', false)
             ->assertJsonPath('data.revoked_by', $admin->id);
@@ -159,6 +165,12 @@ class HubStaffProvisioningTest extends TestCase
             'actor_id' => $admin->id,
             'event_type' => 'logistics_hub_staff_capability_revoked',
         ]);
+        $this->getJson('/api/admin/hub-staff/logistics-managers')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $manager->id,
+                'can_manage_hub_staff' => false,
+            ]);
         $this->actingAs($manager, 'sanctum')->getJson('/api/logistics/hub-staff')->assertForbidden();
     }
 
@@ -196,7 +208,7 @@ class HubStaffProvisioningTest extends TestCase
         $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/hub-staff/{$staff->id}/hub", ['hub_id' => 999999])->assertUnprocessable();
         $this->patchJson("/api/admin/hub-staff/{$staff->id}/hub", ['hub_id' => $inactive->id])->assertUnprocessable();
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
         HubStaffProfile::create([
             'user_id' => $staff->id,
             'hub_id' => $inactive->id,
@@ -222,6 +234,40 @@ class HubStaffProvisioningTest extends TestCase
             $this->getJson('/api/logistics/hub-staff')->assertForbidden();
             $this->getJson('/api/hub-staff/assignment')->assertForbidden();
         }
+    }
+
+    public function test_hub_staff_index_supports_search_filters_pagination_and_global_summary(): void
+    {
+        $admin = $this->admin();
+        $taguigHub = $this->hub('TAGUIG-HUB');
+        $taguigHub->update(['location_label' => 'Taguig City']);
+        $baguioHub = $this->hub('BAGUIO-HUB');
+        $baguioHub->update(['location_label' => 'Baguio City']);
+        $taguigStaff = $this->staff($taguigHub);
+        $baguioStaff = $this->staff($baguioHub);
+        $baguioStaff->forceFill(['status' => 'pending'])->save();
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/hub-staff?search=Taguig&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.current_page', 1)
+            ->assertJsonPath('data.last_page', 1)
+            ->assertJsonPath('data.data.0.id', $taguigStaff->id)
+            ->assertJsonPath('meta.summary.active', 1)
+            ->assertJsonPath('meta.summary.pending', 1)
+            ->assertJsonPath('meta.summary.unassigned_hubs', 0);
+
+        $this->getJson("/api/admin/hub-staff?status=pending&hub_id={$baguioHub->id}&per_page=1")
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.data.0.id', $baguioStaff->id);
+
+        $this->getJson('/api/admin/hub-staff?per_page=1&page=2')
+            ->assertOk()
+            ->assertJsonPath('data.total', 2)
+            ->assertJsonPath('data.current_page', 2)
+            ->assertJsonCount(1, 'data.data');
     }
 
     private function admin(): User

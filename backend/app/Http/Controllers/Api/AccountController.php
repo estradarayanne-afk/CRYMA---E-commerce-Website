@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AccountController extends Controller
@@ -22,6 +23,7 @@ class AccountController extends Controller
         $profile['business_name'] = $user->logisticsProfile?->business_name;
         $profile['birthday'] = $user->logisticsProfile?->birthday?->toDateString();
         $profile['sex'] = $user->logisticsProfile?->sex;
+        $profile['can_manage_hub_staff'] = (bool) $user->logisticsProfile?->can_manage_hub_staff;
         $profile['addresses'] = $user->addresses->map(fn (Address $address) => [
             'region' => $address->region,
             'province' => $address->province,
@@ -49,7 +51,7 @@ class AccountController extends Controller
             $request->merge(['phone' => $phone]);
         }
 
-        $nameRule = "regex:/^[\\p{L}\\p{M}]+\\.?(?:[ \\x27\\x2D\\x{2019}\\x{2010}\\x{2011}][\\p{L}\\p{M}]+\\.?)*$/u";
+        $nameRule = 'regex:/^[\\p{L}\\p{M}]+\\.?(?:[ \\x27\\x2D\\x{2019}\\x{2010}\\x{2011}][\\p{L}\\p{M}]+\\.?)*$/u';
         $validated = $request->validate([
             'first_name' => ['sometimes', 'required', 'string', 'max:30', $nameRule],
             'middle_name' => ['sometimes', 'nullable', 'string', 'max:30', $nameRule],
@@ -125,7 +127,7 @@ class AccountController extends Controller
         $address = DB::transaction(function () use ($request, $validated) {
             $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
             $hasDefaultAddress = $user->addresses()->where('is_default', true)->exists();
-            $makeDefault = ($validated['is_default'] ?? false) || !$hasDefaultAddress;
+            $makeDefault = ($validated['is_default'] ?? false) || ! $hasDefaultAddress;
 
             if ($makeDefault) {
                 $user->addresses()->update(['is_default' => false]);
@@ -193,7 +195,7 @@ class AccountController extends Controller
                 'required',
                 'string',
                 'max:100',
-                "regex:/^[\\p{L}\\p{M}]+\\.?(?:[ \\x27\\x2D\\x{2019}\\x{2010}\\x{2011}][\\p{L}\\p{M}]+\\.?)*$/u",
+                'regex:/^[\\p{L}\\p{M}]+\\.?(?:[ \\x27\\x2D\\x{2019}\\x{2010}\\x{2011}][\\p{L}\\p{M}]+\\.?)*$/u',
             ],
             'phone' => ['required', 'string', 'max:20'],
             'is_default' => ['sometimes', 'boolean'],
@@ -216,8 +218,8 @@ class AccountController extends Controller
             $phone = '+63'.substr($phone, 1);
         }
 
-        if (!preg_match('/^\+639[0-9]{9}$/', $phone)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+        if (! preg_match('/^\+639[0-9]{9}$/', $phone)) {
+            throw ValidationException::withMessages([
                 'phone' => 'Enter a valid Philippine mobile number, such as 09171234567 or +639171234567.',
             ]);
         }
@@ -271,7 +273,7 @@ class AccountController extends Controller
         ]);
 
         $user = $request->user();
-        if (!Hash::check($validated['current_password'], $user->password)) {
+        if (! Hash::check($validated['current_password'], $user->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'The current password is incorrect.',
