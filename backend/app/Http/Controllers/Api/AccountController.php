@@ -5,11 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Address;
 use App\Models\User;
-use Illuminate\Http\Client\ConnectionException;
+use App\Support\PhilippineGeography;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -103,26 +101,27 @@ class AccountController extends Controller
         ]);
     }
 
-    public function addressOptions(Request $request)
+    public function addressOptions(Request $request, PhilippineGeography $geography)
     {
         $validated = $request->validate([
             'path' => [
                 'required',
                 'string',
-                'regex:/\Aregions(?:\/\d{10}(?:\/provinces(?:\/\d{10}(?:\/cities-municipalities(?:\/\d{10}\/barangays)?)?)?)?)?\z/',
+                'max:200',
+                'regex:/\A(?:regions|regions\/\d{10}\/provinces|regions\/\d{10}\/cities-municipalities|regions\/\d{10}\/provinces\/\d{10}\/cities-municipalities|regions\/\d{10}\/provinces\/\d{10}\/cities-municipalities\/\d{10}\/barangays|regions\/\d{10}\/cities-municipalities\/\d{10}\/barangays)\z/',
             ],
         ]);
 
         return response()->json([
             'success' => true,
-            'data' => $this->psgcOptions($validated['path']),
+            'data' => $geography->options($validated['path']),
         ]);
     }
 
-    public function storeAddress(Request $request)
+    public function storeAddress(Request $request, PhilippineGeography $geography)
     {
         $this->ensureAddressBookSchema();
-        $validated = $this->validateAddress($request);
+        $validated = $this->validateAddress($request, $geography);
         $address = DB::transaction(function () use ($request, $validated) {
             $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
             $hasDefaultAddress = $user->addresses()->where('is_default', true)->exists();
@@ -145,11 +144,11 @@ class AccountController extends Controller
         ], 201);
     }
 
-    public function updateAddress(Request $request, int $id)
+    public function updateAddress(Request $request, int $id, PhilippineGeography $geography)
     {
         $this->ensureAddressBookSchema();
         $request->user()->addresses()->findOrFail($id);
-        $validated = $this->validateAddress($request);
+        $validated = $this->validateAddress($request, $geography);
         $address = DB::transaction(function () use ($request, $validated, $id) {
             $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
             $address = $user->addresses()->lockForUpdate()->findOrFail($id);
@@ -186,7 +185,7 @@ class AccountController extends Controller
         ]);
     }
 
-    private function validateAddress(Request $request): array
+    private function validateAddress(Request $request, PhilippineGeography $geography): array
     {
         $validated = $request->validate([
             'label' => ['required', 'string', 'in:home,work,other'],
@@ -199,9 +198,10 @@ class AccountController extends Controller
             'phone' => ['required', 'string', 'max:20'],
             'is_default' => ['sometimes', 'boolean'],
             'region' => ['required', 'string', 'max:100'],
-            'province' => ['required', 'string', 'max:100'],
+            'province' => ['nullable', 'string', 'max:100'],
             'municipality' => ['required', 'string', 'max:100'],
             'barangay' => ['required', 'string', 'max:100'],
+            'psgc_code' => ['nullable', 'string', 'regex:/\A[0-9]{10}\z/'],
             'street' => ['required', 'string', 'max:100'],
             'house_number' => ['required', 'string', 'max:20'],
             'building_name' => ['nullable', 'string', 'max:80'],
@@ -223,7 +223,8 @@ class AccountController extends Controller
         }
 
         $validated['phone'] = $phone;
-        $this->validatePhilippineAddress($validated);
+        $validated['province'] = trim((string) ($validated['province'] ?? ''));
+        $validated['psgc_code'] = $geography->validateAddress($validated);
 
         return $validated;
     }
@@ -260,78 +261,6 @@ class AccountController extends Controller
         // 2026_08_21_111042_create_addresses_table and
         // 2026_10_20_000000_add_region_to_addresses_table.
         // Runtime Schema checks have been removed as all migrations are applied.
-    }
-
-    private function validatePhilippineAddress(array $address): void
-    {
-        $regions = $this->psgcOptions('regions');
-        $region = $this->findPsgcName($regions, $address['region']);
-        if (!$region) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'region' => 'Select a region from the supported Philippine address list.',
-            ]);
-        }
-
-        $provinces = $this->psgcOptions('regions/'.$region['code'].'/provinces');
-        $province = $this->findPsgcName($provinces, $address['province']);
-        if (!$province) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'province' => 'Select a province within the selected region.',
-            ]);
-        }
-
-        $cities = $this->psgcOptions(
-            'regions/'.$region['code'].'/provinces/'.$province['code'].'/cities-municipalities'
-        );
-        $city = $this->findPsgcName($cities, $address['municipality']);
-        if (!$city) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'municipality' => 'Select a municipality or city within the selected province.',
-            ]);
-        }
-
-        $barangays = $this->psgcOptions(
-            'regions/'.$region['code'].'/provinces/'.$province['code'].
-            '/cities-municipalities/'.$city['code'].'/barangays'
-        );
-        if (!$this->findPsgcName($barangays, $address['barangay'])) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'barangay' => 'Select a barangay within the selected municipality or city.',
-            ]);
-        }
-    }
-
-    private function psgcOptions(string $path): array
-    {
-        return Cache::remember('psgc:'.$path, now()->addDay(), function () use ($path) {
-            try {
-                $response = Http::timeout(5)->get('https://psgc.cloud/api/v2/'.$path);
-            } catch (ConnectionException) {
-                abort(503, 'Philippine address options are temporarily unavailable. Please try again.');
-            }
-            $options = $response->json('data');
-
-            if (!$response->successful() || !is_array($options)) {
-                abort(503, 'Philippine address options are temporarily unavailable. Please try again.');
-            }
-
-            return $options;
-        });
-    }
-
-    private function findPsgcName(array $options, string $name): ?array
-    {
-        foreach ($options as $option) {
-            if (
-                is_array($option) &&
-                isset($option['name'], $option['code']) &&
-                mb_strtolower(trim($option['name'])) === mb_strtolower(trim($name))
-            ) {
-                return $option;
-            }
-        }
-
-        return null;
     }
 
     public function updatePassword(Request $request)

@@ -1028,6 +1028,12 @@
 .order-current-status p { margin-top: 5px; color: #705b66; font-size: 13px; line-height: 1.55; }
 .order-current-status.exception { border-color: #efd4d9; background: linear-gradient(110deg,#fffafa,#fff3f4); }
 .order-current-status.exception .order-current-icon { border-color: #f0d5db; background: #fff0f2; color: #a3324e; }
+.order-delivery-estimate { display:flex; align-items:center; gap:13px; margin-top:14px; padding:15px 18px; border:1px solid #e8d5dc; border-radius:13px; background:linear-gradient(110deg,#fff,#fff6f8); }
+.order-delivery-estimate-icon { width:38px; height:38px; flex:0 0 38px; display:grid; place-items:center; border:1px solid #eed9df; border-radius:11px; background:#fff; color:#8e284a; }
+.order-delivery-estimate > div:last-child { display:grid; gap:3px; }
+.order-delivery-estimate > div:last-child > span { color:#9a5169; font-size:9px; font-weight:850; letter-spacing:.13em; }
+.order-delivery-estimate strong { color:#3d192c; font-size:15px; }
+.order-delivery-estimate p { margin:0; color:#78636d; font-size:11px; line-height:1.45; }
 .order-details-layout { grid-template-columns: minmax(0,1fr) minmax(300px,360px); gap: 22px; margin-top: 20px; }
 .order-details-main,.order-details-sidebar { gap: 17px; }
 .order-details-sidebar { top: 84px; }
@@ -1103,6 +1109,7 @@
     .order-details-page { width: calc(100% - 28px); padding-top: 18px; }
     .order-current-status { gap: 12px; padding: 16px; }
     .order-current-icon { width: 42px; height: 42px; flex-basis: 42px; border-radius: 12px; }
+    .order-delivery-estimate { align-items:flex-start; padding:13px; }
     .order-current-status h2 { font-size: 18px; }
     .order-current-status p { font-size: 12px; }
     .order-panel,.order-mini-panel,.order-summary-panel { padding: 17px; border-radius: 13px; }

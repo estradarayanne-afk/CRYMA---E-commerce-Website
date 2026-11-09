@@ -49,7 +49,7 @@ class ParcelFlowController extends Controller
                 'couriers.vehicles:id,courier_profile_id,vehicle_type',
             ])->orderBy('name')->get(),
             'transfers' => $transfers,
-            'returns' => ReturnShipment::with(['refundRequest:id,status,requested_amount,approved_amount','order.items.product:id,name','buyer:id,first_name,last_name','seller:id,first_name,last_name','pickupCourier.user:id,first_name,last_name','deliveryCourier.user:id,first_name,last_name','currentHub:id,name,code'])->latest()->limit(100)->get(),
+            'returns' => ReturnShipment::with(['refundRequest:id,status,requested_amount,approved_amount','delivery:id,order_id,parcel_code','order.items.product:id,name','buyer:id,first_name,last_name','seller:id,first_name,last_name','pickupCourier.user:id,first_name,last_name','deliveryCourier.user:id,first_name,last_name','currentHub:id,name,code'])->latest()->limit(100)->get(),
             'deliveries' => Delivery::with(['order:id,status,delivery_address','currentHub:id,name,code','deliveryArea:id,name,hub_id','deliveryArea.hub:id,name,code,is_active','events'])->whereIn('status', [Delivery::AT_SORTING_CENTER, Delivery::SORTED])->whereNotNull('current_hub_id')->latest()->limit(100)->get(),
             'couriers' => $eligibility->profiles()->with(['user:id,first_name,last_name'])->orderBy('id')->get(),
         ]]);
@@ -337,6 +337,7 @@ class ParcelFlowController extends Controller
     {
         $rows = ReturnShipment::with([
             'refundRequest:id,status,requested_amount,approved_amount',
+            'delivery:id,order_id,parcel_code',
             'order:id,status,total_amount,created_at',
             'order.items' => fn ($query) => $query->where('seller_id', $request->user()->id)->with('product:id,name,image'),
             'buyer:id,first_name,middle_name,last_name',

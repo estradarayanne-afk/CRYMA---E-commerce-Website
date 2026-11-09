@@ -18,6 +18,8 @@ class OrderShippingCharge extends Model
         'volumetric_weight_kg',
         'billable_weight_kg',
         'fee',
+        'min_delivery_days',
+        'max_delivery_days',
         'is_provisional',
     ];
 
@@ -28,6 +30,8 @@ class OrderShippingCharge extends Model
             'volumetric_weight_kg' => 'decimal:3',
             'billable_weight_kg' => 'decimal:3',
             'fee' => 'decimal:2',
+            'min_delivery_days' => 'integer',
+            'max_delivery_days' => 'integer',
             'is_provisional' => 'boolean',
         ];
     }

@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import PhilippineAddressFields from "../../auth/components/PhilippineAddressFields";
 import { getPhilPostPostalCode } from "../../auth/utils/postalCode";
 import "./BuyerAddressForm.css";
@@ -11,6 +12,14 @@ const detailFields = [
 
 function BuyerAddressForm({ address, errors = {}, onChange, disabled = false, showDefault = false, grouped = false, lockRecipientDetails = false }) {
     const update = (field, value) => onChange((current) => ({ ...current, [field]: value }));
+    const handleLocationChange = useCallback((location) => onChange((current) => ({
+        ...current,
+        region: location.region,
+        province: location.province,
+        municipality: location.city,
+        barangay: location.barangay,
+        psgc_code: location.psgc_code,
+    })), [onChange]);
 
     const recipientFields = (
         <div className="buyer-address-form-grid">
@@ -57,16 +66,11 @@ function BuyerAddressForm({ address, errors = {}, onChange, disabled = false, sh
                 province={address.province}
                 city={address.municipality}
                 barangay={address.barangay}
+                psgcCode={address.psgc_code}
                 errors={errors}
                 hydrateExisting
                 disabled={disabled}
-                onChange={(location) => onChange((current) => ({
-                    ...current,
-                    region: location.region,
-                    province: location.province,
-                    municipality: location.city,
-                    barangay: location.barangay,
-                }))}
+                onChange={handleLocationChange}
                 onPostalCodeChange={(postal_code) => onChange((current) => ({ ...current, postal_code }))}
             />
 

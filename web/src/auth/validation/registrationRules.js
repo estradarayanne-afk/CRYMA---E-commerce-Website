@@ -98,7 +98,7 @@ export function getRegistrationStepErrors(step, values) {
             ["unitNumber", "Unit / floor", REGISTRATION_LIMITS.unitNumber],
         ]) if (characterLength(values[field]) > max) errors[field] = `${label} must not exceed ${max} characters.`;
         if (!values.region) errors.region = "Select a region.";
-        if (!values.province) errors.province = "Select a province.";
+        if (!values.province && values.provinceRequired !== false) errors.province = "Select a province.";
         if (!values.municipality) errors.municipality = "Select a city or municipality.";
         if (!values.barangay) errors.barangay = "Select a barangay.";
         if (!/^\d{4}$/.test(values.postalCode ?? "")) errors.postalCode = "A valid four-digit postal code is required.";

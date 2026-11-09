@@ -131,6 +131,7 @@ class BuyerVoucherCheckoutTest extends TestCase
             'description' => 'Other category fixture',
             'price' => '30.00',
             'stock' => 2,
+            'weight_kg' => '0.500',
             'category' => 'Home',
             'status' => 'active',
         ]);
@@ -244,9 +245,11 @@ class BuyerVoucherCheckoutTest extends TestCase
             'description' => 'Voucher fixture',
             'price' => $price,
             'stock' => $stock,
+            'weight_kg' => '0.500',
             'category' => 'Pet Supplies',
             'status' => 'active',
         ]);
+        $this->configureTestShippingFor($seller);
 
         return [$buyer, $product];
     }

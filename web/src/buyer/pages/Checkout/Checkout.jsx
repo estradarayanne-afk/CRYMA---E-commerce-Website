@@ -535,11 +535,15 @@ function Checkout() {
         return eligibleItems.length > 0 && eligibleSubtotal >= Number(voucher.minimum_spend || 0);
     }), [vouchers, selectedCartItems, sellerIds]);
 
-    const eligibleShippingVouchers = useMemo(() => vouchers.filter((voucher) =>
+    const availableShippingVouchers = useMemo(() => vouchers.filter((voucher) =>
         voucher.scope === "shipping" &&
-        voucher.buyer_status === "available" &&
-        subtotal >= Number(voucher.minimum_spend || 0)
-    ), [vouchers, subtotal]);
+        voucher.buyer_status === "available"
+    ), [vouchers]);
+    const upcomingShippingVouchers = useMemo(() => vouchers.filter((voucher) =>
+        voucher.scope === "shipping" &&
+        voucher.buyer_status === "ineligible" &&
+        voucher.buyer_status_reason === "This voucher is not available yet."
+    ), [vouchers]);
 
     const claimVoucher = async (voucher, reportError = setVoucherError) => {
         if (claimingVoucherId || voucher.is_claimed) return;
@@ -1263,27 +1267,55 @@ function Checkout() {
                             </form>
                         )}
                         {shippingVoucherError && <p className="checkout-voucher-error" role="alert">{shippingVoucherError}</p>}
-                        {!appliedShippingVoucherCode && eligibleShippingVouchers.length > 0 && (
+                        {!appliedShippingVoucherCode && availableShippingVouchers.length > 0 && (
                             <div className="checkout-voucher-available">
                                 <p className="checkout-voucher-status">Available for this delivery</p>
-                                {eligibleShippingVouchers.map((voucher) => (
+                                {availableShippingVouchers.map((voucher) => {
+                                    const minimumSpend = Number(voucher.minimum_spend || 0);
+                                    const remainingSpend = Math.max(0, minimumSpend - subtotal);
+                                    return (
                                     <button
                                         type="button"
                                         key={voucher.id}
                                         onClick={async () => {
                                             if (!voucher.is_claimed && !(await claimVoucher(voucher, setShippingVoucherError))) return;
+                                            if (remainingSpend > 0) {
+                                                setShippingVoucherError(`Add ₱${remainingSpend.toLocaleString()} more to meet this voucher's minimum spend.`);
+                                                return;
+                                            }
+                                            if (!selectedSavedAddressId || !shippingQuote) {
+                                                setShippingVoucherError(shippingQuoteError || "Choose an address with a configured shipping rate to apply this voucher.");
+                                                return;
+                                            }
                                             await applyShippingVoucherCode(voucher.code);
                                         }}
-                                        disabled={shippingVoucherLoading || submitting || claimingVoucherId !== null || !shippingQuote}
+                                        disabled={shippingVoucherLoading || submitting || claimingVoucherId !== null || (voucher.is_claimed && (!shippingQuote || !selectedSavedAddressId))}
                                     >
                                         <span><strong>{voucher.code}</strong><small>{formatVoucherDiscount(voucher)} off shipping</small></span>
-                                        <small>{claimingVoucherId === voucher.id ? "Claiming…" : voucher.is_claimed ? "Apply voucher" : "Claim voucher"}{Number(voucher.minimum_spend) > 0 ? ` · Min. ₱${Number(voucher.minimum_spend).toLocaleString()}` : ""}</small>
+                                        <small>{claimingVoucherId === voucher.id ? "Claiming…" : remainingSpend > 0 ? `Min. spend ₱${minimumSpend.toLocaleString()} · Add ₱${remainingSpend.toLocaleString()}` : voucher.is_claimed ? "Apply voucher" : "Claim voucher"}</small>
                                     </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {!appliedShippingVoucherCode && upcomingShippingVouchers.length > 0 && (
+                            <div className="checkout-voucher-available checkout-voucher-upcoming">
+                                <p className="checkout-voucher-status">Upcoming shipping vouchers</p>
+                                {upcomingShippingVouchers.map((voucher) => (
+                                    <div className="checkout-voucher-upcoming-item" key={voucher.id}>
+                                        <span><strong>{voucher.code}</strong><small>{formatVoucherDiscount(voucher)} off shipping</small></span>
+                                        <small>
+                                            Starts {voucher.starts_at
+                                                ? new Date(voucher.starts_at).toLocaleDateString("en-PH", { dateStyle: "medium" })
+                                                : "later"}
+                                            {Number(voucher.minimum_spend) > 0 ? ` · Min. ₱${Number(voucher.minimum_spend).toLocaleString()}` : ""}
+                                        </small>
+                                    </div>
                                 ))}
                             </div>
                         )}
-                        {!loadingVouchers && !appliedShippingVoucherCode && eligibleShippingVouchers.length === 0 && (
-                            <p className="checkout-voucher-status">No available shipping vouchers match this order.</p>
+                        {!loadingVouchers && !appliedShippingVoucherCode && availableShippingVouchers.length === 0 && upcomingShippingVouchers.length === 0 && (
+                            <p className="checkout-voucher-status">No shipping vouchers are currently available.</p>
                         )}
                     </section>
 

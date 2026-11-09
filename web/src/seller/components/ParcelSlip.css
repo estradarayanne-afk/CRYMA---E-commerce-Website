@@ -1,46 +1,9 @@
 .sl-parcel-slip {
     display: none;
 }
-.sl-parcel-address-line { display:block; }
 
-@media print {
-    .sl-parcel-slip {
-        gap:2mm !important;
-        padding:5mm !important;
-        color:#24151a !important;
-    }
-    .sl-parcel-slip-header {
-        align-items:center !important;
-        margin:-5mm -5mm 0 !important;
-        padding:4mm 5mm !important;
-        border:0 !important;
-        background:#741a33 !important;
-        color:#fff !important;
-        -webkit-print-color-adjust:exact !important;
-        print-color-adjust:exact !important;
-    }
-    .sl-parcel-slip-header p { color:#f4dbe2 !important; font-size:6.5pt !important; font-weight:bold !important; }
-    .sl-parcel-slip-header h1 { color:#fff !important; font-size:15pt !important; letter-spacing:.02em !important; }
-    .sl-parcel-slip-header > strong { display:grid !important; gap:1mm !important; padding:2mm !important; border:1px solid rgba(255,255,255,.4) !important; border-radius:2mm !important; font-size:12pt !important; text-align:center !important; }
-    .sl-parcel-slip-header > strong small { color:#f4dbe2 !important; font-size:5.5pt !important; letter-spacing:.1em !important; }
-    .sl-parcel-slip-parties { gap:2mm !important; }
-    .sl-parcel-slip-parties section { gap:.7mm !important; }
-    .sl-parcel-ship-to { padding:2mm !important; border:1.5px solid #741a33 !important; border-radius:2mm !important; background:#fff9fa !important; }
-    .sl-parcel-slip-parties h2,.sl-parcel-slip-items h2 { color:#741a33 !important; font-size:7pt !important; font-weight:bold !important; }
-    .sl-parcel-ship-to > strong { font-size:11pt !important; }
-    .sl-parcel-slip-parties span,.sl-parcel-slip-parties p { font-size:7.3pt !important; line-height:1.25 !important; }
-    .sl-parcel-address-type { color:#741a33 !important; font-weight:bold !important; }
-    .sl-parcel-address-lines { display:grid !important; gap:.5mm !important; margin:0 !important; }
-    .sl-parcel-address-line { padding-top:.5mm !important; border-top:.2mm solid #ead9de !important; }
-    .sl-parcel-ship-from { grid-template-columns:1fr 1fr !important; align-items:center !important; padding:1.5mm 2mm !important; border-bottom:.3mm dashed #a8949a !important; }
-    .sl-parcel-ship-from h2 { grid-column:1 / -1 !important; }
-    .sl-parcel-slip-items { gap:1mm !important; }
-    .sl-parcel-slip-items-head,.sl-parcel-slip-item { padding:.7mm 0 !important; border-color:#eadde1 !important; }
-    .sl-parcel-slip-payment { padding:1.5mm 0 !important; border-color:#741a33 !important; }
-    .sl-parcel-slip-code { gap:.5mm !important; }
-    .sl-parcel-barcode { height:10mm !important; }
-    .sl-parcel-slip-code > strong { font-size:7pt !important; }
-    .sl-parcel-slip > footer { padding-top:1mm !important; font-size:6pt !important; }
+.sl-parcel-address-line {
+    display: block;
 }
 
 @media print {
@@ -82,21 +45,19 @@
         inset: 0 auto auto 0 !important;
         box-sizing: border-box !important;
         display: flex !important;
-        max-width: 100mm !important;
-        max-height: 150mm !important;
         width: 100mm !important;
         height: 150mm !important;
         min-width: 0 !important;
         min-height: 0 !important;
         flex-direction: column !important;
-        gap: 4mm !important;
+        gap: 1.6mm !important;
         overflow: hidden !important;
-        padding: 7mm !important;
+        padding: 5mm !important;
         background: #fff !important;
-        color: #171717 !important;
+        color: #20171a !important;
         font-family: Arial, sans-serif !important;
-        font-size: 9pt !important;
-        line-height: 1.3 !important;
+        font-size: 8pt !important;
+        line-height: 1.2 !important;
     }
 
     .sl-parcel-slip * {
@@ -105,120 +66,341 @@
 
     .sl-parcel-slip-header {
         display: flex !important;
+        flex: 0 0 auto !important;
+        align-items: center !important;
         justify-content: space-between !important;
-        gap: 4mm !important;
-        padding-bottom: 3mm !important;
-        border-bottom: 1px solid #222 !important;
+        gap: 2mm !important;
+        margin: -5mm -5mm 0 !important;
+        padding: 3mm 5mm !important;
+        background: #741a33 !important;
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
-    .sl-parcel-slip-header p,
-    .sl-parcel-slip-header h1,
-    .sl-parcel-slip-header strong,
-    .sl-parcel-slip-parties h2,
-    .sl-parcel-slip-items h2,
-    .sl-parcel-slip-parties p {
+    .sl-parcel-slip-brand p,
+    .sl-parcel-slip-brand h1,
+    .sl-parcel-slip-order-ref small,
+    .sl-parcel-slip-order-ref strong {
+        display: block !important;
         margin: 0 !important;
     }
 
-    .sl-parcel-slip-header p {
-        font-size: 7pt !important;
-        letter-spacing: .12em !important;
+    .sl-parcel-slip-brand p {
+        color: #f4dbe2 !important;
+        font-size: 5.5pt !important;
+        font-weight: bold !important;
+        letter-spacing: .08em !important;
     }
 
-    .sl-parcel-slip-header h1 {
-        margin-top: 1mm !important;
-        font-size: 17pt !important;
+    .sl-parcel-slip-brand h1 {
+        margin-top: .8mm !important;
+        color: #fff !important;
+        font-size: 13pt !important;
+        letter-spacing: .04em !important;
     }
 
-    .sl-parcel-slip-header > strong {
-        align-self: center !important;
+    .sl-parcel-slip-order-ref {
+        min-width: 24mm !important;
+        padding: 1.5mm !important;
+        border: .3mm solid rgba(255,255,255,.55) !important;
+        border-radius: 1.5mm !important;
+        text-align: center !important;
+    }
+
+    .sl-parcel-slip-order-ref small {
+        color: #f4dbe2 !important;
+        font-size: 5pt !important;
+        letter-spacing: .08em !important;
+    }
+
+    .sl-parcel-slip-order-ref strong {
+        margin-top: .5mm !important;
+        color: #fff !important;
         font-size: 11pt !important;
-        white-space: nowrap !important;
+    }
+
+    .sl-parcel-slip-meta {
+        display: grid !important;
+        flex: 0 0 auto !important;
+        grid-template-columns: 1fr 1.3fr 1fr !important;
+        gap: 1.5mm !important;
+        padding: 1mm 0 !important;
+        border-bottom: .3mm solid #741a33 !important;
+    }
+
+    .sl-parcel-slip-meta div {
+        display: grid !important;
+        gap: .4mm !important;
+    }
+
+    .sl-parcel-slip-meta span,
+    .sl-parcel-slip-qr div > span,
+    .sl-parcel-slip-barcode > span {
+        color: #74676b !important;
+        font-size: 5.2pt !important;
+        font-weight: bold !important;
+        letter-spacing: .08em !important;
+    }
+
+    .sl-parcel-slip-meta strong {
+        color: #24151a !important;
+        font-size: 6.5pt !important;
+        text-transform: capitalize !important;
+    }
+
+    .sl-parcel-slip-attempt-note {
+        display: grid !important;
+        flex: 0 0 auto !important;
+        gap: .4mm !important;
+        padding: 1mm 1.5mm !important;
+        border-left: .8mm solid #a34a24 !important;
+        background: #fff7f1 !important;
+    }
+
+    .sl-parcel-slip-attempt-note strong {
+        color: #863b1d !important;
+        font-size: 5.2pt !important;
+        letter-spacing: .06em !important;
+    }
+
+    .sl-parcel-slip-attempt-note span {
+        color: #42383b !important;
+        font-size: 5.7pt !important;
+        line-height: 1.15 !important;
+        overflow-wrap: anywhere !important;
     }
 
     .sl-parcel-slip-parties {
         display: grid !important;
-        gap: 3mm !important;
+        flex: 0 0 auto !important;
+        gap: 1.3mm !important;
     }
 
     .sl-parcel-slip-parties section {
         display: grid !important;
-        gap: 1mm !important;
+        gap: .5mm !important;
         overflow-wrap: anywhere !important;
+    }
+
+    .sl-parcel-ship-to {
+        padding: 1.5mm 2mm !important;
+        border: .35mm solid #741a33 !important;
+        border-radius: 1.5mm !important;
+        background: #fff9fa !important;
+    }
+
+    .sl-parcel-ship-from {
+        grid-template-columns: 1fr 1fr !important;
+        align-items: center !important;
+        padding: 1mm 0 !important;
+        border-bottom: .25mm dashed #b9a7ac !important;
+    }
+
+    .sl-parcel-ship-from h2 {
+        grid-column: 1 / -1 !important;
     }
 
     .sl-parcel-slip-parties h2,
     .sl-parcel-slip-items h2 {
-        font-size: 8pt !important;
+        margin: 0 !important;
+        color: #741a33 !important;
+        font-size: 6pt !important;
+        font-weight: bold !important;
         letter-spacing: .1em !important;
+    }
+
+    .sl-parcel-ship-to > strong,
+    .sl-parcel-ship-from > strong {
+        color: #24151a !important;
+        font-size: 8.5pt !important;
     }
 
     .sl-parcel-slip-parties span,
     .sl-parcel-slip-parties p {
-        font-size: 8.5pt !important;
+        margin: 0 !important;
+        color: #42383b !important;
+        font-size: 6.3pt !important;
+        line-height: 1.15 !important;
+    }
+
+    .sl-parcel-address-type {
+        color: #741a33 !important;
+        font-weight: bold !important;
+        text-transform: capitalize !important;
+    }
+
+    .sl-parcel-address-lines {
+        display: grid !important;
+        gap: .3mm !important;
+        margin: .4mm 0 0 !important;
+    }
+
+    .sl-parcel-address-line {
+        padding-top: .3mm !important;
+        border-top: .15mm solid #ead9de !important;
     }
 
     .sl-parcel-slip-items {
         display: grid !important;
-        gap: 1.5mm !important;
+        flex: 1 1 auto !important;
+        align-content: start !important;
+        gap: .5mm !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .sl-parcel-slip-items-title {
+        display: flex !important;
+        align-items: baseline !important;
+        justify-content: space-between !important;
+        gap: 1mm !important;
+    }
+
+    .sl-parcel-slip-items-title > span {
+        color: #74676b !important;
+        font-size: 5.5pt !important;
     }
 
     .sl-parcel-slip-items-head,
     .sl-parcel-slip-item {
         display: flex !important;
         justify-content: space-between !important;
-        gap: 3mm !important;
-        padding: 1mm 0 !important;
-        border-bottom: 1px solid #ddd !important;
+        gap: 2mm !important;
+        padding: .6mm 0 !important;
+        border-bottom: .15mm solid #e6dfe1 !important;
     }
 
     .sl-parcel-slip-items-head {
-        font-size: 7pt !important;
+        color: #74676b !important;
+        font-size: 5.2pt !important;
         font-weight: bold !important;
+        letter-spacing: .05em !important;
     }
 
     .sl-parcel-slip-item > span {
+        display: grid !important;
+        gap: .2mm !important;
+        min-width: 0 !important;
         overflow-wrap: anywhere !important;
+    }
+
+    .sl-parcel-slip-item > span strong {
+        color: #24151a !important;
+        font-size: 6.4pt !important;
+        font-weight: normal !important;
+    }
+
+    .sl-parcel-slip-item > span small {
+        color: #74676b !important;
+        font-size: 5.5pt !important;
     }
 
     .sl-parcel-slip-item > strong {
         flex: 0 0 auto !important;
+        font-size: 7pt !important;
     }
 
     .sl-parcel-slip-payment {
         display: flex !important;
+        flex: 0 0 auto !important;
         justify-content: space-between !important;
-        padding: 2mm 0 !important;
-        border-top: 1px solid #222 !important;
-        border-bottom: 1px solid #222 !important;
+        padding: 1mm 0 !important;
+        border-top: .3mm solid #741a33 !important;
+        border-bottom: .3mm solid #741a33 !important;
+    }
+
+    .sl-parcel-slip-payment span {
+        color: #74676b !important;
+        font-size: 5.5pt !important;
+        font-weight: bold !important;
+        letter-spacing: .06em !important;
+    }
+
+    .sl-parcel-slip-payment strong {
+        color: #24151a !important;
+        font-size: 7pt !important;
     }
 
     .sl-parcel-slip-code {
         display: flex !important;
-        flex-direction: column !important;
+        flex: 0 0 auto !important;
         align-items: center !important;
-        gap: 1mm !important;
+        justify-content: space-between !important;
+        gap: 2mm !important;
+        min-height: 21mm !important;
+    }
+
+    .sl-parcel-slip-qr {
+        display: flex !important;
+        align-items: center !important;
+        gap: 1.5mm !important;
+        min-width: 0 !important;
+    }
+
+    .sl-parcel-slip-code .parcel-qr-code {
+        display: flex !important;
+        flex: 0 0 auto !important;
+        align-items: center !important;
+    }
+
+    .sl-parcel-slip-code .parcel-qr-code svg {
+        width: 19mm !important;
+        height: 19mm !important;
+    }
+
+    .sl-parcel-slip-code .parcel-qr-code strong {
+        display: none !important;
+    }
+
+    .sl-parcel-slip-qr div {
+        display: grid !important;
+        gap: .7mm !important;
+        min-width: 0 !important;
+    }
+
+    .sl-parcel-slip-qr div > strong {
+        max-width: 25mm !important;
+        color: #24151a !important;
+        font-size: 6pt !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .sl-parcel-slip-barcode {
+        display: grid !important;
+        justify-items: center !important;
+        gap: .8mm !important;
+        min-width: 0 !important;
     }
 
     .sl-parcel-barcode {
         display: block !important;
-        width: 65mm !important;
-        height: 14mm !important;
+        width: 43mm !important;
+        height: 9mm !important;
     }
 
-    .sl-parcel-slip-code .parcel-qr-code svg { width: 25mm !important; height: 25mm !important; }
-    .sl-parcel-slip-code .parcel-qr-code strong { font-size: 6.5pt !important; }
-
-    .sl-parcel-slip-code > strong {
-        font-size: 8pt !important;
-        letter-spacing: .08em !important;
+    .sl-parcel-slip-barcode > span {
+        color: #24151a !important;
     }
 
     .sl-parcel-slip > footer {
+        display: grid !important;
+        flex: 0 0 auto !important;
+        gap: .5mm !important;
         margin-top: auto !important;
-        padding-top: 2mm !important;
-        border-top: 1px solid #aaa !important;
-        font-size: 7pt !important;
+        padding-top: 1mm !important;
+        border-top: .2mm solid #cfc5c8 !important;
         text-align: center !important;
+    }
+
+    .sl-parcel-slip > footer strong {
+        color: #741a33 !important;
+        font-size: 5.5pt !important;
+        letter-spacing: .05em !important;
+    }
+
+    .sl-parcel-slip > footer span {
+        color: #74676b !important;
+        font-size: 5pt !important;
     }
 }

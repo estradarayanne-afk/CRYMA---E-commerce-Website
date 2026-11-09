@@ -131,6 +131,22 @@
     gap: 2px;
 }
 
+.checkout-voucher-upcoming-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 9px;
+    border: 1px solid #e8dce0;
+    border-radius: 7px;
+    background: #fff;
+}
+
+.checkout-voucher-upcoming-item > span {
+    display: grid;
+    gap: 2px;
+}
+
 .checkout-voucher-available strong {
     color: var(--deep-crimson);
     font-size: 12px;

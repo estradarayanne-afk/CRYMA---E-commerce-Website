@@ -124,9 +124,9 @@ export default function ParcelFlow({ base = "/admin" }) {
             <section className="lo-parcel-section lo-return-queue">
                 <h2>Return parcels</h2>
                 <p>
-                    Approve a refund with return required, assign a pickup courier, receive the item
-                    at a hub, route it hub-to-hub if needed, then assign delivery to the seller.
-                    Record the refund only after seller receipt.
+                    Process refund returns and parcels returned after three unsuccessful delivery
+                    attempts. Receive parcels at a hub, route them hub-to-hub if needed, then assign
+                    delivery to the seller. Record refunds only after seller receipt.
                 </p>
                 {data.returns.length ? (
                     data.returns.map((r) => (
@@ -134,13 +134,14 @@ export default function ParcelFlow({ base = "/admin" }) {
                             <summary>
                                 <strong>Return #{r.id} · Order #{r.order_id}</strong>
                                 <span className="lo-return-status">{human(r.status)}</span>
-                                <small>{person(r.buyer)} · {r.current_hub?.name || "Not received at hub"}</small>
+                                <small>{r.return_type === "undeliverable" ? "Undeliverable parcel" : "Refund return"} · {person(r.buyer)} · {r.current_hub?.name || "Not received at hub"}</small>
                             </summary>
                             <div className="lo-return-item-body">
                             <p>
                                 Buyer: {person(r.buyer)} · Seller: {person(r.seller)} · Hub:{" "}
                                 {r.current_hub?.name || "Not received"}
                             </p>
+                            {r.return_type === "undeliverable" && <p>Return reason: {r.return_reason || "Three unsuccessful delivery attempts"}</p>}
                             {r.status === "awaiting_pickup" && (
                                 <div>
                                     <select

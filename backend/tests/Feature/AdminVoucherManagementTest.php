@@ -342,9 +342,11 @@ class AdminVoucherManagementTest extends TestCase
             'description' => 'Checkout integration fixture.',
             'price' => '25.00',
             'stock' => 4,
+            'weight_kg' => '0.500',
             'category' => 'Pet Supplies',
             'status' => 'active',
         ]);
+        $this->configureTestShippingFor($seller);
 
         return [$buyer, $product];
     }

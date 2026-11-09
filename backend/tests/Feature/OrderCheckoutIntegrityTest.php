@@ -341,16 +341,20 @@ class OrderCheckoutIntegrityTest extends TestCase
             'recipient_name' => 'Ana Maria Dela Cruz',
             'phone' => '+639171234567',
             'is_default' => true,
-            'user_id' => $buyer->id, 'region' => 'Region VII', 'province' => 'Cebu',
+            'user_id' => $buyer->id, 'region' => 'Region VII (Central Visayas)', 'province' => 'Cebu',
             'municipality' => 'Carmen', 'barangay' => 'Luyang', 'street' => 'Market Road',
             'house_number' => '18', 'postal_code' => '6005',
         ]);
         ShippingRate::create([
-            'region' => 'Region VII',
+            'region' => 'Region VII (Central Visayas)',
             'province' => 'Cebu',
             'fee' => '0.00',
             'is_active' => true,
         ]);
+        $this->configureTestShippingFor(
+            $product->seller,
+            deliveryRegion: 'Region VII (Central Visayas)',
+        );
 
         $this->actingAs($buyer, 'sanctum')
             ->withHeader('Idempotency-Key', '70f9d981-2b65-42bb-ae15-7a426f67f5a4')
@@ -362,7 +366,7 @@ class OrderCheckoutIntegrityTest extends TestCase
             ->assertCreated();
 
         $order = Order::firstOrFail();
-        $snapshot = 'Home, Recipient: Ana Maria Dela Cruz, Contact: +639171234567, 18, Market Road, Luyang, Carmen, Cebu, Region VII, 6005';
+        $snapshot = 'Home, Recipient: Ana Maria Dela Cruz, Contact: +639171234567, 18, Market Road, Luyang, Carmen, Cebu, Region VII (Central Visayas), 6005';
         $this->assertSame($snapshot, $order->delivery_address);
 
         $address->update([
@@ -397,9 +401,11 @@ class OrderCheckoutIntegrityTest extends TestCase
             'description' => 'Checkout fixture',
             'price' => $price,
             'stock' => $stock,
+            'weight_kg' => '0.500',
             'category' => 'Pet Supplies',
             'status' => 'active',
         ]);
+        $this->configureTestShippingFor($seller);
 
         return [$buyer, $product];
     }

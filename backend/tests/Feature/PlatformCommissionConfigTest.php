@@ -34,9 +34,11 @@ class PlatformCommissionConfigTest extends TestCase
             'description' => 'Test fixture',
             'price'       => $price,
             'stock'       => $stock,
+            'weight_kg'  => '0.500',
             'category'    => 'Electronics',
             'status'      => 'active',
         ]);
+        $this->configureTestShippingFor($seller);
 
         return [$buyer, $product];
     }

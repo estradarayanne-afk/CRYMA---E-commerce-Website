@@ -63,6 +63,10 @@ class ShippingZoneRateController extends Controller
 
     private function validateRate(Request $request, ?ShippingZoneRate $existingRate = null): array
     {
+        $request->merge([
+            'min_delivery_days' => $request->input('min_delivery_days', $existingRate?->min_delivery_days ?? 3),
+            'max_delivery_days' => $request->input('max_delivery_days', $existingRate?->max_delivery_days ?? 7),
+        ]);
         $values = $request->validate([
             'origin_zone_id' => ['required', 'integer', 'exists:shipping_zones,id'],
             'destination_zone_id' => ['required', 'integer', 'exists:shipping_zones,id'],
@@ -71,6 +75,8 @@ class ShippingZoneRateController extends Controller
             'min_weight_kg' => ['required', 'numeric', 'min:0', 'max:100000', 'decimal:0,3'],
             'max_weight_kg' => ['required', 'numeric', 'gt:min_weight_kg', 'max:100000', 'decimal:0,3'],
             'fee' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
+            'min_delivery_days' => ['required', 'integer', 'min:1', 'max:60'],
+            'max_delivery_days' => ['required', 'integer', 'gte:min_delivery_days', 'max:60'],
             'volumetric_divisor_cm3_per_kg' => ['nullable', 'numeric', 'gt:0', 'max:100000000', 'decimal:0,2'],
             'is_provisional' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],

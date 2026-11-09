@@ -8,6 +8,7 @@ use App\Models\DeliveryArea;
 use App\Models\LogisticsHub;
 use App\Models\Order;
 use App\Models\PickupAssignment;
+use App\Models\ReturnShipment;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
@@ -198,6 +199,114 @@ class DeliveryWorkflowTest extends TestCase
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::FAILED, 'expected_status' => Delivery::OUT_FOR_DELIVERY, 'reason' => 'Recipient unavailable'])->assertOk();
         $this->assertSame(Delivery::FAILED, $order->fresh()->status);
         $this->assertDatabaseHas('delivery_events', ['event_type' => 'failed', 'reason' => 'Recipient unavailable', 'actor_id' => $courier->id]);
+    }
+
+    public function test_third_failed_delivery_attempt_automatically_returns_parcel_to_seller(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $product = $this->product($seller);
+        [$courier, $profile] = $this->eligibleCourier();
+        $order = $this->order(Delivery::OUT_FOR_DELIVERY);
+        \App\Models\OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'quantity' => 1,
+            'unit_price' => 10,
+            'subtotal' => 10,
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'courier_profile_id' => $profile->id,
+            'status' => Delivery::OUT_FOR_DELIVERY,
+        ]);
+        foreach ([1, 2] as $attempt) {
+            $delivery->events()->create([
+                'actor_id' => $courier->id,
+                'event_type' => 'failed',
+                'previous_status' => Delivery::OUT_FOR_DELIVERY,
+                'new_status' => Delivery::FAILED,
+                'reason' => "Recipient unavailable on attempt {$attempt}",
+                'created_at' => now()->subDays(3 - $attempt),
+            ]);
+        }
+
+        $this->actingAs($courier, 'sanctum')
+            ->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
+                'status' => Delivery::FAILED,
+                'expected_status' => Delivery::OUT_FOR_DELIVERY,
+                'reason' => 'Recipient unavailable on final attempt',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Delivery::RETURNED)
+            ->assertJsonPath('data.delivery_attempts', Delivery::MAX_DELIVERY_ATTEMPTS)
+            ->assertJsonPath('data.return_shipment.return_type', 'undeliverable')
+            ->assertJsonPath('data.return_shipment.status', 'picked_up')
+            ->assertJsonPath('message', 'Three delivery attempts were unsuccessful. The parcel is being returned to the seller.');
+
+        $this->assertSame(Delivery::RETURNED, $delivery->fresh()->status);
+        $this->assertSame(Delivery::RETURNED, $order->fresh()->status);
+        $this->assertDatabaseHas('return_shipments', [
+            'delivery_id' => $delivery->id,
+            'refund_request_id' => null,
+            'order_id' => $order->id,
+            'buyer_id' => $order->buyer_id,
+            'seller_id' => $seller->id,
+            'return_type' => 'undeliverable',
+            'status' => 'picked_up',
+            'pickup_courier_profile_id' => $profile->id,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $seller->id,
+            'type' => \App\Notifications\SellerActivityNotification::class,
+        ]);
+        $this->assertDatabaseHas('delivery_events', [
+            'delivery_id' => $delivery->id,
+            'event_type' => 'returned_after_max_delivery_attempts',
+            'new_status' => Delivery::RETURNED,
+            'reason' => 'Recipient unavailable on final attempt',
+        ]);
+        $this->actingAs($seller, 'sanctum')
+            ->getJson('/api/seller/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.notifications.0.data.type', 'parcel_returning_to_seller')
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id)
+            ->assertJsonPath('data.notifications.0.data.delivery_attempts', Delivery::MAX_DELIVERY_ATTEMPTS);
+
+        $buyer = User::findOrFail($order->buyer_id);
+        $this->actingAs($buyer, 'sanctum')
+            ->getJson("/api/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('data.delivery_progress.status', Delivery::RETURNED)
+            ->assertJsonPath('data.delivery_progress.delivery_attempts', Delivery::MAX_DELIVERY_ATTEMPTS)
+            ->assertJsonPath('data.delivery_progress.max_delivery_attempts', Delivery::MAX_DELIVERY_ATTEMPTS)
+            ->assertJsonPath('data.delivery_progress.return_shipment.return_type', 'undeliverable')
+            ->assertJsonPath('data.delivery_progress.return_shipment.status', 'picked_up');
+
+        $this->actingAs($seller, 'sanctum')
+            ->getJson('/api/seller/parcel-returns')
+            ->assertOk()
+            ->assertJsonPath('data.0.return_type', 'undeliverable')
+            ->assertJsonPath('data.0.delivery_id', $delivery->id);
+
+        $returnShipment = ReturnShipment::where('delivery_id', $delivery->id)->firstOrFail();
+        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $this->actingAs($logistics, 'sanctum')
+            ->patchJson("/api/logistics/parcel-returns/{$returnShipment->id}/receive-at-hub", ['hub_id' => $hub->id])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'at_hub')
+            ->assertJsonPath('data.current_hub_id', $hub->id);
+        $this->postJson("/api/logistics/parcel-returns/{$returnShipment->id}/assign-courier", [
+            'leg' => 'delivery',
+            'courier_profile_id' => $profile->id,
+        ])->assertOk()->assertJsonPath('data.status', 'out_for_delivery');
+
+        $this->actingAs($courier, 'sanctum')
+            ->getJson('/api/courier/parcel-returns')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $returnShipment->id)
+            ->assertJsonPath('data.0.status', 'out_for_delivery');
     }
 
     public function test_admin_can_retry_or_return_failed_delivery_but_cannot_cancel_it(): void

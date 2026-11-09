@@ -55,8 +55,8 @@ test("validates addresses and normalizes supported Philippine mobile formats", (
     assert.equal(normalizePhilippineMobile("+63 917-123-4567"), "+639171234567");
     assert.equal(normalizePhilippineMobile("09171234567"), "+639171234567");
     assert.deepEqual(getRegistrationStepErrors(2, {
-        phone: "09171234567", region: "NCR", province: "Metro Manila",
-        municipality: "Manila", barangay: "Barangay 1", houseNumber: "12-A",
+        phone: "09171234567", region: "National Capital Region (NCR)", province: "",
+        provinceRequired: false, municipality: "City of Manila", barangay: "Barangay 1", houseNumber: "12-A",
         street: "Rizal St.", buildingName: "", unitNumber: "", postalCode: "1000",
     }), {});
     assert.ok(getRegistrationStepErrors(2, { phone: "123", houseNumber: " ", street: "" }).phone);

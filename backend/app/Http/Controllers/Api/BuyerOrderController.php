@@ -101,7 +101,7 @@ class BuyerOrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with(['items.product', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea'])
+        $query = Order::with(['items.product', 'shippingCharge', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea'])
             ->where('buyer_id', $request->user()->id);
 
         /*
@@ -217,7 +217,7 @@ class BuyerOrderController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $order = Order::with(['items.product', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea', 'delivery.currentHub', 'latestRefundRequest.returnShipment.currentHub'])
+        $order = Order::with(['items.product', 'shippingCharge', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea', 'delivery.currentHub', 'delivery.returnShipment.currentHub', 'latestRefundRequest.returnShipment.currentHub'])
             ->where('buyer_id', $request->user()->id)
             ->find($id);
 
@@ -837,6 +837,8 @@ class BuyerOrderController extends Controller
                         'volumetric_weight_kg' => $parcel['volumetric_weight_kg'],
                         'billable_weight_kg' => $parcel['billable_weight_kg'],
                         'fee' => $parcel['shipping_fee'],
+                        'min_delivery_days' => $parcel['min_delivery_days'],
+                        'max_delivery_days' => $parcel['max_delivery_days'],
                         'is_provisional' => $parcel['is_provisional'],
                     ]);
 

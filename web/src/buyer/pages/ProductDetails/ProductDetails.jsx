@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ArrowLeft,
     ArrowUpRight,
+    Clock3,
     Heart,
     MessageCircle,
     Minus,
@@ -27,6 +28,7 @@ import {
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
 import { addProductToCart, getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
+import { formatDeliveryEstimate, getBusinessDayEstimate } from "../../../shared/utils/deliveryEstimate";
 import { getProductShopName } from "../../../shared/utils/productDiscovery";
 
 import "./ProductDetails.css";
@@ -54,6 +56,12 @@ function ProductDetails() {
         useState(false);
     const [actionMessage, setActionMessage] = useState("");
     const [actionMessageType, setActionMessageType] = useState("success");
+    const [deliveryAddresses, setDeliveryAddresses] = useState([]);
+    const [deliveryAddressId, setDeliveryAddressId] = useState("");
+    const [deliveryEstimate, setDeliveryEstimate] = useState(null);
+    const [deliveryAddressLoading, setDeliveryAddressLoading] = useState(false);
+    const [deliveryEstimateLoading, setDeliveryEstimateLoading] = useState(false);
+    const [deliveryEstimateMessage, setDeliveryEstimateMessage] = useState("");
 
     useEffect(() => {
         let cancelled = false;
@@ -187,6 +195,117 @@ function ProductDetails() {
     const price = Number(selectedVariant?.discounted_price || selectedVariant?.price || product?.price || 0);
     const originalPrice = Number(selectedVariant?.price || product?.original_price || 0);
     const stock = Number(selectedVariant?.stock ?? product?.stock ?? 0);
+
+    useEffect(() => {
+        if (!product || !isBuyerSession()) {
+            return undefined;
+        }
+
+        let cancelled = false;
+        const timer = window.setTimeout(async () => {
+            setDeliveryAddressLoading(true);
+            setDeliveryEstimateMessage("");
+
+            try {
+                const response = await api.get("/buyer/checkout-data");
+                if (cancelled) return;
+
+                const checkoutData = response.data?.data || {};
+                const addresses = Array.isArray(checkoutData.addresses)
+                    ? checkoutData.addresses
+                    : checkoutData.address
+                        ? [checkoutData.address]
+                        : [];
+                setDeliveryAddresses(addresses);
+                const preferredAddress = addresses.find((address) => address.is_default) || addresses[0];
+                setDeliveryAddressId(preferredAddress ? String(preferredAddress.id) : "");
+                if (!preferredAddress) {
+                    setDeliveryEstimateMessage("Add a saved delivery address to see an estimated arrival date.");
+                }
+            } catch {
+                if (!cancelled) {
+                    setDeliveryAddresses([]);
+                    setDeliveryAddressId("");
+                    setDeliveryEstimateMessage("Unable to load your delivery addresses. Please try again.");
+                }
+            } finally {
+                if (!cancelled) setDeliveryAddressLoading(false);
+            }
+        }, 0);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [product]);
+
+    useEffect(() => {
+        const requestedQuantity = Number(quantity);
+        const canEstimate = product
+            && isBuyerSession()
+            && !deliveryAddressLoading
+            && Boolean(deliveryAddressId)
+            && Number.isInteger(requestedQuantity)
+            && requestedQuantity >= 1
+            && requestedQuantity <= stock;
+
+        let cancelled = false;
+        const timer = window.setTimeout(async () => {
+            setDeliveryEstimate(null);
+            setDeliveryEstimateMessage("");
+            if (!canEstimate) {
+                setDeliveryEstimateLoading(false);
+                return;
+            }
+
+            setDeliveryEstimateLoading(true);
+
+            try {
+                const item = {
+                    product_id: Number(product.id),
+                    quantity: requestedQuantity,
+                };
+                if (selectedVariant?.id) item.variant_id = selectedVariant.id;
+
+                const response = await api.post("/buyer/shipping-quote", {
+                    address_id: Number(deliveryAddressId),
+                    items: [item],
+                });
+                if (cancelled) return;
+
+                const parcel = response.data?.data?.parcels?.[0];
+                const estimate = getBusinessDayEstimate(
+                    Number(parcel?.min_delivery_days),
+                    Number(parcel?.max_delivery_days),
+                );
+                if (!estimate) {
+                    setDeliveryEstimateMessage("An estimated arrival date is not available for this route yet.");
+                    return;
+                }
+                setDeliveryEstimate(estimate);
+            } catch (requestError) {
+                if (cancelled) return;
+                const errors = requestError.response?.data?.errors || {};
+                const validationMessage = Object.values(errors).flat()[0];
+                if (requestError.response?.status === 422 && validationMessage) {
+                    setDeliveryEstimateMessage(
+                        String(validationMessage).includes("route")
+                            ? "An estimated arrival date is not available for this route yet."
+                            : "An estimated arrival date is not available for this item yet.",
+                    );
+                } else {
+                    setDeliveryEstimateMessage("Unable to calculate an estimated arrival date right now.");
+                }
+            } finally {
+                if (!cancelled) setDeliveryEstimateLoading(false);
+            }
+        }, 0);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [deliveryAddressId, deliveryAddressLoading, product, quantity, selectedVariant?.id, stock]);
 
     const cartQuantity = useMemo(() => {
         const item = getBuyerCart().find(
@@ -620,6 +739,53 @@ function ProductDetails() {
                                     : "Out of stock"}
                             </strong>
                         </div>
+
+                        <section className="product-delivery-estimate" aria-label="Estimated delivery">
+                            <div className="product-delivery-estimate-heading">
+                                <span className="product-delivery-estimate-icon"><Clock3 size={17} aria-hidden="true" /></span>
+                                <div>
+                                    <strong>Estimated delivery</strong>
+                                    <small>Based on the seller-to-buyer route</small>
+                                </div>
+                            </div>
+                            {isBuyerSession() ? (
+                                deliveryAddresses.length > 0 ? (
+                                    <label className="product-delivery-address">
+                                        <span>Deliver to</span>
+                                        <select
+                                            aria-label="Deliver to address"
+                                            value={deliveryAddressId}
+                                            disabled={deliveryAddressLoading}
+                                            onChange={(event) => setDeliveryAddressId(event.target.value)}
+                                        >
+                                            {deliveryAddresses.map((address) => (
+                                                <option key={address.id} value={String(address.id)}>
+                                                    {[address.label, address.municipality, address.province].filter(Boolean).join(" · ")}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                ) : (
+                                    <p className="product-delivery-estimate-message">
+                                        {deliveryAddressLoading
+                                            ? "Loading your delivery address…"
+                                            : <>Add a saved delivery address in <Link to="/account">My Account</Link> to see an estimated arrival date.</>}
+                                    </p>
+                                )
+                            ) : (
+                                <p className="product-delivery-estimate-message">Sign in and add a delivery address to see an estimated arrival date.</p>
+                            )}
+                            {deliveryEstimateLoading ? (
+                                <p className="product-delivery-estimate-result" role="status">Calculating estimated arrival…</p>
+                            ) : deliveryEstimate ? (
+                                <p className="product-delivery-estimate-result" role="status">
+                                    <strong>{formatDeliveryEstimate(deliveryEstimate)}</strong>
+                                    <span>If ordered today · {deliveryEstimate.min_days}–{deliveryEstimate.max_days} business days</span>
+                                </p>
+                            ) : deliveryEstimateMessage ? (
+                                <p className="product-delivery-estimate-message" role="status">{deliveryEstimateMessage}</p>
+                            ) : null}
+                        </section>
 
                         <div className="product-divider" />
 

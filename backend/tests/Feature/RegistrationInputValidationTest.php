@@ -171,8 +171,9 @@ class RegistrationInputValidationTest extends TestCase
             'terms_accepted' => '1', 'terms_version' => config('policies.terms.version'),
             'privacy_notice_acknowledged' => '1', 'privacy_version' => config('policies.privacy.version'),
             'role' => 'buyer', 'sex' => 'female', 'birthday' => $birthday,
-            'region' => 'NCR', 'province' => 'Metro Manila', 'municipality' => 'Manila',
-            'barangay' => 'Sample', 'street' => 'Rizal Street', 'house_number' => '12',
+            'region' => 'National Capital Region (NCR)', 'province' => '',
+            'municipality' => 'City of Manila', 'barangay' => 'Barangay 1',
+            'psgc_code' => '1380601001', 'street' => 'Rizal Street', 'house_number' => '12',
             'postal_code' => '1000',
         ];
     }
@@ -190,10 +191,11 @@ class RegistrationInputValidationTest extends TestCase
             'role' => 'seller',
             'sex' => 'female',
             'birthday' => '1990-01-01',
-            'region' => 'NCR',
-            'province' => 'Metro Manila',
-            'municipality' => 'Manila',
-            'barangay' => 'Sample',
+            'region' => 'National Capital Region (NCR)',
+            'province' => '',
+            'municipality' => 'City of Manila',
+            'barangay' => 'Barangay 1',
+            'psgc_code' => '1380601001',
             'street' => str_repeat('S', 101),
             'house_number' => str_repeat('1', 21),
             'postal_code' => '1000',
@@ -221,10 +223,11 @@ class RegistrationInputValidationTest extends TestCase
             'role' => 'buyer',
             'sex' => 'female',
             'birthday' => '1990-01-01',
-            'region' => 'NCR',
-            'province' => 'Metro Manila',
-            'municipality' => 'Manila',
-            'barangay' => 'Sample',
+            'region' => 'National Capital Region (NCR)',
+            'province' => '',
+            'municipality' => 'City of Manila',
+            'barangay' => 'Barangay 1',
+            'psgc_code' => '1380601001',
             'street' => str_repeat('S', 100),
             'house_number' => str_repeat('1', 20),
             'postal_code' => '1000',
@@ -426,7 +429,8 @@ class RegistrationInputValidationTest extends TestCase
         $this->assertNotNull($user->email_otp_expires_at);
         $this->assertSame(0, $user->email_otp_attempts);
         $this->assertTrue(CarbonImmutable::parse($user->email_otp_expires_at)->isFuture());
-        $this->assertSame('NCR', $user->addresses()->firstOrFail()->region);
+        $this->assertSame('National Capital Region (NCR)', $user->addresses()->firstOrFail()->region);
+        $this->assertSame('1380601001', $user->addresses()->firstOrFail()->psgc_code);
         $this->assertDatabaseHas('policy_acceptances', [
             'user_id' => $user->id,
             'policy_type' => 'terms',

@@ -193,8 +193,10 @@ function Register({
     // =========================
     const [region, setRegion] = useState("");
     const [province, setProvince] = useState("");
+    const [provinceRequired, setProvinceRequired] = useState(true);
     const [municipality, setMunicipality] = useState("");
     const [barangay, setBarangay] = useState("");
+    const [psgcCode, setPsgcCode] = useState("");
 
     const [houseNumber, setHouseNumber] = useState("");
     const [street, setStreet] = useState("");
@@ -283,11 +285,13 @@ function Register({
         province: newProvince,
         city: newCity,
         barangay: newBarangay,
+        psgc_code: newPsgcCode,
     }) => {
         setRegion(newRegion);
         setProvince(newProvince);
         setMunicipality(newCity);
         setBarangay(newBarangay);
+        setPsgcCode(newPsgcCode);
     }, []);
 
     // =========================
@@ -295,7 +299,7 @@ function Register({
     // =========================
     const validationValues = {
         firstName, middleName, lastName, birthDate, sex, phone, region,
-        province, municipality, barangay, houseNumber, street, buildingName,
+        province, provinceRequired, municipality, barangay, houseNumber, street, buildingName,
         unitNumber, postalCode, email, password, passwordConfirmation,
         businessName, tin, lineOfBusiness, vehicleType, plateNumber, validId,
         businessPermit, orCr, driversLicense, registrationRole, verificationStep,
@@ -495,6 +499,7 @@ function Register({
                 "province",
                 province
             );
+            formData.append("psgc_code", psgcCode);
 
             formData.append(
                 "municipality",
@@ -1141,9 +1146,8 @@ const handleResendVerification = async () => {
                                     </span>
 
                                     <small>
-                                        Select your region to load the correct province, then city /
-                                        municipality and
-                                        barangay.
+                                        Select your region, province where applicable, city /
+                                        municipality, and barangay.
                                     </small>
                                 </div>
 
@@ -1161,6 +1165,7 @@ const handleResendVerification = async () => {
                                         handleAddressChange
                                     }
                                     onPostalCodeChange={setPostalCode}
+                                    onProvinceRequirementChange={setProvinceRequired}
                                 />
 
                                 <div className="form-grid two">

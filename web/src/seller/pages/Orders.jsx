@@ -24,6 +24,8 @@ const STATUS_LABEL = {
     CONFIRMED: "Confirmed",
     PREPARING: "Preparing",
     READY_FOR_PICKUP: "Ready for Pickup",
+    DELIVERY_FAILED: "Delivery Failed",
+    RETURNED: "Returning to Seller",
 };
 
 const STATUS_COLOR = {
@@ -31,6 +33,8 @@ const STATUS_COLOR = {
     CONFIRMED: "#48647a",
     PREPARING: "#176b68",
     READY_FOR_PICKUP: "#27724d",
+    DELIVERY_FAILED: "#a34a24",
+    RETURNED: "#741a33",
 };
 
 const STATUS_BG = {
@@ -38,6 +42,8 @@ const STATUS_BG = {
     CONFIRMED: "#eef3f8",
     PREPARING: "#e9f3f2",
     READY_FOR_PICKUP: "#e9f6ef",
+    DELIVERY_FAILED: "#fff3e9",
+    RETURNED: "#f8e9ee",
 };
 const ORDERS_PER_PAGE = 8;
 
@@ -125,6 +131,8 @@ function getStatusHelp(status) {
         CONFIRMED: "Order confirmed. Gather the items and prepare the parcel.",
         PREPARING: "Parcel is being prepared. Mark it ready after packing is complete.",
         READY_FOR_PICKUP: "Parcel is ready. Waiting for pickup.",
+        DELIVERY_FAILED: "A delivery attempt was unsuccessful. Logistics may arrange another attempt.",
+        RETURNED: "Three delivery attempts were unsuccessful. The parcel is being returned to your store.",
         COMPLETED: "This order has been completed.",
         CANCELLED: "This order was cancelled.",
     };
@@ -527,6 +535,7 @@ function Orders() {
 
                 {selected && (
                     <div className="sl-card sl-order-detail">
+                        <div className="sl-order-detail-content">
                         <section className="sl-order-parcel-qr"><div><h3>Parcel QR label</h3><p>This permanent parcel ID contains no buyer details.</p></div><ParcelQrCode value={selected.delivery_progress?.parcel_code || selected.delivery?.parcel_code} size={150} /></section>
                         <ParcelSlip order={selected} />
                         <div className="sl-detail-head">
@@ -656,7 +665,7 @@ function Orders() {
                             </div>
                         </div>
 
-                        {["CONFIRMED", "PREPARING", "READY_FOR_PICKUP", "PICKED_UP", "AT_SORTING_CENTER", "SORTED", "ASSIGNED_TO_RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED", "DELIVERED", "COMPLETED"].includes(
+                        {["CONFIRMED", "PREPARING", "READY_FOR_PICKUP", "PICKED_UP", "AT_SORTING_CENTER", "SORTED", "ASSIGNED_TO_RIDER", "OUT_FOR_DELIVERY", "DELIVERY_FAILED", "DELIVERED", "COMPLETED", "RETURNED"].includes(
                             normalizeStatus(selected.status)
                         ) && (
                             <section className="sl-preparation-panel" aria-labelledby="sl-preparation-title">
@@ -678,6 +687,8 @@ function Orders() {
                                                 ACCEPTED_BY_PICKUP_RIDER: `Courier accepted the pickup${pickup.courier?.name ? ` · ${pickup.courier.name}` : ""}.`,
                                                 PICKED_UP: "Courier collected the parcel. It is on the way to the sorting center.",
                                                 AT_SORTING_CENTER: "Parcel received at the sorting center.",
+                                                DELIVERY_FAILED: `Delivery attempt ${selected.delivery_progress?.delivery_attempts || 1} of ${selected.delivery_progress?.max_delivery_attempts || 3} was unsuccessful.`,
+                                                RETURNED: `Three delivery attempts were unsuccessful. The parcel is being returned to your store.`,
                                             };
                                             return <>
                                                 <strong>{labels[status] || "Parcel is ready for courier pickup."}</strong>
@@ -732,6 +743,7 @@ function Orders() {
                                     selected.created_at
                                 )}
                             </p>
+                        </div>
                         </div>
 
                         <div className="sl-detail-actions">

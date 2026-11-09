@@ -13,33 +13,16 @@ import {
     saveBuyerCart,
 } from "../../../shared/utils/buyerAccess";
 import { getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
+import {
+    groupCartItemsBySeller,
+    isCartGroupSelected,
+    toggleCartItemKeys,
+} from "../../../shared/utils/buyerCartGroups";
 import api from "../../../shared/services/api";
 
 import "./Cart.css";
 
 const SELECTED_CART_KEY = "cryma_selected_cart_ids";
-
-function getSellerName(seller) {
-    if (!seller) {
-        return "";
-    }
-
-    if (typeof seller === "string") {
-        return seller;
-    }
-
-    return (
-        [
-            seller.first_name,
-            seller.middle_name,
-            seller.last_name,
-        ]
-            .filter(Boolean)
-            .join(" ") ||
-        seller.name ||
-        ""
-    );
-}
 
 function getKnownStock(item) {
     if (item?.stock === null || item?.stock === undefined || item.stock === "") {
@@ -163,7 +146,7 @@ function Cart() {
                     const stock = getKnownStock(item);
                     return stock === null || stock > 0;
                 })
-                .map((item) => String(item.id))
+                .map((item) => getBuyerCartItemKey(item))
         );
         const validSelectedIds = selectedIds.filter((id) => availableIds.has(String(id)));
         localStorage.setItem(SELECTED_CART_KEY, JSON.stringify(validSelectedIds));
@@ -245,11 +228,11 @@ function Cart() {
     const toggleItem = (id) => {
         const idKey = String(id);
         const availableIds = new Set(availableCartIds);
-        setSelectedIds((current) =>
-            current.filter((selectedId) => availableIds.has(String(selectedId))).includes(idKey)
-                ? current.filter((selectedId) => String(selectedId) !== idKey && availableIds.has(String(selectedId)))
-                : [...current.filter((selectedId) => availableIds.has(String(selectedId))), idKey]
-        );
+        if (!availableIds.has(idKey)) return;
+        setSelectedIds((current) => toggleCartItemKeys(
+            current.filter((selectedId) => availableIds.has(String(selectedId))),
+            [idKey],
+        ));
     };
 
     const availableCartIds = cart
@@ -258,6 +241,21 @@ function Cart() {
             return stock === null || stock > 0;
         })
         .map((item) => getBuyerCartItemKey(item));
+    const sellerGroups = useMemo(() => groupCartItemsBySeller(cart), [cart]);
+
+    const toggleSellerItems = (items) => {
+        const selectableKeys = items
+            .filter((item) => {
+                const stock = getKnownStock(item);
+                return stock === null || stock > 0;
+            })
+            .map((item) => getBuyerCartItemKey(item));
+        if (selectableKeys.length === 0) return;
+        setSelectedIds((current) => toggleCartItemKeys(
+            current.filter((selectedId) => availableCartIds.includes(String(selectedId))),
+            selectableKeys,
+        ));
+    };
 
     const allSelected =
         availableCartIds.length > 0 &&
@@ -420,10 +418,9 @@ function Cart() {
 
                 {cart.length > 0 && (
                     <div className="cart-header-count">
-                        {totalItemCount}{" "}
-                        {totalItemCount === 1
-                            ? "item"
-                            : "items"}
+                        {cart.length} {cart.length === 1 ? "product" : "products"}
+                        {" · "}
+                        {totalItemCount} {totalItemCount === 1 ? "unit" : "units"}
                     </div>
                 )}
             </header>
@@ -520,7 +517,31 @@ function Cart() {
                         </div>
 
                         <div className="cart-items">
-                            {cart.map((item) => {
+                            {sellerGroups.map((group) => {
+                                const groupSelected = isCartGroupSelected(selectedIds, group.items);
+                                const groupHasSelectableItems = group.items.some((item) => {
+                                    const stock = getKnownStock(item);
+                                    return stock === null || stock > 0;
+                                });
+
+                                return (
+                                <section className="cart-seller-group" key={group.key}>
+                                    <header className="cart-seller-header">
+                                        <label className="cart-select-all cart-select-seller">
+                                            <input
+                                                type="checkbox"
+                                                checked={groupSelected}
+                                                disabled={!groupHasSelectableItems}
+                                                onChange={() => toggleSellerItems(group.items)}
+                                                aria-label={`Select all products from ${group.name}`}
+                                            />
+                                            <span className="cart-checkbox"><Check size={13} /></span>
+                                        </label>
+                                        <strong>{group.name}</strong>
+                                        <span>{group.items.length} {group.items.length === 1 ? "product" : "products"}</span>
+                                    </header>
+                                    <div className="cart-seller-items">
+                                    {group.items.map((item) => {
                                 const price = Number(
                                     item.price || 0
                                 );
@@ -530,11 +551,6 @@ function Cart() {
                                 );
 
                                 const stock = getKnownStock(item);
-
-                                const sellerName =
-                                    getSellerName(
-                                        item.seller
-                                    );
 
                                 const itemTotal =
                                     price * quantity;
@@ -574,7 +590,7 @@ function Cart() {
                                                 }
                                                 onChange={() =>
                                                     toggleItem(
-                                                        item.id
+                                                        getBuyerCartItemKey(item)
                                                     )
                                                 }
                                             />
@@ -627,14 +643,6 @@ function Cart() {
                                                 </Link>
                                             </h2>
 
-                                            {sellerName && (
-                                                <p>
-                                                    Sold by{" "}
-                                                    {
-                                                        sellerName
-                                                    }
-                                                </p>
-                                            )}
                                             {item.seller_on_vacation === true && <p className="cart-vacation-message">Seller is on vacation. This item cannot be checked out right now.</p>}
 
                                             {variant && (
@@ -754,6 +762,10 @@ function Cart() {
                                             </strong>
                                         </div>
                                     </article>
+                                );
+                                    })}
+                                    </div>
+                                </section>
                                 );
                             })}
                         </div>
