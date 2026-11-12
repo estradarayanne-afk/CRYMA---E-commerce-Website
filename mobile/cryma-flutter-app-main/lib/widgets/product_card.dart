@@ -24,6 +24,7 @@ class ProductCard extends StatelessWidget {
     this.rating = 0,
     this.reviewCount = 0,
     this.inStock = true,
+    this.stockCount,
   });
 
   final String id;
@@ -46,6 +47,7 @@ class ProductCard extends StatelessWidget {
   final int reviewCount;
   final bool isFavorite;
   final bool inStock;
+  final int? stockCount;
   final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
 
@@ -200,6 +202,18 @@ class ProductCard extends StatelessWidget {
                       color: AppColors.darkGray,
                     ),
                   ),
+                  if (stockCount != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      inStock ? '$stockCount available' : 'Out of stock',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: inStock ? AppColors.textSubtle : AppColors.danger,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 5),
                   // Rating row — only shown when actual data exists
                   if (rating > 0) ...[
@@ -430,6 +444,7 @@ class ProductCardData {
       reviewCount: reviewCount,
       isFavorite: isFavorite,
       inStock: stock > 0,
+      stockCount: stock,
       onToggleFavorite: onToggleFavorite,
       onTap: onTap,
     );

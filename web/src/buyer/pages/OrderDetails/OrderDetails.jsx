@@ -283,6 +283,12 @@ function OrderDetails() {
     const [refundAmount, setRefundAmount] = useState("");
     const [refundSubmitting, setRefundSubmitting] = useState(false);
     const [refundError, setRefundError] = useState("");
+    const [deliveryIssueOpen, setDeliveryIssueOpen] = useState(false);
+    const [deliveryIssueType, setDeliveryIssueType] = useState("late_delivery");
+    const [deliveryIssueDescription, setDeliveryIssueDescription] = useState("");
+    const [deliveryIssueSubmitting, setDeliveryIssueSubmitting] = useState(false);
+    const [deliveryIssueError, setDeliveryIssueError] = useState("");
+    const [deliveryIssueTicketId, setDeliveryIssueTicketId] = useState(null);
 
     const isLoggedIn =
         !!localStorage.getItem(
@@ -420,6 +426,30 @@ function OrderDetails() {
             setRefundError(requestError?.response?.data?.message || "We couldn't submit your refund request. Please review the details and try again.");
         } finally {
             setRefundSubmitting(false);
+        }
+    };
+
+    const submitDeliveryIssue = async (event) => {
+        event.preventDefault();
+        if (!order || deliveryIssueSubmitting) return;
+        setDeliveryIssueSubmitting(true);
+        setDeliveryIssueError("");
+        try {
+            const response = await api.post(`/orders/${order.id}/delivery-issues`, {
+                issue_type: deliveryIssueType,
+                description: deliveryIssueDescription.trim(),
+            });
+            setDeliveryIssueTicketId(response?.data?.data?.id || null);
+            setDeliveryIssueDescription("");
+            setDeliveryIssueOpen(false);
+        } catch (requestError) {
+            setDeliveryIssueError(
+                requestError?.response?.data?.errors
+                    ? Object.values(requestError.response.data.errors).flat()[0]
+                    : requestError?.response?.data?.message || "We couldn't send your delivery report. Please try again."
+            );
+        } finally {
+            setDeliveryIssueSubmitting(false);
         }
     };
 
@@ -1117,6 +1147,10 @@ function OrderDetails() {
                                 {paymentMethod}
                             </strong>
                         </div>
+                        <div className="order-payment-method">
+                            <span>Payment status</span>
+                            <strong>{order?.payment_status_label || "Pay on delivery"}</strong>
+                        </div>
                     </section>
 
                     <section className="order-mini-panel">
@@ -1164,6 +1198,29 @@ function OrderDetails() {
                         <span className="order-summary-eyebrow">NEED HELP?</span>
                         <strong>CRYMA Customer Service</strong>
                         <p>Our team can help with tracking, delivery, payment, or returns.</p>
+                        {deliveryIssueTicketId && <p className="order-issue-confirmation" role="status">Delivery report #{deliveryIssueTicketId} was sent to Customer Service.</p>}
+                        {deliveryIssueOpen ? (
+                            <form className="order-delivery-issue-form" onSubmit={submitDeliveryIssue}>
+                                <label htmlFor="delivery-issue-type">What happened?</label>
+                                <select id="delivery-issue-type" value={deliveryIssueType} onChange={(event) => setDeliveryIssueType(event.target.value)} disabled={deliveryIssueSubmitting}>
+                                    <option value="late_delivery">Parcel is late</option>
+                                    <option value="failed_delivery">Delivery attempt failed</option>
+                                    <option value="wrong_delivery">Wrong or missing parcel</option>
+                                    <option value="other">Another delivery issue</option>
+                                </select>
+                                <label htmlFor="delivery-issue-description">Details</label>
+                                <textarea id="delivery-issue-description" value={deliveryIssueDescription} onChange={(event) => setDeliveryIssueDescription(event.target.value)} minLength={10} maxLength={2000} required disabled={deliveryIssueSubmitting} placeholder="Tell us what happened (at least 10 characters)." />
+                                {deliveryIssueError && <p className="order-issue-error" role="alert">{deliveryIssueError}</p>}
+                                <div className="order-delivery-issue-actions">
+                                    <button type="button" onClick={() => setDeliveryIssueOpen(false)} disabled={deliveryIssueSubmitting}>Cancel</button>
+                                    <button type="submit" disabled={deliveryIssueSubmitting}>{deliveryIssueSubmitting ? "Sending…" : "Send report"}</button>
+                                </div>
+                            </form>
+                        ) : normalizeStatus(order?.status) !== "CANCELLED" && normalizeStatus(order?.status) !== "CANCELED" ? (
+                            <button type="button" className="order-issue-report-button" onClick={() => { setDeliveryIssueError(""); setDeliveryIssueOpen(true); }}>
+                                Report a delivery problem
+                            </button>
+                        ) : null}
                         <button type="button" onClick={() => navigate("/buyer/support")}>
                             <MessageCircle size={15} />
                             Contact Customer Service

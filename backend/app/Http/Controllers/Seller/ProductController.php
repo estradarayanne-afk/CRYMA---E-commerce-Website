@@ -32,9 +32,10 @@ class ProductController extends Controller
             'min_price' => ['nullable', 'numeric', 'min:0'],
             'max_price' => ['nullable', 'numeric', 'min:0'],
             'stock' => ['sometimes', 'boolean'],
-            'sort' => ['nullable', Rule::in(['featured', 'newest', 'price-low', 'price-high'])],
+            'sort' => ['nullable', Rule::in(['featured', 'randomized', 'newest', 'price-low', 'price-high'])],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'shuffle_day' => ['sometimes', 'date_format:Y-m-d'],
         ]);
 
         $query = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,store_slug,store_logo_url,storefront_settings', 'media'])
@@ -72,10 +73,17 @@ class ProductController extends Controller
         }
 
         $sort = $validated['sort'] ?? 'featured';
+        $shuffleDay = $validated['shuffle_day'] ?? now('Asia/Manila')->toDateString();
         if ($sort === 'price-low') {
             $query->orderByRaw('COALESCE(discounted_price, price) asc')->orderByDesc('id');
         } elseif ($sort === 'price-high') {
             $query->orderByRaw('COALESCE(discounted_price, price) desc')->orderByDesc('id');
+        } elseif ($sort === 'randomized') {
+            $shuffle = hash('sha256', 'cryma-product-order:'.$shuffleDay);
+            $multiplier = 10000 + (hexdec(substr($shuffle, 0, 8)) % 100000);
+            $offset = hexdec(substr($shuffle, 8, 8)) % 2147483647;
+            $query->orderByRaw('((products.id * ? + ?) % 2147483647) asc', [$multiplier, $offset])
+                ->orderBy('products.id');
         } else {
             $query->latest();
         }
@@ -83,7 +91,54 @@ class ProductController extends Controller
         $products = $query->paginate($validated['per_page'] ?? 20);
         $products->getCollection()->transform(fn (Product $product) => $this->publicProductData($product));
 
-        return response()->json(['success' => true, 'data' => $products]);
+        $data = $products->toArray();
+        if ($sort === 'randomized') {
+            $data['shuffle_day'] = $shuffleDay;
+        }
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function publicStock(Request $request)
+    {
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.product_id' => ['required', 'integer', 'min:1'],
+            'items.*.variant_id' => ['sometimes', 'nullable', 'uuid'],
+        ]);
+
+        $products = Product::query()
+            ->with('seller')
+            ->whereIn('id', collect($validated['items'])->pluck('product_id')->unique())
+            ->where('status', 'active')
+            ->where('review_status', 'approved')
+            ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
+            ->get()
+            ->keyBy('id');
+
+        $items = collect($validated['items'])->map(function (array $item) use ($products): array {
+            $product = $products->get((int) $item['product_id']);
+            $variantId = $item['variant_id'] ?? null;
+            $variant = $product && $variantId
+                ? collect($product->variants ?? [])->first(fn (array $candidate) => ($candidate['id'] ?? null) === $variantId)
+                : null;
+            $hasVariants = $product && count($product->variants ?? []) > 0;
+            $stock = !$product
+                ? 0
+                : ($hasVariants
+                    ? (int) ($variant['stock'] ?? 0)
+                    : (int) $product->stock);
+
+            return [
+                'product_id' => (int) $item['product_id'],
+                'variant_id' => $variantId,
+                'stock' => $stock,
+                'available' => $stock > 0,
+                'product_available' => $product !== null && (!$hasVariants || $variant !== null),
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => ['items' => $items]]);
     }
 
     /**

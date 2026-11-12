@@ -11,7 +11,7 @@ class OrderDeliveryProjection
 {
     public static function apply(Order $order): Order
     {
-        $order->loadMissing('shippingCharge');
+        $order->loadMissing(['shippingCharge', 'codCollection']);
         $delivery = $order->delivery;
         $delivery?->loadMissing('events.hub');
         $pickup = $delivery?->pickupAssignment;
@@ -38,6 +38,26 @@ class OrderDeliveryProjection
         }
 
         $order->setAttribute('delivery_estimate', $estimate);
+        $paymentStatus = $order->payment_method !== 'cash_on_delivery'
+            ? 'unknown'
+            : (in_array(strtoupper((string) $order->status), ['CANCELLED', 'CANCELED'], true)
+                ? 'cancelled'
+                : match ($order->codCollection?->status) {
+                    'collected', 'remitted' => 'paid',
+                    'cancelled' => 'cancelled',
+                    default => 'due_on_delivery',
+                });
+        $order->setAttribute('payment_status', $paymentStatus);
+        $order->setAttribute(
+            'payment_status_label',
+            match ($paymentStatus) {
+                'paid' => 'Paid at delivery',
+                'cancelled' => 'Payment cancelled',
+                'due_on_delivery' => 'Pay on delivery',
+                default => 'Payment status unavailable',
+            }
+        );
+        $order->unsetRelation('codCollection');
         $order->unsetRelation('delivery');
         $order->setAttribute('delivery_progress', $delivery ? [
             'parcel_code' => $delivery->parcel_code,
@@ -145,6 +165,7 @@ class OrderDeliveryProjection
             }
 
             $buyer->notify(new \App\Notifications\BuyerDeliveryMilestoneNotification($data));
+            \App\Jobs\SendBuyerDeliveryPush::dispatch($buyerId, $data);
         });
     }
 

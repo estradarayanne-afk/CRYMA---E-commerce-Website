@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\OrderShippingCharge;
 use App\Models\PlatformConfig;
 use App\Models\Product;
+use App\Models\ProductDailyMetric;
 use App\Models\RefundRequest;
 use App\Models\SellerProfile;
 use App\Models\User;
@@ -101,7 +102,7 @@ class BuyerOrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with(['items.product', 'shippingCharge', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea'])
+        $query = Order::with(['items.product', 'shippingCharge', 'codCollection', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea'])
             ->where('buyer_id', $request->user()->id);
 
         /*
@@ -217,7 +218,7 @@ class BuyerOrderController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $order = Order::with(['items.product', 'shippingCharge', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea', 'delivery.currentHub', 'delivery.returnShipment.currentHub', 'latestRefundRequest.returnShipment.currentHub'])
+        $order = Order::with(['items.product', 'shippingCharge', 'codCollection', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea', 'delivery.currentHub', 'delivery.returnShipment.currentHub', 'latestRefundRequest.returnShipment.currentHub'])
             ->where('buyer_id', $request->user()->id)
             ->find($id);
 
@@ -574,7 +575,7 @@ class BuyerOrderController extends Controller
                 $subtotalCents = 0;
 
                 foreach ($validated['items'] as $requestedItem) {
-                    $product = Product::with('seller')
+                    $product = Product::with('seller.sellerProfile')
                         ->where('status', 'active')
                         ->where('review_status', 'approved')
                         ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
@@ -825,6 +826,7 @@ class BuyerOrderController extends Controller
                             'variant_label' => $variantLabel,
                             'variant_id' => $variantId,
                         ]);
+                        ProductDailyMetric::recordPurchase($product, (int) $quantity);
                     }
                     OrderShippingCharge::create([
                         'order_id' => $suborder->id,

@@ -34,12 +34,21 @@ const blankAddress = {
     house_number: "", building_name: "", unit_number: "", postal_code: "",
 };
 
-function getCheckoutIdempotencyKey() {
-    const existingKey = sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_KEY);
-    if (existingKey) return existingKey;
+function getCheckoutIdempotencyKey(fingerprint) {
+    const storedValue = sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_KEY);
+    if (storedValue) {
+        try {
+            const existing = JSON.parse(storedValue);
+            if (existing?.fingerprint === fingerprint && typeof existing.key === "string") {
+                return existing.key;
+            }
+        } catch {
+            // Replace keys created by the earlier unscoped format.
+        }
+    }
 
     const key = crypto.randomUUID();
-    sessionStorage.setItem(CHECKOUT_IDEMPOTENCY_KEY, key);
+    sessionStorage.setItem(CHECKOUT_IDEMPOTENCY_KEY, JSON.stringify({ fingerprint, key }));
     return key;
 }
 
@@ -719,7 +728,18 @@ function Checkout() {
         try {
             const deliveryAddress =
                 formatAddress();
-            const idempotencyKey = checkoutIdempotencyKey.current || getCheckoutIdempotencyKey();
+            const requestFingerprint = JSON.stringify({
+                address_id: Number(selectedSavedAddressId),
+                payment_method: paymentMethod,
+                items: selectedCartItems.map((item) => ({
+                    product_id: Number(item.id),
+                    variant_id: item.variant_id || null,
+                    quantity: Number(item.quantity),
+                })).sort((a, b) => `${a.product_id}:${a.variant_id || ""}`.localeCompare(`${b.product_id}:${b.variant_id || ""}`)),
+                voucher_code: appliedVoucherCode || null,
+                shipping_voucher_code: appliedShippingVoucherCode || null,
+            });
+            const idempotencyKey = getCheckoutIdempotencyKey(requestFingerprint);
             checkoutIdempotencyKey.current = idempotencyKey;
 
             const { data } = await api.post(

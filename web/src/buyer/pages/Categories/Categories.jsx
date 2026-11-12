@@ -49,6 +49,7 @@ function Categories() {
     const [storedLoadMoreError, setLoadMoreError] = useState(false);
     const [storedHasMore, setHasMore] = useState(false);
     const [storedCurrentPage, setCurrentPage] = useState(1);
+    const [shuffleDay, setShuffleDay] = useState("");
     const [reloadKey, setReloadKey] = useState(0);
     const [loadedQueryIdentity, setLoadedQueryIdentity] = useState(null);
 
@@ -75,7 +76,7 @@ function Categories() {
         min_price: minPrice || undefined,
         max_price: maxPrice || undefined,
         stock: stockOnly ? 1 : undefined,
-        sort,
+        sort: !search.trim() && sort === "featured" ? "randomized" : sort,
     }), [category, search, sort, minPrice, maxPrice, stockOnly]);
     const requestIdentity = JSON.stringify([requestKey, reloadKey]);
     const isCurrentQueryLoaded = loadedQueryIdentity === requestIdentity;
@@ -144,7 +145,8 @@ function Categories() {
         readyQueryRef.current = "";
         loadMoreInFlightRef.current = false;
 
-        api.get("/products", { params: { ...JSON.parse(requestKey), page: 1 } })
+        const requestParams = JSON.parse(requestKey);
+        api.get("/products", { params: { ...requestParams, page: 1 } })
             .then(({ data }) => {
                 if (cancelled || requestVersion !== requestVersionRef.current) return;
                 const pageData = data?.data;
@@ -155,11 +157,19 @@ function Categories() {
                         : Array.isArray(data?.products)
                             ? data.products
                             : [];
+                if (requestParams.sort === "randomized" && items.length) {
+                    api.post("/products/impressions", {
+                            product_ids: items.map((item) => Number(item.id)),
+                    }).catch((trackingError) => {
+                            console.warn("Unable to record product exposure:", trackingError);
+                    });
+                }
                 const loadedPage = Math.max(1, Number(pageData?.current_page) || 1);
                 const lastPage = Math.max(1, Number(pageData?.last_page) || 1);
                 setProducts(items);
                 setCurrentPage(loadedPage);
                 setHasMore(loadedPage < lastPage);
+                setShuffleDay(pageData?.shuffle_day || "");
                 setLoadingMore(false);
                 setLoadError(false);
                 setLoadMoreError(false);
@@ -196,7 +206,12 @@ function Categories() {
         setLoadMoreError(false);
 
         try {
-            const { data } = await api.get("/products", { params: { ...JSON.parse(requestKey), page: nextPage } });
+            const requestParams = JSON.parse(requestKey);
+            const { data } = await api.get("/products", { params: {
+                ...requestParams,
+                ...(shuffleDay ? { shuffle_day: shuffleDay } : {}),
+                page: nextPage,
+            } });
             if (requestVersion !== requestVersionRef.current) return;
 
             const pageData = data?.data;
@@ -207,6 +222,13 @@ function Categories() {
                     : Array.isArray(data?.products)
                         ? data.products
                         : [];
+            if (requestParams.sort === "randomized" && items.length) {
+                api.post("/products/impressions", {
+                        product_ids: items.map((item) => Number(item.id)),
+                }).catch((trackingError) => {
+                        console.warn("Unable to record product exposure:", trackingError);
+                });
+            }
             const loadedPage = Math.max(nextPage, Number(pageData?.current_page) || nextPage);
             const lastPage = Math.max(loadedPage, Number(pageData?.last_page) || loadedPage);
             setProducts((current) => {
@@ -224,7 +246,7 @@ function Categories() {
                 setLoadingMore(false);
             }
         }
-    }, [currentPage, hasMore, isCurrentQueryLoaded, loadError, loading, loadingMore, requestKey]);
+    }, [currentPage, hasMore, isCurrentQueryLoaded, loadError, loading, loadingMore, requestKey, shuffleDay]);
 
     useEffect(() => {
         const sentinel = loadMoreRef.current;

@@ -1182,6 +1182,17 @@
 .order-support-panel > strong { font-size: 15px; }
 .order-support-panel > p { font-size: 13px; line-height: 1.6; }
 .order-support-panel > button { min-height: 44px; font-size: 13px; border-radius: var(--radius-sm); }
+.order-delivery-issue-form { display: grid; gap: 8px; margin: 8px 0 12px; }
+.order-delivery-issue-form label { color: #4c303a; font-size: 12px; font-weight: 700; }
+.order-delivery-issue-form select,
+.order-delivery-issue-form textarea { width: 100%; padding: 10px 11px; border: 1px solid #ead2db; border-radius: 9px; background: #fff; color: #321a22; font: inherit; font-size: 12px; }
+.order-delivery-issue-form textarea { min-height: 96px; resize: vertical; }
+.order-delivery-issue-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.order-delivery-issue-actions button,
+.order-issue-report-button { min-height: 40px; padding: 0 13px; border: 1px solid #8a1d3a; border-radius: 9px; background: #8a1d3a; color: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.order-delivery-issue-actions button:first-child { border-color: #ead2db; background: #fff; color: #70203a; }
+.order-issue-error { margin: 0; color: #a12c3c; font-size: 12px; }
+.order-issue-confirmation { padding: 9px 10px; border-radius: 8px; background: #edf8f1; color: #286644 !important; font-size: 12px !important; }
 /* Loading/error */
 .order-details-state h2 { font-size: 20px; }
 .order-details-state p { font-size: 14px; }

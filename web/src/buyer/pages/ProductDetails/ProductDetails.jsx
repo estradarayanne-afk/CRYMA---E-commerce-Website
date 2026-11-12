@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowLeft,
     ArrowUpRight,
@@ -62,6 +62,7 @@ function ProductDetails() {
     const [deliveryAddressLoading, setDeliveryAddressLoading] = useState(false);
     const [deliveryEstimateLoading, setDeliveryEstimateLoading] = useState(false);
     const [deliveryEstimateMessage, setDeliveryEstimateMessage] = useState("");
+    const trackedProductId = useRef("");
 
     useEffect(() => {
         let cancelled = false;
@@ -109,6 +110,18 @@ function ProductDetails() {
             cancelled = true;
         };
     }, [id]);
+
+    useEffect(() => {
+        if (!product || String(product.id) !== String(id) || trackedProductId.current === String(id)) {
+            return;
+        }
+
+        trackedProductId.current = String(id);
+        api.post(`/products/${encodeURIComponent(id)}/view`)
+            .catch((requestError) => {
+                console.warn("Unable to record product view:", requestError);
+            });
+    }, [id, product]);
 
     useEffect(() => {
         const syncSaved = () => {

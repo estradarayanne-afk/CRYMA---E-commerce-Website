@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -203,8 +204,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final page = await ApiService.instance.getProductsPage(
         perPage: 8,
         category: category,
-        sort: 'featured',
+        sort: 'randomized',
       );
+      unawaited(ApiService.instance
+          .recordProductImpressions(
+              page.items.map((item) => item['id'].toString()).toList())
+          .then(
+            (_) {},
+            onError: (Object error, StackTrace stackTrace) {
+              debugPrint('Unable to record product exposure: $error');
+            },
+          ));
       if (!mounted) return;
       setState(() {
         _featuredProducts = page.items;

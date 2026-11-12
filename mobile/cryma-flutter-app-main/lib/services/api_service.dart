@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cart_store.dart';
 import 'favorites_store.dart';
+import 'push_notification_service.dart';
 
 class ApiService {
   ApiService({http.Client? client, String? baseUrl})
@@ -178,12 +179,14 @@ class ApiService {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_tokenKey, token);
     await preferences.setString(_userKey, jsonEncode(user));
+    await PushNotificationService.syncToken();
     return user;
   }
 
   Future<void> logout() async {
     final preferences = await SharedPreferences.getInstance();
     final token = preferences.getString(_tokenKey);
+    await PushNotificationService.unregisterCurrentToken();
     await CartStore.instance.clear();
     await FavoritesStore.instance.clear();
     await preferences.remove('cryma_pending_checkout');
@@ -240,6 +243,7 @@ class ApiService {
       final user = response['user'];
       if (user is Map<String, dynamic> && user['role'] == 'buyer') {
         await preferences.setString(_userKey, jsonEncode(user));
+        await PushNotificationService.syncToken();
         return user;
       }
     } on ApiException catch (error) {
@@ -264,6 +268,7 @@ class ApiService {
     double? maxPrice,
     bool inStockOnly = false,
     String sort = 'featured',
+    String? shuffleDay,
     int page = 1,
     int perPage = 20,
   }) async {
@@ -281,6 +286,9 @@ class ApiService {
     if (minPrice != null) query['min_price'] = '$minPrice';
     if (maxPrice != null) query['max_price'] = '$maxPrice';
     if (inStockOnly) query['stock'] = '1';
+    if (shuffleDay != null && shuffleDay.isNotEmpty) {
+      query['shuffle_day'] = shuffleDay;
+    }
     final response = await get('/api/products', query: query);
     final data = response['data'];
     final rows = data is Map<String, dynamic> ? data['data'] : null;
@@ -306,6 +314,59 @@ class ApiService {
       throw const ApiException('The server returned an invalid product.');
     }
     return product;
+  }
+
+  Future<void> recordProductView(String productId) async {
+    await post('/api/products/$productId/view', body: const {});
+  }
+
+  Future<void> recordProductImpressions(List<String> productIds) async {
+    if (productIds.isEmpty) return;
+    await post(
+      '/api/products/impressions',
+      body: {'product_ids': productIds.map(int.parse).toList()},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getProductAvailability(
+    List<Map<String, dynamic>> items,
+  ) async {
+    late final Map<String, dynamic> response;
+    try {
+      response = await post(
+        '/api/products/availability',
+        body: {'items': items},
+      );
+    } on SocketException {
+      throw const ApiException('Unable to check current product stock. Check your connection and try again.');
+    } on TimeoutException {
+      throw const ApiException('The stock check took too long. Please try again.');
+    } on http.ClientException {
+      throw const ApiException('Unable to check current product stock. Check your connection and try again.');
+    }
+    final data = response['data'];
+    final rows = data is Map<String, dynamic> ? data['items'] : null;
+    if (response['success'] != true || rows is! List) {
+      throw const ApiException(
+        'The server returned invalid product availability data.',
+      );
+    }
+    return rows.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> reportDeliveryIssue({
+    required int orderId,
+    required String issueType,
+    required String description,
+  }) async {
+    return post(
+      '/api/orders/$orderId/delivery-issues',
+      authenticated: true,
+      body: {
+        'issue_type': issueType,
+        'description': description.trim(),
+      },
+    );
   }
 
   Future<Map<String, dynamic>> getProductReviews(String productId) async {
@@ -826,11 +887,13 @@ class ApiPage {
       {required this.items,
       required this.currentPage,
       required this.lastPage,
-      required this.total});
+      required this.total,
+      this.shuffleDay});
   final List<Map<String, dynamic>> items;
   final int currentPage;
   final int lastPage;
   final int total;
+  final String? shuffleDay;
 
   factory ApiPage.fromJson(Map<String, dynamic> json) => ApiPage(
         items: (json['data'] as List? ?? const [])
@@ -839,5 +902,6 @@ class ApiPage {
         currentPage: int.tryParse(json['current_page']?.toString() ?? '') ?? 1,
         lastPage: int.tryParse(json['last_page']?.toString() ?? '') ?? 1,
         total: int.tryParse(json['total']?.toString() ?? '') ?? 0,
+        shuffleDay: json['shuffle_day']?.toString(),
       );
 }

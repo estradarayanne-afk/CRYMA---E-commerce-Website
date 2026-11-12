@@ -135,6 +135,101 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
+  Future<void> _reportDeliveryIssue(Map<String, dynamic> order) async {
+    final descriptionController = TextEditingController();
+    var issueType = 'late_delivery';
+    final values = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Report a delivery problem'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: issueType,
+                  decoration: const InputDecoration(labelText: 'Issue type'),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'late_delivery', child: Text('Parcel is late')),
+                    DropdownMenuItem(
+                        value: 'failed_delivery',
+                        child: Text('Delivery attempt failed')),
+                    DropdownMenuItem(
+                        value: 'wrong_delivery',
+                        child: Text('Wrong or missing parcel')),
+                    DropdownMenuItem(
+                        value: 'other', child: Text('Another issue')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() => issueType = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  minLines: 3,
+                  maxLines: 5,
+                  maxLength: 2000,
+                  decoration: const InputDecoration(
+                    labelText: 'Details',
+                    hintText: 'Describe what happened (at least 10 characters).',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final description = descriptionController.text.trim();
+                if (description.length < 10) return;
+                Navigator.pop(dialogContext, {
+                  'issue_type': issueType,
+                  'description': description,
+                });
+              },
+              child: const Text('Send report'),
+            ),
+          ],
+        ),
+      ),
+    );
+    descriptionController.dispose();
+    if (values == null || !mounted) return;
+
+    setState(() => _acting = true);
+    try {
+      final response = await _api.reportDeliveryIssue(
+        orderId: int.parse(widget.orderId!),
+        issueType: values['issue_type']!,
+        description: values['description']!,
+      );
+      await _loadOrder();
+      if (mounted) {
+        final ticketId = response['data'] is Map<String, dynamic>
+            ? response['data']['id']?.toString()
+            : null;
+        _snack(ticketId == null
+            ? 'Delivery report sent to Customer Service.'
+            : 'Delivery report #$ticketId sent to Customer Service.');
+      }
+    } catch (error) {
+      if (mounted) _snack(error.toString());
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
   Future<void> _contactSeller(Map<String, dynamic> order) async {
     final items = order['items'] is List ? order['items'] as List : const [];
     final first = items.whereType<Map<String, dynamic>>().firstOrNull;
@@ -535,6 +630,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                   _humanisePayment(
                                       order['payment_method']?.toString()),
                                 ),
+                                _infoRow(
+                                  'Payment status',
+                                  order['payment_status_label']?.toString() ??
+                                      'Pay on delivery',
+                                ),
+                                _infoRow(
+                                  'Shipping fee',
+                                  '₱${order['shipping_fee'] ?? '0.00'}',
+                                ),
                                 if ((order['delivery_address'] ?? '')
                                     .toString()
                                     .isNotEmpty)
@@ -796,6 +900,21 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               label: const Text('Review a product'),
                               style: OutlinedButton.styleFrom(
                                 minimumSize: const Size(double.infinity, 48),
+                              ),
+                            ),
+                          ],
+                          if (!['CANCELLED', 'CANCELED'].contains(statusUpper)) ...[
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: _acting
+                                  ? null
+                                  : () => _reportDeliveryIssue(order),
+                              icon: const Icon(Icons.report_problem_outlined,
+                                  size: 18),
+                              label: const Text('Report a delivery problem'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 48),
+                                foregroundColor: AppColors.primary,
                               ),
                             ),
                           ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'dart:async';
+
 import '../../services/api_service.dart';
 import '../../services/cart_store.dart';
 import '../../services/favorites_store.dart';
@@ -109,6 +111,12 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
     }
     try {
       final json = await _api.getProduct(widget.productId!);
+      unawaited(_api.recordProductView(widget.productId!).then(
+        (_) {},
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('Unable to record product view: $error');
+        },
+      ));
       final rawImages = json['images'] as List? ?? [];
       final imagePaths = rawImages
           .map((image) => _api.resolveImageUrl(image.toString()))

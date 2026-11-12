@@ -145,6 +145,9 @@ function Reports() {
     const [reports, setReports] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [productExposure, setProductExposure] = useState([]);
+    const [exposureLoading, setExposureLoading] = useState(true);
+    const [exposureError, setExposureError] = useState("");
 
     const [period, setPeriod] = useState("month");
 
@@ -190,6 +193,26 @@ function Reports() {
 
         return () => clearTimeout(timeoutId);
     }, [fetchReports]);
+
+    useEffect(() => {
+        let cancelled = false;
+        api.get("/admin/product-exposure")
+            .then(({ data }) => {
+                const rows = data?.data?.products?.data;
+                if (!Array.isArray(rows)) {
+                    throw new Error("The product exposure report response was invalid.");
+                }
+                if (!cancelled) setProductExposure(rows);
+            })
+            .catch((requestError) => {
+                console.error("Failed to load product exposure:", requestError);
+                if (!cancelled) setExposureError("Product exposure metrics are unavailable.");
+            })
+            .finally(() => {
+                if (!cancelled) setExposureLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, []);
 
     const handleGenerateReport = () => {
         fetchReports();
@@ -644,6 +667,55 @@ function Reports() {
                     <div className="reports-panel-header"><div><span className="reports-panel-eyebrow">COMMISSION ANALYTICS</span><h2>Commission Performance</h2><p>Platform commission earned during {getPeriodLabel().toLowerCase()}.</p></div></div>
                     <div className="reports-trend-container"><MiniTrendChart rows={reports?.commission_trend} valueKey="commission" formatCurrency={formatCurrency} formatDate={formatDate} loading={loading} emptyLabel="No commission activity for this period." label="Commission" /></div>
                 </article>
+    <section className="reports-panel product-exposure-panel">
+        <div className="reports-panel-header">
+            <div>
+                <span className="reports-panel-eyebrow">PRODUCT DISCOVERY</span>
+                <h2>Product Views and Purchases</h2>
+                <p>Rolling 30-day catalog exposures, product detail views, and checkout purchases. Buyer identities are not collected.</p>
+            </div>
+        </div>
+        {exposureError ? (
+            <p className="product-exposure-message" role="alert">{exposureError}</p>
+        ) : exposureLoading ? (
+            <p className="product-exposure-message" role="status">Loading product exposure metrics…</p>
+        ) : productExposure.length === 0 ? (
+            <p className="product-exposure-message">No product views or purchases have been recorded yet.</p>
+        ) : (
+            <div className="product-exposure-table-wrap">
+                <table className="product-exposure-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Seller</th>
+                            <th>Exposures</th>
+                            <th>Views</th>
+                            <th>Purchase events</th>
+                            <th>Units sold</th>
+                            <th>View-to-purchase</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {productExposure.map((row) => {
+                            const views = Number(row.detail_views) || 0;
+                            const purchases = Number(row.purchase_count) || 0;
+                            return (
+                                <tr key={row.product_id}>
+                                    <td>{row.product_name}</td>
+                                    <td>{row.seller_name}</td>
+                                    <td>{formatNumber(row.impressions)}</td>
+                                    <td>{formatNumber(views)}</td>
+                                    <td>{formatNumber(purchases)}</td>
+                                    <td>{formatNumber(row.units_sold)}</td>
+                                    <td>{views ? `${(purchases / views * 100).toFixed(1)}%` : "—"}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        )}
+    </section>
     </div>
 </div>
 

@@ -139,6 +139,11 @@ class OrderCheckoutIntegrityTest extends TestCase
 
         $this->assertSame(1, Order::count());
         $this->assertSame(2, $product->fresh()->stock);
+        $this->assertDatabaseHas('product_daily_metrics', [
+            'product_id' => $product->id,
+            'purchase_count' => 1,
+            'units_sold' => 2,
+        ]);
     }
 
     public function test_same_idempotency_key_is_scoped_to_each_buyer(): void

@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\HubStaffProvisioningController;
 use App\Http\Controllers\Admin\LogisticsController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PlatformSettingsController;
+use App\Http\Controllers\Admin\ProductExposureController;
 // use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
 use App\Http\Controllers\Admin\RefundRequestController;
 use App\Http\Controllers\Admin\RegistrationController as AdminRegistrationController;
@@ -26,6 +27,9 @@ use App\Http\Controllers\Api\ApplicantDocumentCorrectionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuyerChatController;
 use App\Http\Controllers\Api\BuyerOrderController;
+use App\Http\Controllers\Api\BuyerProductMetricsController;
+use App\Http\Controllers\Api\BuyerPushTokenController;
+use App\Http\Controllers\Api\BuyerSupportController;
 use App\Http\Controllers\Api\BuyerVoucherController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\PasswordRecoveryController;
@@ -75,6 +79,9 @@ Route::get('/stores/{slug}', [StorefrontController::class, 'publicShow']);
 
 // Public product routes
 Route::get('/products', [ProductController::class, 'publicIndex']);
+Route::post('/products/availability', [ProductController::class, 'publicStock'])->middleware('throttle:60,1');
+Route::post('/products/impressions', [BuyerProductMetricsController::class, 'recordImpressions'])->middleware('throttle:60,1');
+Route::post('/products/{productId}/view', [BuyerProductMetricsController::class, 'recordView'])->middleware('throttle:60,1');
 
 Route::get(
     '/products/{productId}/reviews',
@@ -98,6 +105,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // Admin managed courier assignment and delivery audit.
     Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/product-exposure', [ProductExposureController::class, 'index']);
         Route::get('/admin/hub-staff', [HubStaffProvisioningController::class, 'index']);
         Route::get('/admin/hub-staff/logistics-managers', [HubStaffProvisioningController::class, 'logisticsManagers']);
         Route::post('/admin/hub-staff', [HubStaffProvisioningController::class, 'store']);
@@ -270,6 +278,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/orders/{id}/confirm-received', [BuyerOrderController::class, 'confirmReceived']);
         Route::post('/orders/{id}/refund-requests', [BuyerOrderController::class, 'requestRefund']);
         Route::post('/orders', [BuyerOrderController::class, 'store']);
+        Route::post('/orders/{orderId}/delivery-issues', [BuyerSupportController::class, 'reportDeliveryIssue']);
+        Route::post('/buyer/push-tokens', [BuyerPushTokenController::class, 'store']);
+        Route::delete('/buyer/push-tokens', [BuyerPushTokenController::class, 'destroy']);
 
         Route::post('/products/{productId}/reviews', [ReviewController::class, 'store']);
 

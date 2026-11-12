@@ -1,21 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'navigation/app_router.dart';
 import 'services/api_service.dart';
+import 'services/push_notification_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/colors.dart';
 import 'widgets/network_loading_indicator.dart';
 
+final _navigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp(navigatorKey: _navigatorKey));
+  unawaited(PushNotificationService.initialize(_navigatorKey));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.navigatorKey});
+
+  final GlobalKey<NavigatorState> navigatorKey;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'CRYMA',
       theme: AppTheme.light,
       debugShowCheckedModeBanner: false,
