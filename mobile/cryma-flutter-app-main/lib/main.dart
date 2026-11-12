@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'navigation/app_router.dart';
+import 'services/api_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/colors.dart';
+import 'widgets/network_loading_indicator.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,7 +27,21 @@ class MyApp extends StatelessWidget {
             colors: [AppColors.background, AppColors.surfaceNeutral],
           ),
         ),
-        child: child ?? const SizedBox.shrink(),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            child ?? const SizedBox.shrink(),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: ApiService.activeRequests,
+                  builder: (context, activeRequests, _) =>
+                      NetworkLoadingIndicator(isLoading: activeRequests > 0),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       initialRoute: '/',
       onGenerateRoute: AppRouter.generateRoute,

@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +16,7 @@ class ApiService {
   ApiService._() : this();
 
   static final ApiService instance = ApiService._();
+  static final ValueNotifier<int> activeRequests = ValueNotifier<int>(0);
   static const _tokenKey = 'cryma_api_token';
   static const _userKey = 'cryma_api_user';
   static const apiBaseUrl = String.fromEnvironment(
@@ -26,6 +26,16 @@ class ApiService {
   static const _timeout = Duration(seconds: 20);
   final http.Client _client;
   final String _baseUrl;
+
+  static Future<T> trackRequest<T>(Future<T> Function() request) async {
+    activeRequests.value += 1;
+    try {
+      return await request();
+    } finally {
+      activeRequests.value =
+          activeRequests.value > 0 ? activeRequests.value - 1 : 0;
+    }
+  }
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final base = Uri.parse(_baseUrl);
@@ -54,13 +64,15 @@ class ApiService {
     Map<String, String>? query,
     bool authenticated = false,
   }) async {
-    final response = await _client
-        .get(
-          _uri(path, query),
-          headers: await _headers(authenticated: authenticated),
-        )
-        .timeout(_timeout);
-    return _decode(response);
+    return trackRequest(() async {
+      final response = await _client
+          .get(
+            _uri(path, query),
+            headers: await _headers(authenticated: authenticated),
+          )
+          .timeout(_timeout);
+      return _decode(response);
+    });
   }
 
   Future<Map<String, dynamic>> post(
@@ -70,12 +82,14 @@ class ApiService {
     String? idempotencyKey,
     String? unauthorizedMessage,
   }) async {
-    final headers = await _headers(authenticated: authenticated);
-    if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
-    final response = await _client
-        .post(_uri(path), headers: headers, body: jsonEncode(body))
-        .timeout(_timeout);
-    return _decode(response, unauthorizedMessage: unauthorizedMessage);
+    return trackRequest(() async {
+      final headers = await _headers(authenticated: authenticated);
+      if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
+      final response = await _client
+          .post(_uri(path), headers: headers, body: jsonEncode(body))
+          .timeout(_timeout);
+      return _decode(response, unauthorizedMessage: unauthorizedMessage);
+    });
   }
 
   Future<Map<String, dynamic>> patch(
@@ -83,41 +97,48 @@ class ApiService {
     required Map<String, dynamic> body,
     bool authenticated = false,
   }) async {
-    final headers = await _headers(authenticated: authenticated);
-    final response = await _client
-        .patch(_uri(path), headers: headers, body: jsonEncode(body))
-        .timeout(_timeout);
-    return _decode(response);
+    return trackRequest(() async {
+      final headers = await _headers(authenticated: authenticated);
+      final response = await _client
+          .patch(_uri(path), headers: headers, body: jsonEncode(body))
+          .timeout(_timeout);
+      return _decode(response);
+    });
   }
 
   Future<Map<String, dynamic>> updateProfileImage(
     XFile file, {
     required Map<String, String?> fields,
   }) async {
-    final request = http.MultipartRequest('POST', _uri('/api/account/profile'));
-    final headers = await _headers(authenticated: true);
-    headers.remove('Content-Type');
-    request.headers.addAll(headers);
-    request.fields['_method'] = 'PATCH';
-    fields.forEach((key, value) {
-      if (value != null) request.fields[key] = value;
+    return trackRequest(() async {
+      final request =
+          http.MultipartRequest('POST', _uri('/api/account/profile'));
+      final headers = await _headers(authenticated: true);
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+      request.fields['_method'] = 'PATCH';
+      fields.forEach((key, value) {
+        if (value != null) request.fields[key] = value;
+      });
+      request.files
+          .add(await http.MultipartFile.fromPath('profile_image', file.path));
+      final streamed = await _client.send(request).timeout(_timeout);
+      return _decode(await http.Response.fromStream(streamed));
     });
-    request.files
-        .add(await http.MultipartFile.fromPath('profile_image', file.path));
-    final streamed = await _client.send(request).timeout(_timeout);
-    return _decode(await http.Response.fromStream(streamed));
   }
 
   Future<Uint8List?> getProfileImageBytes() async {
-    final response = await _client
-        .get(_uri('/api/account/profile-image'),
-            headers: await _headers(authenticated: true))
-        .timeout(_timeout);
-    if (response.statusCode == 404) return null;
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      _decode(response);
-    }
-    return response.bodyBytes;
+    return trackRequest(() async {
+      final response = await _client
+          .get(_uri('/api/account/profile-image'),
+              headers: await _headers(authenticated: true))
+          .timeout(_timeout);
+      if (response.statusCode == 404) return null;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _decode(response);
+      }
+      return response.bodyBytes;
+    });
   }
 
   Future<Map<String, dynamic>?> login(String email, String password) async {
@@ -362,33 +383,37 @@ class ApiService {
     XFile file, {
     int? orderId,
   }) async {
-    final request = http.MultipartRequest('POST',
-        _uri('/api/buyer/chat/conversations/$conversationId/attachments'));
-    final headers = await _headers(authenticated: true);
-    headers.remove('Content-Type');
-    request.headers.addAll(headers);
-    if (orderId != null) request.fields['order_id'] = orderId.toString();
-    request.files
-        .add(await http.MultipartFile.fromPath('attachment', file.path));
-    final streamed = await _client.send(request).timeout(_timeout);
-    return _decode(await http.Response.fromStream(streamed));
+    return trackRequest(() async {
+      final request = http.MultipartRequest('POST',
+          _uri('/api/buyer/chat/conversations/$conversationId/attachments'));
+      final headers = await _headers(authenticated: true);
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+      if (orderId != null) request.fields['order_id'] = orderId.toString();
+      request.files
+          .add(await http.MultipartFile.fromPath('attachment', file.path));
+      final streamed = await _client.send(request).timeout(_timeout);
+      return _decode(await http.Response.fromStream(streamed));
+    });
   }
 
   Future<http.Response> downloadBuyerChatAttachment(
       String conversationId, String messageId) async {
-    final headers = await _headers(authenticated: true);
-    headers.remove('Content-Type');
-    final response = await _client
-        .get(
-          _uri(
-              '/api/buyer/chat/conversations/$conversationId/messages/$messageId/attachment'),
-          headers: headers,
-        )
-        .timeout(_timeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      _decode(response);
-    }
-    return response;
+    return trackRequest(() async {
+      final headers = await _headers(authenticated: true);
+      headers.remove('Content-Type');
+      final response = await _client
+          .get(
+            _uri(
+                '/api/buyer/chat/conversations/$conversationId/messages/$messageId/attachment'),
+            headers: headers,
+          )
+          .timeout(_timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _decode(response);
+      }
+      return response;
+    });
   }
 
   Future<void> markBuyerChatRead(String conversationId) async {
@@ -655,17 +680,19 @@ class ApiService {
     required Map<String, dynamic> fields,
     required String validIdPath,
   }) async {
-    final uri = _uri('/api/register');
-    final request = http.MultipartRequest('POST', uri)
-      ..headers['Accept'] = 'application/json';
-    fields.forEach((key, value) {
-      if (value != null) request.fields[key] = value.toString();
+    return trackRequest(() async {
+      final uri = _uri('/api/register');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Accept'] = 'application/json';
+      fields.forEach((key, value) {
+        if (value != null) request.fields[key] = value.toString();
+      });
+      request.files
+          .add(await http.MultipartFile.fromPath('valid_id', validIdPath));
+      final streamed = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamed);
+      return _decode(response);
     });
-    request.files
-        .add(await http.MultipartFile.fromPath('valid_id', validIdPath));
-    final streamed = await request.send().timeout(_timeout);
-    final response = await http.Response.fromStream(streamed);
-    return _decode(response);
   }
 
   Future<Map<String, dynamic>> verifyEmail({

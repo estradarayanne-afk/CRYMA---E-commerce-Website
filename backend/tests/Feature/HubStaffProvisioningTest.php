@@ -56,7 +56,7 @@ class HubStaffProvisioningTest extends TestCase
         $this->getJson("/api/admin/hub-staff/{$staff->id}")
             ->assertOk()->assertJsonPath('data.hub.id', $firstHub->id)
             ->assertJsonPath('audit_events.0.event_type', 'hub_staff_created');
-        $this->getJson('/api/admin/hub-staff')->assertOk()->assertJsonPath('data.0.id', $staff->id);
+        $this->getJson('/api/admin/hub-staff')->assertOk()->assertJsonPath('data.data.0.id', $staff->id);
         $this->patchJson("/api/admin/hub-staff/{$staff->id}/activate")->assertUnprocessable();
 
         $otp = null;
@@ -246,6 +246,7 @@ class HubStaffProvisioningTest extends TestCase
         $taguigStaff = $this->staff($taguigHub);
         $baguioStaff = $this->staff($baguioHub);
         $baguioStaff->forceFill(['status' => 'pending'])->save();
+        $unassignedActiveHubCount = LogisticsHub::query()->where('is_active', true)->count() - 1;
 
         $this->actingAs($admin, 'sanctum')
             ->getJson('/api/admin/hub-staff?search=Taguig&per_page=1')
@@ -256,7 +257,7 @@ class HubStaffProvisioningTest extends TestCase
             ->assertJsonPath('data.data.0.id', $taguigStaff->id)
             ->assertJsonPath('meta.summary.active', 1)
             ->assertJsonPath('meta.summary.pending', 1)
-            ->assertJsonPath('meta.summary.unassigned_hubs', 0);
+            ->assertJsonPath('meta.summary.unassigned_hubs', $unassignedActiveHubCount);
 
         $this->getJson("/api/admin/hub-staff?status=pending&hub_id={$baguioHub->id}&per_page=1")
             ->assertOk()

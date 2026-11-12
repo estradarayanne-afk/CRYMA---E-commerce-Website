@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import ProtectedRoute from "./shared/components/ProtectedRoute";
+import GlobalNetworkLoadingIndicator from "./shared/components/GlobalNetworkLoadingIndicator";
 import { isBuyerSession } from "./shared/utils/buyerAccess";
 
 // â”€â”€ AUTH â”€â”€
@@ -80,6 +81,7 @@ const HubStaffActivity = lazy(() => import("./hubStaff/pages/Activity"));
 function App() {
     return (
         <BrowserRouter>
+            <GlobalNetworkLoadingIndicator />
             <Routes>
 
                 {/* =====================================================
@@ -119,7 +121,7 @@ function App() {
 
                     <Route
                         path="/"
-                        element={isBuyerSession() ? <Navigate to="/shop" replace /> : <Suspense fallback={null}><BuyerHome /></Suspense>}
+                        element={isBuyerSession() ? <Navigate to="/shop" replace /> : <Suspense fallback={<div className="app-route-loading" role="status"><span className="app-route-loading__mark"><img src="/cryma-logo.png" alt="" /></span><span>Loading CRYMA…</span></div>}><BuyerHome /></Suspense>}
                     />
 
                     <Route
@@ -374,7 +376,7 @@ function App() {
 
                 {/* HUB STAFF - HUB-SCOPED OPERATIONS ONLY */}
                 <Route element={<ProtectedRoute allowedRoles={["hub_staff"]} />}>
-                    <Route path="/hub-staff" element={<Suspense fallback={<div className="hs-route-loading" role="status">Loading Hub Staff workspace…</div>}><HubStaffLayout /></Suspense>}>
+                    <Route path="/hub-staff" element={<Suspense fallback={<div className="app-route-loading" role="status">Loading Hub Staff workspace…</div>}><HubStaffLayout /></Suspense>}>
                         <Route index element={<Navigate to="/hub-staff/overview" replace />} />
                         <Route path="overview" element={<HubStaffOverview />} />
                         <Route path="parcels" element={<HubStaffParcels />} />

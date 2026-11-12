@@ -164,20 +164,20 @@ export default function HubStaffManagement({ base = "/admin" }) {
                 </button>
             </header>
 
-            {error && <div className="hsm-alert hsm-alert--error" role="alert">{error}</div>}
+            {error && !createOpen && <div className="hsm-alert hsm-alert--error" role="alert">{error}</div>}
             {notice && <div className="hsm-alert hsm-alert--success" role="status">{notice}</div>}
 
             <section className="hsm-readiness" aria-label="Hub Staff summary">
                 <article><span><ShieldCheck size={17} /> Active accounts</span><strong>{counts.active.toLocaleString()}</strong><small>Verified and enabled</small></article>
                 <article><span><Clock3 size={17} /> Awaiting verification</span><strong>{counts.pending.toLocaleString()}</strong><small>Cannot enter hub operations yet</small></article>
                 <article><span><UserRound size={17} /> Suspended</span><strong>{counts.suspended.toLocaleString()}</strong><small>Access is disabled</small></article>
-                <article><span><MapPinned size={17} /> Hubs without active staff</span><strong>{counts.unassignedHubs.toLocaleString()}</strong><small>Among {hubs.length.toLocaleString()} active LGU nodes</small></article>
+                <article><span><MapPinned size={17} /> Hubs without active staff</span><strong>{counts.unassigned_hubs.toLocaleString()}</strong><small>Among {hubs.length.toLocaleString()} active LGU nodes</small></article>
             </section>
 
             <section className="hsm-card">
                 <div className="hsm-card-heading">
                     <div><h2>Staff accounts</h2><p>Each account is restricted to its assigned active hub.</p></div>
-                    <button type="button" className="hsm-primary-button" onClick={() => setCreateOpen(true)} disabled={hubs.length === 0}>
+                    <button type="button" className="hsm-primary-button" onClick={() => { setError(""); setCreateOpen(true); }} disabled={hubs.length === 0}>
                         <Plus size={16} /> Create Hub Staff
                     </button>
                 </div>
