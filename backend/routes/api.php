@@ -242,6 +242,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // Buyer orders
     Route::middleware('role:buyer')->group(function () {
+        Route::get('/buyer/notifications', [\App\Http\Controllers\Api\BuyerNotificationController::class, 'index']);
+        Route::patch('/buyer/notifications/read-all', [\App\Http\Controllers\Api\BuyerNotificationController::class, 'markAllRead']);
+        Route::patch('/buyer/notifications/{id}/read', [\App\Http\Controllers\Api\BuyerNotificationController::class, 'markRead']);
         Route::get('/buyer/vouchers', [BuyerVoucherController::class, 'index']);
         Route::post('/buyer/vouchers/{id}/claim', [BuyerVoucherController::class, 'claim']);
         Route::post('/buyer/vouchers/validate', [BuyerVoucherController::class, 'validateCode']);

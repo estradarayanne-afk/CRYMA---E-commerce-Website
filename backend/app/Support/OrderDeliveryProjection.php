@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Delivery;
+use App\Models\DeliveryEvent;
 use App\Models\Order;
 use Illuminate\Support\Carbon;
 
@@ -12,6 +13,7 @@ class OrderDeliveryProjection
     {
         $order->loadMissing('shippingCharge');
         $delivery = $order->delivery;
+        $delivery?->loadMissing('events.hub');
         $pickup = $delivery?->pickupAssignment;
         $deliveryAttempts = $delivery
             ? $delivery->events->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts'])->count()
@@ -75,12 +77,22 @@ class OrderDeliveryProjection
                     'phone' => $pickup->courierProfile->user->phone,
                 ] : null,
             ] : null,
-            'events' => $delivery->events->map(fn ($event) => [
-                'event_type' => $event->event_type,
-                'previous_status' => $event->previous_status,
-                'new_status' => $event->new_status,
-                'created_at' => $event->created_at,
-            ])->values(),
+            'events' => $delivery->events->map(function (DeliveryEvent $event) {
+                $publicEvent = self::buyerEvent($event);
+
+                return [
+                    'event_type' => $event->event_type,
+                    'previous_status' => $event->previous_status,
+                    'new_status' => $event->new_status,
+                    'label' => $publicEvent[0],
+                    'description' => $publicEvent[1],
+                    'hub' => $event->hub ? [
+                        'name' => $event->hub->name,
+                        'code' => $event->hub->code,
+                    ] : null,
+                    'created_at' => $event->created_at,
+                ];
+            })->values(),
         ] : null);
 
         return $order;
@@ -102,6 +114,83 @@ class OrderDeliveryProjection
 
     public static function event(Delivery $delivery, array $values): void
     {
-        $delivery->events()->create($values + ['created_at' => now()]);
+        $event = $delivery->events()->create($values + ['created_at' => now()]);
+        $event->loadMissing('hub');
+        $notification = self::buyerNotification($event);
+        if ($notification === null) {
+            return;
+        }
+
+        $order = $delivery->order()->first();
+        if ($order === null || $order->buyer_id === null) {
+            return;
+        }
+
+        $buyerId = $order->buyer_id;
+        $data = [
+            'delivery_event_id' => $event->id,
+            'order_id' => $order->id,
+            'title' => $notification[0],
+            'body' => $notification[1],
+            'link' => '/orders/'.$order->id,
+        ];
+
+        \Illuminate\Support\Facades\DB::afterCommit(function () use ($buyerId, $data): void {
+            $buyer = \App\Models\User::query()->find($buyerId);
+            if ($buyer === null || $buyer->notifications()
+                ->where('type', \App\Notifications\BuyerDeliveryMilestoneNotification::class)
+                ->whereJsonContains('data->delivery_event_id', $data['delivery_event_id'])
+                ->exists()) {
+                return;
+            }
+
+            $buyer->notify(new \App\Notifications\BuyerDeliveryMilestoneNotification($data));
+        });
+    }
+
+    private static function buyerEvent(DeliveryEvent $event): array
+    {
+        $hubName = $event->hub?->name;
+        $messages = [
+            'pickup_assigned' => ['Pickup arranged', 'A courier has been assigned to pick up your parcel.'],
+            'pickup_collected' => ['Parcel picked up', 'Your parcel has been picked up and is on its way to a hub.'],
+            'sorting_center_received' => ['Received at hub', $hubName ? "Your parcel was received at {$hubName}." : 'Your parcel was received at a sorting hub.'],
+            'sorted' => ['Parcel sorted', $hubName ? "Your parcel was sorted at {$hubName}." : 'Your parcel was sorted and is moving through the delivery network.'],
+            'hub_transfer_departed' => ['Left a hub', $hubName ? "Your parcel left {$hubName} and is on its way to the next hub." : 'Your parcel is on its way to the next hub.'],
+            'hub_transfer_arrived' => ['Arrived at a hub', $hubName ? "Your parcel arrived at {$hubName}." : 'Your parcel arrived at the next hub.'],
+            'delivery_collected_from_sorting_center' => ['Out for delivery', 'Your parcel is with the delivery rider and on its way to you.'],
+            'failed' => ['Delivery attempt unsuccessful', 'The delivery could not be completed. We will update you when the next step is arranged.'],
+            'returned_after_max_delivery_attempts' => ['Parcel returning to seller', 'We could not complete delivery, so your parcel is being returned to the seller.'],
+            'delivered_with_proof' => ['Parcel delivered', 'Your parcel has been marked as delivered.'],
+            'buyer_receipt_confirmed' => ['Delivery confirmed', 'You confirmed that you received your parcel.'],
+        ];
+
+        return $messages[$event->event_type] ?? [
+            'Order updated',
+            $event->new_status
+                ? 'Your order status is now '.str_replace('_', ' ', strtolower($event->new_status)).'.'
+                : 'There is a new update for your order.',
+        ];
+    }
+
+    private static function buyerNotification(DeliveryEvent $event): ?array
+    {
+        $notifications = [
+            'pickup_collected',
+            'sorting_center_received',
+            'sorted',
+            'hub_transfer_departed',
+            'hub_transfer_arrived',
+            'delivery_collected_from_sorting_center',
+            'failed',
+            'returned_after_max_delivery_attempts',
+            'delivered_with_proof',
+            'buyer_receipt_confirmed',
+        ];
+        if (! in_array($event->event_type, $notifications, true)) {
+            return null;
+        }
+
+        return self::buyerEvent($event);
     }
 }

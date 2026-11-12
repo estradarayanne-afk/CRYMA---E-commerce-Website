@@ -791,7 +791,7 @@ function OrderDetails() {
                                     )}
                                 </div>
                                 {(order.delivery_progress?.events || []).filter((event) => event.event_type?.startsWith("hub_transfer_")).map((event) => (
-                                    <p key={`${event.event_type}-${event.created_at}`}><strong>{event.event_type === "hub_transfer_departed" ? "Hub transfer departed" : "Hub transfer arrived"}:</strong> {event.reason} · {formatDate(event.created_at)}</p>
+                                    <p key={`${event.event_type}-${event.created_at}`}><strong>{event.label}:</strong> {event.description} · {formatDate(event.created_at)}</p>
                                 ))}
                                 {order.delivery_progress?.current_hub?.name && <p><strong>Current hub:</strong> {order.delivery_progress.current_hub.name}</p>}
                                 {trackingRefreshError && <p role="status">{trackingRefreshError}</p>}

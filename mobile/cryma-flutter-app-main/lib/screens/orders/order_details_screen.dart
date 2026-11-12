@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/colors.dart';
@@ -195,6 +196,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
+  String _formatEstimate(Map<String, dynamic> estimate) {
+    try {
+      final from = DateFormat('MMM d, yyyy')
+          .format(DateTime.parse(estimate['from'].toString()));
+      final to = DateFormat('MMM d, yyyy')
+          .format(DateTime.parse(estimate['to'].toString()));
+      return from == to ? from : '$from – $to';
+    } catch (_) {
+      return '';
+    }
+  }
+
   static const _statusColours = <String, Color>{
     'pending': AppColors.warning,
     'placed': AppColors.warning,
@@ -357,6 +370,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final delivery = order?['delivery_progress'] is Map<String, dynamic>
         ? order!['delivery_progress'] as Map<String, dynamic>
         : null;
+    final estimate = order?['delivery_estimate'] is Map<String, dynamic>
+        ? order!['delivery_estimate'] as Map<String, dynamic>
+        : null;
     final events = (delivery?['events'] as List? ?? const [])
         .whereType<Map<String, dynamic>>()
         .toList()
@@ -404,323 +420,406 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 )
               : order == null
                   ? const Center(child: Text('Order not found.'))
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                      children: [
-                        // ── ORDER SUMMARY HEADER ─────────────────────────
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColors.borderNeutral),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.wine.withValues(alpha: 0.045),
-                                blurRadius: 16,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
+                  : RefreshIndicator(
+                      onRefresh: _loadOrder,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                        children: [
+                          // ── ORDER SUMMARY HEADER ─────────────────────────
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border:
+                                  Border.all(color: AppColors.borderNeutral),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppColors.wine.withValues(alpha: 0.045),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'ORDER NUMBER',
+                                            style: TextStyle(
+                                              fontFamily: 'Poppins',
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.8,
+                                              color: AppColors.textSubtle,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            '#${order['id']}',
+                                            style: const TextStyle(
+                                              fontFamily: 'Poppins',
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.wine,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 11, vertical: 7),
+                                      decoration: BoxDecoration(
+                                        color: _sb(
+                                            order['status']?.toString() ?? ''),
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        _titleCase(
+                                            order['status']?.toString() ??
+                                                'Unknown'),
+                                        style: TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: _sc(
+                                              order['status']?.toString() ??
+                                                  ''),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_fmtDate(order['created_at']?.toString())
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 5),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.schedule_rounded,
+                                        size: 14,
+                                        color: AppColors.textSubtle,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        'Placed ${_fmtDate(order['created_at']?.toString())}',
+                                        style: const TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 11,
+                                          color: AppColors.textSubtle,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 14),
+                                  child: Divider(
+                                    height: 1,
+                                    color: AppColors.borderNeutral,
+                                  ),
+                                ),
+                                _infoRow(
+                                  'Payment',
+                                  _humanisePayment(
+                                      order['payment_method']?.toString()),
+                                ),
+                                if ((order['delivery_address'] ?? '')
+                                    .toString()
+                                    .isNotEmpty)
+                                  _infoRow('Delivery to',
+                                      order['delivery_address'].toString()),
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 13,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.softRose,
+                                    borderRadius: BorderRadius.circular(13),
+                                  ),
+                                  child: _infoRow(
+                                    'Order total',
+                                    '₱${order['total_amount'] ?? '0.00'}',
+                                    valueStyle: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                          const SizedBox(height: 22),
+
+                          if (estimate != null &&
+                              _formatEstimate(estimate).isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.all(15),
+                              decoration: BoxDecoration(
+                                color: AppColors.softRose,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
                                 children: [
+                                  const Icon(Icons.calendar_month_rounded,
+                                      color: AppColors.primary),
+                                  const SizedBox(width: 11),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'ORDER NUMBER',
+                                          'ESTIMATED ARRIVAL',
                                           style: TextStyle(
                                             fontFamily: 'Poppins',
                                             fontSize: 10,
                                             fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.8,
+                                            letterSpacing: 0.6,
                                             color: AppColors.textSubtle,
                                           ),
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
-                                          '#${order['id']}',
+                                          _formatEstimate(estimate),
                                           style: const TextStyle(
                                             fontFamily: 'Poppins',
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
                                             color: AppColors.wine,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        const Text(
+                                          'Estimated from the shipping route; actual arrival may vary.',
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 10,
+                                            color: AppColors.textSecondary,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 11, vertical: 7),
-                                    decoration: BoxDecoration(
-                                      color: _sb(
-                                          order['status']?.toString() ?? ''),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      _titleCase(order['status']?.toString() ??
-                                          'Unknown'),
-                                      style: TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: _sc(
-                                            order['status']?.toString() ?? ''),
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
-                              if (_fmtDate(order['created_at']?.toString())
-                                  .isNotEmpty) ...[
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.schedule_rounded,
-                                      size: 14,
-                                      color: AppColors.textSubtle,
+                            ),
+                            const SizedBox(height: 18),
+                          ],
+
+                          // ── ITEMS ────────────────────────────────────────
+                          _sectionTitle('Items'),
+                          for (final item
+                              in items.whereType<Map<String, dynamic>>())
+                            _buildOrderItem(item),
+
+                          // ── DELIVERY TIMELINE ────────────────────────────
+                          if (events.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            _sectionTitle('Delivery updates'),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border:
+                                    Border.all(color: AppColors.borderNeutral),
+                              ),
+                              child: Column(
+                                children: [
+                                  for (int i = 0; i < events.length; i++)
+                                    _TimelineItem(
+                                      label: events[i]['label']?.toString() ??
+                                          _titleCase(
+                                            events[i]['new_status']
+                                                    ?.toString() ??
+                                                events[i]['event_type']
+                                                    ?.toString() ??
+                                                'Update',
+                                          ),
+                                      date: _fmtDate(
+                                          events[i]['created_at']?.toString()),
+                                      description: [
+                                        events[i]['description']?.toString(),
+                                        if (events[i]['hub']
+                                                is Map<String, dynamic> &&
+                                            (events[i]['hub'] as Map<String,
+                                                    dynamic>)['code'] !=
+                                                null)
+                                          'Hub ${(events[i]['hub'] as Map<String, dynamic>)['code'] ?? ''}',
+                                      ]
+                                          .whereType<String>()
+                                          .where((text) => text.isNotEmpty)
+                                          .join(' · '),
+                                      isLast: i == events.length - 1,
                                     ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      'Placed ${_fmtDate(order['created_at']?.toString())}',
-                                      style: const TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 11,
-                                        color: AppColors.textSubtle,
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // ── REFUND CARD ──────────────────────────────────
+                          if (refund != null) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border:
+                                    Border.all(color: AppColors.borderNeutral),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    const Icon(Icons.assignment_return_outlined,
+                                        color: AppColors.primary, size: 18),
+                                    const SizedBox(width: 8),
+                                    const Text('Refund request',
+                                        style: TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.darkGray,
+                                        )),
+                                    const Spacer(),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.softRose,
+                                        borderRadius: BorderRadius.circular(7),
+                                      ),
+                                      child: Text(
+                                        _titleCase(
+                                            refund['status']?.toString() ??
+                                                'pending'),
+                                        style: const TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ],
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 14),
-                                child: Divider(
-                                  height: 1,
-                                  color: AppColors.borderNeutral,
-                                ),
-                              ),
-                              _infoRow(
-                                'Payment',
-                                _humanisePayment(
-                                    order['payment_method']?.toString()),
-                              ),
-                              if ((order['delivery_address'] ?? '')
-                                  .toString()
-                                  .isNotEmpty)
-                                _infoRow('Delivery to',
-                                    order['delivery_address'].toString()),
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 13,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.softRose,
-                                  borderRadius: BorderRadius.circular(13),
-                                ),
-                                child: _infoRow(
-                                  'Order total',
-                                  '₱${order['total_amount'] ?? '0.00'}',
-                                  valueStyle: const TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-
-                        // ── ITEMS ────────────────────────────────────────
-                        _sectionTitle('Items'),
-                        for (final item
-                            in items.whereType<Map<String, dynamic>>())
-                          _buildOrderItem(item),
-
-                        // ── DELIVERY TIMELINE ────────────────────────────
-                        if (events.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          _sectionTitle('Delivery updates'),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border:
-                                  Border.all(color: AppColors.borderNeutral),
-                            ),
-                            child: Column(
-                              children: [
-                                for (int i = 0; i < events.length; i++)
-                                  _TimelineItem(
-                                    label: _titleCase(
-                                      events[i]['new_status']?.toString() ??
-                                          events[i]['event_type']?.toString() ??
-                                          'Update',
-                                    ),
-                                    date: _fmtDate(
-                                        events[i]['created_at']?.toString()),
-                                    isLast: i == events.length - 1,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-
-                        // ── REFUND CARD ──────────────────────────────────
-                        if (refund != null) ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border:
-                                  Border.all(color: AppColors.borderNeutral),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(children: [
-                                  const Icon(Icons.assignment_return_outlined,
-                                      color: AppColors.primary, size: 18),
-                                  const SizedBox(width: 8),
-                                  const Text('Refund request',
-                                      style: TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.darkGray,
-                                      )),
-                                  const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.softRose,
-                                      borderRadius: BorderRadius.circular(7),
-                                    ),
-                                    child: Text(
-                                      _titleCase(refund['status']?.toString() ??
-                                          'pending'),
-                                      style: const TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ),
-                                ]),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Requested ₱${refund['requested_amount'] ?? '—'}',
-                                  style: const TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontSize: 13,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                                if (refund['review_note'] != null)
+                                  ]),
+                                  const SizedBox(height: 6),
                                   Text(
-                                    refund['review_note'].toString(),
+                                    'Requested ₱${refund['requested_amount'] ?? '—'}',
                                     style: const TextStyle(
                                       fontFamily: 'Poppins',
-                                      fontSize: 12,
-                                      color: AppColors.textSubtle,
-                                      height: 1.45,
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary,
                                     ),
                                   ),
-                              ],
+                                  if (refund['review_note'] != null)
+                                    Text(
+                                      refund['review_note'].toString(),
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 12,
+                                        color: AppColors.textSubtle,
+                                        height: 1.45,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
 
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                        // ── ACTION BUTTONS ───────────────────────────────
-                        OutlinedButton.icon(
-                          onPressed:
-                              _acting ? null : () => _contactSeller(order),
-                          icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                          label: const Text('Contact seller'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (['PENDING', 'PLACED'].contains(statusUpper) &&
-                            delivery == null)
-                          OutlinedButton.icon(
-                            onPressed: _acting ? null : _cancelOrder,
-                            icon: const Icon(Icons.cancel_outlined, size: 18),
-                            label:
-                                Text(_acting ? 'Please wait…' : 'Cancel order'),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 48),
-                              foregroundColor: AppColors.danger,
-                              side: const BorderSide(color: AppColors.danger),
-                            ),
-                          ),
-                        if (statusUpper == 'DELIVERED') ...[
-                          const SizedBox(height: 10),
-                          FilledButton.icon(
-                            onPressed: _confirming ? null : _confirmReceived,
-                            icon: const Icon(Icons.check_circle_outline,
-                                size: 18),
-                            label: Text(_confirming
-                                ? 'Confirming…'
-                                : 'Confirm Receipt'),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                          ),
-                        ],
-                        if (statusUpper == 'COMPLETED') ...[
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            onPressed: () => Navigator.pushNamed(
-                              context,
-                              '/rate_feedback',
-                              arguments: order['id'].toString(),
-                            ),
-                            icon: const Icon(Icons.star_outline, size: 18),
-                            label: const Text('Review a product'),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 48),
-                            ),
-                          ),
-                        ],
-                        if (['DELIVERED', 'COMPLETED'].contains(statusUpper) &&
-                            (refund == null ||
-                                refund['status']?.toString() ==
-                                    'rejected')) ...[
-                          const SizedBox(height: 10),
+                          // ── ACTION BUTTONS ───────────────────────────────
                           OutlinedButton.icon(
                             onPressed:
-                                _acting ? null : () => _requestRefund(order),
-                            icon: const Icon(Icons.assignment_return_outlined,
-                                size: 18),
-                            label: Text(refund == null
-                                ? 'Request a refund'
-                                : 'Submit a new refund request'),
+                                _acting ? null : () => _contactSeller(order),
+                            icon:
+                                const Icon(Icons.chat_bubble_outline, size: 18),
+                            label: const Text('Contact seller'),
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size(double.infinity, 48),
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          if (['PENDING', 'PLACED'].contains(statusUpper) &&
+                              delivery == null)
+                            OutlinedButton.icon(
+                              onPressed: _acting ? null : _cancelOrder,
+                              icon: const Icon(Icons.cancel_outlined, size: 18),
+                              label: Text(
+                                  _acting ? 'Please wait…' : 'Cancel order'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 48),
+                                foregroundColor: AppColors.danger,
+                                side: const BorderSide(color: AppColors.danger),
+                              ),
+                            ),
+                          if (statusUpper == 'DELIVERED') ...[
+                            const SizedBox(height: 10),
+                            FilledButton.icon(
+                              onPressed: _confirming ? null : _confirmReceived,
+                              icon: const Icon(Icons.check_circle_outline,
+                                  size: 18),
+                              label: Text(_confirming
+                                  ? 'Confirming…'
+                                  : 'Confirm Receipt'),
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                              ),
+                            ),
+                          ],
+                          if (statusUpper == 'COMPLETED') ...[
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pushNamed(
+                                context,
+                                '/rate_feedback',
+                                arguments: order['id'].toString(),
+                              ),
+                              icon: const Icon(Icons.star_outline, size: 18),
+                              label: const Text('Review a product'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 48),
+                              ),
+                            ),
+                          ],
+                          if (['DELIVERED', 'COMPLETED']
+                                  .contains(statusUpper) &&
+                              (refund == null ||
+                                  refund['status']?.toString() ==
+                                      'rejected')) ...[
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _acting ? null : () => _requestRefund(order),
+                              icon: const Icon(Icons.assignment_return_outlined,
+                                  size: 18),
+                              label: Text(refund == null
+                                  ? 'Request a refund'
+                                  : 'Submit a new refund request'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 48),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
     );
   }
@@ -776,10 +875,12 @@ class _TimelineItem extends StatelessWidget {
   const _TimelineItem({
     required this.label,
     required this.date,
+    required this.description,
     required this.isLast,
   });
   final String label;
   final String date;
+  final String description;
   final bool isLast;
 
   @override
@@ -803,7 +904,7 @@ class _TimelineItem extends StatelessWidget {
             if (!isLast)
               Container(
                 width: 1.5,
-                height: 36,
+                height: description.isEmpty ? 36 : 52,
                 color: AppColors.borderNeutral,
               ),
           ],
@@ -822,6 +923,13 @@ class _TimelineItem extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: AppColors.darkGray,
                     )),
+                if (description.isNotEmpty)
+                  Text(description,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      )),
                 if (date.isNotEmpty)
                   Text(date,
                       style: const TextStyle(

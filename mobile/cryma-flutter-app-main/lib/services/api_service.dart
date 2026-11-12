@@ -668,6 +668,33 @@ class ApiService {
     return order;
   }
 
+  Future<Map<String, dynamic>> getBuyerNotifications() async {
+    final response = await get('/api/buyer/notifications', authenticated: true);
+    final data = response['data'];
+    if (data is! Map<String, dynamic> || data['notifications'] is! List) {
+      throw const ApiException(
+          'The server returned an invalid notification list.');
+    }
+    return {
+      'notifications': (data['notifications'] as List)
+          .whereType<Map<String, dynamic>>()
+          .toList(),
+      'unread_count': data['unread_count'] is num
+          ? (data['unread_count'] as num).toInt()
+          : 0,
+    };
+  }
+
+  Future<void> markBuyerNotificationRead(String id) async {
+    await patch('/api/buyer/notifications/$id/read',
+        body: const {}, authenticated: true);
+  }
+
+  Future<void> markAllBuyerNotificationsRead() async {
+    await patch('/api/buyer/notifications/read-all',
+        body: const {}, authenticated: true);
+  }
+
   Future<void> confirmOrderReceived(String id) async {
     await post(
       '/api/orders/$id/confirm-received',

@@ -12,6 +12,7 @@ use App\Models\ReturnShipment;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
+use App\Notifications\BuyerDeliveryMilestoneNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -471,6 +472,65 @@ class DeliveryWorkflowTest extends TestCase
             ->assertJsonPath('data.0.delivery_progress.status', Delivery::DELIVERED)
             ->assertJsonPath('data.0.seller.business_name', 'Seller Test Store')
             ->assertJsonPath('data.0.seller.email', $seller->email);
+    }
+
+    public function test_buyer_tracking_includes_safe_hub_event_context_without_internal_reasons(): void
+    {
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $order = $this->order(Delivery::AT_SORTING_CENTER, $buyer);
+        $hub = LogisticsHub::create(['name' => 'North Hub', 'code' => 'NORTH-01', 'is_active' => true]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::AT_SORTING_CENTER,
+            'current_hub_id' => $hub->id,
+        ]);
+        $delivery->events()->create([
+            'hub_id' => $hub->id,
+            'event_type' => 'hub_transfer_arrived',
+            'previous_status' => Delivery::AT_SORTING_CENTER,
+            'new_status' => Delivery::AT_SORTING_CENTER,
+            'reason' => 'Private transfer #123 and internal scan details.',
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($buyer, 'sanctum')->getJson("/api/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('data.delivery_progress.events.0.label', 'Arrived at a hub')
+            ->assertJsonPath('data.delivery_progress.events.0.description', 'Your parcel arrived at North Hub.')
+            ->assertJsonPath('data.delivery_progress.events.0.hub.name', 'North Hub')
+            ->assertJsonMissingPath('data.delivery_progress.events.0.reason')
+            ->assertJsonMissingPath('data.delivery_progress.events.0.actor_id');
+    }
+
+    public function test_buyer_delivery_notifications_are_readable_only_by_their_owner(): void
+    {
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $otherBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $order = $this->order(Delivery::PICKED_UP, $buyer);
+        $buyer->notify(new BuyerDeliveryMilestoneNotification([
+            'delivery_event_id' => 101,
+            'order_id' => $order->id,
+            'title' => 'Parcel picked up',
+            'body' => 'Your parcel has been picked up.',
+            'link' => "/orders/{$order->id}",
+        ]));
+        $notification = $buyer->notifications()->latest()->firstOrFail();
+
+        $this->actingAs($buyer, 'sanctum')->getJson('/api/buyer/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1)
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id)
+            ->assertJsonPath('data.notifications.0.data.title', 'Parcel picked up');
+        $this->actingAs($otherBuyer, 'sanctum')
+            ->patchJson("/api/buyer/notifications/{$notification->id}/read")
+            ->assertNotFound();
+
+        $this->actingAs($buyer, 'sanctum')
+            ->patchJson("/api/buyer/notifications/{$notification->id}/read")
+            ->assertOk();
+        $this->assertNotNull($notification->fresh()->read_at);
+        $this->patchJson('/api/buyer/notifications/read-all')->assertOk();
+        $this->getJson('/api/buyer/notifications')->assertJsonPath('data.unread_count', 0);
     }
 
     public function test_generic_admin_status_cannot_bypass_the_logistics_workflow(): void
