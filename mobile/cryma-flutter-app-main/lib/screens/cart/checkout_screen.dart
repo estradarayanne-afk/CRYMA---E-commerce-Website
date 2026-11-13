@@ -50,7 +50,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       });
     }
     try {
-      final cartItems = await CartStore.instance.items();
+      var cartItems = await CartStore.instance.items();
+      if (cartItems.isNotEmpty) {
+        final availability = await _api.getProductAvailability(
+          cartItems.map((item) => {
+            'product_id': int.tryParse(
+                (item['product_id'] ?? item['id']).toString()),
+            'variant_id': item['variant_id'],
+          }).toList(),
+        );
+        final stockByKey = <String, int>{
+          for (final row in availability)
+            '${row['product_id']}:${row['variant_id'] ?? ''}':
+                int.tryParse(row['stock']?.toString() ?? '') ?? 0,
+        };
+        if (stockByKey.length != cartItems.length) {
+          throw const ApiException(
+            'The stock check did not include every cart item.',
+          );
+        }
+        cartItems = cartItems.map((item) {
+          final productId = (item['product_id'] ?? item['id']).toString();
+          final variantId = item['variant_id']?.toString() ?? '';
+          final stock = stockByKey['$productId:$variantId'] ?? 0;
+          final quantity =
+              int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
+          return {
+            ...item,
+            'stock': stock,
+            'quantity': stock > 0 ? quantity.clamp(1, stock) : 0,
+            'selected': stock > 0 && (item['selected'] as bool? ?? true),
+          };
+        }).toList();
+        await CartStore.instance.save(cartItems);
+      }
       final checkoutData = await _api.getCheckoutData();
       final addresses = (checkoutData['addresses'] as List? ?? [])
           .whereType<Map<String, dynamic>>()
@@ -375,7 +408,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Payment: Cash on Delivery',
+              'Payment status: Due to the delivery rider when your parcel arrives.',
               style: TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 12,

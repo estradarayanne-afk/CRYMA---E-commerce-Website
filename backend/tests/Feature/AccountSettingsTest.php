@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\Address;
 use App\Models\Conversation;
+use App\Models\GeographicLocation;
 use App\Models\Message;
 use App\Models\Product;
 use App\Models\Order;
@@ -14,8 +15,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class AccountSettingsTest extends TestCase
@@ -114,7 +113,6 @@ class AccountSettingsTest extends TestCase
 
     public function test_buyer_can_manage_only_their_own_saved_addresses(): void
     {
-        $this->fakePhilippineAddressSource();
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $otherBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $otherAddress = Address::create([
@@ -127,7 +125,8 @@ class AccountSettingsTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.user_id', $buyer->id)
             ->assertJsonPath('data.is_default', true)
-            ->assertJsonPath('data.phone', '+639171234567');
+            ->assertJsonPath('data.phone', '+639171234567')
+            ->assertJsonPath('data.psgc_code', '0702215015');
 
         $ownAddress = Address::where('user_id', $buyer->id)->firstOrFail();
         $this->getJson('/api/buyer/addresses')
@@ -150,20 +149,19 @@ class AccountSettingsTest extends TestCase
 
     public function test_buyer_can_load_only_supported_philippine_address_option_paths(): void
     {
-        $this->fakePhilippineAddressSource();
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
 
         $this->actingAs($buyer, 'sanctum')
             ->getJson('/api/buyer/address-options?path=regions')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.0.name', 'Region VII');
+            ->assertJsonFragment(['code' => '0700000000', 'name' => 'Region VII (Central Visayas)']);
 
         $this->getJson(
             '/api/buyer/address-options?path='.urlencode('regions/0700000000/provinces')
         )
             ->assertOk()
-            ->assertJsonPath('data.0.name', 'Cebu');
+            ->assertJsonFragment(['code' => '0702200000', 'name' => 'Cebu']);
 
         $this->getJson(
             '/api/buyer/address-options?path='.urlencode(
@@ -171,7 +169,7 @@ class AccountSettingsTest extends TestCase
             )
         )
             ->assertOk()
-            ->assertJsonPath('data.0.name', 'Carmen');
+            ->assertJsonFragment(['code' => '0702215000', 'name' => 'Carmen']);
 
         $this->getJson(
             '/api/buyer/address-options?path='.urlencode(
@@ -179,7 +177,7 @@ class AccountSettingsTest extends TestCase
             )
         )
             ->assertOk()
-            ->assertJsonPath('data.0.name', 'Luyang');
+            ->assertJsonFragment(['code' => '0702215015', 'name' => 'Luyang']);
 
         $this->getJson(
             '/api/buyer/address-options?path='.urlencode('regions/070000000/provinces')
@@ -190,6 +188,52 @@ class AccountSettingsTest extends TestCase
         $this->getJson('/api/buyer/address-options?path=users')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['path']);
+    }
+
+    public function test_public_preloaded_directory_supports_all_regions_and_ncr_without_a_province(): void
+    {
+        $this->assertSame(43768, GeographicLocation::query()->count());
+        $this->assertSame(42010, GeographicLocation::query()->where('level', 'Bgy')->count());
+
+        $this->getJson('/api/philippine-address-options?path=regions')
+            ->assertOk()
+            ->assertJsonCount(18, 'data')
+            ->assertJsonFragment(['code' => '1800000000', 'name' => 'Negros Island Region (NIR)']);
+
+        $regionCode = '1300000000';
+        $this->getJson('/api/philippine-address-options?path=regions/'.$regionCode.'/provinces')
+            ->assertOk()
+            ->assertExactJson(['success' => true, 'data' => []]);
+        $this->getJson('/api/philippine-address-options?path=regions/'.$regionCode.'/cities-municipalities')
+            ->assertOk()
+            ->assertJsonFragment(['code' => '1380600000', 'name' => 'City of Manila']);
+
+        $barangays = $this->getJson('/api/philippine-address-options?path=regions/'.$regionCode.'/cities-municipalities/1380600000/barangays')
+            ->assertOk()
+            ->json('data');
+        $this->assertNotEmpty($barangays);
+        $this->assertContainsOnly('string', array_column($barangays, 'code'));
+        $this->assertSame(10, strlen($barangays[0]['code']));
+    }
+
+    public function test_buyer_can_save_an_ncr_address_with_a_psgc_barangay_code_and_no_province(): void
+    {
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $barangay = $this->getJson('/api/philippine-address-options?path=regions/1300000000/cities-municipalities/1380600000/barangays')
+            ->assertOk()
+            ->json('data.0');
+
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson('/api/buyer/addresses', $this->validAddressInput([
+                'region' => 'National Capital Region (NCR)',
+                'province' => '',
+                'municipality' => 'City of Manila',
+                'barangay' => $barangay['name'],
+                'psgc_code' => $barangay['code'],
+            ]))
+            ->assertCreated()
+            ->assertJsonPath('data.province', '')
+            ->assertJsonPath('data.psgc_code', $barangay['code']);
     }
 
     public function test_address_api_requires_complete_valid_locality_fields(): void
@@ -207,7 +251,6 @@ class AccountSettingsTest extends TestCase
 
     public function test_address_api_requires_house_number_street_and_postal_code(): void
     {
-        $this->fakePhilippineAddressSource();
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
 
         $this->actingAs($buyer, 'sanctum')
@@ -222,7 +265,6 @@ class AccountSettingsTest extends TestCase
 
     public function test_buyer_can_change_default_address_and_deleting_it_promotes_another(): void
     {
-        $this->fakePhilippineAddressSource();
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $this->actingAs($buyer, 'sanctum');
 
@@ -247,7 +289,6 @@ class AccountSettingsTest extends TestCase
 
     public function test_address_api_rejects_invalid_recipient_phone_and_hierarchical_location(): void
     {
-        $this->fakePhilippineAddressSource();
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
 
         $this->actingAs($buyer, 'sanctum')
@@ -264,7 +305,11 @@ class AccountSettingsTest extends TestCase
             ->assertJsonValidationErrors(['phone']);
 
         $this->postJson('/api/buyer/addresses', $this->validAddressInput([
+            'region' => 'National Capital Region (NCR)',
             'province' => 'Bohol',
+            'municipality' => 'City of Manila',
+            'barangay' => 'Barangay 1',
+            'psgc_code' => '1380601001',
         ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['province']);
@@ -513,7 +558,7 @@ class AccountSettingsTest extends TestCase
             'label' => 'home',
             'recipient_name' => "María-Joy O'Neil",
             'phone' => '0917-123-4567',
-            'region' => 'Region VII',
+            'region' => 'Region VII (Central Visayas)',
             'province' => 'Cebu',
             'municipality' => 'Carmen',
             'barangay' => 'Luyang',
@@ -525,26 +570,4 @@ class AccountSettingsTest extends TestCase
         ], $overrides);
     }
 
-    private function fakePhilippineAddressSource(): void
-    {
-        config(['cache.default' => 'array']);
-        Cache::store('array')->flush();
-        Http::fake([
-            'psgc.cloud/api/v2/regions' => Http::response([
-                'data' => [['name' => 'Region VII', 'code' => '0700000000']],
-            ]),
-            'psgc.cloud/api/v2/regions/0700000000/provinces' => Http::response([
-                'data' => [['name' => 'Cebu', 'code' => '0702200000']],
-            ]),
-            'psgc.cloud/api/v2/regions/0700000000/provinces/0702200000/cities-municipalities' => Http::response([
-                'data' => [['name' => 'Carmen', 'code' => '0702215000']],
-            ]),
-            'psgc.cloud/api/v2/regions/0700000000/provinces/0702200000/cities-municipalities/0702215000/barangays' => Http::response([
-                'data' => [
-                    ['name' => 'Luyang', 'code' => '0702215015'],
-                    ['name' => 'Poblacion', 'code' => '0702215001'],
-                ],
-            ]),
-        ]);
-    }
 }

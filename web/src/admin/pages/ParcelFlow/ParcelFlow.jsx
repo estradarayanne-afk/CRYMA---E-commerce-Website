@@ -21,6 +21,7 @@ export default function ParcelFlow({ base = "/admin" }) {
     const [choices, setChoices] = useState({});
     const [loading, setLoading] = useState(true);
     const [loaded, setLoaded] = useState(false);
+    const [activeSection, setActiveSection] = useState("network");
     const load = useCallback(async () => {
         setLoading(true);
         setError("");
@@ -120,13 +121,32 @@ export default function ParcelFlow({ base = "/admin" }) {
             </header>
             {error && <div className="lw-alert" role="alert">{error}</div>}
             {notice && <div className="lo-success" role="status">{notice}</div>}
-            {!loaded && loading ? <p className="lw-empty" role="status">Loading hub and delivery area records…</p> : loaded ? <HubAreaManagement base={base} data={data} busy={busy} run={run} /> : <p className="lw-empty">Hub and delivery area records are unavailable. Use Refresh to try again.</p>}
-            <section className="lo-parcel-section lo-return-queue">
+            <datalist id={`${base}-active-hubs`}>
+                {activeHubs.map((hub) => <option key={hub.id} value={`${hub.name} · ${hub.code}`} />)}
+            </datalist>
+            <datalist id={`${base}-active-areas`}>
+                {data.areas.filter((area) => area.is_active && area.hub_id).map((area) => (
+                    <option key={area.id} value={`${area.name} · ${area.hub?.name || "Hub unavailable"}`} />
+                ))}
+            </datalist>
+            <nav className="lo-parcel-tabs" aria-label="Parcel operations sections">
+                <button type="button" className={activeSection === "network" ? "is-current" : ""} aria-pressed={activeSection === "network"} onClick={() => setActiveSection("network")}>
+                    Network setup <span>{data.hubs.length.toLocaleString()}</span>
+                </button>
+                <button type="button" className={activeSection === "transfers" ? "is-current" : ""} aria-pressed={activeSection === "transfers"} onClick={() => setActiveSection("transfers")}>
+                    Hub transfers <span>{data.transfers.filter((transfer) => ["assigned", "in_transit"].includes(transfer.status)).length}</span>
+                </button>
+                <button type="button" className={activeSection === "returns" ? "is-current" : ""} aria-pressed={activeSection === "returns"} onClick={() => setActiveSection("returns")}>
+                    Returns <span>{data.returns.length}</span>
+                </button>
+            </nav>
+            {!loaded && loading ? <p className="lw-empty" role="status">Loading hub and delivery area records…</p> : loaded && activeSection === "network" ? <HubAreaManagement base={base} data={data} busy={busy} run={run} /> : !loaded ? <p className="lw-empty">Hub and delivery area records are unavailable. Use Refresh to try again.</p> : null}
+            {activeSection === "returns" && <section className="lo-parcel-section lo-return-queue">
                 <h2>Return parcels</h2>
                 <p>
-                    Approve a refund with return required, assign a pickup courier, receive the item
-                    at a hub, route it hub-to-hub if needed, then assign delivery to the seller.
-                    Record the refund only after seller receipt.
+                    Process refund returns and parcels returned after three unsuccessful delivery
+                    attempts. Receive parcels at a hub, route them hub-to-hub if needed, then assign
+                    delivery to the seller. Record refunds only after seller receipt.
                 </p>
                 {data.returns.length ? (
                     data.returns.map((r) => (
@@ -134,13 +154,14 @@ export default function ParcelFlow({ base = "/admin" }) {
                             <summary>
                                 <strong>Return #{r.id} · Order #{r.order_id}</strong>
                                 <span className="lo-return-status">{human(r.status)}</span>
-                                <small>{person(r.buyer)} · {r.current_hub?.name || "Not received at hub"}</small>
+                                <small>{r.return_type === "undeliverable" ? "Undeliverable parcel" : "Refund return"} · {person(r.buyer)} · {r.current_hub?.name || "Not received at hub"}</small>
                             </summary>
                             <div className="lo-return-item-body">
                             <p>
                                 Buyer: {person(r.buyer)} · Seller: {person(r.seller)} · Hub:{" "}
                                 {r.current_hub?.name || "Not received"}
                             </p>
+                            {r.return_type === "undeliverable" && <p>Return reason: {r.return_reason || "Three unsuccessful delivery attempts"}</p>}
                             {r.status === "awaiting_pickup" && (
                                 <div>
                                     <select
@@ -164,22 +185,16 @@ export default function ParcelFlow({ base = "/admin" }) {
                             )}
                             {r.status === "picked_up" && (
                                 <div>
-                                    <select
-                                        value={choices[`hub-${r.id}`] || ""}
-                                        onChange={(e) =>
-                                            setChoices({
-                                                ...choices,
-                                                [`hub-${r.id}`]: e.target.value,
-                                            })
-                                        }
-                                    >
-                                        <option value="">Choose an active hub</option>
-                                        {activeHubs.map((h) => (
-                                            <option key={h.id} value={h.id}>
-                                                {h.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <input
+                                        list={`${base}-active-hubs`}
+                                        aria-label={`Choose a hub to receive return ${r.id}`}
+                                        placeholder="Search hub by LGU or code"
+                                        value={activeHubs.find((hub) => String(hub.id) === String(choices[`hub-${r.id}`])) ? `${activeHubs.find((hub) => String(hub.id) === String(choices[`hub-${r.id}`])).name} · ${activeHubs.find((hub) => String(hub.id) === String(choices[`hub-${r.id}`])).code}` : ""}
+                                        onChange={(event) => {
+                                            const selectedHub = activeHubs.find((hub) => `${hub.name} · ${hub.code}` === event.target.value);
+                                            setChoices({ ...choices, [`hub-${r.id}`]: selectedHub?.id || "" });
+                                        }}
+                                    />
                                     <button disabled={busy} onClick={() => void receive(r)}>
                                         Confirm hub receipt
                                     </button>
@@ -215,8 +230,8 @@ export default function ParcelFlow({ base = "/admin" }) {
                 ) : (
                     <p className="lo-parcel-empty">No approved returns requiring parcel movement.</p>
                 )}
-            </section>
-            <section className="lo-parcel-section lo-transfer-queue">
+            </section>}
+            {activeSection === "transfers" && <section className="lo-parcel-section lo-transfer-queue">
                 <h2>Hub-to-hub transfers</h2>
                 <p>Prepare delivery transfers using an explicit area-to-hub mapping. Logistics confirms departure; destination receipt remains pending until the existing QR flow succeeds.</p>
                 {data.deliveries.map((d) => (
@@ -227,16 +242,25 @@ export default function ParcelFlow({ base = "/admin" }) {
                             <strong>Order #{d.order_id} · {human(d.status)}</strong><br />
                             Current hub: {d.current_hub?.name || "Unknown hub"} · Area: {d.delivery_area?.name || "Choose intended area"}
                         </span>
-                        <select
+                        <input
+                            list={`${base}-active-areas`}
                             aria-label={`Destination delivery area for order ${d.order_id}`}
-                            value={choices[`area-delivery-${d.id}`] || ""}
-                            onChange={(e) => setChoices({ ...choices, [`area-delivery-${d.id}`]: e.target.value, [`to-delivery-${d.id}`]: "" })}
-                        >
-                            <option value="">Choose active destination area</option>
-                            {data.areas.filter((area) => area.is_active && area.hub_id && Number(area.hub_id) !== Number(d.current_hub_id)).map((area) => (
-                                <option key={area.id} value={area.id}>{area.name} · {area.hub?.name || "Mapped hub unavailable"}</option>
-                            ))}
-                        </select>
+                            placeholder="Search destination LGU"
+                            value={(() => {
+                                const selectedArea = data.areas.find((area) => String(area.id) === String(choices[`area-delivery-${d.id}`]));
+                                return selectedArea ? `${selectedArea.name} · ${selectedArea.hub?.name || "Hub unavailable"}` : "";
+                            })()}
+                            onChange={(event) => {
+                                const selectedArea = data.areas.find((area) => area.is_active && area.hub_id
+                                    && Number(area.hub_id) !== Number(d.current_hub_id)
+                                    && `${area.name} · ${area.hub?.name || "Hub unavailable"}` === event.target.value);
+                                setChoices({
+                                    ...choices,
+                                    [`area-delivery-${d.id}`]: selectedArea?.id || "",
+                                    [`to-delivery-${d.id}`]: selectedArea?.hub_id || "",
+                                });
+                            }}
+                        />
                         <select
                             aria-label={`Destination hub for order ${d.order_id}`}
                             value={choices[`to-delivery-${d.id}`] || ""}
@@ -361,7 +385,7 @@ export default function ParcelFlow({ base = "/admin" }) {
                         {canDispatchReturnTransfer(t, base) && <button type="button" disabled={busy} onClick={() => void run(() => api.patch(`${base}/hub-transfers/${t.id}/dispatch`), `Return transfer #${t.id} departure recorded.`)}>Dispatch return transfer</button>}
                     </article>
                 ))}
-            </section>
+            </section>}
         </main>
     );
 }

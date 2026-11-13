@@ -155,7 +155,7 @@ function Home() {
 
             try {
                 const response = await api.get(
-                    "/products?per_page=8",
+                    "/products?per_page=8&sort=randomized",
                     {
                         signal: controller.signal,
                     }
@@ -166,6 +166,13 @@ function Home() {
                 }
 
                 const items = getProductList(response?.data);
+                if (items.length) {
+                    api.post("/products/impressions", {
+                        product_ids: items.map((item) => Number(item.id)),
+                    }).catch((trackingError) => {
+                        console.warn("Unable to record product exposure:", trackingError);
+                    });
+                }
 
                 setProducts(
                     items.map(normalizeProduct)

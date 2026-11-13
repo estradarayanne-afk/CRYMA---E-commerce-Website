@@ -53,6 +53,25 @@ ApiService _apiWith(
       }),
     );
 
+Map<String, dynamic> _notificationsResponse() => {
+      'success': true,
+      'data': {
+        'notifications': [
+          {
+            'id': 'notification-42',
+            'read_at': null,
+            'created_at': '2026-11-08T08:42:00.000000Z',
+            'data': {
+              'order_id': 42,
+              'title': 'Parcel delivered',
+              'body': 'Your parcel has been marked as delivered.',
+            },
+          },
+        ],
+        'unread_count': 1,
+      },
+    };
+
 Future<void> _setAuthenticatedPreferences() async {
   SharedPreferences.setMockInitialValues({
     'cryma_api_token': 'qa-token',
@@ -62,20 +81,24 @@ Future<void> _setAuthenticatedPreferences() async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Order Activity uses the refreshed order summary layout',
+  testWidgets('Delivery updates show buyer-specific parcel notifications',
       (tester) async {
     await _setAuthenticatedPreferences();
-    final api = _apiWith(_ordersResponse('delivered'));
+    final api = _apiWith(
+      _notificationsResponse(),
+      path: '/api/buyer/notifications',
+    );
 
     await tester.pumpWidget(
       MaterialApp(home: NotificationScreen(apiService: api)),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Order Activity'), findsOneWidget);
-    expect(find.text('Order #42'), findsOneWidget);
-    expect(find.text('Everyday Tote'), findsOneWidget);
-    expect(find.text('Delivered'), findsOneWidget);
+    expect(find.text('Delivery updates'), findsOneWidget);
+    expect(find.text('Parcel delivered'), findsOneWidget);
+    expect(
+        find.text('Your parcel has been marked as delivered.'), findsOneWidget);
+    expect(find.textContaining('Order #42'), findsOneWidget);
   });
 
   testWidgets('My Reviews shows completed orders in polished review cards',

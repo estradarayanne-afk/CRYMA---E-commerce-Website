@@ -32,6 +32,23 @@ void main() {
               'id': 42,
               'status': 'pending',
               'created_at': '2026-11-08T07:42:00.000000Z',
+              'delivery_estimate': {
+                'from': '2026-11-10',
+                'to': '2026-11-13',
+                'min_days': 2,
+                'max_days': 5,
+              },
+              'delivery_progress': {
+                'events': [
+                  {
+                    'event_type': 'hub_transfer_arrived',
+                    'label': 'Arrived at a hub',
+                    'description': 'Your parcel arrived at North Hub.',
+                    'hub': {'name': 'North Hub', 'code': 'NORTH-01'},
+                    'created_at': '2026-11-09T07:42:00.000000Z',
+                  },
+                ],
+              },
               'payment_method': 'cash_on_delivery',
               'total_amount': '450.00',
               'delivery_address': 'Quezon City',
@@ -72,5 +89,10 @@ void main() {
     expect(find.text('Qty 2'), findsOneWidget);
     expect(find.text('Contact seller'), findsOneWidget);
     expect(find.text('Cancel order'), findsOneWidget);
+    expect(find.text('ESTIMATED ARRIVAL'), findsOneWidget);
+    expect(find.text('Nov 10, 2026 – Nov 13, 2026'), findsOneWidget);
+    expect(find.text('Arrived at a hub'), findsOneWidget);
+    expect(find.text('Your parcel arrived at North Hub. · Hub NORTH-01'),
+        findsOneWidget);
   });
 }

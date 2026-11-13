@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Courier;
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\Order;
+use App\Models\ReturnShipment;
 use App\Models\User;
 use App\Services\CourierEligibility;
 use App\Support\OrderDeliveryProjection;
@@ -43,6 +44,15 @@ class DeliveryController extends Controller
             'order_id' => $delivery->order_id,
             'parcel_code' => $delivery->parcel_code,
             'status' => $delivery->status,
+            'delivery_attempts' => $delivery->events
+                ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts'])
+                ->count(),
+            'max_delivery_attempts' => Delivery::MAX_DELIVERY_ATTEMPTS,
+            'return_shipment' => $delivery->returnShipment ? [
+                'id' => $delivery->returnShipment->id,
+                'status' => $delivery->returnShipment->status,
+                'return_type' => $delivery->returnShipment->return_type,
+            ] : null,
             'assigned_at' => $delivery->assigned_at,
             'delivery_picked_up_at' => $delivery->delivery_picked_up_at,
             'delivered_at' => $delivery->delivered_at,
@@ -151,25 +161,56 @@ class DeliveryController extends Controller
             }
 
             $previousStatus = $delivery->status;
-            $changes = ['status' => $next, 'failure_reason' => $next === Delivery::FAILED ? $reason : null];
+            $failedAttempts = $delivery->events()
+                ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts'])
+                ->count();
+            $returnToSeller = $next === Delivery::FAILED
+                && $failedAttempts + 1 >= Delivery::MAX_DELIVERY_ATTEMPTS;
+            $resultingStatus = $returnToSeller ? Delivery::RETURNED : $next;
+            $changes = ['status' => $resultingStatus, 'failure_reason' => $next === Delivery::FAILED ? $reason : null];
             if ($next === Delivery::OUT_FOR_DELIVERY) $changes['delivery_picked_up_at'] = now();
             if ($next === Delivery::DELIVERED) $changes['delivered_at'] = now();
             $delivery->update($changes);
-            $order->update(['status' => $next]);
             OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $request->user()->id,
-                'event_type' => $next === Delivery::FAILED ? 'failed' : ($next === Delivery::OUT_FOR_DELIVERY ? 'delivery_collected_from_sorting_center' : 'status_changed'),
+                'event_type' => $returnToSeller
+                    ? 'returned_after_max_delivery_attempts'
+                    : ($next === Delivery::FAILED ? 'failed' : ($next === Delivery::OUT_FOR_DELIVERY ? 'delivery_collected_from_sorting_center' : 'status_changed')),
                 'previous_status' => $previousStatus,
-                'new_status' => $next,
+                'new_status' => $resultingStatus,
                 'previous_courier_profile_id' => $profile->id,
                 'courier_profile_id' => $profile->id,
                 'reason' => $reason,
             ]);
+            if ($returnToSeller) {
+                $sellerId = $order->items()->whereNotNull('seller_id')->value('seller_id');
+                abort_unless($sellerId, 409, 'The seller for this order could not be determined; contact logistics support.');
+                ReturnShipment::firstOrCreate(
+                    ['delivery_id' => $delivery->id],
+                    [
+                        'refund_request_id' => null,
+                        'return_type' => 'undeliverable',
+                        'return_reason' => $reason,
+                        'order_id' => $order->id,
+                        'buyer_id' => $order->buyer_id,
+                        'seller_id' => $sellerId,
+                        'pickup_courier_profile_id' => $profile->id,
+                        'status' => 'picked_up',
+                        'picked_up_at' => now(),
+                        'note' => 'Parcel remains in the final-mile courier custody after three unsuccessful delivery attempts.',
+                    ],
+                );
+            }
+            $order->update(['status' => $resultingStatus]);
 
             return $delivery->load(['order.items.product:id,name,image,weight_kg', 'events']);
         });
 
         $result->load(['order.items.product:id,name,image,weight_kg', 'deliveryArea:id,name', 'events']);
-        return response()->json(['success' => true, 'message' => 'Delivery status updated.', 'data' => $this->parcelData($result)]);
+        $message = $result->status === Delivery::RETURNED
+            ? 'Three delivery attempts were unsuccessful. The parcel is being returned to the seller.'
+            : 'Delivery status updated.';
+
+        return response()->json(['success' => true, 'message' => $message, 'data' => $this->parcelData($result)]);
     }
 }

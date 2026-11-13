@@ -6,6 +6,7 @@ import '../../../utils/auth_widgets.dart';
 import '../../../utils/buyer_registration.dart';
 import '../../../utils/colors.dart';
 import '../../../utils/philippine_postal_code_lookup.dart';
+import '../../../services/api_service.dart';
 
 // ============================================================
 // 📍 MOCK DATA - PHILIPPINES (walang binago)
@@ -439,10 +440,10 @@ class _RegisterAddressScreenState extends State<RegisterAddressScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchOptions(String path) async {
-    final response = await http.get(Uri.parse('$_psgcRoot/$path'),
-        headers: const {
-          'Accept': 'application/json'
-        }).timeout(const Duration(seconds: 12));
+    final response = await ApiService.trackRequest(() => http.get(
+          Uri.parse('$_psgcRoot/$path'),
+          headers: const {'Accept': 'application/json'},
+        ).timeout(const Duration(seconds: 12)));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw const FormatException(
           'Philippine address options are unavailable. Please try again.');

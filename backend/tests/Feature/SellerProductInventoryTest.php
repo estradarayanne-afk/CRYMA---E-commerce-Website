@@ -357,6 +357,49 @@ class SellerProductInventoryTest extends TestCase
             ->assertJsonCount(12, 'data.data');
     }
 
+    public function test_public_randomized_product_pages_keep_a_stable_daily_order(): void
+    {
+        $seller = $this->seller();
+        $products = [];
+        for ($index = 1; $index <= 9; $index++) {
+            $products[] = $this->createProduct($seller, [
+                'name' => "Daily mix product {$index}",
+                'review_status' => 'approved',
+            ]);
+        }
+
+        $firstPage = $this->getJson('/api/products?category=Pet%20Supplies&sort=randomized&per_page=4')
+            ->assertOk();
+        $shuffleDay = $firstPage->json('data.shuffle_day');
+        $this->assertIsString($shuffleDay);
+        $firstIds = collect($firstPage->json('data.data'))->pluck('id')->all();
+        $this->assertSame(
+            $firstIds,
+            collect($this->getJson("/api/products?category=Pet%20Supplies&sort=randomized&per_page=4&shuffle_day={$shuffleDay}")
+                ->assertOk()
+                ->json('data.data'))->pluck('id')->all()
+        );
+
+        $secondPage = $this->getJson("/api/products?category=Pet%20Supplies&sort=randomized&per_page=4&page=2&shuffle_day={$shuffleDay}")
+            ->assertOk()
+            ->assertJsonPath('data.shuffle_day', $shuffleDay);
+        $secondIds = collect($secondPage->json('data.data'))->pluck('id')->all();
+        $this->assertSame([], array_values(array_intersect($firstIds, $secondIds)));
+
+        $newestIds = collect($this->getJson('/api/products?category=Pet%20Supplies&sort=newest&per_page=9')
+            ->assertOk()
+            ->json('data.data'))->pluck('id')->all();
+        $this->assertNotSame($newestIds, array_merge($firstIds, $secondIds, collect(
+            $this->getJson("/api/products?category=Pet%20Supplies&sort=randomized&per_page=4&page=3&shuffle_day={$shuffleDay}")
+                ->assertOk()
+                ->json('data.data')
+        )->pluck('id')->all()));
+
+        $this->getJson('/api/products?sort=randomized&shuffle_day=not-a-date')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['shuffle_day']);
+    }
+
     private function createProduct(User $seller, array $overrides = []): Product
     {
         return Product::create(array_merge([

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/api_service.dart';
 import '../../services/cart_store.dart';
 import '../../utils/colors.dart';
 
@@ -43,6 +44,8 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   List<CartItem> _cartItems = [];
+  bool _stockCheckLoading = false;
+  String? _stockCheckError;
 
   @override
   void initState() {
@@ -52,9 +55,58 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _loadCart() async {
     final stored = await CartStore.instance.items();
+    var refreshed = stored;
+    String? stockError;
+    if (stored.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _stockCheckLoading = true;
+          _stockCheckError = null;
+        });
+      }
+      try {
+        final requestItems = stored.map((item) => {
+              'product_id': int.tryParse(
+                  (item['product_id'] ?? item['id']).toString()),
+              'variant_id': item['variant_id'],
+            }).toList();
+        if (requestItems.any((item) => item['product_id'] == null)) {
+          throw const ApiException('A cart product has an invalid identifier.');
+        }
+        final availability =
+            await ApiService.instance.getProductAvailability(requestItems);
+        final stockByKey = <String, int>{};
+        for (final row in availability) {
+          stockByKey[
+              '${row['product_id']}:${row['variant_id'] ?? ''}'] =
+              (int.tryParse(row['stock']?.toString() ?? '') ?? 0);
+        }
+        if (stockByKey.length != requestItems.length) {
+          throw const ApiException('The stock check did not include every cart item.');
+        }
+        refreshed = stored.map((item) {
+          final productId = (item['product_id'] ?? item['id']).toString();
+          final variantId = item['variant_id']?.toString() ?? '';
+          final stock = stockByKey['$productId:$variantId'] ?? 0;
+          final quantity =
+              int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
+          return {
+            ...item,
+            'stock': stock,
+            'quantity': stock > 0 ? quantity.clamp(1, stock) : 0,
+            'selected': stock > 0 && (item['selected'] as bool? ?? true),
+          };
+        }).toList();
+        await CartStore.instance.save(refreshed);
+      } on ApiException catch (error) {
+        stockError = error.message;
+      }
+    }
     if (!mounted) return;
     setState(() {
-      _cartItems = stored.map((item) {
+      _stockCheckLoading = false;
+      _stockCheckError = stockError;
+      _cartItems = refreshed.map((item) {
         // Reconstruct a human-readable variant label from available fields.
         final color = item['color']?.toString() ?? '';
         final variantLabel = item['variant_label']?.toString() ??
@@ -81,6 +133,11 @@ class _CartScreenState extends State<CartScreen> {
         );
       }).toList();
     });
+    if (stockError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(stockError)),
+      );
+    }
   }
 
   Future<void> _persistCart() async {
@@ -609,16 +666,24 @@ class _CartScreenState extends State<CartScreen> {
             width: double.infinity,
             height: 50,
             child: FilledButton(
-              onPressed: hasSelection
-                  ? () => Navigator.pushNamed(context, '/checkout')
-                  : null,
+              onPressed: !_stockCheckLoading && _stockCheckError != null
+                  ? _loadCart
+                  : hasSelection && !_stockCheckLoading
+                      ? () => Navigator.pushNamed(context, '/checkout')
+                      : null,
               style: FilledButton.styleFrom(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 disabledBackgroundColor: AppColors.borderNeutral,
               ),
               child: Text(
-                hasSelection ? 'Checkout ($_totalQty)' : 'No items selected',
+                _stockCheckLoading
+                    ? 'Checking stock...'
+                    : _stockCheckError != null
+                        ? 'Retry stock check'
+                        : hasSelection
+                            ? 'Checkout ($_totalQty)'
+                            : 'No items selected',
                 style: TextStyle(
                   fontFamily: 'Poppins',
                   fontSize: 15,

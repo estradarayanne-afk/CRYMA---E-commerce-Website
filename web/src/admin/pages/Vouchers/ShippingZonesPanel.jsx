@@ -12,6 +12,8 @@ const EMPTY_RATE = {
     min_weight_kg: "0",
     max_weight_kg: "1",
     fee: "",
+    min_delivery_days: "3",
+    max_delivery_days: "7",
     volumetric_divisor_cm3_per_kg: "",
     is_provisional: false,
     is_active: false,
@@ -34,22 +36,42 @@ function ShippingZonesPanel() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
+    const requestZones = useCallback(async () => {
+        const response = await api.get("/admin/shipping-zones");
+        return Array.isArray(response.data?.data) ? response.data.data : [];
+    }, []);
+
     const loadZones = useCallback(async () => {
-        setLoading(true);
-        setError("");
         try {
-            const response = await api.get("/admin/shipping-zones");
-            setZones(Array.isArray(response.data?.data) ? response.data.data : []);
+            setZones(await requestZones());
         } catch (requestError) {
             setError(requestError.response?.data?.message || "Unable to load shipping zones.");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [requestZones]);
 
     useEffect(() => {
-        void loadZones();
-    }, [loadZones]);
+        let cancelled = false;
+        requestZones().then(
+            (loadedZones) => {
+                if (!cancelled) {
+                    setZones(loadedZones);
+                    setLoading(false);
+                }
+            },
+            (requestError) => {
+                if (!cancelled) {
+                    setError(requestError.response?.data?.message || "Unable to load shipping zones.");
+                    setLoading(false);
+                }
+            },
+        );
+
+        return () => {
+            cancelled = true;
+        };
+    }, [requestZones]);
 
     const saveZone = async (event) => {
         event.preventDefault();
@@ -162,6 +184,8 @@ function ShippingZonesPanel() {
         rate.min_weight_kg,
         rate.max_weight_kg,
         rate.fee,
+        rate.min_delivery_days,
+        rate.max_delivery_days,
     ].some((value) => String(value).toLowerCase().includes(normalizedRateSearch)));
     const ratePageCount = Math.max(1, Math.ceil(matchingRates.length / 5));
     const visibleRates = matchingRates.slice((ratePage - 1) * 5, ratePage * 5);
@@ -177,6 +201,8 @@ function ShippingZonesPanel() {
             min_weight_kg: String(rate.min_weight_kg),
             max_weight_kg: String(rate.max_weight_kg),
             fee: String(rate.fee),
+            min_delivery_days: String(rate.min_delivery_days ?? 3),
+            max_delivery_days: String(rate.max_delivery_days ?? 7),
             volumetric_divisor_cm3_per_kg: rate.volumetric_divisor_cm3_per_kg == null ? "" : String(rate.volumetric_divisor_cm3_per_kg),
             is_provisional: Boolean(rate.is_provisional),
             is_active: Boolean(rate.is_active),
@@ -250,6 +276,15 @@ function ShippingZonesPanel() {
             <label className="voucher-form-field">
                 <span>Fee (₱)</span>
                 <input required type="number" min="0.01" step="0.01" value={rateForm.fee} onChange={(event) => setRateForm((current) => ({ ...current, fee: event.target.value }))} />
+            </label>
+            <label className="voucher-form-field">
+                <span>Minimum delivery time (business days)</span>
+                <input required type="number" min="1" max="60" step="1" value={rateForm.min_delivery_days} onChange={(event) => setRateForm((current) => ({ ...current, min_delivery_days: event.target.value }))} />
+            </label>
+            <label className="voucher-form-field">
+                <span>Maximum delivery time (business days)</span>
+                <input required type="number" min={rateForm.min_delivery_days} max="60" step="1" value={rateForm.max_delivery_days} onChange={(event) => setRateForm((current) => ({ ...current, max_delivery_days: event.target.value }))} />
+                <small>Buyers see this route-specific estimated arrival window. Actual delivery may vary.</small>
             </label>
             <label className="voucher-form-field">
                 <span>Volumetric divisor <em>Optional</em></span>
@@ -412,7 +447,7 @@ function ShippingZonesPanel() {
                     ) : (
                         <div className="voucher-table-scroll">
                             <table className="voucher-table shipping-rate-table">
-                                <thead><tr><th>Route</th><th>Weight band</th><th>Provider</th><th>Fee</th><th>Rate type</th><th>Status</th><th>Actions</th></tr></thead>
+                                <thead><tr><th>Route</th><th>Weight band</th><th>Provider</th><th>Fee</th><th>Estimated delivery</th><th>Rate type</th><th>Status</th><th>Actions</th></tr></thead>
                                 <tbody>
                                     {visibleRates.map((rate) => (
                                         <tr key={rate.id}>
@@ -420,6 +455,7 @@ function ShippingZonesPanel() {
                                             <td>{rate.min_weight_kg}–{rate.max_weight_kg} kg</td>
                                             <td>{rate.provider}</td>
                                             <td>₱{Number(rate.fee).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                                            <td>{rate.min_delivery_days}–{rate.max_delivery_days} business days</td>
                                             <td><span className={`voucher-status ${rate.rate_source === "cryma" || !rate.is_provisional ? "status-active" : "status-scheduled"}`}>{rate.rate_source === "cryma" ? "CRYMA MANAGED" : rate.is_provisional ? "UNVERIFIED COURIER" : "VERIFIED COURIER"}</span></td>
                                             <td><span className={`voucher-status ${rate.is_active ? "status-active" : "status-disabled"}`}>{rate.is_active ? "Active" : "Disabled"}</span></td>
                                             <td><div className="voucher-row-actions">

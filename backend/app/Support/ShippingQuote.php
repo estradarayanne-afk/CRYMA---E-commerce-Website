@@ -116,6 +116,8 @@ class ShippingQuote
                     : number_format($volumetricWeight, 3, '.', ''),
                 'billable_weight_kg' => number_format($billableWeight, 3, '.', ''),
                 'shipping_fee' => $this->formatCents($feeCents),
+                'min_delivery_days' => $rate->min_delivery_days,
+                'max_delivery_days' => $rate->max_delivery_days,
                 'is_provisional' => $rate->is_provisional,
                 'rate_id' => $rate->id,
             ];
@@ -130,16 +132,19 @@ class ShippingQuote
 
     private function zoneForRegion(string $region): ?ShippingZone
     {
-        $normalizedRegion = mb_strtolower(trim($region));
-        $regionAlias = preg_match('/\(([^)]+)\)\s*$/u', trim($region), $matches)
-            ? mb_strtolower(trim($matches[1]))
-            : null;
+        $trimmedRegion = trim($region);
+        $regionNames = [mb_strtolower($trimmedRegion)];
+        if (preg_match('/\(([^()]*)\)\s*$/u', $trimmedRegion, $matches)) {
+            $regionNames[] = mb_strtolower(trim($matches[1]));
+            $regionNames[] = mb_strtolower(trim(preg_replace('/\s*\([^()]*\)\s*$/u', '', $trimmedRegion)));
+        }
 
         return ShippingZone::query()
             ->whereHas('regions', fn (Builder $query) => $query
-                ->whereRaw('LOWER(TRIM(region_name)) = ?', [$normalizedRegion])
-                ->when($regionAlias !== null, fn (Builder $regions) => $regions
-                    ->orWhereRaw('LOWER(TRIM(region_name)) = ?', [$regionAlias]))
+                ->whereRaw(
+                    'LOWER(TRIM(region_name)) IN ('.implode(',', array_fill(0, count($regionNames), '?')).')',
+                    $regionNames,
+                )
             )
             ->first();
     }

@@ -10,6 +10,7 @@ use App\Models\LogisticsProfile;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\UserDocument;
+use App\Support\PhilippineGeography;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class RegistrationController extends Controller
     /**
      * Register a new buyer, seller, or courier.
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, PhilippineGeography $geography): JsonResponse
     {
         if (is_string($request->input('email'))) {
             $request->merge(['email' => mb_strtolower(trim($request->input('email')))]);
@@ -98,9 +99,10 @@ class RegistrationController extends Controller
              * Address
              */
             'region' => ['required', 'string', 'max:100'],
-            'province' => ['required', 'string', 'max:150'],
+            'province' => ['nullable', 'string', 'max:150'],
             'municipality' => ['required', 'string', 'max:150'],
             'barangay' => ['required', 'string', 'max:150'],
+            'psgc_code' => ['nullable', 'string', 'regex:/\A[0-9]{10}\z/'],
 
             'street' => ['required', 'string', 'max:100'],
             'house_number' => ['required', 'string', 'max:20'],
@@ -192,6 +194,8 @@ class RegistrationController extends Controller
                 'max:5120',
             ],
         ]);
+        $validated['province'] = trim((string) ($validated['province'] ?? ''));
+        $validated['psgc_code'] = $geography->validateAddress($validated);
 
         $otp = (string) random_int(100000, 999999);
 
@@ -236,6 +240,7 @@ class RegistrationController extends Controller
                     'province' => $validated['province'],
                     'municipality' => $validated['municipality'],
                     'barangay' => $validated['barangay'],
+                    'psgc_code' => $validated['psgc_code'],
                     'street' => $validated['street'] ?? null,
                     'house_number' => $validated['house_number'] ?? null,
                     'building_name' => $validated['building_name'] ?? null,

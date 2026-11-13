@@ -20,6 +20,7 @@ class Address extends Model
         'province',
         'municipality',
         'barangay',
+        'psgc_code',
         'street',
         'house_number',
         'building_name',
@@ -40,5 +41,10 @@ class Address extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function geographicLocation(): BelongsTo
+    {
+        return $this->belongsTo(GeographicLocation::class, 'psgc_code', 'code');
     }
 }

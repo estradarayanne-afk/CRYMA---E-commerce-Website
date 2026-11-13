@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/buyer_category.dart';
@@ -46,6 +48,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   List<Map<String, dynamic>> _results = [];
   String? _selectedCategory;
   String _sortOrder = 'Newest';
+  String? _shuffleDay;
   bool _loading = true;
   bool _loadingMore = false;
   bool _inStockOnly = false;
@@ -66,6 +69,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   void initState() {
     super.initState();
     _searchQuery = widget.searchQuery ?? '';
+    if (_searchQuery.isEmpty) _sortOrder = 'Recommended';
     _searchController = TextEditingController(text: _searchQuery);
     _selectedCategory = widget.category;
     _scrollController = ScrollController()..addListener(_onScroll);
@@ -142,25 +146,40 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       _error = null;
     });
     try {
+      final sortOrder = switch (_sortOrder) {
+        'Recommended' when _searchQuery.isEmpty => 'randomized',
+        'Price: low to high' => 'price-low',
+        'Price: high to low' => 'price-high',
+        _ => 'newest',
+      };
       final page = await ApiService.instance.getProductsPage(
         search: _searchQuery.isEmpty ? null : _searchQuery,
         category: _selectedCategory,
         minPrice: _minPrice,
         maxPrice: _maxPrice,
         inStockOnly: _inStockOnly,
-        sort: switch (_sortOrder) {
-          'Price: low to high' => 'price-low',
-          'Price: high to low' => 'price-high',
-          _ => 'newest',
-        },
+        sort: sortOrder,
+        shuffleDay: append ? _shuffleDay : null,
         page: append ? _page + 1 : 1,
       );
+      if (sortOrder == 'randomized' && page.items.isNotEmpty) {
+        unawaited(ApiService.instance
+            .recordProductImpressions(
+                page.items.map((item) => item['id'].toString()).toList())
+            .then(
+              (_) {},
+              onError: (Object error, StackTrace stackTrace) {
+                debugPrint('Unable to record product exposure: $error');
+              },
+            ));
+      }
       if (!mounted) return;
       setState(() {
         if (append) {
           _results.addAll(page.items);
         } else {
           _results = page.items;
+          _shuffleDay = page.shuffleDay;
         }
         _page = page.currentPage;
         _lastPage = page.lastPage;
@@ -525,6 +544,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               ),
             ),
             for (final option in [
+              'Recommended',
               'Newest',
               'Price: low to high',
               'Price: high to low',

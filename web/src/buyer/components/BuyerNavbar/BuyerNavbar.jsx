@@ -42,26 +42,6 @@ function getCartCount() {
     return getBuyerCart().reduce((total, item) => total + Number(item.quantity || 1), 0);
 }
 
-function getNotificationReadAt(userId) {
-    try {
-        const value = localStorage.getItem(`cryma_order_activity_read_at:${userId}`);
-        return value ? new Date(value).getTime() || 0 : 0;
-    } catch {
-        return 0;
-    }
-}
-
-function getOrderActivity(orders) {
-    return (Array.isArray(orders) ? orders : []).flatMap((order) =>
-        (Array.isArray(order.delivery_progress?.events) ? order.delivery_progress.events : []).map((event, index) => {
-            const createdAt = event.created_at ? new Date(event.created_at).getTime() : 0;
-            const label = String(event.new_status || event.event_type || "Order updated")
-                .replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-            return { id: `${order.id}:${event.created_at || index}:${label}`, orderId: order.id, label, createdAt };
-        })
-    ).filter((item) => item.createdAt > 0).sort((a, b) => b.createdAt - a.createdAt).slice(0, 12);
-}
-
 function isAvailableCartItem(item) {
     if (item?.stock === null || item?.stock === undefined || item.stock === "") return true;
     const stock = Number(item.stock);
@@ -87,10 +67,11 @@ function BuyerNavbar() {
     const [accountOpen, setAccountOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
     const [orderActivity, setOrderActivity] = useState([]);
+    const notificationsLoadedRef = useRef(false);
+    const [unreadActivityCount, setUnreadActivityCount] = useState(0);
     const [activityLoading, setActivityLoading] = useState(false);
     const [activityError, setActivityError] = useState("");
     const [activityRefresh, setActivityRefresh] = useState(0);
-    const [activityReadAt, setActivityReadAt] = useState(() => getNotificationReadAt(getStoredUser()?.id));
     const [messagesOpen, setMessagesOpen] = useState(false);
     const [chatLoading, setChatLoading] = useState(false);
     const [chatError, setChatError] = useState("");
@@ -141,7 +122,11 @@ function BuyerNavbar() {
         const updateUser = () => {
             const nextUser = getStoredUser();
             setUser(nextUser);
-            setActivityReadAt(getNotificationReadAt(nextUser?.id));
+            if (nextUser?.role !== "buyer") {
+                notificationsLoadedRef.current = false;
+                setOrderActivity([]);
+                setUnreadActivityCount(0);
+            }
         };
 
         window.addEventListener("cryma-cart-updated", updateCart);
@@ -160,26 +145,30 @@ function BuyerNavbar() {
     }, []);
 
     useEffect(() => {
-        if (!notificationOpen || !isBuyerSession()) return undefined;
+        if (!isBuyerSession()) return undefined;
         let cancelled = false;
-        const timeoutId = window.setTimeout(() => {
-            setActivityLoading(true);
+        const loadNotifications = () => {
+            if (notificationOpen || !notificationsLoadedRef.current) setActivityLoading(true);
             setActivityError("");
-            api.get("/orders", { params: { sort: "newest", per_page: 10 } })
+            api.get("/buyer/notifications")
                 .then(({ data }) => {
                     if (cancelled) return;
-                    const orders = data?.data?.data ?? data?.data ?? [];
-                    setOrderActivity(getOrderActivity(orders));
+                    const notifications = data?.data?.notifications;
+                    setOrderActivity(Array.isArray(notifications) ? notifications : []);
+                    setUnreadActivityCount(Number(data?.data?.unread_count || 0));
+                    notificationsLoadedRef.current = true;
                 })
                 .catch((error) => {
-                    if (!cancelled) setActivityError(error.response?.data?.message || "Order activity could not be loaded.");
+                    if (!cancelled) setActivityError(error.response?.data?.message || "Notifications could not be loaded.");
                 })
                 .finally(() => {
                     if (!cancelled) setActivityLoading(false);
                 });
-        }, 0);
-        return () => { cancelled = true; window.clearTimeout(timeoutId); };
-    }, [notificationOpen, activityRefresh]);
+        };
+        loadNotifications();
+        const intervalId = window.setInterval(loadNotifications, 60000);
+        return () => { cancelled = true; window.clearInterval(intervalId); };
+    }, [notificationOpen, activityRefresh, user?.id]);
 
     useEffect(() => {
         if (!messagesOpen || !isBuyerSession()) return undefined;
@@ -252,7 +241,6 @@ function BuyerNavbar() {
 
     const logoDestination = user ? "/shop" : "/";
     const sellerConversations = getBuyerInboxConversations(conversations);
-    const unreadActivityCount = orderActivity.filter((item) => item.createdAt > activityReadAt).length;
     const profilePhotoUrl = profilePhoto.key === profileImageKey && failedProfilePhotoKey !== profileImageKey
         ? profilePhoto.url
         : "";
@@ -315,6 +303,9 @@ function BuyerNavbar() {
         window.dispatchEvent(new Event("cryma-wishlist-updated"));
 
         setUser(null);
+        notificationsLoadedRef.current = false;
+        setOrderActivity([]);
+        setUnreadActivityCount(0);
         setAccountOpen(false);
         setLogoutOpen(false);
         setMobileOpen(false);
@@ -325,6 +316,33 @@ function BuyerNavbar() {
     const goTo = (path) => {
         closeMenus();
         navigate(path);
+    };
+
+    const openDeliveryNotification = async (item) => {
+        if (!item.read_at) {
+            try {
+                await api.patch(`/buyer/notifications/${item.id}/read`);
+                setOrderActivity((current) => current.map((notification) =>
+                    notification.id === item.id ? { ...notification, read_at: new Date().toISOString() } : notification
+                ));
+                setUnreadActivityCount((count) => Math.max(0, count - 1));
+            } catch (error) {
+                setActivityError(error.response?.data?.message || "This notification could not be marked as read.");
+                return;
+            }
+        }
+        const orderId = item.data?.order_id;
+        if (orderId) goTo(`/orders/${orderId}`);
+    };
+
+    const markAllDeliveryNotificationsRead = async () => {
+        try {
+            await api.patch("/buyer/notifications/read-all");
+            setOrderActivity((current) => current.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })));
+            setUnreadActivityCount(0);
+        } catch (error) {
+            setActivityError(error.response?.data?.message || "Notifications could not be marked as read.");
+        }
     };
 
     const checkoutMiniCart = () => {
@@ -473,38 +491,34 @@ function BuyerNavbar() {
                                 aria-expanded={notificationOpen}
                             >
                                 <Bell size={18} />
-                                {unreadActivityCount > 0 && <span className="cryma-notification-badge" aria-label={`${unreadActivityCount} unread order updates`}>{unreadActivityCount > 9 ? "9+" : unreadActivityCount}</span>}
+                                {unreadActivityCount > 0 && <span className="cryma-notification-badge" aria-label={`${unreadActivityCount} unread delivery updates`}>{unreadActivityCount > 9 ? "9+" : unreadActivityCount}</span>}
                             </button>
 
                             {notificationOpen && (
                                 <div className="cryma-notification-dropdown">
                                     <div className="cryma-dropdown-title">
-                                        <strong>Order activity</strong>
-                                        {unreadActivityCount > 0 && <button type="button" onClick={() => {
-                                            const readAt = Date.now();
-                                            setActivityReadAt(readAt);
-                                            try { localStorage.setItem(`cryma_order_activity_read_at:${user?.id}`, new Date(readAt).toISOString()); } catch { /* The feed remains available without local storage. */ }
-                                        }}>Mark all read</button>}
+                                        <strong>Delivery updates</strong>
+                                        {unreadActivityCount > 0 && <button type="button" onClick={markAllDeliveryNotificationsRead}>Mark all read</button>}
                                     </div>
 
                                     {!isBuyerSession() ? (
-                                        <div className="cryma-empty-notification"><div className="cryma-notification-icon"><Bell size={20} /></div><strong>Sign in to see order updates</strong><span>Delivery activity for your purchases will appear here.</span><button type="button" onClick={() => requireAuth("login")}>Sign in</button></div>
+                                        <div className="cryma-empty-notification"><div className="cryma-notification-icon"><Bell size={20} /></div><strong>Sign in to see delivery updates</strong><span>Important parcel milestones will appear here.</span><button type="button" onClick={() => requireAuth("login")}>Sign in</button></div>
                                     ) : activityLoading ? (
-                                        <div className="cryma-empty-notification" role="status">Loading order activity…</div>
+                                        <div className="cryma-empty-notification" role="status">Loading delivery updates…</div>
                                     ) : activityError ? (
                                         <div className="cryma-empty-notification" role="alert"><strong>{activityError}</strong><button type="button" onClick={() => setActivityRefresh((current) => current + 1)}>Retry</button></div>
                                     ) : orderActivity.length > 0 ? (
                                         <div className="cryma-notification-list">
                                             {orderActivity.map((item) => (
-                                                <button type="button" className={`cryma-notification-item ${item.createdAt > activityReadAt ? "unread" : ""}`} key={item.id} onClick={() => goTo(`/orders/${item.orderId}`)}>
+                                                <button type="button" className={`cryma-notification-item ${!item.read_at ? "unread" : ""}`} key={item.id} onClick={() => openDeliveryNotification(item)}>
                                                     <span className="cryma-notification-item-icon"><Package size={16} /></span>
-                                                    <span className="cryma-notification-item-copy"><strong>Order #{item.orderId}: {item.label}</strong><small>{new Date(item.createdAt).toLocaleString()}</small></span>
+                                                    <span className="cryma-notification-item-copy"><strong>Order #{item.data?.order_id}: {item.data?.title || "Delivery update"}</strong><small>{item.data?.body} · {new Date(item.created_at).toLocaleString()}</small></span>
                                                 </button>
                                             ))}
-                                            <button type="button" className="cryma-notification-footer" onClick={() => goTo("/orders")}>View all orders</button>
+                                            <button type="button" className="cryma-notification-footer" onClick={() => goTo("/orders")}>View my orders</button>
                                         </div>
                                     ) : (
-                                        <div className="cryma-empty-notification"><div className="cryma-notification-icon"><Bell size={20} /></div><strong>No order updates yet</strong><span>Delivery progress will appear here as your orders move through fulfillment.</span><button type="button" onClick={() => goTo("/orders")}>View my orders</button></div>
+                                        <div className="cryma-empty-notification"><div className="cryma-notification-icon"><Bell size={20} /></div><strong>No delivery updates yet</strong><span>Important parcel milestones will appear here as your order moves through the hubs.</span><button type="button" onClick={() => goTo("/orders")}>View my orders</button></div>
                                     )}
                                 </div>
                             )}

@@ -8,15 +8,33 @@
 .lo-parcel-flow>.lw-page-heading>button:disabled{opacity:.6;cursor:wait}
 .lo-parcel-flow>.lw-alert{padding:12px 15px;border:1px solid #f1b8bd;border-radius:10px;background:#fff0f1;color:#8f1d2d;font-size:13px}
 .lo-parcel-flow .lo-hub-management{gap:20px}
-.lo-hub-summary article{min-height:128px}
+.lo-hub-summary{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))}
+.lo-hub-summary article{min-height:112px;gap:10px}
 .lo-hub-summary article>span{display:flex;align-items:center;gap:8px;color:#80666e;font-size:13px;font-weight:650}
 .lo-hub-summary article>strong{font-size:28px;color:#35151f}
 .lo-hub-summary article>small{color:#80666e;line-height:1.45}
+.lo-network-warning{display:grid;gap:4px;padding:13px 16px;border:1px solid #e8c67b;border-left:4px solid #bf8514;border-radius:10px;background:#fff9e9;color:#76510b;font-size:13px;line-height:1.5}
+.lo-network-warning strong{color:#62420a}
+.lo-directory-tabs,.lo-parcel-tabs{display:flex;gap:7px;overflow-x:auto;padding:5px;border:1px solid #eadfe1;border-radius:12px;background:#f8f3f4;scrollbar-width:thin}
+.lo-directory-tabs button,.lo-parcel-tabs button{display:inline-flex;flex:none;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:8px 13px;border:1px solid transparent;border-radius:9px;background:transparent;color:#705b61;font:inherit;font-size:12px;font-weight:750;cursor:pointer;white-space:nowrap}
+.lo-directory-tabs button span,.lo-parcel-tabs button span{padding:3px 7px;border-radius:999px;background:#eee3e6;color:#745d64;font-size:10px}
+.lo-directory-tabs button.is-current,.lo-parcel-tabs button.is-current{border-color:#f0dde2;background:#fff;color:#8a1c30;box-shadow:0 2px 6px rgba(66,18,32,.07)}
+.lo-directory-tabs button.is-current span,.lo-parcel-tabs button.is-current span{background:#f8e4e7;color:#8a1c30}
+.lo-directory-create{margin:14px 18px 0;border-bottom:1px solid #f4e8eb}
+.lo-directory-create>summary{display:flex;align-items:center;gap:7px;width:max-content;max-width:100%;padding:8px 10px;border:1px solid #eadfe1;border-radius:8px;background:#fff;color:#8a1c30;font-size:12px;font-weight:750;cursor:pointer}
+.lo-directory-create[open]>summary{border-color:#e4b4bf;background:#fff8fa}
 .lo-hub-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;border-bottom:1px solid #f4e8eb}
 .lo-hub-section-heading h2{margin:0;color:#35151f;font-size:17px}
 .lo-hub-section-heading p{max-width:760px;margin:6px 0 0;color:#80666e;font-size:13px;line-height:1.5}
 .lo-hub-section-heading>span{flex:none;padding:6px 10px;border:1px solid #f0dde2;border-radius:999px;background:#fff8fa;color:#8a1c30;font-size:11px;font-weight:750}
-.lo-hub-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:end;gap:12px;margin:16px 18px;padding:15px;border:1px solid #f0dde2;border-radius:12px;background:#fffafb}
+.lo-directory-search{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:14px 18px;color:#63464f;font-size:12px;font-weight:700}
+.lo-directory-search input{width:100%;min-height:42px;padding:9px 12px;border:1px solid #e7d5da;border-radius:9px;background:#fff;color:#26151a;font:inherit;font-size:13px}
+.lo-directory-search input:focus{border-color:#b21f3a;outline:3px solid rgba(178,31,58,.12)}
+.lo-directory-tools{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:6px 0}
+.lo-directory-tools>span{flex:none;padding:0 18px 15px 0;color:#80666e;font-size:11px}
+.lo-directory-more{display:block;min-height:38px;margin:0 auto 18px;padding:7px 14px;border:1px solid #e7d5da;border-radius:8px;background:#fff;color:#782039;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
+.lo-area-location{margin:10px 0 0;color:#80666e;font-size:12px;line-height:1.5}
+.lo-hub-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:end;gap:12px;margin:12px 0 16px;padding:15px;border:1px solid #f0dde2;border-radius:12px;background:#fffafb}
 .lo-hub-form label,.lo-hub-edit-fields label,.lo-area-edit-row label,.lo-area-assign label{display:grid;gap:6px;color:#63464f;font-size:12px;font-weight:700}
 .lo-hub-form input,.lo-hub-form select,.lo-hub-edit-fields input,.lo-area-edit-row input,.lo-area-edit-row select,.lo-area-assign select{width:100%;min-width:0;min-height:40px;padding:8px 10px;border:1px solid #e7d5da;border-radius:8px;background:#fff;color:#26151a;font:inherit;font-size:13px}
 .lo-hub-form input:focus,.lo-hub-form select:focus,.lo-hub-edit-fields input:focus,.lo-area-edit-row input:focus,.lo-area-edit-row select:focus,.lo-area-assign select:focus{border-color:#b21f3a;outline:3px solid rgba(178,31,58,.12)}
@@ -25,11 +43,16 @@
 .lo-hub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:14px;padding:0 18px 18px}
 .lo-hub-card,.lo-area-card{min-width:0;padding:15px;border:1px solid #f0dde2;border-radius:12px;background:#fff;box-shadow:0 4px 13px rgba(66,18,32,.035)}
 .lo-hub-card>header,.lo-area-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.lo-hub-card h3,.lo-area-card h3{margin:8px 0 3px;color:#35151f;font-size:16px}
+.lo-hub-card>header>div{display:grid;justify-items:start;gap:6px;min-width:0}
+.lo-hub-card h3,.lo-area-card h3{margin:3px 0 0;color:#35151f;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
 .lo-hub-card header strong{color:#8a1c30;font-size:12px;letter-spacing:.05em}
 .lo-state-pill{display:inline-flex;padding:4px 8px;border:1px solid #efc6cf;border-radius:999px;background:#fff1f3;color:#8a1c30;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
 .lo-state-pill.is-active{border-color:#c6e6d0;background:#eef8f0;color:#21643a}
+.lo-site-pill{display:inline-flex;padding:4px 8px;border:1px solid #e8c67b;border-radius:999px;background:#fff9e9;color:#76510b;font-size:10px;font-weight:750}
+.lo-site-pill:not(.needs-setup){border-color:#c9d8eb;background:#f2f7fc;color:#355779}
 .lo-hub-status{flex:none;min-height:34px;padding:6px 9px;border:1px solid #e7d5da;border-radius:8px;background:#fff;color:#782039;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+.lo-hub-location{display:grid;gap:3px;margin:11px 0 0;color:#63464f;font-size:12px;line-height:1.45}
+.lo-hub-location span{color:#80666e;font-size:10px;letter-spacing:.03em}
 .lo-hub-meta{margin-top:13px;padding-top:11px;border-top:1px solid #f4e8eb}
 .lo-hub-meta>span,.lo-area-riders-heading{color:#80666e;font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.05em}
 .lo-hub-meta p{margin:4px 0 0;color:#513c43;font-size:13px;overflow-wrap:anywhere}
@@ -64,7 +87,7 @@
 .lo-transfer-card button{flex:none;min-height:38px;padding:7px 11px;border:0;border-radius:8px;background:linear-gradient(135deg,#a92340,#7e1830);color:#fff;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
 .lo-transfer-card button:disabled{opacity:.55;cursor:wait}
 @media(max-width:850px){.lo-hub-form{grid-template-columns:repeat(2,minmax(0,1fr))}.lo-area-edit-row{grid-template-columns:1fr 1fr}}
-@media(max-width:560px){.lo-hub-form,.lo-area-edit-row,.lo-area-assign{grid-template-columns:1fr}.lo-hub-section-heading{padding:15px;flex-direction:column}.lo-hub-grid,.lo-area-list{padding:0 10px 14px}.lo-hub-card,.lo-area-card{padding:12px}.lo-hub-form{margin:12px 10px}.lo-area-edit-row button,.lo-area-assign button{width:100%}.lo-transfer-card{flex-direction:column}}
+@media(max-width:560px){.lo-hub-form,.lo-area-edit-row,.lo-area-assign{grid-template-columns:1fr}.lo-hub-section-heading{padding:15px;flex-direction:column}.lo-hub-grid,.lo-area-list{padding:0 10px 14px}.lo-hub-card,.lo-area-card{padding:12px}.lo-hub-form,.lo-directory-search{margin:12px 0}.lo-directory-create{margin:12px 10px 0}.lo-directory-tools{align-items:stretch;gap:0;flex-direction:column}.lo-directory-tools>span{padding:0 10px 12px}.lo-area-edit-row button,.lo-area-assign button{width:100%}.lo-transfer-card{flex-direction:column}.lo-hub-card>header,.lo-area-card>header{flex-direction:column}.lo-hub-status{width:100%}}
 
 .lo-parcel-section{min-width:0;padding:0;overflow:hidden;border:1px solid #f0dde2;border-radius:16px;background:#fff;box-shadow:0 10px 26px rgba(66,18,32,.055),inset 0 2px #a83f59}
 .lo-parcel-section>h2{margin:0;padding:19px 22px 10px;color:#35151f;font-size:18px;letter-spacing:-.02em}

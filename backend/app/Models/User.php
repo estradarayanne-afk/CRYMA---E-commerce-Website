@@ -134,4 +134,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(AccountEmailRelease::class);
     }
+
+    public function pushTokens(): HasMany
+    {
+        return $this->hasMany(BuyerPushToken::class);
+    }
 }

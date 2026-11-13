@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cart_store.dart';
 import 'favorites_store.dart';
+import 'push_notification_service.dart';
 
 class ApiService {
   ApiService({http.Client? client, String? baseUrl})
@@ -17,6 +17,7 @@ class ApiService {
   ApiService._() : this();
 
   static final ApiService instance = ApiService._();
+  static final ValueNotifier<int> activeRequests = ValueNotifier<int>(0);
   static const _tokenKey = 'cryma_api_token';
   static const _userKey = 'cryma_api_user';
   static const apiBaseUrl = String.fromEnvironment(
@@ -26,6 +27,16 @@ class ApiService {
   static const _timeout = Duration(seconds: 20);
   final http.Client _client;
   final String _baseUrl;
+
+  static Future<T> trackRequest<T>(Future<T> Function() request) async {
+    activeRequests.value += 1;
+    try {
+      return await request();
+    } finally {
+      activeRequests.value =
+          activeRequests.value > 0 ? activeRequests.value - 1 : 0;
+    }
+  }
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final base = Uri.parse(_baseUrl);
@@ -54,13 +65,15 @@ class ApiService {
     Map<String, String>? query,
     bool authenticated = false,
   }) async {
-    final response = await _client
-        .get(
-          _uri(path, query),
-          headers: await _headers(authenticated: authenticated),
-        )
-        .timeout(_timeout);
-    return _decode(response);
+    return trackRequest(() async {
+      final response = await _client
+          .get(
+            _uri(path, query),
+            headers: await _headers(authenticated: authenticated),
+          )
+          .timeout(_timeout);
+      return _decode(response);
+    });
   }
 
   Future<Map<String, dynamic>> post(
@@ -70,12 +83,14 @@ class ApiService {
     String? idempotencyKey,
     String? unauthorizedMessage,
   }) async {
-    final headers = await _headers(authenticated: authenticated);
-    if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
-    final response = await _client
-        .post(_uri(path), headers: headers, body: jsonEncode(body))
-        .timeout(_timeout);
-    return _decode(response, unauthorizedMessage: unauthorizedMessage);
+    return trackRequest(() async {
+      final headers = await _headers(authenticated: authenticated);
+      if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
+      final response = await _client
+          .post(_uri(path), headers: headers, body: jsonEncode(body))
+          .timeout(_timeout);
+      return _decode(response, unauthorizedMessage: unauthorizedMessage);
+    });
   }
 
   Future<Map<String, dynamic>> patch(
@@ -83,41 +98,48 @@ class ApiService {
     required Map<String, dynamic> body,
     bool authenticated = false,
   }) async {
-    final headers = await _headers(authenticated: authenticated);
-    final response = await _client
-        .patch(_uri(path), headers: headers, body: jsonEncode(body))
-        .timeout(_timeout);
-    return _decode(response);
+    return trackRequest(() async {
+      final headers = await _headers(authenticated: authenticated);
+      final response = await _client
+          .patch(_uri(path), headers: headers, body: jsonEncode(body))
+          .timeout(_timeout);
+      return _decode(response);
+    });
   }
 
   Future<Map<String, dynamic>> updateProfileImage(
     XFile file, {
     required Map<String, String?> fields,
   }) async {
-    final request = http.MultipartRequest('POST', _uri('/api/account/profile'));
-    final headers = await _headers(authenticated: true);
-    headers.remove('Content-Type');
-    request.headers.addAll(headers);
-    request.fields['_method'] = 'PATCH';
-    fields.forEach((key, value) {
-      if (value != null) request.fields[key] = value;
+    return trackRequest(() async {
+      final request =
+          http.MultipartRequest('POST', _uri('/api/account/profile'));
+      final headers = await _headers(authenticated: true);
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+      request.fields['_method'] = 'PATCH';
+      fields.forEach((key, value) {
+        if (value != null) request.fields[key] = value;
+      });
+      request.files
+          .add(await http.MultipartFile.fromPath('profile_image', file.path));
+      final streamed = await _client.send(request).timeout(_timeout);
+      return _decode(await http.Response.fromStream(streamed));
     });
-    request.files
-        .add(await http.MultipartFile.fromPath('profile_image', file.path));
-    final streamed = await _client.send(request).timeout(_timeout);
-    return _decode(await http.Response.fromStream(streamed));
   }
 
   Future<Uint8List?> getProfileImageBytes() async {
-    final response = await _client
-        .get(_uri('/api/account/profile-image'),
-            headers: await _headers(authenticated: true))
-        .timeout(_timeout);
-    if (response.statusCode == 404) return null;
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      _decode(response);
-    }
-    return response.bodyBytes;
+    return trackRequest(() async {
+      final response = await _client
+          .get(_uri('/api/account/profile-image'),
+              headers: await _headers(authenticated: true))
+          .timeout(_timeout);
+      if (response.statusCode == 404) return null;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _decode(response);
+      }
+      return response.bodyBytes;
+    });
   }
 
   Future<Map<String, dynamic>?> login(String email, String password) async {
@@ -157,12 +179,14 @@ class ApiService {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_tokenKey, token);
     await preferences.setString(_userKey, jsonEncode(user));
+    await PushNotificationService.syncToken();
     return user;
   }
 
   Future<void> logout() async {
     final preferences = await SharedPreferences.getInstance();
     final token = preferences.getString(_tokenKey);
+    await PushNotificationService.unregisterCurrentToken();
     await CartStore.instance.clear();
     await FavoritesStore.instance.clear();
     await preferences.remove('cryma_pending_checkout');
@@ -219,6 +243,7 @@ class ApiService {
       final user = response['user'];
       if (user is Map<String, dynamic> && user['role'] == 'buyer') {
         await preferences.setString(_userKey, jsonEncode(user));
+        await PushNotificationService.syncToken();
         return user;
       }
     } on ApiException catch (error) {
@@ -243,6 +268,7 @@ class ApiService {
     double? maxPrice,
     bool inStockOnly = false,
     String sort = 'featured',
+    String? shuffleDay,
     int page = 1,
     int perPage = 20,
   }) async {
@@ -260,6 +286,9 @@ class ApiService {
     if (minPrice != null) query['min_price'] = '$minPrice';
     if (maxPrice != null) query['max_price'] = '$maxPrice';
     if (inStockOnly) query['stock'] = '1';
+    if (shuffleDay != null && shuffleDay.isNotEmpty) {
+      query['shuffle_day'] = shuffleDay;
+    }
     final response = await get('/api/products', query: query);
     final data = response['data'];
     final rows = data is Map<String, dynamic> ? data['data'] : null;
@@ -285,6 +314,59 @@ class ApiService {
       throw const ApiException('The server returned an invalid product.');
     }
     return product;
+  }
+
+  Future<void> recordProductView(String productId) async {
+    await post('/api/products/$productId/view', body: const {});
+  }
+
+  Future<void> recordProductImpressions(List<String> productIds) async {
+    if (productIds.isEmpty) return;
+    await post(
+      '/api/products/impressions',
+      body: {'product_ids': productIds.map(int.parse).toList()},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getProductAvailability(
+    List<Map<String, dynamic>> items,
+  ) async {
+    late final Map<String, dynamic> response;
+    try {
+      response = await post(
+        '/api/products/availability',
+        body: {'items': items},
+      );
+    } on SocketException {
+      throw const ApiException('Unable to check current product stock. Check your connection and try again.');
+    } on TimeoutException {
+      throw const ApiException('The stock check took too long. Please try again.');
+    } on http.ClientException {
+      throw const ApiException('Unable to check current product stock. Check your connection and try again.');
+    }
+    final data = response['data'];
+    final rows = data is Map<String, dynamic> ? data['items'] : null;
+    if (response['success'] != true || rows is! List) {
+      throw const ApiException(
+        'The server returned invalid product availability data.',
+      );
+    }
+    return rows.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> reportDeliveryIssue({
+    required int orderId,
+    required String issueType,
+    required String description,
+  }) async {
+    return post(
+      '/api/orders/$orderId/delivery-issues',
+      authenticated: true,
+      body: {
+        'issue_type': issueType,
+        'description': description.trim(),
+      },
+    );
   }
 
   Future<Map<String, dynamic>> getProductReviews(String productId) async {
@@ -362,33 +444,37 @@ class ApiService {
     XFile file, {
     int? orderId,
   }) async {
-    final request = http.MultipartRequest('POST',
-        _uri('/api/buyer/chat/conversations/$conversationId/attachments'));
-    final headers = await _headers(authenticated: true);
-    headers.remove('Content-Type');
-    request.headers.addAll(headers);
-    if (orderId != null) request.fields['order_id'] = orderId.toString();
-    request.files
-        .add(await http.MultipartFile.fromPath('attachment', file.path));
-    final streamed = await _client.send(request).timeout(_timeout);
-    return _decode(await http.Response.fromStream(streamed));
+    return trackRequest(() async {
+      final request = http.MultipartRequest('POST',
+          _uri('/api/buyer/chat/conversations/$conversationId/attachments'));
+      final headers = await _headers(authenticated: true);
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+      if (orderId != null) request.fields['order_id'] = orderId.toString();
+      request.files
+          .add(await http.MultipartFile.fromPath('attachment', file.path));
+      final streamed = await _client.send(request).timeout(_timeout);
+      return _decode(await http.Response.fromStream(streamed));
+    });
   }
 
   Future<http.Response> downloadBuyerChatAttachment(
       String conversationId, String messageId) async {
-    final headers = await _headers(authenticated: true);
-    headers.remove('Content-Type');
-    final response = await _client
-        .get(
-          _uri(
-              '/api/buyer/chat/conversations/$conversationId/messages/$messageId/attachment'),
-          headers: headers,
-        )
-        .timeout(_timeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      _decode(response);
-    }
-    return response;
+    return trackRequest(() async {
+      final headers = await _headers(authenticated: true);
+      headers.remove('Content-Type');
+      final response = await _client
+          .get(
+            _uri(
+                '/api/buyer/chat/conversations/$conversationId/messages/$messageId/attachment'),
+            headers: headers,
+          )
+          .timeout(_timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _decode(response);
+      }
+      return response;
+    });
   }
 
   Future<void> markBuyerChatRead(String conversationId) async {
@@ -643,6 +729,33 @@ class ApiService {
     return order;
   }
 
+  Future<Map<String, dynamic>> getBuyerNotifications() async {
+    final response = await get('/api/buyer/notifications', authenticated: true);
+    final data = response['data'];
+    if (data is! Map<String, dynamic> || data['notifications'] is! List) {
+      throw const ApiException(
+          'The server returned an invalid notification list.');
+    }
+    return {
+      'notifications': (data['notifications'] as List)
+          .whereType<Map<String, dynamic>>()
+          .toList(),
+      'unread_count': data['unread_count'] is num
+          ? (data['unread_count'] as num).toInt()
+          : 0,
+    };
+  }
+
+  Future<void> markBuyerNotificationRead(String id) async {
+    await patch('/api/buyer/notifications/$id/read',
+        body: const {}, authenticated: true);
+  }
+
+  Future<void> markAllBuyerNotificationsRead() async {
+    await patch('/api/buyer/notifications/read-all',
+        body: const {}, authenticated: true);
+  }
+
   Future<void> confirmOrderReceived(String id) async {
     await post(
       '/api/orders/$id/confirm-received',
@@ -655,17 +768,19 @@ class ApiService {
     required Map<String, dynamic> fields,
     required String validIdPath,
   }) async {
-    final uri = _uri('/api/register');
-    final request = http.MultipartRequest('POST', uri)
-      ..headers['Accept'] = 'application/json';
-    fields.forEach((key, value) {
-      if (value != null) request.fields[key] = value.toString();
+    return trackRequest(() async {
+      final uri = _uri('/api/register');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Accept'] = 'application/json';
+      fields.forEach((key, value) {
+        if (value != null) request.fields[key] = value.toString();
+      });
+      request.files
+          .add(await http.MultipartFile.fromPath('valid_id', validIdPath));
+      final streamed = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamed);
+      return _decode(response);
     });
-    request.files
-        .add(await http.MultipartFile.fromPath('valid_id', validIdPath));
-    final streamed = await request.send().timeout(_timeout);
-    final response = await http.Response.fromStream(streamed);
-    return _decode(response);
   }
 
   Future<Map<String, dynamic>> verifyEmail({
@@ -772,11 +887,13 @@ class ApiPage {
       {required this.items,
       required this.currentPage,
       required this.lastPage,
-      required this.total});
+      required this.total,
+      this.shuffleDay});
   final List<Map<String, dynamic>> items;
   final int currentPage;
   final int lastPage;
   final int total;
+  final String? shuffleDay;
 
   factory ApiPage.fromJson(Map<String, dynamic> json) => ApiPage(
         items: (json['data'] as List? ?? const [])
@@ -785,5 +902,6 @@ class ApiPage {
         currentPage: int.tryParse(json['current_page']?.toString() ?? '') ?? 1,
         lastPage: int.tryParse(json['last_page']?.toString() ?? '') ?? 1,
         total: int.tryParse(json['total']?.toString() ?? '') ?? 0,
+        shuffleDay: json['shuffle_day']?.toString(),
       );
 }

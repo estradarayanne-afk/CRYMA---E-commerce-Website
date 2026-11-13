@@ -18,6 +18,8 @@ class Delivery extends Model
     public const DELIVERED = 'DELIVERED';
     public const COMPLETED = 'COMPLETED';
     public const FAILED = 'DELIVERY_FAILED';
+    public const RETURNED = 'RETURNED';
+    public const MAX_DELIVERY_ATTEMPTS = 3;
 
     protected $fillable = [
         'order_id', 'parcel_code', 'courier_profile_id', 'assigned_by', 'status', 'legacy_imported',
@@ -58,6 +60,7 @@ class Delivery extends Model
     public function buyerConfirmedBy(): BelongsTo { return $this->belongsTo(User::class, 'buyer_confirmed_by'); }
     public function pickupAssignment(): HasOne { return $this->hasOne(PickupAssignment::class); }
     public function proof(): HasOne { return $this->hasOne(DeliveryProof::class); }
+    public function returnShipment(): HasOne { return $this->hasOne(ReturnShipment::class); }
     public function events(): HasMany { return $this->hasMany(DeliveryEvent::class)->orderBy('created_at')->orderBy('id'); }
     public function currentHub() { return $this->belongsTo(LogisticsHub::class, 'current_hub_id'); }
     public function hubTransfers(): HasMany { return $this->hasMany(HubTransfer::class); }

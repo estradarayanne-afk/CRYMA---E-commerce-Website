@@ -1,4 +1,5 @@
 import axios from "axios";
+import { beginApiRequest } from "./apiActivity";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
@@ -49,6 +50,7 @@ api.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
 
+        config.__crymaFinishNetworkRequest = beginApiRequest();
         return config;
     },
     (error) => {
@@ -58,12 +60,16 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
     (response) => {
+        response.config.__crymaFinishNetworkRequest?.();
+        delete response.config.__crymaFinishNetworkRequest;
         if (typeof Blob === "undefined" || !(response.data instanceof Blob)) {
             response.data = resolveStorageUrls(response.data);
         }
         return response;
     },
     (error) => {
+        error.config?.__crymaFinishNetworkRequest?.();
+        if (error.config) delete error.config.__crymaFinishNetworkRequest;
         if (
             error.response?.status === 401 &&
             error.config?.url !== "/login" &&

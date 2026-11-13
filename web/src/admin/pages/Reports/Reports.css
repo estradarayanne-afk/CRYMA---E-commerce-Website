@@ -7,6 +7,49 @@
     color: #26151A;
 }
 
+.product-exposure-panel {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+
+.product-exposure-message {
+    margin: 0;
+    padding: 18px 4px;
+    color: #8A6871;
+    font-size: 13px;
+}
+
+.product-exposure-table-wrap {
+    overflow-x: auto;
+}
+
+.product-exposure-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.product-exposure-table th,
+.product-exposure-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #F0DDE2;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.product-exposure-table th {
+    color: #8A6871;
+    font-size: 10px;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+
+.product-exposure-table td:first-child {
+    color: #26151A;
+    font-weight: 650;
+    white-space: normal;
+}
+
 /* =========================================================
    PAGE HEADER
    ========================================================= */

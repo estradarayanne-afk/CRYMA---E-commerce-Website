@@ -5,10 +5,6 @@ import '../../services/api_service.dart';
 import '../../utils/colors.dart';
 import '../../widgets/buyer_bottom_navigation_bar.dart';
 
-/// Order Activity — shows the buyer's recent orders as an activity feed.
-/// This is NOT a push-notification system; the backend does not have a
-/// dedicated notifications endpoint for buyers. This screen surfaces
-/// order updates instead, which is the closest equivalent.
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key, this.apiService});
 
@@ -21,30 +17,11 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   ApiService get _api => widget.apiService ?? ApiService.instance;
 
-  List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _notifications = [];
+  int _unreadCount = 0;
   bool _loading = true;
+  bool _markingAllRead = false;
   String? _error;
-
-  static const _statusColors = <String, Color>{
-    'completed': AppColors.success,
-    'delivered': AppColors.success,
-    'cancelled': AppColors.danger,
-    'delivery_failed': AppColors.danger,
-    'out_for_delivery': Color(0xFF285C76),
-    'at_sorting_center': Color(0xFF285C76),
-    'ready_for_pickup': AppColors.primary,
-    'pending': AppColors.gold,
-    'placed': AppColors.gold,
-  };
-
-  Color _statusColor(String status) =>
-      _statusColors[status.toLowerCase()] ?? AppColors.primary;
-
-  String _label(String value) => value
-      .toLowerCase()
-      .split('_')
-      .map((p) => p.isEmpty ? p : '${p[0].toUpperCase()}${p.substring(1)}')
-      .join(' ');
 
   String _formatDate(String? raw) {
     if (raw == null) return '';
@@ -68,12 +45,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
       _error = null;
     });
     try {
-      final page = await _api.getBuyerOrdersPage(
-        sort: 'newest',
-      );
+      final response = await _api.getBuyerNotifications();
       if (!mounted) return;
       setState(() {
-        _orders = page.items;
+        _notifications =
+            response['notifications'] as List<Map<String, dynamic>>;
+        _unreadCount = response['unread_count'] as int;
         _loading = false;
       });
     } catch (error) {
@@ -83,6 +60,72 @@ class _NotificationScreenState extends State<NotificationScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _markAllRead() async {
+    if (_markingAllRead || _unreadCount == 0) return;
+    setState(() => _markingAllRead = true);
+    try {
+      await _api.markAllBuyerNotificationsRead();
+      if (!mounted) return;
+      setState(() {
+        _notifications = _notifications
+            .map((item) => {
+                  ...item,
+                  'read_at':
+                      item['read_at'] ?? DateTime.now().toIso8601String(),
+                })
+            .toList();
+        _unreadCount = 0;
+      });
+    } catch (error) {
+      if (mounted) _showError(error.toString());
+    } finally {
+      if (mounted) setState(() => _markingAllRead = false);
+    }
+  }
+
+  Future<void> _openNotification(Map<String, dynamic> notification) async {
+    final id = notification['id']?.toString();
+    final data = notification['data'] is Map<String, dynamic>
+        ? notification['data'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final orderId = data['order_id']?.toString();
+    if (orderId == null || orderId.isEmpty) {
+      _showError('This delivery update is missing its order link.');
+      return;
+    }
+
+    if (notification['read_at'] == null && id != null) {
+      try {
+        await _api.markBuyerNotificationRead(id);
+        if (!mounted) return;
+        setState(() {
+          final index = _notifications
+              .indexWhere((item) => item['id'] == notification['id']);
+          if (index >= 0) {
+            _notifications[index] = {
+              ..._notifications[index],
+              'read_at': DateTime.now().toIso8601String(),
+            };
+            if (_unreadCount > 0) _unreadCount--;
+          }
+        });
+      } catch (error) {
+        _showError(error.toString());
+        return;
+      }
+    }
+
+    if (mounted) {
+      Navigator.pushNamed(context, '/order_details', arguments: orderId);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -95,10 +138,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Order Activity'),
+            Text('Delivery updates'),
             SizedBox(height: 2),
             Text(
-              'The latest updates on your purchases.',
+              'Important milestones for your parcels.',
               style: TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 11,
@@ -119,8 +162,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
           color: AppColors.wine,
         ),
         actions: [
+          if (_unreadCount > 0)
+            TextButton(
+              onPressed: _markingAllRead ? null : _markAllRead,
+              child: _markingAllRead
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Read all'),
+            ),
           IconButton(
-            tooltip: 'Refresh activity',
+            tooltip: 'Refresh updates',
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -132,85 +186,90 @@ class _NotificationScreenState extends State<NotificationScreen> {
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.error_outline,
-                          size: 42, color: AppColors.danger),
-                      const SizedBox(height: 12),
-                      Text(_error!,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 42, color: AppColors.danger),
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontFamily: 'Poppins')),
-                      const SizedBox(height: 14),
-                      FilledButton(
-                          onPressed: _load, child: const Text('Retry')),
-                    ]),
+                            color: AppColors.textSecondary,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        FilledButton(
+                            onPressed: _load, child: const Text('Retry')),
+                      ],
+                    ),
                   ),
                 )
-              : _orders.isEmpty
-                  ? const Center(
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.inbox_outlined,
-                            size: 48, color: AppColors.gray),
-                        SizedBox(height: 14),
-                        Text('No order activity yet.',
-                            style: TextStyle(
+              : _notifications.isEmpty
+                  ? RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(height: 170),
+                          Icon(Icons.notifications_none_rounded,
+                              size: 48, color: AppColors.gray),
+                          SizedBox(height: 14),
+                          Center(
+                            child: Text(
+                              'No delivery updates yet.',
+                              style: TextStyle(
                                 color: AppColors.textSecondary,
-                                fontFamily: 'Poppins')),
-                      ]),
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     )
                   : RefreshIndicator(
                       onRefresh: _load,
                       child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
-                        itemCount: _orders.length,
+                        itemCount: _notifications.length,
                         itemBuilder: (context, index) {
-                          final order = _orders[index];
-                          final id = order['id'].toString();
-                          final status =
-                              order['status']?.toString() ?? 'unknown';
-                          final color = _statusColor(status);
-                          final updatedAt = _formatDate(
-                              order['updated_at']?.toString() ??
-                                  order['created_at']?.toString());
-                          final items = (order['items'] as List? ?? [])
-                              .whereType<Map<String, dynamic>>()
-                              .toList();
-                          final firstItem =
-                              items.isNotEmpty ? items.first : null;
-                          final productName =
-                              firstItem?['product']?['name']?.toString() ??
-                                  'Order #$id';
-                          final extraCount = items.length > 1
-                              ? ' +${items.length - 1} more'
-                              : '';
+                          final notification = _notifications[index];
+                          final data =
+                              notification['data'] is Map<String, dynamic>
+                                  ? notification['data'] as Map<String, dynamic>
+                                  : const <String, dynamic>{};
+                          final orderId = data['order_id']?.toString() ?? '';
+                          final isUnread = notification['read_at'] == null;
+                          final createdAt = _formatDate(
+                              notification['created_at']?.toString());
 
                           return Card(
-                            color: AppColors.white,
+                            color: isUnread
+                                ? const Color(0xFFFFF8FA)
+                                : AppColors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
                               side: const BorderSide(
-                                color: AppColors.borderNeutral,
-                              ),
+                                  color: AppColors.borderNeutral),
                             ),
                             margin: const EdgeInsets.only(bottom: 11),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(18),
-                              onTap: () => Navigator.pushNamed(
-                                  context, '/order_details',
-                                  arguments: id),
+                              onTap: () => _openNotification(notification),
                               child: Padding(
                                 padding: const EdgeInsets.all(15),
                                 child: Row(
                                   children: [
-                                    CircleAvatar(
-                                      backgroundColor:
-                                          color.withValues(alpha: 0.1),
+                                    const CircleAvatar(
+                                      backgroundColor: AppColors.softRose,
                                       child: Icon(
                                         Icons.local_shipping_rounded,
-                                        color: color,
+                                        color: AppColors.primary,
                                         size: 21,
                                       ),
                                     ),
@@ -221,8 +280,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'Order #$id',
-                                            maxLines: 1,
+                                            data['title']?.toString() ??
+                                                'Delivery update',
+                                            maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                               fontSize: 13,
@@ -231,11 +291,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                               fontFamily: 'Poppins',
                                             ),
                                           ),
-                                          const SizedBox(height: 3),
+                                          const SizedBox(height: 4),
                                           Text(
-                                            '$productName$extraCount',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
+                                            data['body']?.toString() ?? '',
                                             style: const TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w500,
@@ -243,44 +301,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                               fontFamily: 'Poppins',
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Row(children: [
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 9,
-                                                      vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: color.withValues(
-                                                    alpha: 0.12),
-                                                borderRadius:
-                                                    BorderRadius.circular(999),
-                                              ),
-                                              child: Text(
-                                                _label(status),
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: color,
-                                                  fontFamily: 'Poppins',
-                                                ),
-                                              ),
+                                          const SizedBox(height: 5),
+                                          Text(
+                                            'Order #$orderId${createdAt.isEmpty ? '' : ' · $createdAt'}',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppColors.gray,
+                                              fontFamily: 'Poppins',
                                             ),
-                                          ]),
-                                          if (updatedAt.isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              updatedAt,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: AppColors.gray,
-                                                fontFamily: 'Poppins',
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ],
                                       ),
                                     ),
+                                    if (isUnread)
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        margin: const EdgeInsets.only(left: 8),
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
                                     const Icon(Icons.chevron_right,
                                         color: AppColors.gray, size: 18),
                                   ],

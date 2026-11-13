@@ -52,6 +52,8 @@ class Order extends Model
         return $this->hasOne(OrderShippingCharge::class);
     }
 
+    public function codCollection(): HasOne { return $this->hasOne(CodCollection::class); }
+
     public function commissions(): HasMany
     {
         return $this->hasMany(Commission::class);
@@ -61,8 +63,6 @@ class Order extends Model
     {
         return $this->hasOne(Commission::class);
     }
-
-    public function codCollection(): HasOne { return $this->hasOne(CodCollection::class); }
 
     public function voucherRedemptions(): HasMany
     {

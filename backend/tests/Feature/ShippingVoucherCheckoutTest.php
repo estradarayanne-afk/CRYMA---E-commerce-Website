@@ -126,7 +126,7 @@ class ShippingVoucherCheckoutTest extends TestCase
     public function test_production_uses_cryma_rates_and_excludes_unverified_courier_rates(): void
     {
         [$buyer, $address] = $this->createCheckoutBuyer();
-        $address->update(['region' => 'Region IV-A (CALABARZON)']);
+        $address->update(['region' => 'National Capital Region (NCR)']);
         [$seller, $product] = $this->sellerAndProduct();
         $seller->sellerPickupAddress()->create([
             'recipient_name' => 'Nora Seller',
@@ -219,12 +219,16 @@ class ShippingVoucherCheckoutTest extends TestCase
                 'min_weight_kg' => '0.000',
                 'max_weight_kg' => '1.000',
                 'fee' => '150.00',
+                'min_delivery_days' => 2,
+                'max_delivery_days' => 5,
                 'is_provisional' => true,
                 'is_active' => true,
             ])
             ->assertCreated()
             ->assertJsonPath('data.rate_source', 'cryma')
-            ->assertJsonPath('data.is_provisional', false);
+            ->assertJsonPath('data.is_provisional', false)
+            ->assertJsonPath('data.min_delivery_days', 2)
+            ->assertJsonPath('data.max_delivery_days', 5);
 
         $this->actingAs($admin, 'sanctum')
             ->postJson('/api/admin/shipping-zone-rates', [
@@ -239,6 +243,71 @@ class ShippingVoucherCheckoutTest extends TestCase
                 'is_active' => true,
             ])
             ->assertUnprocessable();
+    }
+
+    public function test_checkout_snapshots_route_delivery_days_and_buyer_sees_estimated_dates(): void
+    {
+        $this->travelTo(now()->setDate(2026, 11, 6)->setTime(9, 0));
+        [$buyer, $address] = $this->createCheckoutBuyer();
+        [$seller, $product] = $this->sellerAndProduct();
+        $seller->sellerPickupAddress()->create([
+            'recipient_name' => 'Nora Seller',
+            'phone' => '09171234567',
+            'region' => 'National Capital Region',
+            'province' => 'Metro Manila',
+            'municipality' => 'Manila',
+            'barangay' => 'Sample',
+            'street' => 'Market Street',
+            'house_number' => '1',
+            'postal_code' => '1000',
+        ]);
+
+        $luzon = ShippingZone::query()->where('slug', 'luzon')->firstOrFail();
+        $rate = ShippingZoneRate::query()
+            ->where('origin_zone_id', $luzon->id)
+            ->where('destination_zone_id', $luzon->id)
+            ->where('provider', 'CRYMA Standard')
+            ->where('is_active', true)
+            ->where('min_weight_kg', '<=', 0.500)
+            ->where('max_weight_kg', '>=', 0.500)
+            ->firstOrFail();
+        $rate->update([
+            'min_delivery_days' => 2,
+            'max_delivery_days' => 5,
+        ]);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson('/api/buyer/shipping-quote', [
+                'address_id' => $address->id,
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.parcels.0.min_delivery_days', 2)
+            ->assertJsonPath('data.parcels.0.max_delivery_days', 5);
+
+        $orderResponse = $this->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->postJson('/api/orders', [
+                'address_id' => $address->id,
+                'delivery_address' => 'Ignored for a saved address',
+                'payment_method' => 'cash_on_delivery',
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+            ])
+            ->assertCreated();
+
+        $orderId = $orderResponse->json('data.id');
+        $this->assertDatabaseHas('order_shipping_charges', [
+            'order_id' => $orderId,
+            'min_delivery_days' => 2,
+            'max_delivery_days' => 5,
+        ]);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->getJson("/api/orders/{$orderId}")
+            ->assertOk()
+            ->assertJsonPath('data.delivery_estimate.from', '2026-11-10')
+            ->assertJsonPath('data.delivery_estimate.to', '2026-11-13')
+            ->assertJsonPath('data.delivery_estimate.min_days', 2)
+            ->assertJsonPath('data.delivery_estimate.max_days', 5);
     }
 
     public function test_product_and_shipping_vouchers_are_recalculated_capped_and_reversed_on_cancellation(): void

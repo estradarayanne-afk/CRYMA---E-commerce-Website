@@ -28,6 +28,7 @@ const LINKS = [
     { to: "/logistics/incoming-parcels", label: "Incoming Parcels", flow: "02 · Receive", icon: PackageCheck },
     { to: "/logistics/sorting", label: "Sorting", flow: "03 · Sort", icon: Boxes },
     { to: "/logistics/parcel-flow", label: "Parcel Flow & Hubs", flow: "04 · Transfer", icon: Boxes },
+    { to: "/logistics/hub-staff", label: "Hub Staff", icon: UsersRound, provisionerOnly: true },
     { to: "/logistics/delivery-assignment", label: "Delivery Assignment", flow: "05 · Dispatch", icon: MapPinned },
     { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", flow: "06 · Track", icon: Truck },
     { to: "/logistics/reports", label: "Reports", icon: BarChart3 },
@@ -41,6 +42,7 @@ function LogisticsLayout() {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [canManageHubStaff, setCanManageHubStaff] = useState(false);
     const [logoutModalOpen, setLogoutModalOpen] = useState(false);
     const profileRef = useRef(null);
     const [user, setUser] = useState(() => {
@@ -51,13 +53,26 @@ function LogisticsLayout() {
         }
     });
     const closeLogoutModal = useCallback(() => setLogoutModalOpen(false), []);
-    const currentPage = LINKS.find(({ to }) => to === location.pathname)?.label || "Logistics";
+    const visibleLinks = LINKS.filter((link) => !link.provisionerOnly || canManageHubStaff);
+    const currentPage = visibleLinks.find(({ to }) => to === location.pathname)?.label || "Logistics";
     const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Logistics staff";
     const initials = fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
 
     useEffect(() => {
         const timer = window.setInterval(() => setHeaderDate(new Date()), 60_000);
         return () => window.clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        let active = true;
+        api.get("/logistics/profile")
+            .then(({ data }) => {
+                if (active) setCanManageHubStaff(data?.data?.can_manage_hub_staff === true);
+            })
+            .catch(() => {
+                if (active) setCanManageHubStaff(false);
+            });
+        return () => { active = false; };
     }, []);
 
     useEffect(() => {
@@ -142,7 +157,7 @@ function LogisticsLayout() {
                 </div>
                 <p className="lw-section-label">Workspace</p>
                 <nav className="lw-nav" id="logistics-workspace-navigation" aria-label="Logistics workspace">
-                    {LINKS.map(({ to, label, flow, icon: Icon }) => (
+                    {visibleLinks.map(({ to, label, flow, icon: Icon }) => (
                         <NavLink key={to} to={to} end={to === "/logistics/dashboard"} onClick={() => setMobileNavOpen(false)} title={sidebarCollapsed ? label : undefined} className={({ isActive }) => isActive ? "active" : ""}>
                             <Icon size={18} aria-hidden="true" />
                             <span className="lw-nav-copy"><span className="lw-nav-label">{label}</span>{flow && <small className="lw-nav-flow">{flow}</small>}</span>

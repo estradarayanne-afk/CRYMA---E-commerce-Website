@@ -17,6 +17,7 @@ import {
 
 import api from "../../../shared/services/api";
 import Dialog from "../../../shared/components/Dialog";
+import { formatDeliveryEstimate } from "../../../shared/utils/deliveryEstimate";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 
 import "./OrderDetails.css";
@@ -163,7 +164,17 @@ const STATUS_DESCRIPTIONS = {
     DELIVERY_FAILED:
         "The delivery attempt was unsuccessful.",
     RETURNED:
-        "Your parcel was returned.",
+        "Three delivery attempts were unsuccessful. Your parcel is being returned to the seller.",
+};
+
+const RETURN_STATUS_LABELS = {
+    awaiting_pickup: "Pickup being arranged",
+    pickup_assigned: "Return courier assigned",
+    picked_up: "With the return courier",
+    at_hub: "At a CRYMA logistics hub",
+    out_for_delivery: "On the way back to the seller",
+    delivered: "Delivered to the seller; receipt is being confirmed",
+    seller_received: "Received by the seller",
 };
 
 function normalizeStatus(status) {
@@ -262,6 +273,7 @@ function OrderDetails() {
 
     const [error, setError] =
         useState("");
+    const [trackingRefreshError, setTrackingRefreshError] = useState("");
     const [notice, setNotice] = useState("");
     const [confirming, setConfirming] = useState(false);
     const [receiptConfirmOpen, setReceiptConfirmOpen] = useState(false);
@@ -271,11 +283,20 @@ function OrderDetails() {
     const [refundAmount, setRefundAmount] = useState("");
     const [refundSubmitting, setRefundSubmitting] = useState(false);
     const [refundError, setRefundError] = useState("");
+    const [deliveryIssueOpen, setDeliveryIssueOpen] = useState(false);
+    const [deliveryIssueType, setDeliveryIssueType] = useState("late_delivery");
+    const [deliveryIssueDescription, setDeliveryIssueDescription] = useState("");
+    const [deliveryIssueSubmitting, setDeliveryIssueSubmitting] = useState(false);
+    const [deliveryIssueError, setDeliveryIssueError] = useState("");
+    const [deliveryIssueTicketId, setDeliveryIssueTicketId] = useState(null);
 
     const isLoggedIn =
         !!localStorage.getItem(
             "token"
         );
+    const hasOrder = !!order;
+    const trackingOrderStatus = normalizeStatus(order?.status);
+    const trackingReturnStatus = order?.delivery_progress?.return_shipment?.status;
 
     useEffect(() => {
         if (!isLoggedIn) {
@@ -328,6 +349,37 @@ function OrderDetails() {
         navigate,
     ]);
 
+    useEffect(() => {
+        const orderIsActive = !["DELIVERED", "COMPLETED", "CANCELLED", "CANCELED", "RETURNED", "FAILED"].includes(trackingOrderStatus);
+        const returnIsActive = trackingReturnStatus && trackingReturnStatus !== "seller_received";
+        if (!hasOrder || !isLoggedIn || (!orderIsActive && !returnIsActive)) return undefined;
+
+        let cancelled = false;
+        let inFlight = false;
+        const refreshTracking = async () => {
+            if (cancelled || inFlight || document.visibilityState === "hidden") return;
+            inFlight = true;
+            try {
+                const response = await api.get(`/orders/${id}`);
+                if (!cancelled) {
+                    setOrder(response?.data?.data || null);
+                    setTrackingRefreshError("");
+                }
+            } catch {
+                if (!cancelled) setTrackingRefreshError("Live tracking could not refresh. Your last update is still shown.");
+            } finally {
+                inFlight = false;
+            }
+        };
+        const interval = window.setInterval(() => void refreshTracking(), 15_000);
+        document.addEventListener("visibilitychange", refreshTracking);
+        return () => {
+            cancelled = true;
+            window.clearInterval(interval);
+            document.removeEventListener("visibilitychange", refreshTracking);
+        };
+    }, [id, isLoggedIn, hasOrder, trackingOrderStatus, trackingReturnStatus]);
+
     const confirmReceipt = async () => {
         setConfirming(true);
         setReceiptActionError("");
@@ -374,6 +426,30 @@ function OrderDetails() {
             setRefundError(requestError?.response?.data?.message || "We couldn't submit your refund request. Please review the details and try again.");
         } finally {
             setRefundSubmitting(false);
+        }
+    };
+
+    const submitDeliveryIssue = async (event) => {
+        event.preventDefault();
+        if (!order || deliveryIssueSubmitting) return;
+        setDeliveryIssueSubmitting(true);
+        setDeliveryIssueError("");
+        try {
+            const response = await api.post(`/orders/${order.id}/delivery-issues`, {
+                issue_type: deliveryIssueType,
+                description: deliveryIssueDescription.trim(),
+            });
+            setDeliveryIssueTicketId(response?.data?.data?.id || null);
+            setDeliveryIssueDescription("");
+            setDeliveryIssueOpen(false);
+        } catch (requestError) {
+            setDeliveryIssueError(
+                requestError?.response?.data?.errors
+                    ? Object.values(requestError.response.data.errors).flat()[0]
+                    : requestError?.response?.data?.message || "We couldn't send your delivery report. Please try again."
+            );
+        } finally {
+            setDeliveryIssueSubmitting(false);
         }
     };
 
@@ -460,6 +536,8 @@ function OrderDetails() {
     const isReturned =
         currentStatus ===
         "RETURNED";
+
+    const returnShipment = order?.delivery_progress?.return_shipment || null;
 
     const refundRequest = order?.latest_refund_request || null;
     const refundRequestOpen = ["pending", "under_review", "approved", "refunded"].includes(refundRequest?.status);
@@ -638,6 +716,19 @@ function OrderDetails() {
                 </div>
             </section>
 
+            {formatDeliveryEstimate(order.delivery_estimate) && (
+                <section className="order-delivery-estimate" aria-label="Estimated delivery">
+                    <div className="order-delivery-estimate-icon">
+                        <Clock3 size={18} aria-hidden="true" />
+                    </div>
+                    <div>
+                        <span>ESTIMATED ARRIVAL</span>
+                        <strong>{formatDeliveryEstimate(order.delivery_estimate)}</strong>
+                        <p>Based on the seller-to-buyer route in business days from order placement; actual delivery may vary.</p>
+                    </div>
+                </section>
+            )}
+
             <div className="order-details-layout">
                 <div className="order-details-main">
                     {!isFailed &&
@@ -730,9 +821,10 @@ function OrderDetails() {
                                     )}
                                 </div>
                                 {(order.delivery_progress?.events || []).filter((event) => event.event_type?.startsWith("hub_transfer_")).map((event) => (
-                                    <p key={`${event.event_type}-${event.created_at}`}><strong>{event.event_type === "hub_transfer_departed" ? "Hub transfer departed" : "Hub transfer arrived"}:</strong> {event.reason} · {formatDate(event.created_at)}</p>
+                                    <p key={`${event.event_type}-${event.created_at}`}><strong>{event.label}:</strong> {event.description} · {formatDate(event.created_at)}</p>
                                 ))}
                                 {order.delivery_progress?.current_hub?.name && <p><strong>Current hub:</strong> {order.delivery_progress.current_hub.name}</p>}
+                                {trackingRefreshError && <p role="status">{trackingRefreshError}</p>}
                             </section>
                         )}
 
@@ -754,6 +846,14 @@ function OrderDetails() {
                                     currentStatus
                                 ]}
                             </p>
+                            {isReturned && returnShipment && (
+                                <div className="order-return-tracking" aria-live="polite">
+                                    <p><strong>Return progress:</strong> {RETURN_STATUS_LABELS[returnShipment.status] || "Return status updating"}</p>
+                                    {returnShipment.current_hub?.name && <p><strong>Current hub:</strong> {returnShipment.current_hub.name}</p>}
+                                    {returnShipment.updated_at && <p><strong>Last update:</strong> {formatDate(returnShipment.updated_at)}</p>}
+                                </div>
+                            )}
+                            {trackingRefreshError && <p role="status">{trackingRefreshError}</p>}
                         </section>
                     )}
 
@@ -933,6 +1033,7 @@ function OrderDetails() {
                                         "Delivery address not available."}
                                 </p>
                                 {order.delivery_progress?.parcel_code && <small>Parcel ID: {order.delivery_progress.parcel_code}</small>}
+                                {order.delivery_progress?.max_delivery_attempts > 0 && <small>Delivery attempts: {order.delivery_progress.delivery_attempts || 0} of {order.delivery_progress.max_delivery_attempts}</small>}
                                 {order.delivery_progress?.delivery_area?.name && <small>Delivery area: {order.delivery_progress.delivery_area.name}</small>}
                                 {order.delivery_progress?.pickup?.status && <small>Seller pickup: {formatStatusLabel(order.delivery_progress.pickup.status)}</small>}
                             </div>
@@ -1046,6 +1147,10 @@ function OrderDetails() {
                                 {paymentMethod}
                             </strong>
                         </div>
+                        <div className="order-payment-method">
+                            <span>Payment status</span>
+                            <strong>{order?.payment_status_label || "Pay on delivery"}</strong>
+                        </div>
                     </section>
 
                     <section className="order-mini-panel">
@@ -1093,6 +1198,29 @@ function OrderDetails() {
                         <span className="order-summary-eyebrow">NEED HELP?</span>
                         <strong>CRYMA Customer Service</strong>
                         <p>Our team can help with tracking, delivery, payment, or returns.</p>
+                        {deliveryIssueTicketId && <p className="order-issue-confirmation" role="status">Delivery report #{deliveryIssueTicketId} was sent to Customer Service.</p>}
+                        {deliveryIssueOpen ? (
+                            <form className="order-delivery-issue-form" onSubmit={submitDeliveryIssue}>
+                                <label htmlFor="delivery-issue-type">What happened?</label>
+                                <select id="delivery-issue-type" value={deliveryIssueType} onChange={(event) => setDeliveryIssueType(event.target.value)} disabled={deliveryIssueSubmitting}>
+                                    <option value="late_delivery">Parcel is late</option>
+                                    <option value="failed_delivery">Delivery attempt failed</option>
+                                    <option value="wrong_delivery">Wrong or missing parcel</option>
+                                    <option value="other">Another delivery issue</option>
+                                </select>
+                                <label htmlFor="delivery-issue-description">Details</label>
+                                <textarea id="delivery-issue-description" value={deliveryIssueDescription} onChange={(event) => setDeliveryIssueDescription(event.target.value)} minLength={10} maxLength={2000} required disabled={deliveryIssueSubmitting} placeholder="Tell us what happened (at least 10 characters)." />
+                                {deliveryIssueError && <p className="order-issue-error" role="alert">{deliveryIssueError}</p>}
+                                <div className="order-delivery-issue-actions">
+                                    <button type="button" onClick={() => setDeliveryIssueOpen(false)} disabled={deliveryIssueSubmitting}>Cancel</button>
+                                    <button type="submit" disabled={deliveryIssueSubmitting}>{deliveryIssueSubmitting ? "Sending…" : "Send report"}</button>
+                                </div>
+                            </form>
+                        ) : normalizeStatus(order?.status) !== "CANCELLED" && normalizeStatus(order?.status) !== "CANCELED" ? (
+                            <button type="button" className="order-issue-report-button" onClick={() => { setDeliveryIssueError(""); setDeliveryIssueOpen(true); }}>
+                                Report a delivery problem
+                            </button>
+                        ) : null}
                         <button type="button" onClick={() => navigate("/buyer/support")}>
                             <MessageCircle size={15} />
                             Contact Customer Service

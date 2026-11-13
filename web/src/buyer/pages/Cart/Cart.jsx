@@ -13,33 +13,16 @@ import {
     saveBuyerCart,
 } from "../../../shared/utils/buyerAccess";
 import { getBuyerCartItemKey } from "../../../shared/utils/buyerProductActions";
+import {
+    groupCartItemsBySeller,
+    isCartGroupSelected,
+    toggleCartItemKeys,
+} from "../../../shared/utils/buyerCartGroups";
 import api from "../../../shared/services/api";
 
 import "./Cart.css";
 
 const SELECTED_CART_KEY = "cryma_selected_cart_ids";
-
-function getSellerName(seller) {
-    if (!seller) {
-        return "";
-    }
-
-    if (typeof seller === "string") {
-        return seller;
-    }
-
-    return (
-        [
-            seller.first_name,
-            seller.middle_name,
-            seller.last_name,
-        ]
-            .filter(Boolean)
-            .join(" ") ||
-        seller.name ||
-        ""
-    );
-}
 
 function getKnownStock(item) {
     if (item?.stock === null || item?.stock === undefined || item.stock === "") {
@@ -100,10 +83,25 @@ function Cart() {
     );
     const [notice, setNotice] = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [availabilityError, setAvailabilityError] = useState("");
+    const [availabilityCheckedKey, setAvailabilityCheckedKey] = useState("");
+    const [availabilityRetry, setAvailabilityRetry] = useState(0);
     const [sellerStatusCheckedKey, setSellerStatusCheckedKey] = useState("");
     const cartProductIdsKey = [...new Set(cart.map((item) => String(item.id)).filter(Boolean))].sort().join(",");
     const cartProductIdsKeyRef = useRef(cartProductIdsKey);
     const checkingSellerStatus = Boolean(cartProductIdsKey) && sellerStatusCheckedKey !== cartProductIdsKey;
+    const availabilityItemsKey = JSON.stringify(cart.map((item) => ({
+        product_id: Number(item.product_id || item.id),
+        variant_id: item.variant_id || null,
+    })).sort((a, b) => `${a.product_id}:${a.variant_id || ""}`.localeCompare(`${b.product_id}:${b.variant_id || ""}`)));
+
+    const showNotice = (message, duration = 2400) => {
+        setNotice(message);
+
+        window.setTimeout(() => {
+            setNotice("");
+        }, duration);
+    };
 
     useEffect(() => {
         const syncCart = () => {
@@ -157,13 +155,65 @@ function Cart() {
     }, [cartProductIdsKey]);
 
     useEffect(() => {
+        const items = JSON.parse(availabilityItemsKey);
+        if (!items.length) {
+            return undefined;
+        }
+
+        let cancelled = false;
+        api.post("/products/availability", { items })
+            .then(({ data }) => {
+                const rows = data?.data?.items;
+                if (!Array.isArray(rows) || rows.length !== items.length) {
+                    throw new Error("The stock response did not match the cart.");
+                }
+                if (cancelled) return;
+
+                const stockByKey = new Map(rows.map((row) => [
+                    `${row.product_id}:${row.variant_id || ""}`,
+                    Number(row.available ? row.stock : 0),
+                ]));
+                const latestCart = getBuyerCart();
+                let adjustedItems = 0;
+                const nextCart = latestCart.map((item) => {
+                    const key = `${Number(item.product_id || item.id)}:${item.variant_id || ""}`;
+                    if (!stockByKey.has(key)) return item;
+                    const stock = stockByKey.get(key);
+                    const quantity = Number(item.quantity || 1);
+                    const nextQuantity = stock > 0 ? Math.min(quantity, stock) : quantity;
+                    if (nextQuantity !== quantity) adjustedItems += 1;
+                    return { ...item, stock, quantity: nextQuantity };
+                });
+                if (nextCart.some((item, index) =>
+                    item.stock !== latestCart[index]?.stock ||
+                    item.quantity !== latestCart[index]?.quantity
+                )) {
+                    saveBuyerCart(nextCart);
+                    setCart(nextCart);
+                }
+                if (adjustedItems > 0) {
+                    showNotice(`${adjustedItems} cart item${adjustedItems === 1 ? " was" : "s were"} adjusted to current stock.`);
+                }
+                setAvailabilityError("");
+                setAvailabilityCheckedKey(availabilityItemsKey);
+            })
+            .catch((requestError) => {
+                if (cancelled) return;
+                console.error("Unable to refresh cart stock:", requestError);
+                setAvailabilityError("We couldn't refresh stock right now. Please try again before checkout.");
+            })
+
+        return () => { cancelled = true; };
+    }, [availabilityItemsKey, availabilityRetry]);
+
+    useEffect(() => {
         const availableIds = new Set(
             cart
                 .filter((item) => {
                     const stock = getKnownStock(item);
                     return stock === null || stock > 0;
                 })
-                .map((item) => String(item.id))
+                .map((item) => getBuyerCartItemKey(item))
         );
         const validSelectedIds = selectedIds.filter((id) => availableIds.has(String(id)));
         localStorage.setItem(SELECTED_CART_KEY, JSON.stringify(validSelectedIds));
@@ -172,14 +222,6 @@ function Cart() {
     const saveCart = (nextCart) => {
         if (!saveBuyerCart(nextCart)) return;
         setCart(nextCart);
-    };
-
-    const showNotice = (message, duration = 2400) => {
-        setNotice(message);
-
-        window.setTimeout(() => {
-            setNotice("");
-        }, duration);
     };
 
     const updateQuantity = (id, nextQuantity) => {
@@ -245,11 +287,11 @@ function Cart() {
     const toggleItem = (id) => {
         const idKey = String(id);
         const availableIds = new Set(availableCartIds);
-        setSelectedIds((current) =>
-            current.filter((selectedId) => availableIds.has(String(selectedId))).includes(idKey)
-                ? current.filter((selectedId) => String(selectedId) !== idKey && availableIds.has(String(selectedId)))
-                : [...current.filter((selectedId) => availableIds.has(String(selectedId))), idKey]
-        );
+        if (!availableIds.has(idKey)) return;
+        setSelectedIds((current) => toggleCartItemKeys(
+            current.filter((selectedId) => availableIds.has(String(selectedId))),
+            [idKey],
+        ));
     };
 
     const availableCartIds = cart
@@ -258,6 +300,21 @@ function Cart() {
             return stock === null || stock > 0;
         })
         .map((item) => getBuyerCartItemKey(item));
+    const sellerGroups = useMemo(() => groupCartItemsBySeller(cart), [cart]);
+
+    const toggleSellerItems = (items) => {
+        const selectableKeys = items
+            .filter((item) => {
+                const stock = getKnownStock(item);
+                return stock === null || stock > 0;
+            })
+            .map((item) => getBuyerCartItemKey(item));
+        if (selectableKeys.length === 0) return;
+        setSelectedIds((current) => toggleCartItemKeys(
+            current.filter((selectedId) => availableCartIds.includes(String(selectedId))),
+            selectableKeys,
+        ));
+    };
 
     const allSelected =
         availableCartIds.length > 0 &&
@@ -358,6 +415,14 @@ function Cart() {
     );
 
     const proceedToCheckout = () => {
+        if (availabilityError) {
+            showNotice(availabilityError);
+            return;
+        }
+        if (availabilityCheckedKey !== availabilityItemsKey) {
+            showNotice("Checking current stock. Please wait a moment.");
+            return;
+        }
         if (checkingSellerStatus) {
             showNotice("Checking seller availability. Please wait a moment.");
             return;
@@ -420,10 +485,9 @@ function Cart() {
 
                 {cart.length > 0 && (
                     <div className="cart-header-count">
-                        {totalItemCount}{" "}
-                        {totalItemCount === 1
-                            ? "item"
-                            : "items"}
+                        {cart.length} {cart.length === 1 ? "product" : "products"}
+                        {" · "}
+                        {totalItemCount} {totalItemCount === 1 ? "unit" : "units"}
                     </div>
                 )}
             </header>
@@ -435,6 +499,12 @@ function Cart() {
                 >
                     {notice}
                 </div>
+            )}
+            {availabilityError && (
+                <p className="cart-notice" role="alert">
+                    {availabilityError}{" "}
+                    <button type="button" onClick={() => setAvailabilityRetry((value) => value + 1)}>Retry</button>
+                </p>
             )}
 
             {cart.length === 0 ? (
@@ -520,7 +590,31 @@ function Cart() {
                         </div>
 
                         <div className="cart-items">
-                            {cart.map((item) => {
+                            {sellerGroups.map((group) => {
+                                const groupSelected = isCartGroupSelected(selectedIds, group.items);
+                                const groupHasSelectableItems = group.items.some((item) => {
+                                    const stock = getKnownStock(item);
+                                    return stock === null || stock > 0;
+                                });
+
+                                return (
+                                <section className="cart-seller-group" key={group.key}>
+                                    <header className="cart-seller-header">
+                                        <label className="cart-select-all cart-select-seller">
+                                            <input
+                                                type="checkbox"
+                                                checked={groupSelected}
+                                                disabled={!groupHasSelectableItems}
+                                                onChange={() => toggleSellerItems(group.items)}
+                                                aria-label={`Select all products from ${group.name}`}
+                                            />
+                                            <span className="cart-checkbox"><Check size={13} /></span>
+                                        </label>
+                                        <strong>{group.name}</strong>
+                                        <span>{group.items.length} {group.items.length === 1 ? "product" : "products"}</span>
+                                    </header>
+                                    <div className="cart-seller-items">
+                                    {group.items.map((item) => {
                                 const price = Number(
                                     item.price || 0
                                 );
@@ -530,11 +624,6 @@ function Cart() {
                                 );
 
                                 const stock = getKnownStock(item);
-
-                                const sellerName =
-                                    getSellerName(
-                                        item.seller
-                                    );
 
                                 const itemTotal =
                                     price * quantity;
@@ -574,7 +663,7 @@ function Cart() {
                                                 }
                                                 onChange={() =>
                                                     toggleItem(
-                                                        item.id
+                                                        getBuyerCartItemKey(item)
                                                     )
                                                 }
                                             />
@@ -627,14 +716,6 @@ function Cart() {
                                                 </Link>
                                             </h2>
 
-                                            {sellerName && (
-                                                <p>
-                                                    Sold by{" "}
-                                                    {
-                                                        sellerName
-                                                    }
-                                                </p>
-                                            )}
                                             {item.seller_on_vacation === true && <p className="cart-vacation-message">Seller is on vacation. This item cannot be checked out right now.</p>}
 
                                             {variant && (
@@ -754,6 +835,10 @@ function Cart() {
                                             </strong>
                                         </div>
                                     </article>
+                                );
+                                    })}
+                                    </div>
+                                </section>
                                 );
                             })}
                         </div>

@@ -128,7 +128,7 @@ export default function SellerReturns() {
                                 {items.length > 0 && <div className="sr-item-list"><small>Items in the order</small><ul>{items.map((item) => <li key={item.id}><span>{item.product?.name || "Product"}</span><b>× {item.quantity}</b></li>)}</ul></div>}
                             </div>
                             <aside className="sr-return-side">
-                                <div className="sr-refund-block"><small>Refund request</small><RefundStatus request={row.refund_request} />{row.refund_request?.approved_amount != null && <strong>{money(row.refund_request.approved_amount)}</strong>}</div>
+                                {row.return_type === "undeliverable" ? <div className="sr-refund-block"><small>Return reason</small><strong>Unsuccessful delivery after three attempts</strong>{row.return_reason && <p>{row.return_reason}</p>}</div> : <div className="sr-refund-block"><small>Refund request</small><RefundStatus request={row.refund_request} />{row.refund_request?.approved_amount != null && <strong>{money(row.refund_request.approved_amount)}</strong>}</div>}
                                 {row.picked_up_at && <p><Truck size={13} />Collected {dateTime(row.picked_up_at)}</p>}
                                 {row.received_at && <p><CheckCircle2 size={13} />Delivered {dateTime(row.received_at)}</p>}
                                 {row.status === "delivered" && <div className="sr-confirm-box">

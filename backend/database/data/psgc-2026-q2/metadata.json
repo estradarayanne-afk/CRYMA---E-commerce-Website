@@ -1,0 +1,20 @@
+{
+  "dataset": "Philippine Standard Geographic Code",
+  "publisher": "Philippine Statistics Authority",
+  "source_url": "https://psa.gov.ph/classification/psgc",
+  "source_publication_file": "PSGC-2Q-2026-Publication-Datafile.xlsx",
+  "source_publication_date": "2026-06-30",
+  "source_publication_sha256": "31892bc2bdde3ea0682562d9412b5bab4d45a0be5e5a5b4f6c9d7714b94bca5d",
+  "source_downloaded_directly": false,
+  "mirror_repository": "https://github.com/tenzerodev/rdcruz-psgc-address-picker",
+  "mirror_commit": "65ac4b2b145cb37bd4ad4eb655c27ba039cd51a7",
+  "mirror_source_file_sha256": "8C4BFBCBBE007AB2AC8DC8B9414C8BEFB0EEBF1B34BEE10CF81881A5D25CDF33",
+  "counts": {
+    "Reg": 18,
+    "Prov": 84,
+    "City": 149,
+    "Mun": 1493,
+    "SubMun": 14,
+    "Bgy": 42010
+  }
+}
