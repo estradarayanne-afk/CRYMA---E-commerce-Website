@@ -22,18 +22,26 @@ import ConfirmationModal from "../components/ConfirmationModal";
 import "./LogisticsLayout.css";
 import "../../admin/layouts/AdminWorkspace.css";
 
-const LINKS = [
-    { to: "/logistics/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/logistics/riders", label: "Rider Management", icon: UsersRound },
-    { to: "/logistics/pickups", label: "Pickup Requests", flow: "01 · Collect", icon: ClipboardList },
-    { to: "/logistics/incoming-parcels", label: "Incoming Parcels", flow: "02 · Receive", icon: PackageCheck },
-    { to: "/logistics/sorting", label: "Sorting", flow: "03 · Sort", icon: Boxes },
-    { to: "/logistics/parcel-flow", label: "Parcel Flow & Hubs", flow: "04 · Transfer", icon: Boxes },
-    { to: "/logistics/hub-staff", label: "Hub Staff", icon: UsersRound, provisionerOnly: true },
-    { to: "/logistics/delivery-assignment", label: "Delivery Assignment", flow: "05 · Dispatch", icon: MapPinned },
-    { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", flow: "06 · Track", icon: Truck },
-    { to: "/logistics/reports", label: "Reports", icon: BarChart3 },
-    { to: "/logistics/messages", label: "Messages", icon: MessageSquareText },
+const NAV_GROUPS = [
+    { label: "Overview", links: [
+        { to: "/logistics/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    ] },
+    { label: "Parcel workflow", links: [
+        { to: "/logistics/pickups", label: "Pickup Requests", flow: "01 · Collect", icon: ClipboardList },
+        { to: "/logistics/incoming-parcels", label: "Incoming Parcels", flow: "02 · Receive", icon: PackageCheck },
+        { to: "/logistics/sorting", label: "Sorting", flow: "03 · Sort", icon: Boxes },
+        { to: "/logistics/parcel-flow", label: "Parcel Flow & Hubs", flow: "04 · Transfer", icon: Boxes },
+        { to: "/logistics/delivery-assignment", label: "Delivery Assignment", flow: "05 · Dispatch", icon: MapPinned },
+        { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", flow: "06 · Track", icon: Truck },
+    ] },
+    { label: "People & access", links: [
+        { to: "/logistics/riders", label: "Courier / Rider accounts", icon: UsersRound },
+        { to: "/logistics/hub-staff", label: "Hub Staff accounts", icon: UsersRound, provisionerOnly: true },
+    ] },
+    { label: "Insights", links: [
+        { to: "/logistics/reports", label: "Reports", icon: BarChart3 },
+        { to: "/logistics/messages", label: "Messages", icon: MessageSquareText },
+    ] },
 ];
 
 function LogisticsLayout() {
@@ -55,7 +63,13 @@ function LogisticsLayout() {
         }
     });
     const closeLogoutModal = useCallback(() => setLogoutModalOpen(false), []);
-    const visibleLinks = LINKS.filter((link) => !link.provisionerOnly || canManageHubStaff);
+    const visibleGroups = NAV_GROUPS
+        .map((group) => ({
+            ...group,
+            links: group.links.filter((link) => !link.provisionerOnly || canManageHubStaff),
+        }))
+        .filter((group) => group.links.length > 0);
+    const visibleLinks = visibleGroups.flatMap((group) => group.links);
     const currentPage = visibleLinks.find(({ to }) => to === location.pathname)?.label || "Logistics";
     const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Logistics staff";
     const initials = fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
@@ -157,13 +171,19 @@ function LogisticsLayout() {
                         <span /><span /><span />
                     </button>
                 </div>
-                <p className="lw-section-label">Workspace</p>
                 <nav className="lw-nav" id="logistics-workspace-navigation" aria-label="Logistics workspace">
-                    {visibleLinks.map(({ to, label, flow, icon: Icon }) => (
-                        <NavLink key={to} to={to} end={to === "/logistics/dashboard"} onClick={() => setMobileNavOpen(false)} title={sidebarCollapsed ? label : undefined} className={({ isActive }) => isActive ? "active" : ""}>
-                            <Icon size={18} aria-hidden="true" />
-                            <span className="lw-nav-copy"><span className="lw-nav-label">{label}</span>{flow && <small className="lw-nav-flow">{flow}</small>}</span>
-                        </NavLink>
+                    {visibleGroups.map(({ label: groupLabel, links }) => (
+                        <section className="lw-nav-group" key={groupLabel}>
+                            <h2 className="lw-nav-group-label">{groupLabel}</h2>
+                            <div className="lw-nav-group-links">
+                                {links.map(({ to, label, flow, icon: Icon }) => (
+                                    <NavLink key={to} to={to} end={to === "/logistics/dashboard"} onClick={() => setMobileNavOpen(false)} title={sidebarCollapsed ? label : undefined} className={({ isActive }) => isActive ? "active" : ""}>
+                                        <Icon size={18} aria-hidden="true" />
+                                        <span className="lw-nav-copy"><span className="lw-nav-label">{label}</span>{flow && <small className="lw-nav-flow">{flow}</small>}</span>
+                                    </NavLink>
+                                ))}
+                            </div>
+                        </section>
                     ))}
                 </nav>
                 <div className="lw-sidebar-bottom" ref={profileRef}>

@@ -28,3 +28,25 @@
 .lr-review-actions textarea{min-height:56px;padding:7px 8px;font-size:11px}
 .lr-hint{font-size:10px}
 @media(max-width:760px){.lr-list{grid-template-columns:1fr}.lr-review-actions{grid-template-columns:1fr}.lr-document-actions{width:100%}}
+
+.lr-account-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #eadfe1;border-radius:12px;background:#fff}
+.lr-status-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.lr-status-tabs button{min-height:34px;padding:0 11px;border:1px solid transparent;border-radius:999px;background:transparent;color:#705e63;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+.lr-status-tabs button:hover{background:#fff5f7}
+.lr-status-tabs button.is-active{background:#7e1830;color:#fff}
+.lr-account-search input{width:min(310px,100%);min-height:36px;padding:7px 10px;border:1px solid #eadfe1;border-radius:9px;font:inherit;font-size:11px}
+.lr-account-table-wrap{overflow:auto;border:1px solid #eadfe1;border-radius:12px;background:#fff}
+.lr-account-table{width:100%;min-width:760px;border-collapse:collapse;text-align:left}
+.lr-account-table th,.lr-account-table td{padding:11px 14px;border-bottom:1px solid #f1e9ea;color:#514148;font-size:11px;vertical-align:middle}
+.lr-account-table th{background:#fffafb;color:#80666e;font-size:9px;letter-spacing:.07em;text-transform:uppercase}
+.lr-account-table tr:last-child td{border-bottom:0}
+.lr-account-table td strong,.lr-account-table td small{display:block}
+.lr-account-table td strong{color:#35151f;font-size:12px}
+.lr-account-table td small{margin-top:3px;color:#80666e;font-size:10px}
+.lr-account-status{display:inline-flex;padding:4px 8px;border:1px solid #eadfe1;border-radius:999px;background:#faf7f8;color:#6b5960;font-size:9px;font-weight:750;text-transform:capitalize}
+.lr-account-status--active{border-color:#cde5d3;background:#eff8f1;color:#27623c}
+.lr-account-status--suspended,.lr-account-status--rejected{border-color:#efc1c5;background:#fff1f2;color:#9d1c2c}
+.lr-account-actions{display:grid;grid-template-columns:minmax(120px,1fr) auto;align-items:center;gap:6px;min-width:210px}
+.lr-account-actions input{min-height:33px;padding:6px 8px;border:1px solid #eadfe1;border-radius:8px;font:inherit;font-size:10px}
+.lr-account-actions .lr-danger,.lr-account-table .lr-primary{min-height:33px;padding:0 9px;font-size:10px}
+@media(max-width:760px){.lr-account-controls{align-items:stretch;flex-direction:column}.lr-account-search input{width:100%}.lr-account-table{min-width:560px}}

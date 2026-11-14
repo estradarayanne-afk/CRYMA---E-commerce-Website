@@ -481,6 +481,7 @@ class BuyerOrderController extends Controller
             ]);
         }
         $validated['address_id'] = $selectedAddress->id;
+        $validated['delivery_psgc_code'] = $selectedAddress->psgc_code;
         $validated['delivery_address'] = collect([
             $selectedAddress->label ? ucfirst($selectedAddress->label) : null,
             'Recipient: '.($selectedAddress->recipient_name ?: trim(
@@ -510,6 +511,7 @@ class BuyerOrderController extends Controller
             ->all();
         $requestDetails = [
             'delivery_address' => trim($validated['delivery_address']),
+            'delivery_psgc_code' => $validated['delivery_psgc_code'],
             'address_id' => (int) $validated['address_id'],
             'payment_method' => $validated['payment_method'],
             'items' => $canonicalItems,
@@ -555,6 +557,7 @@ class BuyerOrderController extends Controller
                     'buyer_id' => $userId,
                     'checkout_group_id' => $group->id,
                     'delivery_address' => trim($validated['delivery_address']),
+                    'delivery_psgc_code' => $validated['delivery_psgc_code'],
                     'payment_method' => $validated['payment_method'],
                     'subtotal' => 0,
                     'shipping_fee' => 0,
@@ -794,6 +797,7 @@ class BuyerOrderController extends Controller
                             'buyer_id' => $userId,
                             'checkout_group_id' => $group->id,
                             'delivery_address' => trim($validated['delivery_address']),
+                            'delivery_psgc_code' => $validated['delivery_psgc_code'],
                             'payment_method' => $validated['payment_method'],
                             'subtotal' => 0,
                             'shipping_fee' => 0,

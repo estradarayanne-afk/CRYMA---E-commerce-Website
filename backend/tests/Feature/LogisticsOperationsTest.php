@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
+use App\Models\GeographicLocation;
 use App\Models\LogisticsHub;
 use App\Models\Order;
 use App\Models\PickupAssignment;
@@ -13,6 +14,7 @@ use App\Models\UserDocument;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class LogisticsOperationsTest extends TestCase
@@ -110,7 +112,7 @@ class LogisticsOperationsTest extends TestCase
         $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
             'expected_status' => Delivery::AT_SORTING_CENTER,
             'parcel_code' => $delivery->parcel_code,
-        ])->assertOk()->assertJsonPath('message', 'Parcel scanned. Read its delivery address, choose the destination area, then assign a rider for that area.');
+        ])->assertOk()->assertJsonPath('message', 'Parcel scanned. Its destination area is matched from the saved delivery address; resolve any routing exception before dispatch.');
         $this->postJson('/api/logistics/parcels/scan', ['parcel_code' => 'CRYMA-PCL-AAAAAAAAAAAAAAAAAAAA'])->assertNotFound();
         $this->postJson('/api/logistics/parcels/scan', ['parcel_code' => $delivery->parcel_code])->assertOk();
         $this->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", ['delivery_area_id' => $otherArea->id, 'courier_profile_id' => $courierProfile->id, 'expected_status' => Delivery::AT_SORTING_CENTER])->assertStatus(409);
@@ -149,6 +151,203 @@ class LogisticsOperationsTest extends TestCase
             'event_type' => 'delivery_assigned',
             'courier_profile_id' => $courierProfile->id,
         ]);
+    }
+
+    public function test_logistics_auto_routes_a_saved_barangay_to_its_delivery_hub(): void
+    {
+        $logistics = $this->logisticsUser();
+        [, $transferCourier] = $this->eligibleCourier();
+        $origin = LogisticsHub::create(['name' => 'Origin route hub', 'code' => 'ORIGIN-ROUTE', 'is_active' => true]);
+        $destination = LogisticsHub::create(['name' => 'Destination route hub', 'code' => 'DEST-ROUTE', 'is_active' => true]);
+        $region = GeographicLocation::create(['code' => '9900000000', 'name' => 'Route Test Region', 'level' => 'Reg']);
+        $municipality = GeographicLocation::create(['code' => '9900000100', 'name' => 'Route Test Municipality', 'level' => 'Mun', 'parent_code' => $region->code]);
+        $barangay = GeographicLocation::create(['code' => '9900000101', 'name' => 'Route Test Barangay', 'level' => 'Bgy', 'parent_code' => $municipality->code]);
+        $area = DeliveryArea::create([
+            'name' => 'Mapped route area',
+            'psgc_code' => $municipality->code,
+            'hub_id' => $destination->id,
+            'is_active' => true,
+        ]);
+        $order = $this->order(Delivery::AT_SORTING_CENTER);
+        $order->update(['delivery_psgc_code' => $barangay->code]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::AT_SORTING_CENTER,
+            'current_hub_id' => $origin->id,
+        ]);
+
+        $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->assertJsonPath('data.sorting_orders.0.destination_route.status', 'mapped')
+            ->assertJsonPath('data.sorting_orders.0.destination_route.area.id', $area->id);
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertOk();
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+        ])->assertOk()
+            ->assertJsonPath('message', 'Parcel sorted and automatically routed. Create a transfer to its destination hub before assigning final-mile delivery.');
+
+        $this->assertSame(Delivery::SORTED, $delivery->fresh()->status);
+        $this->assertSame($area->id, $delivery->fresh()->delivery_area_id);
+        $this->assertNull($delivery->fresh()->courier_profile_id);
+
+        $this->postJson('/api/logistics/hub-transfers', [
+            'shipment_type' => 'delivery',
+            'shipment_id' => $delivery->id,
+            'courier_profile_id' => $transferCourier->id,
+        ])->assertCreated()
+            ->assertJsonPath('data.from_hub_id', $origin->id)
+            ->assertJsonPath('data.to_hub_id', $destination->id);
+    }
+
+    public function test_unmapped_parcel_stays_in_routing_exception_queue_without_a_guessed_destination(): void
+    {
+        $logistics = $this->logisticsUser();
+        $hub = LogisticsHub::create(['name' => 'Unmapped route hub', 'code' => 'UNMAPPED-ROUTE', 'is_active' => true]);
+        $region = GeographicLocation::create(['code' => '9800000000', 'name' => 'Unmapped Test Region', 'level' => 'Reg']);
+        $municipality = GeographicLocation::create(['code' => '9800000100', 'name' => 'Unmapped Test Municipality', 'level' => 'Mun', 'parent_code' => $region->code]);
+        $barangay = GeographicLocation::create(['code' => '9800000101', 'name' => 'Unmapped Test Barangay', 'level' => 'Bgy', 'parent_code' => $municipality->code]);
+        $order = $this->order(Delivery::AT_SORTING_CENTER);
+        $order->update(['delivery_psgc_code' => $barangay->code]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::AT_SORTING_CENTER,
+            'current_hub_id' => $hub->id,
+        ]);
+
+        $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->assertJsonPath('data.sorting_orders.0.destination_route.status', 'unmapped');
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertOk();
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'This parcel needs a routing exception review. Map its destination address to an active delivery area first.');
+
+        $this->assertSame(Delivery::AT_SORTING_CENTER, $delivery->fresh()->status);
+        $this->assertNull($delivery->fresh()->delivery_area_id);
+    }
+
+    public function test_manual_routing_exception_is_retained_for_hub_transfer_and_requires_a_note(): void
+    {
+        $logistics = $this->logisticsUser();
+        [, $transferCourier] = $this->eligibleCourier();
+        $origin = LogisticsHub::create(['name' => 'Manual route origin', 'code' => 'MANUAL-ORIGIN', 'is_active' => true]);
+        $destination = LogisticsHub::create(['name' => 'Manual route destination', 'code' => 'MANUAL-DEST', 'is_active' => true]);
+        $region = GeographicLocation::create(['code' => '9700000000', 'name' => 'Manual Route Region', 'level' => 'Reg']);
+        $municipality = GeographicLocation::create(['code' => '9700000100', 'name' => 'Manual Route Municipality', 'level' => 'Mun', 'parent_code' => $region->code]);
+        $barangay = GeographicLocation::create(['code' => '9700000101', 'name' => 'Manual Route Barangay', 'level' => 'Bgy', 'parent_code' => $municipality->code]);
+        $area = DeliveryArea::create([
+            'name' => 'Manually reviewed area',
+            'hub_id' => $destination->id,
+            'is_active' => true,
+        ]);
+        $order = $this->order(Delivery::AT_SORTING_CENTER);
+        $order->update(['delivery_psgc_code' => $barangay->code]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::AT_SORTING_CENTER,
+            'current_hub_id' => $origin->id,
+        ]);
+
+        $this->actingAs($logistics, 'sanctum');
+        $this->postJson('/api/logistics/parcels/scan', [
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertOk();
+        $this->patchJson("/api/logistics/orders/{$order->id}/sort-and-assign", [
+            'delivery_area_id' => $area->id,
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+            'reason' => 'Address reviewed and confirmed with the recipient.',
+        ])->assertOk();
+
+        $this->getJson('/api/logistics/parcel-flow')
+            ->assertOk()
+            ->assertJsonPath('data.deliveries.0.destination_route.status', 'manual_route')
+            ->assertJsonPath('data.deliveries.0.destination_route.source_status', 'unmapped')
+            ->assertJsonPath('data.deliveries.0.destination_route.area.id', $area->id);
+
+        $payload = [
+            'shipment_type' => 'delivery',
+            'shipment_id' => $delivery->id,
+            'courier_profile_id' => $transferCourier->id,
+        ];
+        $this->postJson('/api/logistics/hub-transfers', $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Add a note when manually resolving an unmapped or ambiguous destination.');
+
+        $this->postJson('/api/logistics/hub-transfers', [
+            ...$payload,
+            'note' => 'Manual destination confirmed from the address.',
+        ])->assertCreated()
+            ->assertJsonPath('data.to_hub_id', $destination->id);
+    }
+
+    public function test_logistics_can_search_active_courier_accounts_without_exposing_other_roles(): void
+    {
+        $logistics = $this->logisticsUser();
+        $rider = User::factory()->create([
+            'first_name' => 'Directory',
+            'last_name' => 'Courier',
+            'email' => 'directory.courier@example.test',
+            'role' => 'rider',
+            'status' => 'active',
+        ]);
+        $seller = User::factory()->create([
+            'first_name' => 'Directory',
+            'last_name' => 'Seller',
+            'role' => 'seller',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/riders?status=active&search=Directory')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.data.0.id', $rider->id)
+            ->assertJsonMissing(['id' => $seller->id]);
+    }
+
+    public function test_logistics_can_suspend_and_reactivate_only_verified_courier_accounts(): void
+    {
+        Mail::fake();
+        $logistics = $this->logisticsUser();
+        [$rider] = $this->eligibleCourier();
+        $rider->createToken('courier-session');
+
+        $this->actingAs($logistics, 'sanctum')
+            ->patchJson("/api/logistics/riders/{$rider->id}/status", ['status' => 'suspended'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['suspension_reason']);
+
+        $this->patchJson("/api/logistics/riders/{$rider->id}/status", [
+            'status' => 'suspended',
+            'suspension_reason' => 'Courier account review required.',
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'suspended')
+            ->assertJsonPath('notification_sent', true);
+        $this->assertSame(0, $rider->tokens()->count());
+        Mail::assertSent(\App\Mail\AccountSuspensionMail::class);
+
+        $this->patchJson("/api/logistics/riders/{$rider->id}/status", ['status' => 'active'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('notification_sent', true);
+        Mail::assertSent(\App\Mail\AccountReactivationMail::class);
+
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->patchJson("/api/logistics/riders/{$buyer->id}/status", ['status' => 'suspended', 'suspension_reason' => 'Not a courier.'])
+            ->assertNotFound();
     }
 
     public function test_logistics_can_monitor_failed_deliveries_and_record_a_return(): void
@@ -218,6 +417,8 @@ class LogisticsOperationsTest extends TestCase
                 ->assertForbidden();
             $this->getJson('/api/logistics/profile')->assertForbidden();
             $this->patchJson('/api/logistics/account/password', [])->assertForbidden();
+            $this->getJson('/api/logistics/riders?status=active')->assertForbidden();
+            $this->patchJson('/api/logistics/riders/1/status', ['status' => 'suspended', 'suspension_reason' => 'Unauthorized.'])->assertForbidden();
         }
     }
 

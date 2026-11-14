@@ -10,6 +10,7 @@ use App\Models\HubTransfer;
 use App\Models\LogisticsHub;
 use App\Models\ReturnShipment;
 use App\Services\CourierEligibility;
+use App\Services\DeliveryAreaResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -18,7 +19,7 @@ class ParcelFlowController extends Controller
 {
     public function hubs() { return response()->json(['success' => true, 'data' => LogisticsHub::where('is_active', true)->orderBy('name')->get()]); }
 
-    public function operations(CourierEligibility $eligibility)
+    public function operations(CourierEligibility $eligibility, DeliveryAreaResolver $areaResolver)
     {
         $transfers = HubTransfer::with([
             'fromHub:id,name,code',
@@ -68,12 +69,48 @@ class ParcelFlowController extends Controller
             }
         }
 
+        $deliveries = Delivery::with([
+            'order:id,status,delivery_address,delivery_psgc_code',
+            'currentHub:id,name,code',
+            'deliveryArea:id,name,hub_id,is_active',
+            'deliveryArea.hub:id,name,code,is_active',
+            'events',
+        ])->whereIn('status', [Delivery::AT_SORTING_CENTER, Delivery::SORTED])
+            ->whereNotNull('current_hub_id')->latest()->limit(100)->get();
+        $routes = $areaResolver->resolveMany($deliveries->pluck('order.delivery_psgc_code'));
+        foreach ($deliveries as $delivery) {
+            $code = $delivery->order?->delivery_psgc_code;
+            $route = $routes[$code ?? ''] ?? ['status' => 'missing_address_code', 'area' => null];
+            if ($route['status'] === 'mapped' && $delivery->deliveryArea && (int) $delivery->deliveryArea->id !== (int) $route['area']->id) {
+                $route['status'] = 'mapping_conflict';
+            } elseif (
+                !in_array($route['status'], ['mapped', 'mapping_conflict'], true)
+                && $delivery->deliveryArea?->is_active
+                && $delivery->deliveryArea->hub?->is_active
+            ) {
+                $route = [
+                    'status' => 'manual_route',
+                    'area' => $delivery->deliveryArea,
+                    'source_status' => $route['status'],
+                ];
+            }
+            $delivery->setAttribute('destination_route', $route);
+        }
+        $deliveries = $deliveries->filter(function (Delivery $delivery): bool {
+            $route = $delivery->destination_route;
+            if (!in_array($route['status'] ?? null, ['mapped', 'mapping_conflict', 'manual_route'], true)) {
+                return true;
+            }
+            $area = $route['area'] ?? $delivery->deliveryArea;
+            return !$area || (int) $area->hub_id !== (int) $delivery->current_hub_id;
+        })->values();
+
         return response()->json(['success' => true, 'data' => [
             'hubs' => $hubs,
             'areas' => $areas,
             'transfers' => $transfers,
             'returns' => ReturnShipment::with(['refundRequest:id,status,requested_amount,approved_amount','delivery:id,order_id,parcel_code','order.items.product:id,name','buyer:id,first_name,last_name','seller:id,first_name,last_name','pickupCourier.user:id,first_name,last_name','deliveryCourier.user:id,first_name,last_name','currentHub:id,name,code'])->latest()->limit(100)->get(),
-            'deliveries' => Delivery::with(['order:id,status,delivery_address','currentHub:id,name,code','deliveryArea:id,name,hub_id','deliveryArea.hub:id,name,code,is_active','events'])->whereIn('status', [Delivery::AT_SORTING_CENTER, Delivery::SORTED])->whereNotNull('current_hub_id')->latest()->limit(100)->get(),
+            'deliveries' => $deliveries,
             'couriers' => $eligibility->profiles()->with(['user:id,first_name,last_name'])->orderBy('id')->get(),
         ]]);
     }
@@ -188,30 +225,54 @@ class ParcelFlowController extends Controller
         return response()->json(['success' => true, 'data' => $shipment]);
     }
 
-    public function createTransfer(Request $request, CourierEligibility $eligibility)
+    public function createTransfer(Request $request, CourierEligibility $eligibility, DeliveryAreaResolver $areaResolver)
     {
         $v = $request->validate([
             'shipment_type' => ['required','in:delivery,return'], 'shipment_id' => ['required','integer'],
-            'to_hub_id' => ['required','integer','exists:logistics_hubs,id'], 'courier_profile_id' => ['required','integer','exists:courier_profiles,id'], 'note' => ['nullable','string','max:1000'],
-            'delivery_area_id' => [Rule::requiredIf($request->input('shipment_type') === 'delivery'), 'nullable', 'integer', 'exists:delivery_areas,id'],
+            'to_hub_id' => [Rule::requiredIf($request->input('shipment_type') === 'return'), 'nullable','integer','exists:logistics_hubs,id'],
+            'courier_profile_id' => ['required','integer','exists:courier_profiles,id'],
+            'note' => ['nullable','string','max:1000'],
+            'delivery_area_id' => ['nullable','integer','exists:delivery_areas,id'],
         ]);
         $courier = $eligibility->find((int) $v['courier_profile_id']);
         abort_unless($courier, 422, 'Select an eligible courier.');
-        $transfer = DB::transaction(function () use ($request, $v, $courier, $eligibility) {
+        $transfer = DB::transaction(function () use ($request, $v, $courier, $eligibility, $areaResolver) {
             $delivery = $v['shipment_type'] === 'delivery' ? Delivery::whereKey($v['shipment_id'])->lockForUpdate()->first() : null;
             $return = $v['shipment_type'] === 'return' ? ReturnShipment::whereKey($v['shipment_id'])->lockForUpdate()->first() : null;
             $order = $delivery?->order()->lockForUpdate()->first();
-            $area = $delivery ? DeliveryArea::whereKey($v['delivery_area_id'])->lockForUpdate()->firstOrFail() : null;
+            $route = $delivery ? $areaResolver->resolve($order?->delivery_psgc_code) : null;
+            $areaId = $delivery
+                ? ($route['status'] === 'mapped' ? (int) $route['area']->id : ($delivery->delivery_area_id ?? $v['delivery_area_id'] ?? null))
+                : null;
+            $area = $delivery && $areaId
+                ? DeliveryArea::with('hub')->whereKey($areaId)->lockForUpdate()->firstOrFail()
+                : null;
             $currentHubId = $delivery?->current_hub_id ?? $return?->current_hub_id;
             abort_unless(($delivery || $return) && $currentHubId, 404, 'Parcel is not currently recorded at a hub.');
-            $destinationHub = LogisticsHub::whereKey($v['to_hub_id'])->lockForUpdate()->firstOrFail();
-            abort_unless($destinationHub->is_active, 422, 'Select an active destination hub.');
-            abort_unless((int) $currentHubId !== (int) $v['to_hub_id'], 422, 'Choose a different destination hub.');
-            if ($delivery) abort_unless($order && $order->status === $delivery->status && in_array($delivery->status, [Delivery::AT_SORTING_CENTER, Delivery::SORTED], true), 409, 'Forward parcel is not ready for a hub transfer.');
-            if ($delivery) {
-                abort_unless($area->is_active && $area->hub_id, 422, 'Choose an active delivery area mapped to a hub.');
-                abort_unless((int) $area->hub_id === (int) $destinationHub->id, 422, 'Destination hub must match the selected delivery area.');
+            if ($delivery && $route['status'] !== 'mapped' && $order?->delivery_psgc_code) {
+                abort_unless(filled($v['note'] ?? null), 422, 'Add a note when manually resolving an unmapped or ambiguous destination.');
             }
+            if ($delivery) {
+                abort_unless($area, 422, 'Resolve the parcel destination area before creating a hub transfer.');
+                abort_unless($area->is_active && $area->hub_id && $area->hub?->is_active, 422, 'The destination area must map to an active hub.');
+                abort_if(
+                    isset($v['delivery_area_id']) && (int) $v['delivery_area_id'] !== (int) $area->id,
+                    409,
+                    'The destination area is determined by the saved delivery address.',
+                );
+                $destinationHubId = $area->hub_id;
+                abort_if(
+                    isset($v['to_hub_id']) && (int) $v['to_hub_id'] !== (int) $destinationHubId,
+                    422,
+                    'The destination hub is determined by the delivery-area mapping.',
+                );
+            } else {
+                $destinationHubId = $v['to_hub_id'];
+            }
+            $destinationHub = LogisticsHub::whereKey($destinationHubId)->lockForUpdate()->firstOrFail();
+            abort_unless($destinationHub->is_active, 422, 'Select an active destination hub.');
+            abort_unless((int) $currentHubId !== (int) $destinationHubId, 422, 'Choose a different destination hub.');
+            if ($delivery) abort_unless($order && $order->status === $delivery->status && in_array($delivery->status, [Delivery::AT_SORTING_CENTER, Delivery::SORTED], true), 409, 'Forward parcel is not ready for a hub transfer.');
             if ($return) abort_unless($return->status === 'at_hub', 409, 'Return parcel is not at a hub.');
             abort_if(HubTransfer::whereIn('status', ['assigned', 'in_transit'])->where(fn ($q) => $delivery
                 ? $q->where('delivery_id', $delivery->id)
@@ -220,7 +281,7 @@ class ParcelFlowController extends Controller
             if ($delivery) $delivery->update(['delivery_area_id' => $area->id]);
             return HubTransfer::create([
                 'delivery_id' => $delivery?->id, 'return_shipment_id' => $return?->id,
-                'from_hub_id' => $currentHubId, 'to_hub_id' => $v['to_hub_id'],
+                'from_hub_id' => $currentHubId, 'to_hub_id' => $destinationHubId,
                 'courier_profile_id' => $courier->id, 'assigned_by' => $request->user()->id,
                 'status' => 'assigned', 'note' => $v['note'] ?? null,
             ]);

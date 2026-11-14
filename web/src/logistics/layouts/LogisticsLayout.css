@@ -51,6 +51,14 @@
 @media(max-width:700px){.lw-root .lw-content{padding:16px 14px 24px}.lw-root .lw-content .lw-page-heading{min-height:0;align-items:flex-start;flex-direction:column;padding:17px}.lw-root .lw-content .lw-page-heading>button{width:auto;min-width:110px}.lw-root .lw-content .lw-metric{min-height:96px;padding:12px}.lw-root .lw-nav-flow{display:none}}
 @media(max-width:480px){.lw-root .lw-content .lw-page-heading>button{width:100%}.lw-root .lw-content .lr-card,.lw-root .lw-content .la-card{padding:13px}}
 
+.lw-nav{align-content:start}
+.lw-nav-group{display:grid;gap:4px;padding-top:7px}
+.lw-nav-group+.lw-nav-group{margin-top:5px;border-top:1px solid rgba(255,255,255,.07)}
+.lw-nav-group-label{margin:0;padding:8px 13px 3px;color:#987b82;font-size:9px;font-weight:750;letter-spacing:1px;text-transform:uppercase}
+.lw-nav-group-links{display:grid;gap:3px}
+.lw-root--collapsed .lw-nav-group-label{display:none}
+.lw-root--collapsed .lw-nav-group+.lw-nav-group{margin-top:4px;padding-top:5px}
+
 /* Denser operations tables and queue controls. */
 .lw-root .lw-content .lo-dashboard-table-wrap{max-height:340px;overflow:auto;border-top:1px solid #f1e9ea}
 .lw-root .lw-content .lo-table th{position:sticky;top:0;z-index:1;padding:9px 12px;background:#fffafb}

@@ -240,6 +240,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::patch('/logistics/riders/{id}/documents/{documentId}/reject', [RiderManagementController::class, 'rejectDocument']);
         Route::patch('/logistics/riders/{id}/approve', [RiderManagementController::class, 'approve']);
         Route::patch('/logistics/riders/{id}/reject', [RiderManagementController::class, 'reject']);
+        Route::patch('/logistics/riders/{id}/status', [RiderManagementController::class, 'updateStatus']);
     });
 
     Route::get('/admin/dashboard', [

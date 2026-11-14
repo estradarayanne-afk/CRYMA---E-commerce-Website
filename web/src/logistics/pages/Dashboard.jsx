@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ClipboardList, PackageCheck, Boxes, Truck, CircleCheck, TriangleAlert } from "lucide-react";
+import { ClipboardList, PackageCheck, Boxes, Truck, TriangleAlert } from "lucide-react";
 import api from "../../shared/services/api";
 import "./LogisticsPages.css";
 import "./Reports.css";
@@ -10,12 +10,7 @@ const METRICS = [
     { key: "incoming_parcels", label: "Parcels awaiting hub receipt", icon: PackageCheck, to: "/logistics/incoming-parcels" },
     { key: "parcels_awaiting_sorting", label: "Received, awaiting sorting", icon: Boxes, to: "/logistics/sorting" },
     { key: "parcels_ready_for_dispatch", label: "Ready for final-mile assignment", icon: Truck, to: "/logistics/delivery-assignment" },
-    { key: "parcels_assigned_for_final_mile", label: "Assigned for final-mile pickup", icon: Truck, to: "/logistics/delivery-monitoring" },
     { key: "deliveries_in_progress", label: "Assigned / in final-mile", icon: Truck, to: "/logistics/delivery-monitoring" },
-    { key: "transfers_awaiting_dispatch", label: "Transfers awaiting dispatch", icon: Boxes, to: "/logistics/parcel-flow" },
-    { key: "transfers_in_transit_awaiting_receipt", label: "Transfers awaiting receipt", icon: PackageCheck, to: "/logistics/parcel-flow" },
-    { key: "completed_transfers", label: "Transfers received", icon: CircleCheck, to: "/logistics/parcel-flow" },
-    { key: "completed_deliveries", label: "Completed deliveries", icon: CircleCheck, to: "/logistics/delivery-monitoring" },
     { key: "failed_deliveries", label: "Failed deliveries", icon: TriangleAlert, to: "/logistics/delivery-monitoring" },
 ];
 

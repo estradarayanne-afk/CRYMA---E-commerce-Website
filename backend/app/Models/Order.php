@@ -17,6 +17,7 @@ class Order extends Model
         'buyer_id',
         'checkout_group_id',
         'delivery_address',
+        'delivery_psgc_code',
         'payment_method',
         'subtotal',
         'shipping_fee',

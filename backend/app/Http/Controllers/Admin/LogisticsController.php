@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Services\CourierEligibility;
+use App\Services\DeliveryAreaResolver;
 use App\Services\HubProximity;
 use App\Support\OrderDeliveryProjection;
 use Illuminate\Database\QueryException;
@@ -20,7 +21,7 @@ use Illuminate\Validation\Rule;
 
 class LogisticsController extends Controller
 {
-    public function queue(CourierEligibility $eligibility, HubProximity $proximity)
+    public function queue(CourierEligibility $eligibility, HubProximity $proximity, DeliveryAreaResolver $areaResolver)
     {
         $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name', 'items.seller.addresses'];
         $pickupOrders = Order::with($orderDetails)->where('status', 'READY_FOR_PICKUP')
@@ -44,6 +45,28 @@ class LogisticsController extends Controller
                 ->orWhere(fn ($legacy) => $legacy->where('status', Delivery::OUT_FOR_DELIVERY)->whereHas('delivery', fn ($delivery) => $delivery->where('legacy_imported', true)->whereNull('courier_profile_id')));
         })
             ->whereHas('delivery')->latest()->get();
+        $routes = $areaResolver->resolveMany($sortingOrders->pluck('delivery_psgc_code'));
+        foreach ($sortingOrders as $order) {
+            $route = $routes[$order->delivery_psgc_code ?? ''] ?? [
+                'status' => 'missing_address_code',
+                'area' => null,
+            ];
+            $storedArea = $order->delivery?->deliveryArea;
+            if ($route['status'] === 'mapped' && $storedArea && (int) $storedArea->id !== (int) $route['area']->id) {
+                $route['status'] = 'mapping_conflict';
+            } elseif (
+                !in_array($route['status'], ['mapped', 'mapping_conflict'], true)
+                && $storedArea?->is_active
+                && $storedArea->hub?->is_active
+            ) {
+                $route = [
+                    'status' => 'manual_route',
+                    'area' => $storedArea,
+                    'source_status' => $route['status'],
+                ];
+            }
+            $order->setAttribute('destination_route', $route);
+        }
         $areas = DeliveryArea::where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $deliveries = Delivery::with(['order:id,status', 'order.items.product:id,weight_kg', 'deliveryArea:id,name', 'courierProfile.user:id,first_name,last_name', 'pickupAssignment.courierProfile.user:id,first_name,last_name', 'events.actor:id,first_name,last_name', 'proof'])
             ->latest()->get();
@@ -325,35 +348,73 @@ class LogisticsController extends Controller
         ]);
     }
 
-    public function sortAndAssign(Request $request, int $orderId, CourierEligibility $eligibility)
+    public function sortAndAssign(Request $request, int $orderId, CourierEligibility $eligibility, DeliveryAreaResolver $areaResolver)
     {
         $values = $request->validate([
-            'delivery_area_id' => ['required', 'integer', 'exists:delivery_areas,id'],
-            'courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id'],
+            'delivery_area_id' => ['nullable', 'integer', 'exists:delivery_areas,id'],
+            'courier_profile_id' => ['nullable', 'integer', 'exists:courier_profiles,id'],
             'expected_status' => ['required', 'in:AT_SORTING_CENTER,SORTED'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ]);
         $reason = isset($values['reason']) ? trim($values['reason']) : null;
-        $courier = $eligibility->find((int) $values['courier_profile_id']);
-        abort_unless($courier && $eligibility->isEligibleForArea($courier, (int) $values['delivery_area_id']), 422, 'The selected courier is not eligible for this delivery area.');
+        $courier = isset($values['courier_profile_id']) ? $eligibility->find((int) $values['courier_profile_id']) : null;
+        if (isset($values['courier_profile_id'])) {
+            abort_unless($courier, 422, 'Select an eligible courier.');
+        }
 
-        $delivery = DB::transaction(function () use ($request, $orderId, $values, $courier, $eligibility, $reason) {
+        $result = DB::transaction(function () use ($request, $orderId, $values, $courier, $eligibility, $reason, $areaResolver) {
             $order = Order::whereKey($orderId)->lockForUpdate()->firstOrFail();
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
-            $area = DeliveryArea::whereKey($values['delivery_area_id'])->lockForUpdate()->firstOrFail();
+            $route = $areaResolver->resolve($order->delivery_psgc_code);
+            $storedAreaId = $delivery->delivery_area_id;
+            $areaId = $route['status'] === 'mapped'
+                ? (int) $route['area']->id
+                : ($values['delivery_area_id'] ?? $storedAreaId);
+
+            if ($route['status'] === 'mapped') {
+                abort_if(
+                    isset($values['delivery_area_id']) && (int) $values['delivery_area_id'] !== (int) $route['area']->id,
+                    409,
+                    'The destination area is determined by the saved delivery address.',
+                );
+            } elseif (!$areaId) {
+                abort(422, 'This parcel needs a routing exception review. Map its destination address to an active delivery area first.');
+            } elseif ($order->delivery_psgc_code && !$reason) {
+                abort(422, 'Add a reason when manually resolving an unmapped or ambiguous destination.');
+            }
+
+            $area = DeliveryArea::with('hub')->whereKey($areaId)->lockForUpdate()->firstOrFail();
             abort_unless($area->is_active, 422, 'This delivery area is inactive.');
-            abort_unless($delivery->current_hub_id && $area->hub_id && (int) $area->hub_id === (int) $delivery->current_hub_id, 409, 'Parcel is at a different or unmapped hub. Complete a hub transfer to the area’s hub before final-mile assignment.');
+            abort_unless($delivery->current_hub_id && $area->hub_id && $area->hub?->is_active, 409, 'The destination area is not mapped to an active hub.');
             abort_unless($order->status === $values['expected_status'] && $delivery->status === $order->status, 409, 'Parcel status changed. Refresh the logistics queue.');
             abort_unless(in_array($order->status, [Delivery::AT_SORTING_CENTER, Delivery::SORTED], true), 422, 'Only parcels at or processed by the sorting center can be assigned.');
             abort_unless($delivery->events()->where('event_type', 'parcel_scanned')->exists(), 422, 'Scan the parcel at the sorting center before sorting and assigning it.');
-            abort_unless($eligibility->find($courier->id) && $eligibility->isEligibleForArea($courier, $area->id), 422, 'The selected courier is no longer eligible for this area.');
+
+            $requiresTransfer = (int) $area->hub_id !== (int) $delivery->current_hub_id;
+            if ($requiresTransfer) {
+                abort_if($courier, 409, 'Assign the final-mile courier after the parcel reaches its destination hub.');
+                if ($route['status'] !== 'mapped') {
+                    abort_unless($reason !== null && $reason !== '', 422, 'Add a reason when manually routing a parcel to another hub.');
+                }
+                if ($order->status === Delivery::AT_SORTING_CENTER) {
+                    app(\App\Services\ParcelSortingService::class)->transitionToSorted($delivery, $request->user(), $area->id);
+                } else {
+                    $delivery->update(['delivery_area_id' => $area->id]);
+                }
+
+                return [
+                    'delivery' => $delivery->fresh()->load(['order', 'deliveryArea.hub', 'courierProfile.user', 'events.actor']),
+                    'transfer_required' => true,
+                ];
+            }
+
+            abort_unless($courier && $eligibility->find($courier->id) && $eligibility->isEligibleForArea($courier, $area->id), 422, 'Select a courier eligible for the automatically routed delivery area.');
 
             if ($order->status === Delivery::AT_SORTING_CENTER) {
                 app(\App\Services\ParcelSortingService::class)->transitionToSorted($delivery, $request->user(), $area->id);
             } else {
                 $delivery->update(['delivery_area_id' => $area->id]);
             }
-
             // Sorting may have advanced both the delivery and order from
             // AT_SORTING_CENTER to SORTED in the shared domain service.
             $previousStatus = $delivery->status;
@@ -376,10 +437,19 @@ class LogisticsController extends Controller
                 'reason' => $reason,
             ]);
 
-            return $delivery->load(['order', 'deliveryArea', 'courierProfile.user', 'events.actor']);
+            return [
+                'delivery' => $delivery->load(['order', 'deliveryArea.hub', 'courierProfile.user', 'events.actor']),
+                'transfer_required' => false,
+            ];
         });
 
-        return response()->json(['success' => true, 'message' => 'Parcel sorted and assigned to an area courier.', 'data' => $delivery]);
+        return response()->json([
+            'success' => true,
+            'message' => $result['transfer_required']
+                ? 'Parcel sorted and automatically routed. Create a transfer to its destination hub before assigning final-mile delivery.'
+                : 'Parcel automatically routed, sorted, and assigned to an area courier.',
+            'data' => $result['delivery'],
+        ]);
     }
 
     public function scanParcel(Request $request, int $orderId)
@@ -409,7 +479,7 @@ class LogisticsController extends Controller
             return $delivery->load(['order', 'deliveryArea', 'events.actor']);
         });
 
-        return response()->json(['success' => true, 'message' => 'Parcel scanned. Read its delivery address, choose the destination area, then assign a rider for that area.', 'data' => $delivery]);
+        return response()->json(['success' => true, 'message' => 'Parcel scanned. Its destination area is matched from the saved delivery address; resolve any routing exception before dispatch.', 'data' => $delivery]);
     }
 
     public function resolveAndScanParcel(Request $request)

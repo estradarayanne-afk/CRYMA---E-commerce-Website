@@ -106,10 +106,17 @@ export default function ParcelFlow({ base = "/admin" }) {
                 const payload = {
                     shipment_type: type,
                     shipment_id: id,
-                    to_hub_id: choices[`to-${type}-${id}`],
                     courier_profile_id: choices[`transfer-${type}-${id}`],
                 };
-                if (type === "delivery") payload.delivery_area_id = choices[`area-delivery-${id}`];
+                if (type === "delivery") {
+                    const delivery = data.deliveries.find((item) => Number(item.id) === Number(id));
+                    const hasAutomaticRoute = ["mapped", "mapping_conflict", "manual_route"].includes(delivery?.destination_route?.status);
+                    const routeArea = delivery?.destination_route?.area || delivery?.delivery_area;
+                    payload.delivery_area_id = hasAutomaticRoute ? routeArea?.id : choices[`area-delivery-${id}`];
+                    payload.note = choices[`route-note-${id}`] || undefined;
+                } else {
+                    payload.to_hub_id = choices[`to-${type}-${id}`];
+                }
                 return api.post(`${base}/hub-transfers`, payload);
             },
             `Hub transfer created for ${type} #${id}.`
@@ -126,7 +133,7 @@ export default function ParcelFlow({ base = "/admin" }) {
                 {activeHubs.map((hub) => <option key={hub.id} value={`${hub.name} · ${hub.code}`} />)}
             </datalist>
             <datalist id={`${base}-active-areas`}>
-                {data.areas.filter((area) => area.is_active && area.hub_id).map((area) => (
+                {data.areas.filter((area) => area.is_active && area.hub_id && area.hub?.is_active).map((area) => (
                     <option key={area.id} value={`${area.name} · ${area.hub?.name || "Hub unavailable"}`} />
                 ))}
             </datalist>
@@ -235,76 +242,73 @@ export default function ParcelFlow({ base = "/admin" }) {
             </section>}
             {activeSection === "transfers" && <section className="lo-parcel-section lo-transfer-queue">
                 <h2>Hub-to-hub transfers</h2>
-                <p>Prepare delivery transfers using an explicit area-to-hub mapping. Logistics confirms departure; destination receipt remains pending until the existing QR flow succeeds.</p>
-                {data.deliveries.map((d) => (
-                    <details className="lo-transfer-prepare" key={`d${d.id}`}>
-                        <summary><strong>Order #{d.order_id} · {human(d.status)}</strong><span>{d.current_hub?.name || "Unknown hub"} · {d.delivery_area?.name || "Choose an area"}</span></summary>
-                        <div className="lo-parcel-item">
-                        <span>
-                            <strong>Order #{d.order_id} · {human(d.status)}</strong><br />
-                            Current hub: {d.current_hub?.name || "Unknown hub"} · Area: {d.delivery_area?.name || "Choose intended area"}
-                        </span>
-                        <AdminSearchField
-                            className="lo-parcel-search-field"
-                            list={`${base}-active-areas`}
-                            ariaLabel={`Destination delivery area for order ${d.order_id}`}
-                            placeholder="Search destination LGU"
-                            value={(() => {
-                                const selectedArea = data.areas.find((area) => String(area.id) === String(choices[`area-delivery-${d.id}`]));
-                                return selectedArea ? `${selectedArea.name} · ${selectedArea.hub?.name || "Hub unavailable"}` : "";
-                            })()}
-                            onChange={(event) => {
-                                const selectedArea = data.areas.find((area) => area.is_active && area.hub_id
-                                    && Number(area.hub_id) !== Number(d.current_hub_id)
-                                    && `${area.name} · ${area.hub?.name || "Hub unavailable"}` === event.target.value);
-                                setChoices({
-                                    ...choices,
-                                    [`area-delivery-${d.id}`]: selectedArea?.id || "",
-                                    [`to-delivery-${d.id}`]: selectedArea?.hub_id || "",
-                                });
-                            }}
-                        />
-                        <select
-                            aria-label={`Destination hub for order ${d.order_id}`}
-                            value={choices[`to-delivery-${d.id}`] || ""}
-                            onChange={(e) =>
-                                setChoices({ ...choices, [`to-delivery-${d.id}`]: e.target.value })
-                            }
-                        >
-                            <option value="">To hub</option>
-                            {activeHubs
-                                .filter((h) => Number(h.id) !== Number(d.current_hub_id) && Number(h.id) === Number(data.areas.find((area) => Number(area.id) === Number(choices[`area-delivery-${d.id}`]))?.hub_id))
-                                .map((h) => (
-                                    <option key={h.id} value={h.id}>
-                                        {h.name}
-                                    </option>
-                                ))}
-                        </select>
-                        <select
-                            value={choices[`transfer-delivery-${d.id}`] || ""}
-                            onChange={(e) =>
-                                setChoices({
-                                    ...choices,
-                                    [`transfer-delivery-${d.id}`]: e.target.value,
-                                })
-                            }
-                        >
-                            {courierOptions}
-                        </select>
-                        <button
-                            disabled={
-                                busy ||
-                                !choices[`area-delivery-${d.id}`] ||
-                                !choices[`to-delivery-${d.id}`] ||
-                                !choices[`transfer-delivery-${d.id}`]
-                            }
-                            onClick={() => void transfer("delivery", d.id)}
-                        >
-                            Create transfer
-                        </button>
-                        </div>
-                    </details>
-                ))}
+                <p>The destination hub comes from the parcel address and configured delivery-area mapping. Assign a transfer courier; hub staff still confirm release and QR receipt.</p>
+                {data.deliveries.map((d) => {
+                    const route = d.destination_route;
+                    const areaIsMapped = ["mapped", "mapping_conflict", "manual_route"].includes(route?.status);
+                    const routeArea = route?.area || d.delivery_area;
+                    const selectedAreaId = areaIsMapped ? routeArea?.id : choices[`area-delivery-${d.id}`] || "";
+                    const selectedArea = areaIsMapped ? routeArea : data.areas.find((area) => Number(area.id) === Number(selectedAreaId));
+                    const destinationHub = selectedArea?.hub;
+                    const needsNote = !!d.order?.delivery_psgc_code && !["mapped", "mapping_conflict"].includes(route?.status);
+                    return (
+                        <details className="lo-transfer-prepare" key={`d${d.id}`}>
+                            <summary>
+                                <strong>Order #{d.order_id} · {human(d.status)}</strong>
+                                <span>{d.current_hub?.name || "Unknown hub"} → {destinationHub?.name || "Routing exception"}</span>
+                            </summary>
+                            <div className="lo-parcel-item">
+                                <span>
+                                    <strong>{route?.status === "manual_route" ? "Approved exception route" : "Automatic destination route"}</strong><br />
+                                    {selectedArea
+                                        ? `${selectedArea.name} · ${destinationHub?.name || "Hub unavailable"}`
+                                        : "No unique destination area is mapped for this address."}
+                                    {route?.status === "mapping_conflict" && <small className="lo-warning">The saved area conflicts with the address mapping; the address mapping will be used.</small>}
+                                    {route?.status === "manual_route" && <small className="lo-warning">Manually resolved because the automatic route is {human(route.source_status || "unavailable").toLowerCase()}.</small>}
+                                </span>
+                                {!areaIsMapped && (
+                                    <AdminSearchField
+                                        className="lo-parcel-search-field"
+                                        list={`${base}-active-areas`}
+                                        ariaLabel={`Routing exception area for order ${d.order_id}`}
+                                        placeholder="Resolve route by delivery area"
+                                        value={(() => {
+                                            const area = data.areas.find((item) => String(item.id) === String(choices[`area-delivery-${d.id}`]));
+                                            return area ? `${area.name} · ${area.hub?.name || "Hub unavailable"}` : "";
+                                        })()}
+                                        onChange={(event) => {
+                                            const area = data.areas.find((item) => item.is_active && item.hub?.is_active
+                                                && `${item.name} · ${item.hub?.name || "Hub unavailable"}` === event.target.value);
+                                            setChoices({ ...choices, [`area-delivery-${d.id}`]: area?.id || "" });
+                                        }}
+                                    />
+                                )}
+                                {needsNote && <input
+                                    aria-label={`Routing exception note for order ${d.order_id}`}
+                                    placeholder="Explain the manual route"
+                                    maxLength={1000}
+                                    value={choices[`route-note-${d.id}`] || ""}
+                                    onChange={(event) => setChoices({ ...choices, [`route-note-${d.id}`]: event.target.value })}
+                                />}
+                                <label>
+                                    Transfer courier
+                                    <select
+                                        value={choices[`transfer-delivery-${d.id}`] || ""}
+                                        onChange={(event) => setChoices({ ...choices, [`transfer-delivery-${d.id}`]: event.target.value })}
+                                    >
+                                        {courierOptions}
+                                    </select>
+                                </label>
+                                <button
+                                    disabled={busy || !selectedAreaId || !choices[`transfer-delivery-${d.id}`] || (needsNote && !choices[`route-note-${d.id}`]?.trim())}
+                                    onClick={() => void transfer("delivery", d.id)}
+                                >
+                                    Create transfer to {destinationHub?.name || "destination hub"}
+                                </button>
+                            </div>
+                        </details>
+                    );
+                })}
                 {data.deliveries.length === 0 && !data.returns.some((item) => item.status === "at_hub") && (
                     <p className="lo-parcel-empty">No parcels are currently waiting for a hub-to-hub transfer.</p>
                 )}
