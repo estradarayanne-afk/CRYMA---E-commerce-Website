@@ -3,7 +3,7 @@
 There are two separate Flutter apps in this folder:
 
 - Shopper: `cryma-flutter-app-main`
-- Rider: `cryma-logistics-mobile-master/flutter_app`
+- Rider: `logistics_cryma_app/flutter_app`
 
 Both apps use the Laravel API in `backend`. The API origin is configured with
 `API_BASE_URL` (the host and port only; do not add `/api`).
@@ -34,7 +34,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 In another terminal, launch the rider app:
 
 ```powershell
-cd C:\Code\e-commerce\ecommerce-system\mobile\cryma-logistics-mobile-master\flutter_app
+cd C:\Code\e-commerce\ecommerce-system\mobile\logistics_cryma_app\flutter_app
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```
