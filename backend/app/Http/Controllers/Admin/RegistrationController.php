@@ -197,9 +197,11 @@ public function approve(int $id)
         $user = User::findOrFail($id);
         $path = $user->profile_image_path;
         abort_unless(is_string($path) && Str::startsWith($path, "profile-images/{$user->id}/"), 404);
-        abort_unless(Storage::disk('local')->exists($path), 404);
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($path), 404);
 
-        return Storage::disk('local')->response($path, basename($path), [
+        return $disk->response($path, basename($path), [
             'Cache-Control' => 'private, no-store',
         ]);
     }

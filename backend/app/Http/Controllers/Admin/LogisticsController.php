@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\LogisticsHub;
@@ -33,6 +34,7 @@ class LogisticsController extends Controller
             'pickupBatch' => fn ($query) => $query->withCount('assignments'),
             'delivery.events.actor:id,first_name,last_name',
         ])->latest()->get();
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Order> $sortingOrders */
         $sortingOrders = Order::with([
             ...$orderDetails, 'delivery.deliveryArea', 'delivery.proof', 'delivery.pickupAssignment.courierProfile.user:id,first_name,last_name',
             'delivery.events.actor:id,first_name,last_name', 'delivery.courierProfile.user:id,first_name,last_name', 'delivery.currentHub:id,name,code', 'delivery.deliveryArea.hub:id,name,code',
@@ -45,6 +47,7 @@ class LogisticsController extends Controller
         $areas = DeliveryArea::where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $deliveries = Delivery::with(['order:id,status', 'order.items.product:id,weight_kg', 'deliveryArea:id,name', 'courierProfile.user:id,first_name,last_name', 'pickupAssignment.courierProfile.user:id,first_name,last_name', 'events.actor:id,first_name,last_name', 'proof'])
             ->latest()->get();
+        /** @var \Illuminate\Database\Eloquent\Collection<int, CourierProfile> $couriers */
         $couriers = $eligibility->profiles()->with(['user:id,first_name,last_name', 'vehicles:id,courier_profile_id,vehicle_type', 'deliveryAreas:id,name,is_active', 'presence'])
             ->orderBy('id')->get();
         $hubIds = $deliveries->pluck('current_hub_id')
@@ -120,13 +123,13 @@ class LogisticsController extends Controller
     {
         $values = $request->validate(['courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id']]);
         $courier = $eligibility->find((int) $values['courier_profile_id']);
-        abort_unless($courier, 422, 'The selected courier is not eligible.');
+        abort_unless($courier !== null, 422, 'The selected courier is not eligible.');
 
         DB::transaction(function () use ($request, $areaId, $courier) {
             $area = DeliveryArea::whereKey($areaId)->lockForUpdate()->firstOrFail();
             $eligibleCourier = app(CourierEligibility::class)->find($courier->id);
             abort_unless($area->is_active, 422, 'Activate the delivery area before assigning couriers.');
-            abort_unless($eligibleCourier, 422, 'The selected courier is no longer eligible.');
+            abort_unless($eligibleCourier !== null, 422, 'The selected courier is no longer eligible.');
             $area->couriers()->syncWithoutDetaching([$eligibleCourier->id => ['assigned_by' => $request->user()->id]]);
         });
 
@@ -152,7 +155,7 @@ class LogisticsController extends Controller
             'reason' => ['nullable', 'string', 'max:1000'],
         ]);
         $courier = $eligibility->find((int) $values['courier_profile_id']);
-        abort_unless($courier, 422, 'The selected pickup rider is not eligible.');
+        abort_unless($courier !== null, 422, 'The selected pickup rider is not eligible.');
         $reason = isset($values['reason']) ? trim($values['reason']) : null;
         $requestedSchedule = \Illuminate\Support\Carbon::parse($values['scheduled_at']);
 
@@ -161,7 +164,7 @@ class LogisticsController extends Controller
                 $order = Order::with(['items.seller.addresses'])->whereKey($orderId)->lockForUpdate()->firstOrFail();
                 $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
                 $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
-                abort_unless($eligibility->find($courier->id), 422, 'The pickup rider is no longer eligible.');
+                abort_unless($eligibility->find($courier->id) !== null, 422, 'The pickup rider is no longer eligible.');
                 abort_unless($order->status === 'READY_FOR_PICKUP', 422, 'Only seller-ready orders can be assigned for pickup.');
                 $courierChanged = false;
                 $scheduleChanged = true;
@@ -177,7 +180,7 @@ class LogisticsController extends Controller
                         if (!$courierChanged && !$scheduleChanged) return $assignment;
                         if ($courierChanged) {
                             abort_unless($request->filled('expected_courier_profile_id') && (int) $values['expected_courier_profile_id'] === (int) $assignment->courier_profile_id, 409, 'Pickup assignment changed. Refresh and try again.');
-                            abort_unless($reason, 422, 'A reason is required when changing a pickup rider.');
+                            abort_unless($reason !== null && $reason !== '', 422, 'A reason is required when changing a pickup rider.');
                         }
                     }
                 } else {
@@ -236,7 +239,7 @@ class LogisticsController extends Controller
             'reason' => ['nullable', 'string', 'max:1000'],
         ]);
         $courier = $eligibility->find((int) $values['courier_profile_id']);
-        abort_unless($courier, 422, 'The selected pickup rider is not eligible.');
+        abort_unless($courier !== null, 422, 'The selected pickup rider is not eligible.');
         $reason = isset($values['reason']) ? trim($values['reason']) : null;
         $requestedSchedule = \Illuminate\Support\Carbon::parse($values['scheduled_at']);
 
@@ -251,6 +254,7 @@ class LogisticsController extends Controller
                 ->get()
                 ->keyBy('id');
             $deliveries = Delivery::whereIn('order_id', $orders->keys())->orderBy('order_id')->lockForUpdate()->get()->keyBy('order_id');
+            /** @var \Illuminate\Database\Eloquent\Collection<int, PickupAssignment> $assignments */
             $assignments = PickupAssignment::whereIn('id', $assignmentIds)->orderBy('order_id')->lockForUpdate()->get();
 
             abort_unless($orders->count() === $assignmentIds->count(), 409, 'A pickup batch parcel is no longer available.');
@@ -277,7 +281,7 @@ class LogisticsController extends Controller
             if ($courierChanged) {
                 abort_unless($request->filled('expected_courier_profile_id')
                     && (int) $values['expected_courier_profile_id'] === (int) $currentCourierId, 409, 'Pickup batch assignment changed. Refresh and try again.');
-                abort_unless($reason, 422, 'A reason is required when changing the pickup rider.');
+                abort_unless($reason !== null && $reason !== '', 422, 'A reason is required when changing the pickup rider.');
             }
 
             $now = now();
@@ -444,7 +448,7 @@ class LogisticsController extends Controller
 
             $isRetry = $order->status === Delivery::FAILED;
             $isReassign = $delivery->courier_profile_id !== null;
-            if ($isRetry || $isReassign || $legacyOutForDelivery) abort_unless($reason, 422, 'A reason is required when retrying, reassigning, or reconciling a delivery.');
+            if ($isRetry || $isReassign || $legacyOutForDelivery) abort_unless($reason !== null && $reason !== '', 422, 'A reason is required when retrying, reassigning, or reconciling a delivery.');
             if (!$isRetry && !$isReassign && $delivery->legacy_imported !== true) abort(422, 'Only legacy unassigned deliveries may be reconciled here.');
 
             if ((int) ($delivery->courier_profile_id ?? 0) === (int) $courier->id

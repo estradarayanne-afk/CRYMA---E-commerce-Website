@@ -51,7 +51,6 @@ class PickupController extends Controller
                 'pickup_address' => $assignment->pickupBatch->pickup_address,
                 'scheduled_at' => $assignment->pickupBatch->scheduled_at,
             ] : null,
-            'parcel_code' => $assignment->delivery?->parcel_code,
             'assigned_at' => $assignment->assigned_at,
             'scheduled_at' => $assignment->scheduled_at,
             'picked_up_at' => $assignment->picked_up_at,
@@ -91,6 +90,7 @@ class PickupController extends Controller
     public function index(Request $request, CourierEligibility $eligibility)
     {
         $profile = $this->profile($request->user(), $eligibility);
+        /** @var \Illuminate\Database\Eloquent\Collection<int, PickupAssignment> $rows */
         $rows = $this->query()->where('courier_profile_id', $profile->id)
             ->whereIn('status', [PickupAssignment::ASSIGNED, PickupAssignment::ACCEPTED, PickupAssignment::PICKED_UP])
             ->latest('updated_at')->get();
@@ -100,6 +100,7 @@ class PickupController extends Controller
     public function history(Request $request, CourierEligibility $eligibility)
     {
         $profile = $this->profile($request->user(), $eligibility);
+        /** @var \Illuminate\Database\Eloquent\Collection<int, PickupAssignment> $rows */
         $rows = $this->query()->where('courier_profile_id', $profile->id)
             ->where('status', PickupAssignment::RECEIVED)->latest('updated_at')->get();
         return response()->json(['success' => true, 'data' => $rows->map(fn (PickupAssignment $row) => $this->parcelData($row))->values()]);
@@ -123,7 +124,7 @@ class PickupController extends Controller
         ]);
         $profile = $this->profile($request->user(), $eligibility);
         $initial = PickupAssignment::where('courier_profile_id', $profile->id)->find($id);
-        abort_unless($initial, 404, 'Assigned pickup was not found.');
+        abort_unless($initial instanceof PickupAssignment, 404, 'Assigned pickup was not found.');
 
         $assignment = DB::transaction(function () use ($request, $id, $profile, $values, $initial, $eligibility) {
             $order = Order::whereKey($initial->order_id)->lockForUpdate()->firstOrFail();

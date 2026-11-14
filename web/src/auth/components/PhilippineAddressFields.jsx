@@ -83,6 +83,7 @@ function PhilippineAddressFields({
                     setRegions(loadedRegions);
                     const savedRegion = hydrateExisting && findPlace(loadedRegions, region);
                     if (savedRegion) {
+                        setLoadingProvinces(true);
                         setRegionCode(String(savedRegion.code));
                         if (region !== savedRegion.name) {
                             onChange({
@@ -153,9 +154,9 @@ function PhilippineAddressFields({
                                 psgc_code: psgcCode,
                             });
                         }
-                    } else {
+                    } else if (hydrateExisting) {
                         setProvinceCode("");
-                        if (hydrateExisting && String(province ?? "").trim()) {
+                        if (String(province ?? "").trim()) {
                             onChange({
                                 region,
                                 province: "",
@@ -337,7 +338,7 @@ function PhilippineAddressFields({
         setProvinces([]);
         setCities([]);
         setBarangays([]);
-        setLoadingProvinces(false);
+        setLoadingProvinces(true);
         setLoadingCities(false);
         setLoadingBarangays(false);
         setAddressError("");
