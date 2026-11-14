@@ -10,6 +10,7 @@ import {
     LayoutDashboard,
     LogOut,
     MapPinned,
+    MessageSquareText,
     PackageCheck,
     Settings,
     Truck,
@@ -32,6 +33,7 @@ const LINKS = [
     { to: "/logistics/delivery-assignment", label: "Delivery Assignment", flow: "05 · Dispatch", icon: MapPinned },
     { to: "/logistics/delivery-monitoring", label: "Courier Deliveries", flow: "06 · Track", icon: Truck },
     { to: "/logistics/reports", label: "Reports", icon: BarChart3 },
+    { to: "/logistics/messages", label: "Messages", icon: MessageSquareText },
 ];
 
 function LogisticsLayout() {

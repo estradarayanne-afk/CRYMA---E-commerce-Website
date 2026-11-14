@@ -1,15 +1,37 @@
 import { useState } from "react";
 import { MapPinned, Pencil, Plus, UsersRound, Warehouse } from "lucide-react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import ConfirmationModal from "../../../logistics/components/ConfirmationModal";
 import "../../../logistics/pages/ParcelOperations.css";
 import "./HubAreaManagement.css";
 
 const displayName = (profile) => [profile?.user?.first_name, profile?.user?.last_name].filter(Boolean).join(" ") || `Rider #${profile?.id}`;
+const newHubForm = () => ({ name: "", code: "", address: "", latitude: "", longitude: "", proximity_radius_km: "2" });
+const hubPayload = (hub) => ({
+    ...hub,
+    latitude: hub.latitude === "" || hub.latitude == null ? null : Number(hub.latitude),
+    longitude: hub.longitude === "" || hub.longitude == null ? null : Number(hub.longitude),
+    proximity_radius_km: Number(hub.proximity_radius_km || 2),
+});
+
+function HubCoordinates({ value, onChange, onUseCurrentLocation, locationError }) {
+    return (
+        <div className="lo-hub-geofence-fields">
+            <label>Hub latitude<input type="number" step="any" min="-90" max="90" value={value.latitude ?? ""} onChange={(event) => onChange("latitude", event.target.value)} placeholder="Required for proximity detection" /></label>
+            <label>Hub longitude<input type="number" step="any" min="-180" max="180" value={value.longitude ?? ""} onChange={(event) => onChange("longitude", event.target.value)} placeholder="Required for proximity detection" /></label>
+            <label>Nearby radius (km)<input type="number" step="0.1" min="0.1" max="100" required value={value.proximity_radius_km ?? 2} onChange={(event) => onChange("proximity_radius_km", event.target.value)} /></label>
+            <button type="button" onClick={onUseCurrentLocation}>Use this device's location</button>
+            <small>Capture only while physically at the hub, or enter its verified coordinates.</small>
+            {locationError && <p role="alert">{locationError}</p>}
+        </div>
+    );
+}
 
 export default function HubAreaManagement({ base, data, busy, run }) {
-    const [hubForm, setHubForm] = useState({ name: "", code: "", address: "" });
+    const [hubForm, setHubForm] = useState(newHubForm);
     const [hubDrafts, setHubDrafts] = useState({});
+    const [locationError, setLocationError] = useState("");
     const [areaNames, setAreaNames] = useState({});
     const [areaHubs, setAreaHubs] = useState({});
     const [riderChoices, setRiderChoices] = useState({});
@@ -30,11 +52,23 @@ export default function HubAreaManagement({ base, data, busy, run }) {
     const visibleAreas = filteredAreas.slice(0, areaLimit);
     const areasByHub = (hubId) => data.areas.filter((area) => Number(area.hub_id) === Number(hubId));
     const transfersByHub = (hubId) => data.transfers.filter((transfer) => Number(transfer.from_hub_id) === Number(hubId) || Number(transfer.to_hub_id) === Number(hubId));
+    const captureHubLocation = (onCoordinates) => {
+        setLocationError("");
+        if (!navigator.geolocation) {
+            setLocationError("This browser does not support location capture. Enter the coordinates manually.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => onCoordinates({ latitude: coords.latitude.toFixed(7), longitude: coords.longitude.toFixed(7) }),
+            (error) => setLocationError(error.message || "Unable to read this device's location."),
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+        );
+    };
     const createHub = async (event) => {
         event.preventDefault();
         if (busy) return;
-        const ok = await run(() => api.post(`${base}/hubs`, hubForm), "Hub created.");
-        if (ok) setHubForm({ name: "", code: "", address: "" });
+        const ok = await run(() => api.post(`${base}/hubs`, hubPayload(hubForm)), "Hub created.");
+        if (ok) setHubForm(newHubForm());
     };
 
     const createArea = async (event) => {
@@ -57,6 +91,9 @@ export default function HubAreaManagement({ base, data, busy, run }) {
             name: draft.name,
             code: draft.code,
             address: draft.address,
+            latitude: draft.latitude === "" || draft.latitude == null ? null : Number(draft.latitude),
+            longitude: draft.longitude === "" || draft.longitude == null ? null : Number(draft.longitude),
+            proximity_radius_km: Number(draft.proximity_radius_km || 2),
         }), `Hub ${hub.name} updated.`);
     };
 
@@ -115,11 +152,12 @@ export default function HubAreaManagement({ base, data, busy, run }) {
                 <article><span><Warehouse size={17} /> Enabled LGU nodes</span><strong>{activeHubs.length.toLocaleString()}</strong><small>{data.hubs.length.toLocaleString()} nodes total · all cities and municipalities</small></article>
                 <article><span><MapPinned size={17} /> Areas mapped</span><strong>{mappedAreas.toLocaleString()}</strong><small>Active delivery areas assigned to a hub</small></article>
                 <article><span><MapPinned size={17} /> Site addresses needed</span><strong>{hubsMissingAddress.toLocaleString()}</strong><small>Address must be recorded before a node represents a physical facility</small></article>
+                <article><span><MapPinned size={17} /> GPS pins recorded</span><strong>{data.hubs.filter((hub) => hub.latitude != null && hub.longitude != null).length.toLocaleString()}</strong><small>Set coordinates at the physical hub for nearby-rider detection</small></article>
                 <article><span><UsersRound size={17} /> Eligible riders</span><strong>{data.couriers.length.toLocaleString()}</strong><small>Assign riders to areas after confirming coverage</small></article>
             </section>
             <aside className="lo-network-warning">
                 <strong>Important: LGU node does not mean a physical hub exists.</strong>
-                <span>All {activeHubs.length.toLocaleString()} PSGC locations are enabled in the network. Record verified facility addresses and assign riders before treating a location as an operating hub.</span>
+                <span>All {activeHubs.length.toLocaleString()} PSGC locations are enabled in the network. Record verified facility addresses and GPS pins at physical hubs; nearby detection uses a 2 km default radius that can be adjusted per hub.</span>
             </aside>
 
             <div className="lo-directory-tabs" role="group" aria-label="Network setup views">
@@ -139,15 +177,22 @@ export default function HubAreaManagement({ base, data, busy, run }) {
                         <label>Hub name<input required maxLength={100} value={hubForm.name} onChange={(event) => setHubForm((current) => ({ ...current, name: event.target.value }))} placeholder="For example, North Regional Hub" /></label>
                         <label>Hub code<input required maxLength={24} pattern="[A-Za-z0-9_-]+" value={hubForm.code} onChange={(event) => setHubForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))} placeholder="NORTH-REGIONAL" /></label>
                         <label>Physical address<input maxLength={1000} value={hubForm.address} onChange={(event) => setHubForm((current) => ({ ...current, address: event.target.value }))} placeholder="Street, building, city, and province" /></label>
+                        <HubCoordinates
+                            value={hubForm}
+                            onChange={(field, value) => setHubForm((current) => ({ ...current, [field]: value }))}
+                            onUseCurrentLocation={() => captureHubLocation((coordinates) => setHubForm((current) => ({ ...current, ...coordinates })))}
+                            locationError={locationError}
+                        />
                         <button type="submit" disabled={busy}><Plus size={16} /> Add hub</button>
                     </form>
                 </details>
-                {data.hubs.length > 0 && <div className="lo-directory-tools"><label className="lo-directory-search">Search hubs<input type="search" value={hubSearch} onChange={(event) => { setHubSearch(event.target.value); setHubLimit(30); }} placeholder="City, municipality, province, or code" /></label><span>Showing {visibleHubs.length.toLocaleString()} of {filteredHubs.length.toLocaleString()}</span></div>}
+                {data.hubs.length > 0 && <div className="lo-directory-tools"><label className="lo-directory-search">Search hubs<AdminSearchField ariaLabel="Search hubs" value={hubSearch} onChange={(event) => { setHubSearch(event.target.value); setHubLimit(30); }} placeholder="City, municipality, province, or code" /></label><span>Showing {visibleHubs.length.toLocaleString()} of {filteredHubs.length.toLocaleString()}</span></div>}
                 {data.hubs.length === 0 ? <p className="lw-empty">No hubs are configured yet. Add a hub before creating a delivery area.</p> : filteredHubs.length === 0 ? <p className="lw-empty">No hubs match that search.</p> : <div className="lo-hub-grid">{visibleHubs.map((hub) => {
                     const draft = hubDrafts[hub.id] || hub;
                     return <article className="lo-hub-card" key={hub.id}>
                         <header><div><span className={`lo-state-pill${hub.is_active ? " is-active" : ""}`}>{hub.is_active ? "Network enabled" : "Network disabled"}</span><span className={`lo-site-pill${hub.address?.trim() ? "" : " needs-setup"}`}>{hub.address?.trim() ? "Address recorded · verify site" : "Physical site not set up"}</span><h3>{hub.name}</h3><strong>{hub.code}</strong></div><button className="lo-hub-status" type="button" disabled={busy} onClick={() => toggleHub(hub)}>{hub.is_active ? "Disable node" : "Enable node"}</button></header>
                         <p className="lo-hub-location">{hub.location_label || hub.address || "No location details recorded"}{hub.psgc_code && <span>PSGC {hub.psgc_code}</span>}</p>
+                        <p className="lo-hub-location">{hub.latitude != null && hub.longitude != null ? `GPS pin · ${hub.latitude}, ${hub.longitude} · ${hub.proximity_radius_km || 2} km radius` : "GPS pin not set · nearby-rider detection unavailable for this hub"}</p>
                         <details className="lo-hub-details"><summary>Manage hub <span>{areasByHub(hub.id).length} areas · {transfersByHub(hub.id).length} transfers</span></summary>
                             <div className="lo-hub-details-body">
                                 {hub.location_label && <div className="lo-hub-meta"><span>PSGC service location</span><p>{hub.location_label} · {hub.psgc_code}</p></div>}
@@ -156,6 +201,12 @@ export default function HubAreaManagement({ base, data, busy, run }) {
                                     <label>Name<input maxLength={100} value={draft.name} onChange={(event) => setHubDrafts((current) => ({ ...current, [hub.id]: { ...draft, name: event.target.value } }))} /></label>
                                     <label>Code<input maxLength={24} value={draft.code} onChange={(event) => setHubDrafts((current) => ({ ...current, [hub.id]: { ...draft, code: event.target.value.toUpperCase() } }))} /></label>
                                     <label>Physical address<input maxLength={1000} value={draft.address || ""} onChange={(event) => setHubDrafts((current) => ({ ...current, [hub.id]: { ...draft, address: event.target.value } }))} placeholder="Street, building, city, and province" /></label>
+                                    <HubCoordinates
+                                        value={draft}
+                                        onChange={(field, value) => setHubDrafts((current) => ({ ...current, [hub.id]: { ...draft, [field]: value } }))}
+                                        onUseCurrentLocation={() => captureHubLocation((coordinates) => setHubDrafts((current) => ({ ...current, [hub.id]: { ...draft, ...coordinates } })))}
+                                        locationError={locationError}
+                                    />
                                     <button type="button" disabled={busy} onClick={() => void saveHub(hub)}>Save hub details</button>
                                 </div></details>
                             </div>
@@ -175,7 +226,7 @@ export default function HubAreaManagement({ base, data, busy, run }) {
                         <button type="submit" disabled={busy || !activeHubs.length}><Plus size={16} /> Add area</button>
                     </form>
                 </details>
-                {data.areas.length > 0 && <div className="lo-directory-tools"><label className="lo-directory-search">Search delivery areas<input type="search" value={areaSearch} onChange={(event) => { setAreaSearch(event.target.value); setAreaLimit(30); }} placeholder="LGU, province, or mapped hub" /></label><span>Showing {visibleAreas.length.toLocaleString()} of {filteredAreas.length.toLocaleString()}</span></div>}
+                {data.areas.length > 0 && <div className="lo-directory-tools"><label className="lo-directory-search">Search delivery areas<AdminSearchField ariaLabel="Search delivery areas" value={areaSearch} onChange={(event) => { setAreaSearch(event.target.value); setAreaLimit(30); }} placeholder="LGU, province, or mapped hub" /></label><span>Showing {visibleAreas.length.toLocaleString()} of {filteredAreas.length.toLocaleString()}</span></div>}
                 {data.areas.length === 0 ? <p className="lw-empty">No delivery areas configured.</p> : filteredAreas.length === 0 ? <p className="lw-empty">No delivery areas match that search.</p> : <div className="lo-area-list">{visibleAreas.map((area) => {
                     const assignedIds = new Set((area.couriers || []).map((rider) => Number(rider.id)));
                     const mappedHub = area.hub;

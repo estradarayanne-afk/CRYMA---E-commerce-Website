@@ -85,7 +85,11 @@ class ParcelFlowController extends Controller
             'name' => ['required', 'string', 'max:100', 'not_regex:/^\s*$/'],
             'code' => ['required', 'string', 'max:24', 'alpha_dash', Rule::unique('logistics_hubs', 'code')],
             'address' => ['nullable', 'string', 'max:1000'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'proximity_radius_km' => ['sometimes', 'numeric', 'between:0.1,100'],
         ]);
+        $this->assertCoordinatePair($v['latitude'] ?? null, $v['longitude'] ?? null);
         $hub = LogisticsHub::create([...$v, 'name' => trim($v['name']), 'code' => strtoupper($v['code']), 'address' => isset($v['address']) ? trim($v['address']) : null]);
         return response()->json(['success' => true, 'data' => $hub], 201);
     }
@@ -99,8 +103,15 @@ class ParcelFlowController extends Controller
             'code' => ['sometimes', 'required', 'string', 'max:24', 'alpha_dash', Rule::unique('logistics_hubs', 'code')->ignore($hub->id)],
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'is_active' => ['sometimes', 'required', 'boolean'],
+            'latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
+            'proximity_radius_km' => ['sometimes', 'numeric', 'between:0.1,100'],
         ]);
         abort_if($v === [], 422, 'Provide at least one hub field to update.');
+        $this->assertCoordinatePair(
+            array_key_exists('latitude', $v) ? $v['latitude'] : $hub->latitude,
+            array_key_exists('longitude', $v) ? $v['longitude'] : $hub->longitude,
+        );
         if (array_key_exists('name', $v)) $v['name'] = trim($v['name']);
         if (array_key_exists('code', $v)) $v['code'] = strtoupper($v['code']);
         if (array_key_exists('address', $v) && $v['address'] !== null) $v['address'] = trim($v['address']);
@@ -119,6 +130,15 @@ class ParcelFlowController extends Controller
             if (is_string($request->input($field))) $request->merge([$field => trim($request->input($field))]);
         }
         if (is_string($request->input('code'))) $request->merge(['code' => strtoupper($request->input('code'))]);
+    }
+
+    private function assertCoordinatePair($latitude, $longitude): void
+    {
+        abort_unless(
+            ($latitude === null && $longitude === null) || ($latitude !== null && $longitude !== null),
+            422,
+            'Hub latitude and longitude must both be provided or both be empty.',
+        );
     }
 
     public function mapArea(Request $request, int $id)

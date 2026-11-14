@@ -57,6 +57,7 @@ class AdminVoucherManagementTest extends TestCase
             ->getJson('/api/admin/vouchers?search=spring&type=percentage&status=active')
             ->assertOk()
             ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.per_page', 15)
             ->assertJsonPath('data.data.0.code', 'SPRING_20');
     }
 

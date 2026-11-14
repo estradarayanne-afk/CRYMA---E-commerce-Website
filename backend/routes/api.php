@@ -31,6 +31,8 @@ use App\Http\Controllers\Api\BuyerProductMetricsController;
 use App\Http\Controllers\Api\BuyerPushTokenController;
 use App\Http\Controllers\Api\BuyerSupportController;
 use App\Http\Controllers\Api\BuyerVoucherController;
+use App\Http\Controllers\Api\DeliveryConversationController;
+use App\Http\Controllers\Api\CourierPresenceController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\PasswordRecoveryController;
 use App\Http\Controllers\Api\RegistrationController;
@@ -139,6 +141,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/parcels/scan', [HubStaffParcelOperationsController::class, 'scan']);
         Route::patch('/parcels/{parcelCode}/sort', [HubStaffParcelOperationsController::class, 'sort']);
         Route::get('/activity', [HubStaffParcelOperationsController::class, 'history']);
+        Route::post('/deliveries/{deliveryId}/seller-chat', [DeliveryConversationController::class, 'startSellerLogisticsConversation']);
+        Route::get('/delivery-chats', [DeliveryConversationController::class, 'logisticsConversations']);
+        Route::get('/delivery-chats/{conversationId}', [DeliveryConversationController::class, 'showLogisticsConversation']);
+        Route::post('/delivery-chats/{conversationId}/messages', [DeliveryConversationController::class, 'sendLogisticsMessage']);
     });
 
     Route::middleware('role:admin')->group(function () {
@@ -158,6 +164,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/admin/delivery-areas/{areaId}/couriers', [LogisticsController::class, 'assignCourierToArea']);
         Route::delete('/admin/delivery-areas/{areaId}/couriers/{courierProfileId}', [LogisticsController::class, 'removeCourierFromArea']);
         Route::post('/admin/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
+        Route::post('/admin/pickup-batches/{batchId}/assignment', [LogisticsController::class, 'assignPickupBatch']);
         Route::patch('/admin/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);
         Route::patch('/admin/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
         Route::patch('/admin/orders/{orderId}/legacy-sorting-receipt', [LogisticsController::class, 'confirmLegacySortingReceipt']);
@@ -168,6 +175,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     });
 
     Route::middleware('role:rider')->group(function () {
+        Route::get('/courier/presence', [CourierPresenceController::class, 'show']);
+        Route::post('/courier/presence', [CourierPresenceController::class, 'update']);
         Route::get('/courier/parcel-returns', [ParcelFlowController::class, 'courierReturns']);
         Route::patch('/courier/parcel-returns/{id}', [ParcelFlowController::class, 'updateReturn']);
         Route::get('/courier/hub-transfers', [ParcelFlowController::class, 'courierTransfers']);
@@ -183,9 +192,17 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::patch('/courier/deliveries/{id}/status', [CourierDeliveryController::class, 'updateStatus']);
         Route::post('/courier/deliveries/{id}/proof', [DeliveryProofController::class, 'store']);
         Route::get('/courier/deliveries/{id}/proof/{kind}', [DeliveryProofController::class, 'showForCourier']);
+        Route::get('/courier/delivery-chats', [DeliveryConversationController::class, 'courierConversations']);
+        Route::get('/courier/delivery-chats/{conversationId}', [DeliveryConversationController::class, 'showCourierConversation']);
+        Route::post('/courier/delivery-chats/{conversationId}/messages', [DeliveryConversationController::class, 'sendCourierMessage']);
+        Route::post('/courier/deliveries/{deliveryId}/seller-chat', [DeliveryConversationController::class, 'startSellerLogisticsConversation']);
     });
 
     Route::middleware('role:logistics')->group(function () {
+        Route::post('/logistics/deliveries/{deliveryId}/seller-chat', [DeliveryConversationController::class, 'startSellerLogisticsConversation']);
+        Route::get('/logistics/delivery-chats', [DeliveryConversationController::class, 'logisticsConversations']);
+        Route::get('/logistics/delivery-chats/{conversationId}', [DeliveryConversationController::class, 'showLogisticsConversation']);
+        Route::post('/logistics/delivery-chats/{conversationId}/messages', [DeliveryConversationController::class, 'sendLogisticsMessage']);
         Route::get('/logistics/parcel-flow', [ParcelFlowController::class, 'operations']);
         Route::get('/logistics/hubs', [ParcelFlowController::class, 'hubs']);
         Route::post('/logistics/hubs', [ParcelFlowController::class, 'createHub']);
@@ -206,6 +223,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/logistics/delivery-areas/{areaId}/couriers', [LogisticsController::class, 'assignCourierToArea']);
         Route::delete('/logistics/delivery-areas/{areaId}/couriers/{courierProfileId}', [LogisticsController::class, 'removeCourierFromArea']);
         Route::post('/logistics/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
+        Route::post('/logistics/pickup-batches/{batchId}/assignment', [LogisticsController::class, 'assignPickupBatch']);
         Route::patch('/logistics/orders/{orderId}/sorting-receipt', [ParcelOperationsController::class, 'confirmSortingReceipt']);
         Route::patch('/logistics/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);
         Route::post('/logistics/parcels/scan', [LogisticsController::class, 'resolveAndScanParcel']);
@@ -274,6 +292,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         ]);
 
         Route::get('/orders/{id}', [BuyerOrderController::class, 'show']);
+        Route::get('/orders/{orderId}/rider-chat', [DeliveryConversationController::class, 'showBuyerRiderChat']);
+        Route::post('/orders/{orderId}/rider-chat/messages', [DeliveryConversationController::class, 'sendBuyerRiderMessage']);
         Route::post('/orders/{id}/cancel', [BuyerOrderController::class, 'cancel']);
         Route::post('/orders/{id}/confirm-received', [BuyerOrderController::class, 'confirmReceived']);
         Route::post('/orders/{id}/refund-requests', [BuyerOrderController::class, 'requestRefund']);
@@ -338,6 +358,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Route::patch('/admin/users/{id}', [RegistrationController::class, 'updateUser']);
     // Route::patch('/admin/users/{id}/status', [RegistrationController::class, 'updateStatus']);
     Route::get('/admin/users', [AdminRegistrationController::class, 'users'])->middleware('role:admin');
+    Route::get('/admin/users/{id}/profile-image', [AdminRegistrationController::class, 'userProfileImage'])->middleware('role:admin');
     Route::patch('/admin/users/{id}', [AdminRegistrationController::class, 'updateUser'])->middleware('role:admin');
     Route::patch('/admin/users/{id}/status', [AdminRegistrationController::class, 'updateStatus'])->middleware('role:admin');
     Route::post('/admin/users/{id}/release-email', [AccountEmailReleaseController::class, 'store'])->middleware('role:admin');
@@ -363,6 +384,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/seller/chat/conversations/{id}', [SellerChatController::class, 'showConversation']);
         Route::post('/seller/chat/conversations/{id}/messages', [SellerChatController::class, 'sendMessage']);
         Route::patch('/seller/chat/conversations/{id}/read', [SellerChatController::class, 'markAsRead']);
+        Route::get('/seller/delivery-chats', [DeliveryConversationController::class, 'sellerConversations']);
+        Route::get('/seller/delivery-chats/{conversationId}', [DeliveryConversationController::class, 'showSellerConversation']);
+        Route::post('/seller/delivery-chats/{conversationId}/messages', [DeliveryConversationController::class, 'sendSellerMessage']);
         // Seller order management
         Route::get('/seller/orders', [
             SellerOrderController::class,
@@ -379,6 +403,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
             'updateStatus',
         ]);
         Route::post('/seller/orders/{id}/pickup-request', [SellerOrderController::class, 'requestPickup']);
+        Route::post('/seller/pickup-batches', [SellerOrderController::class, 'requestPickupBatch']);
 
         // Seller product management
         Route::post('/seller/products', [

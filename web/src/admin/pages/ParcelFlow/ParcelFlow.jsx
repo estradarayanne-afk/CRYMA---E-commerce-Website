@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import HubAreaManagement from "./HubAreaManagement";
 import { canDispatchReturnTransfer } from "../../../hubStaff/utils/hubStaffWorkspace";
@@ -185,9 +186,10 @@ export default function ParcelFlow({ base = "/admin" }) {
                             )}
                             {r.status === "picked_up" && (
                                 <div>
-                                    <input
+                                    <AdminSearchField
+                                        className="lo-parcel-search-field"
                                         list={`${base}-active-hubs`}
-                                        aria-label={`Choose a hub to receive return ${r.id}`}
+                                        ariaLabel={`Choose a hub to receive return ${r.id}`}
                                         placeholder="Search hub by LGU or code"
                                         value={activeHubs.find((hub) => String(hub.id) === String(choices[`hub-${r.id}`])) ? `${activeHubs.find((hub) => String(hub.id) === String(choices[`hub-${r.id}`])).name} · ${activeHubs.find((hub) => String(hub.id) === String(choices[`hub-${r.id}`])).code}` : ""}
                                         onChange={(event) => {
@@ -242,9 +244,10 @@ export default function ParcelFlow({ base = "/admin" }) {
                             <strong>Order #{d.order_id} · {human(d.status)}</strong><br />
                             Current hub: {d.current_hub?.name || "Unknown hub"} · Area: {d.delivery_area?.name || "Choose intended area"}
                         </span>
-                        <input
+                        <AdminSearchField
+                            className="lo-parcel-search-field"
                             list={`${base}-active-areas`}
-                            aria-label={`Destination delivery area for order ${d.order_id}`}
+                            ariaLabel={`Destination delivery area for order ${d.order_id}`}
                             placeholder="Search destination LGU"
                             value={(() => {
                                 const selectedArea = data.areas.find((area) => String(area.id) === String(choices[`area-delivery-${d.id}`]));

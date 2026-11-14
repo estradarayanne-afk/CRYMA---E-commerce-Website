@@ -36,6 +36,9 @@
 .lo-area-location{margin:10px 0 0;color:#80666e;font-size:12px;line-height:1.5}
 .lo-hub-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:end;gap:12px;margin:12px 0 16px;padding:15px;border:1px solid #f0dde2;border-radius:12px;background:#fffafb}
 .lo-hub-form label,.lo-hub-edit-fields label,.lo-area-edit-row label,.lo-area-assign label{display:grid;gap:6px;color:#63464f;font-size:12px;font-weight:700}
+.lo-hub-geofence-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:end;gap:10px}
+.lo-hub-geofence-fields>small{grid-column:1/-1;color:#80666e;font-size:11px;line-height:1.4}
+.lo-hub-geofence-fields>p{grid-column:1/-1;margin:0;color:#9d1c2c;font-size:12px;font-weight:600}
 .lo-hub-form input,.lo-hub-form select,.lo-hub-edit-fields input,.lo-area-edit-row input,.lo-area-edit-row select,.lo-area-assign select{width:100%;min-width:0;min-height:40px;padding:8px 10px;border:1px solid #e7d5da;border-radius:8px;background:#fff;color:#26151a;font:inherit;font-size:13px}
 .lo-hub-form input:focus,.lo-hub-form select:focus,.lo-hub-edit-fields input:focus,.lo-area-edit-row input:focus,.lo-area-edit-row select:focus,.lo-area-assign select:focus{border-color:#b21f3a;outline:3px solid rgba(178,31,58,.12)}
 .lo-hub-form button,.lo-hub-edit-fields button,.lo-area-edit-row button,.lo-area-assign button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 13px;border:0;border-radius:8px;background:linear-gradient(135deg,#a92340,#7e1830);color:#fff;font:inherit;font-size:12px;font-weight:750;cursor:pointer;white-space:nowrap}
@@ -87,7 +90,9 @@
 .lo-transfer-card button{flex:none;min-height:38px;padding:7px 11px;border:0;border-radius:8px;background:linear-gradient(135deg,#a92340,#7e1830);color:#fff;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
 .lo-transfer-card button:disabled{opacity:.55;cursor:wait}
 @media(max-width:850px){.lo-hub-form{grid-template-columns:repeat(2,minmax(0,1fr))}.lo-area-edit-row{grid-template-columns:1fr 1fr}}
+@media(max-width:850px){.lo-hub-geofence-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.lo-hub-form,.lo-area-edit-row,.lo-area-assign{grid-template-columns:1fr}.lo-hub-section-heading{padding:15px;flex-direction:column}.lo-hub-grid,.lo-area-list{padding:0 10px 14px}.lo-hub-card,.lo-area-card{padding:12px}.lo-hub-form,.lo-directory-search{margin:12px 0}.lo-directory-create{margin:12px 10px 0}.lo-directory-tools{align-items:stretch;gap:0;flex-direction:column}.lo-directory-tools>span{padding:0 10px 12px}.lo-area-edit-row button,.lo-area-assign button{width:100%}.lo-transfer-card{flex-direction:column}.lo-hub-card>header,.lo-area-card>header{flex-direction:column}.lo-hub-status{width:100%}}
+@media(max-width:560px){.lo-hub-geofence-fields{grid-template-columns:1fr}}
 
 .lo-parcel-section{min-width:0;padding:0;overflow:hidden;border:1px solid #f0dde2;border-radius:16px;background:#fff;box-shadow:0 10px 26px rgba(66,18,32,.055),inset 0 2px #a83f59}
 .lo-parcel-section>h2{margin:0;padding:19px 22px 10px;color:#35151f;font-size:18px;letter-spacing:-.02em}

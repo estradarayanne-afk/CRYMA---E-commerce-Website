@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import { getChatMessageRequestId } from "../../../shared/utils/chatMessageRequest";
 import "./Chat.css";
@@ -350,19 +351,13 @@ function Chat() {
                         ))}
                     </nav>
 
-                    <label className="conversation-search">
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <circle cx="11" cy="11" r="7" />
-                            <path d="m16 16 4 4" />
-                        </svg>
-                        <input
-                            type="search"
-                            value={userSearch}
-                            onChange={(event) => setUserSearch(event.target.value)}
-                            placeholder={`Search ${activeInbox === "all" ? "conversations" : activeInbox}...`}
-                            aria-label="Search conversations by participant, email, or product"
-                        />
-                    </label>
+                    <AdminSearchField
+                        className="conversation-search"
+                        value={userSearch}
+                        onChange={(event) => setUserSearch(event.target.value)}
+                        placeholder={`Search ${activeInbox === "all" ? "conversations" : activeInbox}...`}
+                        ariaLabel="Search conversations by participant, email, or product"
+                    />
 
                     <div className="conversation-list">
 

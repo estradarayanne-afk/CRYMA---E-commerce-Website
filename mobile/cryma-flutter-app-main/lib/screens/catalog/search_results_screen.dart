@@ -167,11 +167,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             .recordProductImpressions(
                 page.items.map((item) => item['id'].toString()).toList())
             .then(
-              (_) {},
-              onError: (Object error, StackTrace stackTrace) {
-                debugPrint('Unable to record product exposure: $error');
-              },
-            ));
+          (_) {},
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('Unable to record product exposure: $error');
+          },
+        ));
       }
       if (!mounted) return;
       setState(() {
@@ -733,7 +733,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                                         : 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 12,
-                                childAspectRatio: 0.72,
+                                childAspectRatio: 0.56,
                               ),
                               itemCount:
                                   _results.length + (_loadingMore ? 2 : 0),

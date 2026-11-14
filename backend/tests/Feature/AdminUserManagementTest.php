@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminUserManagementTest extends TestCase
@@ -82,5 +83,42 @@ class AdminUserManagementTest extends TestCase
             ->assertForbidden();
 
         $this->assertNotSame('Hacked', $otherAdmin->fresh()->first_name);
+    }
+
+    public function test_admin_user_list_exposes_a_protected_profile_image_endpoint(): void
+    {
+        Storage::fake('local');
+        $admin = $this->admin();
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $path = "profile-images/{$buyer->id}/avatar.jpg";
+        Storage::disk('local')->put($path, 'test-image-content');
+        $buyer->forceFill(['profile_image_path' => $path])->save();
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/users')
+            ->assertOk();
+
+        $this->assertSame(
+            "/admin/users/{$buyer->id}/profile-image",
+            $response->json('data.data.0.profile_image_url'),
+        );
+        $this->assertArrayNotHasKey('profile_image_path', $response->json('data.data.0'));
+        Storage::disk('local')->assertExists($path);
+
+        $imageResponse = $this->actingAs($admin, 'sanctum')
+            ->get("/api/admin/users/{$buyer->id}/profile-image")
+            ->assertOk();
+        $cacheControl = $imageResponse->headers->get('cache-control');
+        $this->assertStringContainsString('private', $cacheControl);
+        $this->assertStringContainsString('no-store', $cacheControl);
+    }
+
+    public function test_non_admin_cannot_fetch_a_user_profile_image(): void
+    {
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->get("/api/admin/users/{$buyer->id}/profile-image")
+            ->assertForbidden();
     }
 }

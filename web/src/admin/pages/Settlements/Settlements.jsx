@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import api from "../../../shared/services/api";
 import "./Settlements.css";
 
+const PAGE_SIZE = 15;
 const peso = (value) =>
     `₱${Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 const name = (user) => [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "—";
@@ -13,18 +15,28 @@ export default function Settlements() {
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(null);
     const [refs, setRefs] = useState({});
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
     const load = useCallback(async () => {
         setLoading(true);
         setError("");
         try {
-            const { data } = await api.get(`/admin/settlements/${tab}`);
-            setRows(data?.data?.data || []);
+            const { data } = await api.get(`/admin/settlements/${tab}`, {
+                params: { page, per_page: PAGE_SIZE },
+            });
+            const result = data?.data;
+            setRows(result?.data || []);
+            setPagination({
+                current_page: result?.current_page || 1,
+                last_page: result?.last_page || 1,
+                total: result?.total || 0,
+            });
         } catch (e) {
             setError(e.response?.data?.message || "Settlement records could not be loaded.");
         } finally {
             setLoading(false);
         }
-    }, [tab]);
+    }, [page, tab]);
     useEffect(() => {
         const timer = window.setTimeout(() => {
             void load();
@@ -67,7 +79,10 @@ export default function Settlements() {
                         role="tab"
                         aria-selected={tab === key}
                         className={tab === key ? "is-active" : ""}
-                        onClick={() => setTab(key)}
+                        onClick={() => {
+                            setTab(key);
+                            setPage(1);
+                        }}
                     >
                         {label}
                     </button>
@@ -93,7 +108,7 @@ export default function Settlements() {
                 <div className="admin-settlement-table-panel">
                     <div className="admin-settlement-table-heading">
                         <div><h3>{tab === "cod" ? "COD remittance records" : "Seller payout records"}</h3><p>Review status and record completed transfers.</p></div>
-                        <span>{rows.length} {rows.length === 1 ? "record" : "records"}</span>
+                        <span>{pagination.total} {pagination.total === 1 ? "record" : "records"}</span>
                     </div>
                     <div className="admin-settlement-table-scroll">
                     <table className="admin-settlement-table">
@@ -194,6 +209,33 @@ export default function Settlements() {
                     </table>
                     </div>
                 </div>
+            )}
+            {!loading && pagination.total > 0 && (
+                <footer className="admin-settlement-pagination">
+                    <span>
+                        Showing {(pagination.current_page - 1) * PAGE_SIZE + 1}–
+                        {Math.min(pagination.current_page * PAGE_SIZE, pagination.total)} of {pagination.total}
+                    </span>
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => setPage((current) => Math.max(1, current - 1))}
+                            disabled={page <= 1}
+                            aria-label="Previous settlement page"
+                        >
+                            <ChevronLeft size={16} /> Previous
+                        </button>
+                        <span>Page {pagination.current_page} of {pagination.last_page}</span>
+                        <button
+                            type="button"
+                            onClick={() => setPage((current) => Math.min(pagination.last_page, current + 1))}
+                            disabled={page >= pagination.last_page}
+                            aria-label="Next settlement page"
+                        >
+                            Next <ChevronRight size={16} />
+                        </button>
+                    </div>
+                </footer>
             )}
         </section>
     );

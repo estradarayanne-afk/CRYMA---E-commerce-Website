@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\Order;
+use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Models\User;
 use App\Services\CourierEligibility;
@@ -30,6 +31,7 @@ class PickupController extends Controller
             'order.items.seller:id,first_name,last_name',
             'order.items.seller.addresses',
             'delivery.events',
+            'pickupBatch' => fn ($query) => $query->withCount('assignments'),
         ]);
     }
 
@@ -42,6 +44,14 @@ class PickupController extends Controller
             'parcel_code' => $assignment->delivery?->parcel_code,
             'status' => $assignment->status,
             'pickup_address' => $assignment->pickup_address,
+            'pickup_batch_id' => $assignment->pickup_batch_id,
+            'pickup_batch' => $assignment->pickupBatch ? [
+                'id' => $assignment->pickupBatch->id,
+                'order_count' => $assignment->pickupBatch->assignments_count,
+                'pickup_address' => $assignment->pickupBatch->pickup_address,
+                'scheduled_at' => $assignment->pickupBatch->scheduled_at,
+            ] : null,
+            'parcel_code' => $assignment->delivery?->parcel_code,
             'assigned_at' => $assignment->assigned_at,
             'scheduled_at' => $assignment->scheduled_at,
             'picked_up_at' => $assignment->picked_up_at,
@@ -152,7 +162,22 @@ class PickupController extends Controller
                 'previous_courier_profile_id' => $profile->id,
                 'courier_profile_id' => $profile->id,
             ]);
-            return $assignment->load(['order.items.product', 'order.items.seller.addresses', 'delivery.events']);
+            if ($assignment->pickup_batch_id) {
+                $batch = PickupBatch::whereKey($assignment->pickup_batch_id)->lockForUpdate()->firstOrFail();
+                $statuses = PickupAssignment::where('pickup_batch_id', $batch->id)->pluck('status');
+                $batchStatus = $statuses->every(fn (string $status) => $status === PickupAssignment::RECEIVED)
+                    ? PickupBatch::RECEIVED
+                    : ($statuses->every(fn (string $status) => in_array($status, [PickupAssignment::PICKED_UP, PickupAssignment::RECEIVED], true))
+                        ? PickupBatch::PICKED_UP
+                        : ($statuses->contains(PickupAssignment::ACCEPTED) || $statuses->contains(PickupAssignment::PICKED_UP)
+                            ? PickupBatch::IN_PROGRESS
+                            : PickupBatch::ASSIGNED));
+                $batch->update(['status' => $batchStatus]);
+            }
+            return $assignment->load([
+                'order.items.product', 'order.items.seller.addresses', 'delivery.events',
+                'pickupBatch' => fn ($query) => $query->withCount('assignments'),
+            ]);
         });
 
         return response()->json(['success' => true, 'message' => 'Pickup status recorded.', 'data' => $this->parcelData($assignment)]);

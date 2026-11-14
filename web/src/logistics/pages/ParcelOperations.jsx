@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../shared/services/api";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PrivateDeliveryProof from "../../shared/components/PrivateDeliveryProof";
 import ParcelQrScanner from "../../shared/components/ParcelQrScanner";
+import { sortCouriersByHubDistance } from "../utils/courierProximity";
 import "./ParcelOperations.css";
 
 const DEFAULT_QUEUE = {
@@ -45,8 +47,8 @@ const parcelWeight = (items = []) => {
 const PAGE_CONFIG = {
     pickups: { eyebrow: "PICKUP QUEUE", title: "Seller pickup requests", description: "Assign a verified, eligible courier to seller orders marked ready for pickup." },
     incoming: { eyebrow: "INBOUND PARCELS", title: "Incoming parcels", description: "Verify parcel handover and record sorting-center receipt." },
-    sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Receive and scan parcels, read each delivery address, choose its destination area, then assign a rider who covers that area." },
-    assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Assign or reassign deliveries using configured area coverage and courier eligibility." },
+    sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Receive and scan parcels, read each delivery address, choose its destination area, then assign a rider who covers that area. Fresh rider locations are ranked nearest-first; every eligible rider remains selectable." },
+    assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Assign or reassign deliveries using configured area coverage and courier eligibility. Fresh rider locations are ranked nearest-first; every eligible rider remains selectable." },
     monitoring: { eyebrow: "DELIVERY OPERATIONS", title: "Courier Deliveries", description: "Monitor courier assignments, delivery status, history, failed attempts, and returns." },
     reports: { eyebrow: "OPERATIONS SUMMARY", title: "Logistics reports", description: "Current counts derived from CRYMA order and delivery records." },
 };
@@ -60,6 +62,7 @@ const MONITOR_FILTERS = [
 ];
 
 export default function ParcelOperations({ section }) {
+    const navigate = useNavigate();
     const config = PAGE_CONFIG[section];
     const [queue, setQueue] = useState(DEFAULT_QUEUE);
     const [areas, setAreas] = useState([]);
@@ -131,6 +134,16 @@ export default function ParcelOperations({ section }) {
         }
     };
 
+    const contactSeller = (delivery) => {
+        void mutate(
+            `seller-chat-${delivery.id}`,
+            () => api.post(`/logistics/deliveries/${delivery.id}/seller-chat`),
+            `Seller conversation opened for order #${delivery.order_id}.`,
+        ).then((data) => {
+            if (data) navigate("/logistics/messages");
+        });
+    };
+
     const requestConfirmation = (title, description, run, options = {}) => {
         setError("");
         setPendingAction({ title, description, run, ...options });
@@ -151,16 +164,32 @@ export default function ParcelOperations({ section }) {
         courier.delivery_areas?.some((area) => Number(area.id) === Number(areaId) && area.is_active));
     const getReason = (key) => reasons[key] || "";
     const setReason = (key, value) => setReasons((current) => ({ ...current, [key]: value }));
-    const courierSelect = (couriers, value, onChange, label, disabled = false) => (
+    const courierSelect = (couriers, value, onChange, label, disabled = false, hubId = null) => {
+        const getProximity = (courier) => hubId == null ? null : courier.hub_proximity?.[String(hubId)];
+        const orderedCouriers = sortCouriersByHubDistance(couriers, hubId);
+        const proximityLabel = (courier) => {
+            const proximity = getProximity(courier);
+            if (!proximity) return "";
+            if (proximity.distance_km != null) {
+                return proximity.nearby
+                    ? ` · Nearby · ${Number(proximity.distance_km).toFixed(2)} km`
+                    : ` · ${Number(proximity.distance_km).toFixed(2)} km away`;
+            }
+            if (proximity.state === "stale") return " · Location stale";
+            if (proximity.state === "hub_unpinned") return " · Hub GPS pin needed";
+            return " · Not sharing location";
+        };
+        return (
         <select aria-label={label} value={value || ""} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
-            <option value="">Select eligible courier</option>
-            {couriers.map((courier) => (
+            <option value="">{hubId == null ? "Select eligible courier" : "Select rider (nearest first)"}</option>
+            {orderedCouriers.map((courier) => (
                 <option value={courier.id} key={courier.id}>
-                    {courierName(courier)}{courier.vehicles?.[0] ? ` · ${courier.vehicles[0].vehicle_type}` : ""}
+                    {courierName(courier)}{courier.vehicles?.[0] ? ` · ${courier.vehicles[0].vehicle_type}` : ""}{proximityLabel(courier)}
                 </option>
             ))}
         </select>
-    );
+        );
+    };
 
     const assignPickup = (orderId, existing = null) => {
         const courierProfileId = Number(pickupChoices[orderId] || existing?.courier_profile_id);
@@ -400,7 +429,7 @@ export default function ParcelOperations({ section }) {
                                     {!scanned && <button type="button" disabled={!!saving} onClick={() => setSortingScannerOpen(true)}>{saving === `scan-${order.id}` ? "Scanning…" : "Scan parcel QR"}</button>}
                                     <label>Destination area<select aria-label={`Destination area for parcel ${order.id}`} value={areaChoices[order.id] || order.delivery?.delivery_area_id || ""} disabled={!scanned || !!saving} onChange={(event) => { setAreaChoices((current) => ({ ...current, [order.id]: event.target.value })); setDeliveryChoices((current) => ({ ...current, [order.id]: "" })); }}><option value="">Read address and select area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name} · {area.hub?.name || "Unmapped hub"}</option>)}</select></label>
                                     {selectedArea && <small>Destination hub: {selectedArea.hub?.name || "Unmapped"}{requiresTransfer ? " · Transfer required before final-mile assignment" : " · Matches current custody"}</small>}
-                                    <label>Rider assigned to this area{courierSelect(eligible, courierId, (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Rider for parcel ${order.id}`, !scanned || !!saving)}</label>
+                                    <label>Rider assigned to this area{courierSelect(eligible, courierId, (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Rider for parcel ${order.id}`, !scanned || !!saving, currentHubId)}</label>
                                     <button type="button" disabled={!scanned || !!saving || !areaId || !courierId || requiresTransfer} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : requiresTransfer ? "Hub transfer required" : "Sort and assign to rider"}</button>
                                 </div>
                             </article>;
@@ -409,7 +438,7 @@ export default function ParcelOperations({ section }) {
                     {section === "assignment" && <section className="lo-panel"><div className="lo-panel-heading"><div><h2>Sorted parcels awaiting dispatch</h2><p>Check each delivery area and assign a rider who is eligible to serve it.</p></div><span className="lo-queue-count">{deliveries.filter((delivery) => delivery.status === "SORTED").length} waiting</span></div>
                         {(queue.sorting_orders || []).filter((order) => order.status === "SORTED").length === 0 ? <p className="lw-empty">No sorted parcels are awaiting a delivery assignment.</p> : queue.sorting_orders.filter((order) => order.status === "SORTED").map((order) => <article className="lo-row lo-assignment-row" key={order.id}>
                             <div><strong>Order #{order.id}</strong><span>Area: {order.delivery?.deliveryArea?.name || "Select an area"}</span><small>{order.delivery_address || "Address unavailable"}</small><small>Parcel weight: {parcelWeight(order.items)}</small></div>
-                            <div className="lo-actions"><select aria-label={`Area for order ${order.id}`} value={areaChoices[order.id] || order.delivery?.delivery_area_id || ""} onChange={(event) => setAreaChoices((current) => ({ ...current, [order.id]: event.target.value }))}><option value="">Select active area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>{courierSelect(eligibleForArea(areaChoices[order.id] || order.delivery?.delivery_area_id), deliveryChoices[order.id], (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Delivery courier for order ${order.id}`)}<button type="button" disabled={!!saving} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : "Assign delivery"}</button></div>
+                            <div className="lo-actions"><select aria-label={`Area for order ${order.id}`} value={areaChoices[order.id] || order.delivery?.delivery_area_id || ""} onChange={(event) => setAreaChoices((current) => ({ ...current, [order.id]: event.target.value }))}><option value="">Select active area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>{courierSelect(eligibleForArea(areaChoices[order.id] || order.delivery?.delivery_area_id), deliveryChoices[order.id], (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Delivery courier for order ${order.id}`, false, order.delivery?.current_hub_id)}<button type="button" disabled={!!saving} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : "Assign delivery"}</button></div>
                         </article>)}</section>}
 
                     {section === "monitoring" && <section className="lo-panel lo-monitoring-panel"><div className="lo-panel-heading"><div><h2>Parcel status and history</h2><p>Filter the delivery queue to focus on exceptions or review completed work.</p></div><span className="lo-queue-count">{deliveries.length} records</span></div>
@@ -422,10 +451,11 @@ export default function ParcelOperations({ section }) {
                                     {delivery.failure_reason && <small className="lo-warning">Failure reason: {delivery.failure_reason}</small>}
                                     <details><summary>Parcel event history</summary>{(delivery.events || []).length ? (delivery.events || []).map((event) => <span className="lo-event" key={event.id}>{statusLabel(event.new_status)} · {event.actor ? [event.actor.first_name, event.actor.last_name].filter(Boolean).join(" ") : "Recorded actor unavailable"} · {event.created_at ? new Date(event.created_at).toLocaleString("en-PH") : "Timestamp unavailable"}{event.reason ? ` · ${event.reason}` : ""}</span>) : <small>No recorded events.</small>}</details>
                                     <PrivateDeliveryProof proof={delivery.proof} basePath={`/logistics/deliveries/${delivery.id}/proof`} />
+                                    <div className="lo-actions"><button type="button" disabled={!!saving} onClick={() => contactSeller(delivery)}>{saving === `seller-chat-${delivery.id}` ? "Opening…" : "Contact seller"}</button></div>
                                 </div>
                                 {needsAction && <div className="lo-actions">
                                     <select aria-label={`Area for delivery order ${delivery.order_id}`} value={areaId} onChange={(event) => setAreaChoices((current) => ({ ...current, [delivery.order_id]: event.target.value }))}><option value="">Select active area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>
-                                    {courierSelect(eligibleForArea(areaId), deliveryChoices[delivery.order_id], (value) => setDeliveryChoices((current) => ({ ...current, [delivery.order_id]: value })), `Courier for delivery order ${delivery.order_id}`)}
+                                    {courierSelect(eligibleForArea(areaId), deliveryChoices[delivery.order_id], (value) => setDeliveryChoices((current) => ({ ...current, [delivery.order_id]: value })), `Courier for delivery order ${delivery.order_id}`, false, delivery.current_hub_id)}
                                     <input aria-label={`Action reason for delivery order ${delivery.order_id}`} placeholder="Reason for retry or reassignment" maxLength={1000} value={getReason(`delivery-${delivery.order_id}`)} onChange={(event) => setReason(`delivery-${delivery.order_id}`, event.target.value)} />
                                     <button type="button" disabled={!!saving} onClick={() => reassignDelivery(delivery)}>{saving === `delivery-${delivery.order_id}` ? "Saving…" : delivery.status === "DELIVERY_FAILED" ? "Retry delivery" : "Reassign courier"}</button>
                                     {delivery.status === "DELIVERY_FAILED" && <><input aria-label={`Return reason for order ${delivery.order_id}`} placeholder="Reason for return to center" maxLength={1000} value={getReason(`return-${delivery.order_id}`)} onChange={(event) => setReason(`return-${delivery.order_id}`, event.target.value)} /><button className="lo-danger" type="button" disabled={!!saving} onClick={() => returnDelivery(delivery)}>{saving === `return-${delivery.order_id}` ? "Saving…" : "Mark returned"}</button></>}

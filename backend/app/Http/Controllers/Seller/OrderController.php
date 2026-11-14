@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Delivery;
+use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -133,23 +134,7 @@ class OrderController extends Controller
     public function requestPickup(Request $request, int $id)
     {
         $user = $request->user();
-        $address = $user->addresses()->orderByDesc('is_default')->latest('id')->first();
-        abort_unless($address, 422, 'Add a seller pickup address in Account Settings before requesting a courier pickup.');
-        $pickupAddress = collect([
-            $address->recipient_name ? 'Contact: '.$address->recipient_name : null,
-            $address->phone ? 'Phone: '.$address->phone : null,
-            implode(', ', array_filter([
-                $address->house_number,
-                $address->building_name,
-                $address->unit_number,
-                $address->street,
-            ])),
-            $address->barangay,
-            $address->municipality,
-            $address->province,
-            $address->region,
-            $address->postal_code,
-        ])->filter()->implode(', ');
+        $pickupAddress = $this->pickupAddressFor($user);
         $assignment = DB::transaction(function () use ($user, $id, $pickupAddress) {
             $order = Order::whereHas('items', fn ($query) => $query->where('seller_id', $user->id))
                 ->whereKey($id)->lockForUpdate()->firstOrFail();
@@ -181,6 +166,96 @@ class OrderController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Courier pickup requested.', 'data' => $assignment]);
+    }
+
+    public function requestPickupBatch(Request $request)
+    {
+        $user = $request->user();
+        $values = $request->validate([
+            'order_ids' => ['required', 'array', 'min:2', 'max:30'],
+            'order_ids.*' => ['required', 'integer', 'distinct', 'min:1'],
+            'preferred_scheduled_at' => ['required', 'date', 'after:now'],
+        ]);
+        $pickupAddress = $this->pickupAddressFor($user);
+        $orderIds = collect($values['order_ids'])->map(fn ($id) => (int) $id)->sort()->values();
+        $preferredSchedule = \Illuminate\Support\Carbon::parse($values['preferred_scheduled_at']);
+
+        $batch = DB::transaction(function () use ($user, $orderIds, $pickupAddress, $preferredSchedule) {
+            $orders = Order::whereIn('id', $orderIds)
+                ->whereHas('items', fn ($query) => $query->where('seller_id', $user->id))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            abort_unless($orders->count() === $orderIds->count(), 404, 'One or more selected orders were not found.');
+
+            foreach ($orders as $order) {
+                abort_unless(strtoupper((string) $order->status) === 'READY_FOR_PICKUP', 422, "Order #{$order->id} is not ready for pickup.");
+                $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
+                abort_unless(!$assignment, 409, "Order #{$order->id} already has a pickup assignment.");
+                $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
+                abort_unless(!$delivery || ($delivery->legacy_imported && $delivery->status === 'READY_FOR_PICKUP'), 409, "Order #{$order->id} already has an active shipment.");
+            }
+
+            $batch = PickupBatch::create([
+                'seller_id' => $user->id,
+                'pickup_address' => $pickupAddress,
+                'status' => PickupBatch::REQUESTED,
+                'requested_at' => now(),
+                'preferred_scheduled_at' => $preferredSchedule,
+            ]);
+
+            foreach ($orders as $order) {
+                $delivery = Delivery::firstOrCreate(
+                    ['order_id' => $order->id],
+                    ['status' => 'READY_FOR_PICKUP', 'legacy_imported' => false],
+                );
+                $assignment = PickupAssignment::create([
+                    'order_id' => $order->id,
+                    'delivery_id' => $delivery->id,
+                    'pickup_batch_id' => $batch->id,
+                    'assigned_by' => $user->id,
+                    'status' => PickupAssignment::REQUESTED,
+                    'pickup_address' => $pickupAddress,
+                    'requested_at' => now(),
+                ]);
+                \App\Support\OrderDeliveryProjection::event($delivery, [
+                    'actor_id' => $user->id,
+                    'event_type' => 'pickup_requested',
+                    'previous_status' => 'READY_FOR_PICKUP',
+                    'new_status' => PickupAssignment::REQUESTED,
+                ]);
+            }
+
+            return $batch->load('assignments.order');
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bulk courier pickup requested. Logistics will confirm your preferred pickup time.',
+            'data' => $batch,
+        ], 201);
+    }
+
+    private function pickupAddressFor(User $user): string
+    {
+        $address = $user->addresses()->orderByDesc('is_default')->latest('id')->first();
+        abort_unless($address, 422, 'Add a seller pickup address in Account Settings before requesting a courier pickup.');
+
+        return collect([
+            $address->recipient_name ? 'Contact: '.$address->recipient_name : null,
+            $address->phone ? 'Phone: '.$address->phone : null,
+            implode(', ', array_filter([
+                $address->house_number,
+                $address->building_name,
+                $address->unit_number,
+                $address->street,
+            ])),
+            $address->barangay,
+            $address->municipality,
+            $address->province,
+            $address->region,
+            $address->postal_code,
+        ])->filter()->implode(', ');
     }
 
     private function sellerOrderQuery(User $user): Builder

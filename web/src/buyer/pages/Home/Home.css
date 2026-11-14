@@ -4795,3 +4795,174 @@ min-height: 100vh;
 @media (max-width: 600px) {
     .buyer-global-shell--home .buyer-landing-featured .buyer-landing-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Original vector journey replaces the stock logistics photo. */
+.buyer-home .buyer-logistics-photo {
+    position: relative;
+    isolation: isolate;
+    background: #eec4ce;
+}
+
+.buyer-home .buyer-logistics-photo::after { display: none; }
+
+.buyer-logistics-scene {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.buyer-journey-svg { display: block; width: 100%; height: 100%; }
+.journey-cloud--one { animation: journey-cloud-drift 12s ease-in-out infinite alternate; }
+.journey-cloud--two { animation: journey-cloud-drift 16s ease-in-out -5s infinite alternate-reverse; }
+.journey-sun-glow { transform-box: fill-box; transform-origin: center; animation: journey-sun-breathe 4s ease-in-out infinite; }
+.journey-road-dashes { animation: journey-road-flow 1.1s linear infinite; }
+.journey-birds { animation: journey-birds-glide 7s ease-in-out infinite alternate; }
+.journey-tree { transform-box: fill-box; transform-origin: 50% 100%; }
+.journey-tree--left { animation: journey-tree-sway 3.8s ease-in-out infinite alternate; }
+.journey-tree--right { animation: journey-tree-sway 4.5s ease-in-out -1.4s infinite alternate-reverse; }
+.journey-shop-flag { transform-box: fill-box; transform-origin: 0% 50%; animation: journey-flag-wave 1.2s ease-in-out infinite alternate; }
+.journey-vehicle { opacity: 1; }
+.journey-vehicle-body { filter: drop-shadow(0 5px 4px rgba(65,20,39,.18)); }
+.journey-wheel { transform-box: fill-box; transform-origin: center; animation: journey-wheel-spin .65s linear infinite; }
+.journey-vehicle-body { animation: journey-van-bounce .42s ease-in-out infinite alternate; }
+.journey-arrival { transform-box: fill-box; transform-origin: center; animation: journey-arrival-pulse 1.8s ease-out infinite; }
+.journey-delivered-parcel { transform-box: fill-box; transform-origin: center bottom; animation: journey-parcel-arrive 9s ease-in-out infinite; }
+.journey-sign { filter: drop-shadow(0 3px 4px rgba(75,23,37,.12)); }
+
+@keyframes journey-cloud-drift {
+    from { translate: -9px 0; }
+    to { translate: 14px -3px; }
+}
+
+@keyframes journey-birds-glide {
+    from { translate: -2px 3px; }
+    to { translate: 8px -3px; }
+}
+
+@keyframes journey-tree-sway {
+    from { rotate: -1.2deg; }
+    to { rotate: 1.2deg; }
+}
+
+@keyframes journey-flag-wave {
+    from { rotate: -4deg; }
+    to { rotate: 5deg; }
+}
+
+@keyframes journey-van-bounce {
+    from { translate: 0 0; }
+    to { translate: 0 -1.5px; }
+}
+
+@keyframes journey-sun-breathe {
+    0%, 100% { opacity: .46; scale: .88; }
+    50% { opacity: .92; scale: 1.08; }
+}
+
+@keyframes journey-road-flow { to { stroke-dashoffset: -54; } }
+@keyframes journey-wheel-spin { to { rotate: 360deg; } }
+@keyframes journey-parcel-arrive {
+    0%, 72%, 100% { opacity: 0; scale: .65; translate: 0 5px; }
+    80%, 94% { opacity: 1; scale: 1; translate: 0 0; }
+}
+@keyframes journey-arrival-pulse {
+    0%, 100% { scale: .88; opacity: .78; }
+    50% { scale: 1.12; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .journey-cloud--one,
+    .journey-cloud--two,
+    .journey-sun-glow,
+    .journey-birds,
+    .journey-tree,
+    .journey-shop-flag,
+    .journey-road-dashes,
+    .journey-vehicle-body,
+    .journey-wheel,
+    .journey-arrival,
+    .journey-delivered-parcel { animation: none; }
+}
+
+.buyer-home .buyer-logistics-section::before {
+    display: block;
+    z-index: 0;
+    opacity: .46;
+    pointer-events: none;
+    background-image:
+        radial-gradient(ellipse at 12% 18%, rgba(245, 194, 205, .42), transparent 34%),
+        radial-gradient(ellipse at 90% 82%, rgba(231, 153, 174, .3), transparent 36%);
+    background-size: 150% 150%;
+    animation: journey-section-glow 14s ease-in-out infinite alternate;
+}
+
+.buyer-home .buyer-logistics-content,
+.buyer-home .buyer-logistics-card { z-index: 1; }
+
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-content > .buyer-landing-eyebrow,
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-content h2,
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-content > p,
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-button,
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-card > * {
+    animation: journey-content-enter 650ms cubic-bezier(.2, .75, .25, 1) both;
+}
+
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-content h2 { animation-delay: 90ms; }
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-content > p { animation-delay: 170ms; }
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-button { animation-delay: 240ms; }
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-card {
+    animation: journey-card-enter 800ms cubic-bezier(.2, .75, .25, 1) 100ms both, journey-card-glow 7s ease-in-out 900ms infinite;
+}
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-card > strong { animation-delay: 280ms; }
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-card > p { animation-delay: 350ms; }
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-points { animation-delay: 420ms; }
+.buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-icon {
+    animation: journey-icon-pop 700ms cubic-bezier(.2, .75, .25, 1) 220ms both, journey-icon-float 3.6s ease-in-out 1s infinite;
+}
+.buyer-home .buyer-logistics-button svg { transition: transform 180ms ease; }
+.buyer-home .buyer-logistics-button:hover svg { transform: translateX(3px); }
+.buyer-home .buyer-logistics-points span { transition: transform 180ms ease, color 180ms ease; }
+.buyer-home .buyer-logistics-points span:hover { transform: translateX(3px); color: var(--color-text-primary); }
+
+@keyframes journey-section-glow {
+    from { background-position: 0% 40%; }
+    to { background-position: 100% 60%; }
+}
+
+@keyframes journey-content-enter {
+    from { opacity: 0; translate: -18px 0; }
+    to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes journey-card-enter {
+    from { opacity: 0; translate: 24px 0; scale: .97; }
+    to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@keyframes journey-card-glow {
+    0%, 100% { box-shadow: 0 4px 16px rgba(41, 35, 38, .05); }
+    50% { box-shadow: 0 12px 28px rgba(119, 30, 55, .12); }
+}
+
+@keyframes journey-icon-pop {
+    from { opacity: 0; scale: .72; rotate: -8deg; }
+    to { opacity: 1; scale: 1; rotate: 0deg; }
+}
+
+@keyframes journey-icon-float {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 -3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .buyer-home .buyer-logistics-section::before,
+    .buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-content > *,
+    .buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-card,
+    .buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-card > *,
+    .buyer-home .buyer-logistics-section.buyer-scroll-reveal.is-visible .buyer-logistics-icon {
+        animation: none;
+    }
+
+    .buyer-home .buyer-logistics-button svg,
+    .buyer-home .buyer-logistics-points span { transition: none; }
+}

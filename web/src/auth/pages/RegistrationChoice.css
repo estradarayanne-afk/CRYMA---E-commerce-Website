@@ -1,45 +1,170 @@
 .registration-choices {
     display: grid;
-    gap: 12px;
+    gap: 10px;
 }
 
 .registration-choice {
+    --role-accent: #a52c4b;
+    --role-accent-soft: #fff1f4;
     position: relative;
     width: 100%;
     display: grid;
-    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-columns: 68px minmax(0, 1fr);
     align-items: center;
     gap: 14px;
-    padding: 12px 44px 12px 12px;
-    border: 1px solid var(--border-neutral);
-    border-radius: 12px;
-    background: var(--white);
+    min-height: 82px;
+    padding: 9px 42px 9px 14px;
+    overflow: hidden;
+    border: 1px solid #eadde1;
+    border-radius: 15px;
+    background: linear-gradient(105deg, var(--role-accent-soft), #fff 34%);
     color: var(--text-primary);
     text-align: left;
     text-decoration: none;
     cursor: pointer;
-    transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+    box-shadow: 0 3px 10px rgba(75, 23, 37, .035);
+    animation: registration-choice-enter .3s both;
+    transition: border-color .2s ease, background .2s ease, transform .2s ease, box-shadow .2s ease;
 }
 
-.registration-choice > img { width: 104px; height: 92px; object-fit: cover; border-radius: 8px; }
-.registration-choice-content { display: flex; flex-direction: column; gap: 7px; }
-.registration-choice-cta { margin-top: 4px; color: var(--crimson) !important; font-size: 13px !important; font-weight: 700; }
-.registration-choice-panel .registration-choice { padding: 10px 40px 10px 10px; }
-.registration-choice-panel .registration-choice > img { width: 84px; height: 75px; }
-.registration-choice-panel .registration-choice strong { font-size: 14px; }
-.registration-choice-panel .registration-choice span:not(.registration-choice-content):not(.registration-choice-arrow) { font-size: 12px; }
+.registration-choice:nth-child(2) { animation-delay: 55ms; }
+.registration-choice:nth-child(3) { animation-delay: 110ms; }
+.registration-choice:nth-child(4) { animation-delay: 165ms; }
+
+.registration-choice--seller {
+    --role-accent: #8d3457;
+    --role-accent-soft: #fcf0f4;
+}
+
+.registration-choice--rider {
+    --role-accent: #754064;
+    --role-accent-soft: #f7f0f6;
+}
+
+.registration-choice--logistics {
+    --role-accent: #60334f;
+    --role-accent-soft: #f5f0f4;
+}
+
+.registration-choice::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--role-accent);
+    content: "";
+    transform: scaleY(.55);
+    transform-origin: center;
+    transition: transform .22s ease;
+}
+
+.registration-choice-art {
+    --role-art-light: #fff8fa;
+    --role-art-mid: #f3dbe1;
+    --role-art-dark: #a94862;
+    position: relative;
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    isolation: isolate;
+    border: 1px solid rgba(255,255,255,.9);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 28% 18%, rgba(255,255,255,.96), transparent 42%),
+        linear-gradient(155deg, var(--role-art-light) 0%, var(--role-art-mid) 72%, #e8c2cc 100%);
+    box-shadow:
+        inset 1px 1px 3px rgba(255,255,255,.95),
+        inset -1px -2px 4px rgba(133,46,71,.1),
+        0 3px 0 #d9a8b5,
+        0 5px 0 #8e304b,
+        0 9px 14px rgba(75,23,37,.18);
+    transform: perspective(320px) rotateY(-8deg) rotateX(4deg);
+    transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease;
+}
+
+.registration-choice-art--buyer { --role-icon-color: #8f2945; }
+.registration-choice-art--seller { --role-icon-color: #873856; }
+.registration-choice-art--rider { --role-icon-color: #754064; }
+.registration-choice-art--logistics { --role-icon-color: #60334f; }
+
+.registration-choice-art::before {
+    position: absolute;
+    z-index: -1;
+    inset: 5px;
+    border: 1px solid rgba(255,255,255,.38);
+    border-radius: 13px;
+    content: "";
+}
+
+.registration-choice-art-glow {
+    position: absolute;
+    z-index: -1;
+    inset: 5px;
+    width: auto;
+    height: auto;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.7), transparent 62%);
+    filter: blur(1px);
+}
+
+.registration-choice-art-icon {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--role-icon-color, #8f2945);
+    transform: translateZ(14px);
+}
+
+.registration-choice-art-spark {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(255,255,255,.95);
+}
+
+.registration-choice-art-spark--one { top: 12px; left: 11px; }
+.registration-choice-art-spark--two { right: 11px; bottom: 12px; width: 4px; height: 4px; }
+
+.registration-choice-content { display: flex; flex-direction: column; gap: 4px; }
+.registration-choice-cta { margin-top: 2px; color: var(--role-accent) !important; font-size: 12px !important; font-weight: 750; }
+.registration-choice-panel .registration-choice-art { width: 56px; height: 56px; border-radius: 17px; }
+.registration-choice-panel .registration-choice-art-icon { width: 39px; height: 39px; border-radius: 13px; }
 
 .registration-choice:hover,
 .registration-choice:focus-visible {
-    transform: translateY(-2px);
-    border-color: var(--floral-pink);
-    background: var(--rose-cream);
-    box-shadow: var(--shadow-card);
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--role-accent) 34%, white);
+    background: linear-gradient(105deg, var(--role-accent-soft), #fff 48%);
+    box-shadow: 0 12px 26px rgba(75, 23, 37, .12);
+}
+
+.registration-choice:hover::before,
+.registration-choice:focus-visible::before {
+    transform: scaleY(1);
+}
+
+.registration-choice:hover .registration-choice-art,
+.registration-choice:focus-visible .registration-choice-art {
+    box-shadow: inset 1px 1px 3px rgba(255,255,255,.8), inset -2px -3px 5px rgba(67,9,25,.2), 0 5px 0 rgba(79,15,37,.82), 0 12px 18px rgba(75,23,37,.24);
+    transform: perspective(320px) rotateY(0) rotateX(0) translateY(-3px) scale(1.04);
+}
+
+.registration-choice:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--role-accent) 26%, transparent);
+    outline-offset: 3px;
 }
 
 .registration-choice strong {
-    color: var(--wine);
-    font-size: 15px;
+    color: var(--role-accent);
+    font-size: 16px;
+    letter-spacing: -.01em;
 }
 
 .registration-choice span:not(.registration-choice-arrow) {
@@ -50,16 +175,23 @@
 
 .registration-choice-arrow {
     position: absolute;
-    top: 17px;
-    right: 18px;
-    color: var(--crimson);
+    top: 50%;
+    right: 16px;
+    color: var(--role-accent);
     font-size: 20px;
+    transform: translateY(-50%);
+    transition: transform .2s ease;
+}
+
+.registration-choice:hover .registration-choice-arrow,
+.registration-choice:focus-visible .registration-choice-arrow {
+    transform: translate(3px, -50%);
 }
 
 .registration-choice-panel h2 {
-    margin: 0 0 18px;
+    margin: 0 0 15px;
     color: var(--text-primary);
-    font-size: 23px;
+    font-size: 24px;
     line-height: 1.25;
 }
 
@@ -68,7 +200,7 @@
     width: 100%;
     max-width: 680px;
     margin: auto;
-    padding: 24px clamp(24px, 3.2vw, 52px);
+    padding: 18px clamp(24px, 3.2vw, 52px);
 }
 
 .registration-choice-eyebrow {
@@ -80,18 +212,45 @@
     letter-spacing: 0.14em;
 }
 
+.registration-choice-panel .registration-choice {
+    min-height: 80px;
+}
+
+.registration-choice-panel .registration-choice span:not(.registration-choice-arrow) {
+    line-height: 1.55;
+}
+
 @media (max-width: 900px) {
     .registration-choice-panel { padding: 20px 28px; }
 }
 
 @media (max-width: 480px) {
     .registration-choice-panel { padding: 18px; }
+    .registration-choice-panel .registration-choice {
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 10px;
+        min-height: 72px;
+        padding: 7px 34px 7px 11px;
+    }
+    .registration-choice-panel .registration-choice-art {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+    }
+    .registration-choice-panel .registration-choice-art-icon { width: 37px; height: 37px; border-radius: 12px; }
+    .registration-choice-panel .registration-choice strong { font-size: 15px; }
+    .registration-choice-panel .registration-choice span:not(.registration-choice-content):not(.registration-choice-arrow) { font-size: 11px; }
 }
 
-.registration-choice-panel .registration-choice {
-    padding: 14px 42px 14px 15px;
+@keyframes registration-choice-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.registration-choice-panel .registration-choice-arrow {
-    top: 12px;
+@media (prefers-reduced-motion: reduce) {
+    .registration-choice { animation: none; }
+    .registration-choice,
+    .registration-choice-art,
+    .registration-choice::before,
+    .registration-choice-arrow { transition: none; }
 }

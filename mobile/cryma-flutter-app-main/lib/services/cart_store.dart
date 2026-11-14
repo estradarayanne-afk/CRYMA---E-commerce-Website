@@ -40,9 +40,9 @@ class CartStore {
     if (availableStock != null && availableStock < 1) return false;
     final existingIndex = current.indexWhere(
       (currentItem) =>
-          currentItem['cart_key'] ==
           '${(currentItem['product_id'] ?? currentItem['id']).toString()}|'
-              '${currentItem['variant_id']?.toString() ?? 'base'}',
+              '${currentItem['variant_id']?.toString() ?? 'base'}' ==
+          key,
     );
     if (existingIndex == -1) {
       final quantity = int.tryParse(item['quantity']?.toString() ?? '') ?? 1;

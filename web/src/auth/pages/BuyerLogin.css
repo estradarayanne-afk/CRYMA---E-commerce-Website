@@ -275,6 +275,70 @@
     color: #3f6d67;
 }
 
+.buyer-login-route-toast {
+    position: fixed;
+    z-index: 2200;
+    top: clamp(16px, 3vh, 28px);
+    right: clamp(16px, 3vw, 32px);
+    width: min(440px, calc(100vw - 32px));
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 13px 14px;
+    border: 1px solid #cce4db;
+    border-radius: 12px;
+    background: #f4fbf8;
+    color: #315f53;
+    box-shadow: 0 14px 36px rgba(48, 30, 35, .16);
+    font-size: 13px;
+    line-height: 1.5;
+    animation: buyer-login-toast-enter .22s ease-out both;
+}
+
+.buyer-login-route-toast .buyer-login-alert-icon {
+    flex-basis: 20px;
+    width: 20px;
+    height: 20px;
+    background: #d8eee6;
+    color: #397363;
+}
+
+.buyer-login-route-toast-info {
+    border-color: #d4e5e2;
+    background: #f4faf9;
+    color: #426c67;
+}
+
+.buyer-login-route-toast-info .buyer-login-alert-icon {
+    background: #dcece9;
+    color: #3f6d67;
+}
+
+.buyer-login-route-toast > button {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    margin: -4px -5px 0 auto;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: currentColor;
+    cursor: pointer;
+    font: inherit;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.buyer-login-route-toast > button:hover {
+    background: rgba(49, 95, 83, .08);
+}
+
+@keyframes buyer-login-toast-enter {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* =========================================================
    FORM
    ========================================================= */
@@ -333,7 +397,7 @@
 }
 
 .buyer-login-forgot:hover {
-    color: #0a554e;
+    color: #5b1528;
     text-decoration: underline;
 }
 
@@ -388,6 +452,22 @@
     box-shadow: 0 0 0 3px rgba(66, 135, 125, 0.09);
 }
 
+.buyer-login-input-wrap input[aria-invalid="true"] {
+    border-color: #c43b55;
+    background: #fffafa;
+}
+
+.buyer-login-input-wrap input[aria-invalid="true"]:focus {
+    border-color: #b21f3a;
+    box-shadow: 0 0 0 3px rgba(178, 31, 58, .13);
+}
+
+.buyer-login-field-error {
+    color: #a51f38;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 .buyer-login-input-wrap:focus-within .buyer-login-input-icon {
     color: #41867d;
 }
@@ -414,8 +494,8 @@
 }
 
 .buyer-login-eye:hover {
-    background: #f0f6f4;
-    color: #286b63;
+    background: var(--soft-rose);
+    color: var(--crimson);
 }
 
 .buyer-login-eye:disabled {
@@ -465,6 +545,16 @@
     background: #7c9b97;
     cursor: not-allowed;
     box-shadow: none;
+}
+
+.buyer-login-back:focus-visible,
+.buyer-login-forgot:focus-visible,
+.buyer-login-eye:focus-visible,
+.buyer-login-submit:focus-visible,
+.buyer-login-register:focus-visible,
+.buyer-login-route-toast > button:focus-visible {
+    outline: 3px solid rgba(178, 31, 58, .3);
+    outline-offset: 3px;
 }
 
 .buyer-login-spinner {
@@ -567,11 +657,19 @@
 .buyer-login-input-wrap:focus-within .buyer-login-input-icon { color: var(--crimson); }
 .buyer-login-submit { height: 52px; background: linear-gradient(110deg, var(--crimson), var(--deep-crimson)); font-size: 16px; box-shadow: 0 8px 20px rgba(75,23,37,.18); }
 .buyer-login-submit:hover:not(:disabled) { background: var(--wine); box-shadow: 0 11px 24px rgba(75,23,37,.23); }
+.buyer-login-submit:disabled { background: #925668; }
 .buyer-login-alert { font-size: 13px; }
 .buyer-login-divider small { font-size: 11px; }
 .buyer-login-register { height: 48px; border-color: #cbbbc0; color: var(--deep-crimson); font-size: 15px; }
 .buyer-login-register:hover { border-color: var(--crimson); background: var(--soft-rose); color: var(--wine); }
 .buyer-login-security { font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .buyer-login-route-toast,
+    .buyer-login-spinner {
+        animation: none;
+    }
+}
 
 @media (max-width: 900px) {
     .buyer-login { grid-template-columns: 1fr; }

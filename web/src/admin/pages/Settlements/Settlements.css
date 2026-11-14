@@ -23,4 +23,9 @@
 .admin-settlement-record-button { min-height:35px; flex:0 0 auto; padding:0 10px; border:1px solid #7e1830; border-radius:7px; background:#7e1830; color:#fff; font:700 10px/1 inherit; cursor:pointer; }
 .admin-settlement-record-button:hover:not(:disabled) { border-color:#9a3150; background:#9a3150; }
 .admin-settlement-record-button:disabled { opacity:.65; cursor:wait; }
+.admin-settlement-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; color:#806a71; font-size:11px; }
+.admin-settlement-pagination > div { display:flex; align-items:center; gap:8px; }
+.admin-settlement-pagination button { display:inline-flex; min-height:34px; align-items:center; gap:4px; padding:0 10px; border:1px solid #ead8de; border-radius:7px; background:#fff; color:#70213a; font:650 11px/1 inherit; cursor:pointer; }
+.admin-settlement-pagination button:disabled { color:#b9a7ad; cursor:not-allowed; }
+.admin-settlement-pagination button:focus-visible { outline:2px solid #a93654; outline-offset:2px; }
 @media (max-width:600px) { .admin-settlements-heading { padding:16px; } .admin-settlement-table-heading { align-items:flex-start; } .admin-settlement-tabs button { flex:1; padding:0 9px; } }

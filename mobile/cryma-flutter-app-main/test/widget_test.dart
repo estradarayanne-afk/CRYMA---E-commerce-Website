@@ -43,11 +43,23 @@ void main() {
         },
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('A MARKETPLACE THAT FEELS CLOSER.'), findsOneWidget);
     expect(find.text('Good things\nmove closer.'), findsOneWidget);
     expect(find.text('Explore the marketplace'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+    expect(find.byKey(const Key('welcome-marketplace-illustration')),
+        findsOneWidget);
+    expect(find.text('GOOD THINGS, CLOSE BY'), findsOneWidget);
+    final parcel = find.byKey(const Key('welcome-moving-parcel'));
+    final initialPosition = tester.getCenter(parcel);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('ON ITS WAY TO YOU'), findsOneWidget);
+    expect(
+      (tester.getCenter(parcel).dx - initialPosition.dx).abs(),
+      greaterThan(0.1),
+    );
     expect(find.text('Sign in'), findsOneWidget);
     expect(find.text('Already have an account? '), findsOneWidget);
     expect(find.text('CRYMA'), findsNothing);
@@ -70,7 +82,7 @@ void main() {
         },
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Explore the marketplace'), findsOneWidget);
     expect(find.text('Create an account'), findsOneWidget);
@@ -234,18 +246,18 @@ void main() {
     );
   });
 
-  test('latest eligible birthday is exactly 18 years before today', () {
+  test('latest eligible birthday is the thirteenth birthday', () {
     expect(
       BuyerRegistrationRules.latestEligibleBirthday(
         today: DateTime(2026, 11, 6),
       ),
-      DateTime(2008, 11, 6),
+      DateTime(2013, 11, 6),
     );
     expect(
       BuyerRegistrationRules.latestEligibleBirthday(
         today: DateTime(2024, 2, 29),
       ),
-      DateTime(2006, 2, 28),
+      DateTime(2011, 2, 28),
     );
   });
 

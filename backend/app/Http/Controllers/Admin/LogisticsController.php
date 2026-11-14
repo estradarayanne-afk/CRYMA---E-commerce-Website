@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
-use App\Models\Order;
-use App\Models\PickupAssignment;
 use App\Models\LogisticsHub;
+use App\Models\Order;
+use App\Models\PickupBatch;
+use App\Models\PickupAssignment;
 use App\Services\CourierEligibility;
+use App\Services\HubProximity;
 use App\Support\OrderDeliveryProjection;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -17,7 +19,7 @@ use Illuminate\Validation\Rule;
 
 class LogisticsController extends Controller
 {
-    public function queue(CourierEligibility $eligibility)
+    public function queue(CourierEligibility $eligibility, HubProximity $proximity)
     {
         $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name', 'items.seller.addresses'];
         $pickupOrders = Order::with($orderDetails)->where('status', 'READY_FOR_PICKUP')
@@ -28,6 +30,7 @@ class LogisticsController extends Controller
         $pickups = PickupAssignment::with([
             'order.buyer:id,first_name,last_name', 'order.items.product:id,name',
             'order.items.seller.addresses', 'courierProfile.user:id,first_name,last_name',
+            'pickupBatch' => fn ($query) => $query->withCount('assignments'),
             'delivery.events.actor:id,first_name,last_name',
         ])->latest()->get();
         $sortingOrders = Order::with([
@@ -42,8 +45,16 @@ class LogisticsController extends Controller
         $areas = DeliveryArea::where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $deliveries = Delivery::with(['order:id,status', 'order.items.product:id,weight_kg', 'deliveryArea:id,name', 'courierProfile.user:id,first_name,last_name', 'pickupAssignment.courierProfile.user:id,first_name,last_name', 'events.actor:id,first_name,last_name', 'proof'])
             ->latest()->get();
-        $couriers = $eligibility->profiles()->with(['user:id,first_name,last_name', 'vehicles:id,courier_profile_id,vehicle_type', 'deliveryAreas:id,name,is_active'])
+        $couriers = $eligibility->profiles()->with(['user:id,first_name,last_name', 'vehicles:id,courier_profile_id,vehicle_type', 'deliveryAreas:id,name,is_active', 'presence'])
             ->orderBy('id')->get();
+        $hubIds = $deliveries->pluck('current_hub_id')
+            ->merge($sortingOrders->map(fn (Order $order) => $order->delivery?->current_hub_id))
+            ->filter()->unique()->values();
+        $hubs = LogisticsHub::whereIn('id', $hubIds)->get(['id', 'latitude', 'longitude', 'proximity_radius_km']);
+        foreach ($couriers as $courier) {
+            $courier->setAttribute('hub_proximity', $proximity->forCourier($courier, $hubs));
+            $courier->unsetRelation('presence');
+        }
 
         return response()->json(['success' => true, 'data' => [
             'pickup_orders' => $pickupOrders,
@@ -214,6 +225,100 @@ class LogisticsController extends Controller
         }
 
         return response()->json(['success' => true, 'message' => 'Pickup rider assigned.', 'data' => $assignment]);
+    }
+
+    public function assignPickupBatch(Request $request, int $batchId, CourierEligibility $eligibility)
+    {
+        $values = $request->validate([
+            'courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id'],
+            'expected_courier_profile_id' => ['nullable', 'integer'],
+            'scheduled_at' => ['required', 'date', 'after:now'],
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $courier = $eligibility->find((int) $values['courier_profile_id']);
+        abort_unless($courier, 422, 'The selected pickup rider is not eligible.');
+        $reason = isset($values['reason']) ? trim($values['reason']) : null;
+        $requestedSchedule = \Illuminate\Support\Carbon::parse($values['scheduled_at']);
+
+        $batch = DB::transaction(function () use ($request, $batchId, $values, $courier, $reason, $eligibility, $requestedSchedule) {
+            $batch = PickupBatch::whereKey($batchId)->lockForUpdate()->firstOrFail();
+            $assignmentIds = PickupAssignment::where('pickup_batch_id', $batch->id)->orderBy('order_id')->pluck('id');
+            abort_unless($assignmentIds->count() >= 2, 409, 'This pickup batch no longer contains multiple parcels.');
+
+            $orders = Order::whereIn('id', PickupAssignment::whereIn('id', $assignmentIds)->pluck('order_id'))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $deliveries = Delivery::whereIn('order_id', $orders->keys())->orderBy('order_id')->lockForUpdate()->get()->keyBy('order_id');
+            $assignments = PickupAssignment::whereIn('id', $assignmentIds)->orderBy('order_id')->lockForUpdate()->get();
+
+            abort_unless($orders->count() === $assignmentIds->count(), 409, 'A pickup batch parcel is no longer available.');
+            abort_unless($eligibility->isEligible($courier), 422, 'The pickup rider is no longer eligible.');
+            abort_unless($assignments->every(fn (PickupAssignment $assignment) => in_array($assignment->status, [
+                PickupAssignment::REQUESTED,
+                PickupAssignment::ASSIGNED,
+                PickupAssignment::ACCEPTED,
+            ], true) && !$assignment->picked_up_at), 422, 'A pickup rider cannot be changed after collection.');
+
+            foreach ($orders as $order) {
+                $delivery = $deliveries->get($order->id);
+                abort_unless($order->status === 'READY_FOR_PICKUP'
+                    && $delivery
+                    && $delivery->status === 'READY_FOR_PICKUP', 422, "Order #{$order->id} is no longer ready for pickup.");
+            }
+
+            $currentCourierId = $batch->courier_profile_id;
+            $courierChanged = $currentCourierId !== null && (int) $currentCourierId !== (int) $courier->id;
+            $scheduleChanged = !$batch->scheduled_at || !$batch->scheduled_at->equalTo($requestedSchedule);
+            if ($currentCourierId !== null && !$courierChanged && !$scheduleChanged) {
+                return $batch->load('assignments.order', 'assignments.courierProfile.user');
+            }
+            if ($courierChanged) {
+                abort_unless($request->filled('expected_courier_profile_id')
+                    && (int) $values['expected_courier_profile_id'] === (int) $currentCourierId, 409, 'Pickup batch assignment changed. Refresh and try again.');
+                abort_unless($reason, 422, 'A reason is required when changing the pickup rider.');
+            }
+
+            $now = now();
+            foreach ($assignments as $assignment) {
+                $previousStatus = $assignment->status;
+                $assignment->update([
+                    'courier_profile_id' => $courier->id,
+                    'assigned_by' => $request->user()->id,
+                    'status' => PickupAssignment::ASSIGNED,
+                    'assigned_at' => $now,
+                    'scheduled_at' => $requestedSchedule,
+                ]);
+                OrderDeliveryProjection::event($deliveries->get($assignment->order_id), [
+                    'actor_id' => $request->user()->id,
+                    'event_type' => $currentCourierId
+                        ? ($scheduleChanged && !$courierChanged ? 'pickup_rescheduled' : 'pickup_reassigned')
+                        : 'pickup_assigned',
+                    'previous_status' => $previousStatus,
+                    'new_status' => PickupAssignment::ASSIGNED,
+                    'previous_courier_profile_id' => $currentCourierId,
+                    'courier_profile_id' => $courier->id,
+                    'reason' => $reason,
+                ]);
+            }
+
+            $batch->update([
+                'courier_profile_id' => $courier->id,
+                'assigned_by' => $request->user()->id,
+                'status' => PickupBatch::ASSIGNED,
+                'assigned_at' => $now,
+                'scheduled_at' => $requestedSchedule,
+            ]);
+
+            return $batch->fresh()->load('assignments.order', 'assignments.courierProfile.user');
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pickup batch assigned to the courier.',
+            'data' => $batch,
+        ]);
     }
 
     public function sortAndAssign(Request $request, int $orderId, CourierEligibility $eligibility)

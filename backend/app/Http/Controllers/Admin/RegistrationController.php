@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class RegistrationController extends Controller
 {
@@ -52,7 +54,7 @@ class RegistrationController extends Controller
 
         $registrations = $query
             ->latest()
-            ->paginate(10);
+            ->paginate(15);
 
         return response()->json([
             'success' => true,
@@ -175,6 +177,11 @@ public function approve(int $id)
             $eligibility = $eligibilityController->eligibility($user);
             $user->setAttribute('can_release_email', $eligibility['eligible']);
             $user->setAttribute('email_release_block_reason', $eligibility['reason']);
+            $user->setAttribute(
+                'profile_image_url',
+                $user->profile_image_path ? "/admin/users/{$user->id}/profile-image" : null,
+            );
+            $user->makeHidden('profile_image_path');
 
             return $user;
         });
@@ -182,6 +189,18 @@ public function approve(int $id)
         return response()->json([
             'success' => true,
             'data' => $users,
+        ]);
+    }
+
+    public function userProfileImage(int $id)
+    {
+        $user = User::findOrFail($id);
+        $path = $user->profile_image_path;
+        abort_unless(is_string($path) && Str::startsWith($path, "profile-images/{$user->id}/"), 404);
+        abort_unless(Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, basename($path), [
+            'Cache-Control' => 'private, no-store',
         ]);
     }
 

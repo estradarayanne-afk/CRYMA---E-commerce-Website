@@ -44,6 +44,7 @@ const NAV_GROUPS = [
     ] },
     { label: "Communication & account", items: [
         { to: "/seller/chat", label: "Chat", icon: MessageCircle },
+        { to: "/seller/delivery-chats", label: "Parcel messages", icon: Truck },
         { to: "/seller/account-settings", label: "Account Settings", icon: Settings },
     ] },
 ];

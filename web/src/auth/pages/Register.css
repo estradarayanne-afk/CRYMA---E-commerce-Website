@@ -1440,3 +1440,144 @@
 @media (prefers-reduced-motion: reduce) {
     .register-page.embedded .register-section { animation: none; }
 }
+
+/* Shared auth polish for step navigation, forms, and mobile progress. */
+.register-stepper {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+}
+
+.register-step {
+    color: #705c62;
+}
+
+.register-step.active {
+    color: var(--deep-crimson);
+}
+
+.register-step-line {
+    background: #d8c8cd;
+}
+
+.register-step[aria-current="step"] .register-step-number {
+    box-shadow: 0 0 0 4px rgba(178, 31, 58, .12);
+}
+
+.register-progress-mobile {
+    display: none;
+}
+
+.register-error {
+    border-color: #e8c1c8;
+    background: #fff7f8;
+    color: #80172f;
+}
+
+.register-error p {
+    font-size: 13px;
+}
+
+.register-form [aria-invalid="true"] {
+    border-color: #b4233d;
+    background-color: #fffafa;
+}
+
+.register-form [aria-invalid="true"]:focus {
+    border-color: var(--crimson);
+    box-shadow: 0 0 0 3px rgba(178, 31, 58, .13);
+}
+
+.register-content .auth-field input:focus-visible,
+.register-content .auth-field select:focus-visible,
+.register-content .auth-field textarea:focus-visible,
+.register-content .password-field button:focus-visible,
+.register-stepper a:focus-visible,
+.register-actions button:focus-visible,
+.register-actions a:focus-visible,
+.review-card-header button:focus-visible,
+.register-back:focus-visible {
+    outline: 3px solid rgba(178, 31, 58, .27);
+    outline-offset: 3px;
+}
+
+.register-actions .primary-action,
+.register-actions .secondary-action {
+    min-height: 52px;
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.register-actions .primary-action {
+    min-width: 180px;
+    background: linear-gradient(110deg, var(--crimson), var(--deep-crimson));
+    box-shadow: 0 7px 18px rgba(75, 23, 37, .13);
+}
+
+.register-actions .primary-action:hover:not(:disabled) {
+    background: var(--wine);
+}
+
+.register-actions .secondary-action {
+    color: var(--deep-crimson);
+}
+
+.email-otp-inputs input:focus-visible {
+    outline: 3px solid rgba(178, 31, 58, .2);
+    outline-offset: 2px;
+}
+
+.register-page.embedded .register-stepper {
+    justify-content: flex-start;
+}
+
+@media (max-width: 640px) {
+    .register-progress-mobile {
+        display: grid;
+        gap: 9px;
+        width: 100%;
+        max-width: 680px;
+        margin: -10px auto 22px;
+        color: #624650;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .register-progress-track {
+        height: 5px;
+        overflow: hidden;
+        border-radius: 99px;
+        background: #eadde1;
+    }
+
+    .register-progress-track span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--crimson), var(--deep-crimson));
+        transition: width .22s ease;
+    }
+
+    .register-stepper {
+        display: none;
+    }
+
+    .register-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .register-actions .primary-action,
+    .register-actions .secondary-action {
+        width: 100%;
+    }
+
+    .register-page.embedded .register-progress-mobile {
+        max-width: 680px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .register-progress-track span {
+        transition: none;
+    }
+}

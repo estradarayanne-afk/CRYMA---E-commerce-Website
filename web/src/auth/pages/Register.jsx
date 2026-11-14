@@ -10,8 +10,9 @@ import { PRODUCT_CATEGORIES } from "../../shared/constants/categories";
 import { POLICY_VERSIONS } from "../../shared/constants/policyVersions";
 import { LANDING_VISUALS } from "../../shared/constants/landingVisuals";
 import PhilippineAddressFields from "../components/PhilippineAddressFields";
+import RegistrationDatePicker from "../components/RegistrationDatePicker";
 import AuthShell from "../components/AuthShell";
-import { calculateAgeOnDate, capitalizeNameWords, getPhilippineCalendarDate, getRegistrationStepErrors, normalizePhilippineMobile, REGISTRATION_LIMITS } from "../validation/registrationRules";
+import { calculateAgeOnDate, capitalizeNameWords, getRegistrationMaximumBirthday, getRegistrationMinimumAge, getRegistrationStepErrors, normalizePhilippineMobile, REGISTRATION_LIMITS } from "../validation/registrationRules";
 import "./Register.css";
 import "../styles/AuthPages.css";
 
@@ -160,6 +161,7 @@ function Register({
     const [orCr, setOrCr] = useState(null);
 
     const [step, setStep] = useState(1);
+    const [attemptedSteps, setAttemptedSteps] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [submitted, setSubmitted] = useState(false);
@@ -304,7 +306,9 @@ function Register({
         businessName, tin, lineOfBusiness, vehicleType, plateNumber, validId,
         businessPermit, orCr, driversLicense, registrationRole, verificationStep,
     };
-    const currentStepErrors = getRegistrationStepErrors(step, validationValues);
+    const currentStepErrors = attemptedSteps[step]
+        ? getRegistrationStepErrors(step, validationValues)
+        : {};
 
     useEffect(() => {
         stepTransitionLocked.current = false;
@@ -313,6 +317,9 @@ function Register({
     const validateStep = (stepToValidate = step) => {
         const errors = getRegistrationStepErrors(stepToValidate, validationValues);
         setError("");
+        if (Object.keys(errors).length > 0) {
+            setAttemptedSteps((current) => ({ ...current, [stepToValidate]: true }));
+        }
         return Object.keys(errors).length === 0;
     };
 
@@ -708,7 +715,8 @@ const handleResendVerification = async () => {
     ]
         .filter(Boolean)
         .join(" ");
-    const maxBirthday = getPhilippineCalendarDate();
+    const minimumAge = getRegistrationMinimumAge(registrationRole);
+    const maxBirthday = getRegistrationMaximumBirthday(registrationRole);
 
     if (routeRole && !location.state?.accountTypeSelected) {
         return <Navigate to="/register" replace />;
@@ -831,7 +839,7 @@ const handleResendVerification = async () => {
                     {/* =========================
                         STEPPER
                     ========================== */}
-                    <div className="register-stepper">
+                    <div className="register-stepper" role="list" aria-label="Registration steps">
                         {steps.map(
                             (item, index) => {
                                 const active =
@@ -856,6 +864,8 @@ const handleResendVerification = async () => {
                                         key={
                                             item.number
                                         }
+                                        aria-current={active ? "step" : undefined}
+                                        role="listitem"
                                     >
                                         <div className="register-step-number">
                                             {completed
@@ -877,12 +887,18 @@ const handleResendVerification = async () => {
                             }
                         )}
                     </div>
+                    <div className="register-progress-mobile" role="status" aria-live="polite">
+                        <span>Step {step} of {steps.length}: {steps.find((item) => item.number === step)?.label}</span>
+                        <div className="register-progress-track" aria-hidden="true">
+                            <span style={{ width: `${(step / steps.length) * 100}%` }} />
+                        </div>
+                    </div>
 
                     {/* =========================
                         ERROR
                     ========================== */}
                     {error && (
-                        <div className="register-error">
+                        <div className="register-error" role="alert" aria-live="assertive">
                             <span>!</span>
 
                             <p>
@@ -894,6 +910,7 @@ const handleResendVerification = async () => {
                     <form
                         className="register-form"
                         onSubmit={handleFormSubmit}
+                        noValidate
                     >
 
                         {/* =========================
@@ -995,24 +1012,14 @@ const handleResendVerification = async () => {
                                             <b>*</b>
                                         </label>
 
-                                        <input
-                                            type="date"
-                                                max={maxBirthday}
-                                            required
-                                            aria-invalid={Boolean(currentStepErrors.birthDate)}
-                                            value={
-                                                birthDate
-                                            }
-                                            onChange={(
-                                                e
-                                            ) =>
-                                                handleBirthDateChange(
-                                                    e.target
-                                                        .value
-                                                )
-                                            }
+                                        <RegistrationDatePicker
+                                            id="registration-birthday"
+                                            value={birthDate}
+                                            maxDate={maxBirthday}
+                                            minimumAge={minimumAge}
+                                            onChange={handleBirthDateChange}
+                                            errorMessage={currentStepErrors.birthDate}
                                         />
-                                        {currentStepErrors.birthDate && <small className="registration-field-error">{currentStepErrors.birthDate}</small>}
                                     </div>
                                 </div>
 

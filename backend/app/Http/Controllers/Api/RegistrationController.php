@@ -82,12 +82,13 @@ class RegistrationController extends Controller
 
             'birthday' => [
                 'required', 'date_format:Y-m-d',
-                function (string $attribute, mixed $value, \Closure $fail): void {
+                function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
                     try {
                         $birthday = CarbonImmutable::createFromFormat('!Y-m-d', $value, 'Asia/Manila');
                         $today = CarbonImmutable::now('Asia/Manila')->startOfDay();
-                        if (!$birthday || $birthday->addYears(18)->startOfDay()->greaterThan($today)) {
-                            $fail('You must be at least 18 years old to register.');
+                        $minimumAge = $request->input('role') === 'buyer' ? 13 : 18;
+                        if (!$birthday || $birthday->addYears($minimumAge)->startOfDay()->greaterThan($today)) {
+                            $fail("You must be at least {$minimumAge} years old to register.");
                         }
                     } catch (Throwable) {
                         $fail('Enter a valid birthday.');

@@ -102,12 +102,6 @@
     background: #ffffff;
 }
 
-.users-search span {
-    padding-left: 14px;
-    color: #6F6265;
-    font-size: 20px;
-}
-
 .users-search input {
     width: 100%;
     height: 100%;
@@ -1042,28 +1036,6 @@
     background: #fff;
     box-shadow: 0 0 0 3px rgba(138, 28, 48, .12), 0 5px 14px rgba(75, 23, 37, .07);
 }
-.users-search-icon {
-    position: absolute;
-    top: 50%;
-    left: 14px;
-    width: 11px;
-    height: 11px;
-    box-sizing: border-box;
-    border: 1.8px solid #8A1C30;
-    border-radius: 50%;
-    transform: translateY(-60%);
-}
-.users-search-icon::after {
-    position: absolute;
-    right: -5px;
-    bottom: -3px;
-    width: 6px;
-    height: 1.8px;
-    border-radius: 2px;
-    background: #8A1C30;
-    content: "";
-    transform: rotate(45deg);
-}
 .users-search input {
     min-width: 0;
     padding: 0 38px 0 40px;
@@ -1131,6 +1103,16 @@
     color: #fff;
     box-shadow: 0 4px 10px hsla(var(--avatar-hue, 340), 48%, 38%, .24);
 }
+.user-avatar img,
+.user-profile-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+}
+.user-avatar img { border: 2px solid #fff; }
+.user-profile-avatar { overflow: hidden; }
 .user-email-cell { color: #63535A !important; font-size: 12px !important; }
 .user-phone-cell { color: #766970 !important; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px !important; }
 .user-role { text-transform: capitalize; }

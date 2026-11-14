@@ -1,8 +1,57 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Users.css";
+
+function UserAvatar({ user, className }) {
+    const [loadedImage, setLoadedImage] = useState({ url: "", src: "" });
+
+    useEffect(() => {
+        let active = true;
+        let objectUrl = "";
+        const imagePath = user.profile_image_url;
+
+        if (imagePath) {
+            api.get(imagePath, { responseType: "blob" })
+                .then(({ data }) => {
+                    if (!active) return;
+                    objectUrl = URL.createObjectURL(data);
+                    setLoadedImage({ url: imagePath, src: objectUrl });
+                })
+                .catch((error) => {
+                    if (!active) return;
+                    if (error.response?.status !== 404) {
+                        console.error("Unable to load user profile image:", error);
+                    }
+                    setLoadedImage({ url: imagePath, src: "" });
+                });
+        }
+
+        return () => {
+            active = false;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [user.id, user.profile_image_url]);
+
+    const imageUrl = loadedImage.url === user.profile_image_url ? loadedImage.src : "";
+
+    return (
+        <div
+            className={className}
+            style={{ "--avatar-hue": (Number(user.id) * 67) % 360 }}
+            aria-hidden="true"
+        >
+            {imageUrl ? <img src={imageUrl} alt="" /> : getInitials(user)}
+        </div>
+    );
+}
+
+function getInitials(user) {
+    return `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`
+        .toUpperCase() || "U";
+}
 
 function Users() {
     const location = useLocation();
@@ -165,11 +214,6 @@ function Users() {
     /* =========================================
        HELPERS
     ========================================= */
-
-    const getInitials = (user) => {
-        return `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`
-            .toUpperCase() || "U";
-    };
 
     const getFullName = (user) => {
         return [
@@ -538,24 +582,14 @@ function Users() {
                         ))}
                     </div>
 
-                    <label className="users-search">
-                        <span className="users-search-icon" aria-hidden="true" />
-                        <input
-                            type="search"
-                            aria-label="Search user accounts"
-                            placeholder="Search by name, email, or phone"
-                            value={searchTerm}
-                            onChange={(event) => setSearchTerm(event.target.value)}
-                        />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                className="users-search-clear"
-                                aria-label="Clear search"
-                                onClick={() => setSearchTerm("")}
-                            >×</button>
-                        )}
-                    </label>
+                    <AdminSearchField
+                        className="users-search"
+                        ariaLabel="Search user accounts"
+                        placeholder="Search by name, email, or phone"
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        onClear={() => setSearchTerm("")}
+                    />
 
                 </div>
 
@@ -605,9 +639,7 @@ function Users() {
                                             <td>
                                                 <div className="user-info">
 
-                                                    <div className="user-avatar" style={{ "--avatar-hue": (Number(user.id) * 67) % 360 }}>
-                                                        {getInitials(user)}
-                                                    </div>
+                                                    <UserAvatar user={user} className="user-avatar" />
 
                                                     <div>
                                                         <strong>
@@ -795,9 +827,7 @@ function Users() {
 
                         <div className="user-profile">
 
-                            <div className="user-profile-avatar" style={{ "--avatar-hue": (Number(selectedUser.id) * 67) % 360 }}>
-                                {getInitials(selectedUser)}
-                            </div>
+                            <UserAvatar user={selectedUser} className="user-profile-avatar" />
 
                             <div>
                                 <h3>

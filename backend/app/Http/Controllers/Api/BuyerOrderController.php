@@ -102,7 +102,7 @@ class BuyerOrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with(['items.product', 'shippingCharge', 'codCollection', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea'])
+        $query = Order::with(['items.product', 'shippingCharge', 'codCollection', 'delivery.events', 'delivery.pickupAssignment', 'delivery.courierProfile.user:id,first_name,last_name', 'delivery.deliveryArea'])
             ->where('buyer_id', $request->user()->id);
 
         /*
@@ -218,7 +218,7 @@ class BuyerOrderController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $order = Order::with(['items.product', 'shippingCharge', 'codCollection', 'delivery.events', 'delivery.pickupAssignment', 'delivery.deliveryArea', 'delivery.currentHub', 'delivery.returnShipment.currentHub', 'latestRefundRequest.returnShipment.currentHub'])
+        $order = Order::with(['items.product', 'shippingCharge', 'codCollection', 'delivery.events', 'delivery.pickupAssignment', 'delivery.courierProfile.user:id,first_name,last_name', 'delivery.deliveryArea', 'delivery.currentHub', 'delivery.returnShipment.currentHub', 'latestRefundRequest.returnShipment.currentHub'])
             ->where('buyer_id', $request->user()->id)
             ->find($id);
 

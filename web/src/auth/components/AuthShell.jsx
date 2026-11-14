@@ -25,10 +25,19 @@ export function AuthVisualPanel({
     );
 }
 
-export default function AuthShell({ children, visualProps = {}, modal = false }) {
+export default function AuthShell({
+    children,
+    visualProps = {},
+    modal = false,
+    naturalHeight = false,
+}) {
     return (
         <main className={`cryma-auth-page${modal ? " cryma-auth-page-modal" : ""}`}>
-            <div className={`cryma-auth-shell${modal ? " cryma-auth-shell-modal" : ""}`}>
+            <div className={[
+                "cryma-auth-shell",
+                modal && "cryma-auth-shell-modal",
+                naturalHeight && "cryma-auth-shell-natural",
+            ].filter(Boolean).join(" ")}>
                 <AuthVisualPanel {...visualProps} />
                 <section className="cryma-auth-panel">{children}</section>
             </div>

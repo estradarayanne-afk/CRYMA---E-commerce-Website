@@ -3,12 +3,14 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import ProtectedRoute from "./shared/components/ProtectedRoute";
 import GlobalNetworkLoadingIndicator from "./shared/components/GlobalNetworkLoadingIndicator";
+import DeliveryMessages from "./shared/components/DeliveryMessages";
 import { isBuyerSession } from "./shared/utils/buyerAccess";
 
 // â”€â”€ AUTH â”€â”€
 import Login from "./auth/pages/BuyerLogin";
 import AdminLogin from "./auth/pages/AdminLogin";
 import Register from "./auth/pages/Register";
+import EmailVerification from "./auth/pages/EmailVerification";
 import DocumentCorrection from "./auth/pages/DocumentCorrection";
 import RegistrationChoice from "./auth/pages/RegistrationChoice";
 import PasswordRecovery from "./auth/pages/PasswordRecovery";
@@ -64,7 +66,6 @@ import AdminVouchers from "./admin/pages/Vouchers/Vouchers";
 import LogisticsLayout from "./logistics/layouts/LogisticsLayout";
 import LogisticsDashboard from "./logistics/pages/Dashboard";
 import LogisticsReports from "./logistics/pages/Reports";
-import LogisticsUnavailable from "./logistics/pages/LogisticsUnavailable";
 import RiderManagement from "./logistics/pages/RiderManagement";
 import ParcelOperations from "./logistics/pages/ParcelOperations";
 import LogisticsProfile from "./logistics/pages/Profile";
@@ -95,6 +96,7 @@ function App() {
 
                 <Route path="/register" element={<RegistrationChoice />} />
                 <Route path="/register/:role" element={<Register />} />
+                <Route path="/verify-email" element={<EmailVerification />} />
                 <Route path="/application/document-correction" element={<DocumentCorrection />} />
 
                 <Route
@@ -343,6 +345,7 @@ function App() {
                             path="chat"
                             element={<SellerChat />}
                         />
+                        <Route path="delivery-chats" element={<DeliveryMessages mode="seller" />} />
 
                         <Route
                             path="account-settings"
@@ -367,7 +370,7 @@ function App() {
                         <Route path="delivery-assignment" element={<ParcelOperations section="assignment" />} />
                         <Route path="delivery-monitoring" element={<ParcelOperations section="monitoring" />} />
                         <Route path="reports" element={<LogisticsReports />} />
-                        <Route path="messages" element={<LogisticsUnavailable title="Messages" />} />
+                        <Route path="messages" element={<DeliveryMessages mode="logistics" />} />
                         <Route path="profile" element={<LogisticsProfile />} />
                         <Route path="settings" element={<LogisticsAccountSettings />} />
                         <Route path="account" element={<Navigate to="/logistics/profile" replace />} />
@@ -384,6 +387,7 @@ function App() {
                         <Route path="incoming-transfers" element={<HubStaffIncomingTransfers />} />
                         <Route path="outgoing-transfers" element={<HubStaffOutgoingTransfers />} />
                         <Route path="activity" element={<HubStaffActivity />} />
+                        <Route path="messages" element={<DeliveryMessages mode="hubStaff" />} />
                     </Route>
                 </Route>
 

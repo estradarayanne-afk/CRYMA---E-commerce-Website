@@ -14,7 +14,7 @@ class PickupAssignment extends Model
     public const RECEIVED = 'AT_SORTING_CENTER';
 
     protected $fillable = [
-        'order_id', 'delivery_id', 'courier_profile_id', 'assigned_by', 'status',
+        'order_id', 'delivery_id', 'pickup_batch_id', 'courier_profile_id', 'assigned_by', 'status',
         'pickup_address', 'requested_at', 'scheduled_at', 'assigned_at', 'picked_up_at', 'received_at',
     ];
 
@@ -31,6 +31,7 @@ class PickupAssignment extends Model
 
     public function order(): BelongsTo { return $this->belongsTo(Order::class); }
     public function delivery(): BelongsTo { return $this->belongsTo(Delivery::class); }
+    public function pickupBatch(): BelongsTo { return $this->belongsTo(PickupBatch::class); }
     public function courierProfile(): BelongsTo { return $this->belongsTo(CourierProfile::class); }
     public function assignedBy(): BelongsTo { return $this->belongsTo(User::class, 'assigned_by'); }
 }

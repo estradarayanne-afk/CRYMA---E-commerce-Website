@@ -69,6 +69,20 @@ ApiService _apiWith({
           headers: {'content-type': 'application/json'},
         );
       }
+      if (request.url.path == '/api/products/availability') {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'items': [
+                {'product_id': 1, 'variant_id': null, 'stock': 3},
+              ],
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       if (request.url.path == '/api/buyer/vouchers' &&
           request.method == 'GET') {
         return http.Response(

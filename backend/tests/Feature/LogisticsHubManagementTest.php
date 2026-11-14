@@ -65,6 +65,115 @@ class LogisticsHubManagementTest extends TestCase
         $this->assertDatabaseHas('delivery_areas', ['id' => $area['id'], 'hub_id' => $otherHub->id]);
     }
 
+    public function test_hubs_require_coordinate_pairs_and_store_a_configurable_radius(): void
+    {
+        $this->actingAs($this->logisticsUser(), 'sanctum');
+
+        $this->postJson('/api/logistics/hubs', [
+            'name' => 'Unpinned Hub',
+            'code' => 'UNPINNED-HUB',
+            'latitude' => 14.5995,
+        ])->assertUnprocessable();
+
+        $hub = $this->postJson('/api/logistics/hubs', [
+            'name' => 'Pinned Hub',
+            'code' => 'PINNED-HUB',
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'proximity_radius_km' => 3.5,
+        ])->assertCreated()
+            ->assertJsonPath('data.latitude', 14.5995)
+            ->assertJsonPath('data.longitude', 120.9842)
+            ->assertJsonPath('data.proximity_radius_km', 3.5)
+            ->json('data');
+
+        $this->patchJson("/api/logistics/hubs/{$hub['id']}", [
+            'latitude' => null,
+            'longitude' => null,
+            'proximity_radius_km' => 1.5,
+        ])->assertOk()
+            ->assertJsonPath('data.latitude', null)
+            ->assertJsonPath('data.longitude', null)
+            ->assertJsonPath('data.proximity_radius_km', 1.5);
+    }
+
+    public function test_riders_publish_foreground_presence_and_logistics_receives_only_fresh_distance_metadata(): void
+    {
+        [$nearRider, $nearProfile] = $this->rider(true);
+        [, $farProfile] = $this->rider(true);
+        $logistics = $this->logisticsUser();
+        $hub = LogisticsHub::create([
+            'name' => 'GPS Test Hub',
+            'code' => 'GPS-TEST-HUB',
+            'is_active' => true,
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'proximity_radius_km' => 2,
+        ]);
+        $order = Order::create([
+            'buyer_id' => User::factory()->create(['role' => 'buyer', 'status' => 'active'])->id,
+            'delivery_address' => 'Test destination',
+            'payment_method' => 'cash_on_delivery',
+            'subtotal' => 10,
+            'shipping_fee' => 0,
+            'total_amount' => 10,
+            'status' => Delivery::AT_SORTING_CENTER,
+        ]);
+        Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::AT_SORTING_CENTER,
+            'current_hub_id' => $hub->id,
+        ]);
+
+        $this->actingAs($nearRider, 'sanctum')->postJson('/api/courier/presence', [
+            'is_available' => true,
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'accuracy_meters' => 12,
+        ])->assertOk()->assertJsonPath('data.is_available', true)->assertJsonMissingPath('data.latitude');
+        $farRider = User::findOrFail($farProfile->user_id);
+        $this->actingAs($farRider, 'sanctum')->postJson('/api/courier/presence', [
+            'is_available' => true,
+            'latitude' => 14.5995,
+            'longitude' => 121.03,
+        ])->assertOk();
+
+        $response = $this->actingAs($logistics, 'sanctum')->getJson('/api/logistics/operations')->assertOk();
+        $couriers = collect($response->json('data.eligible_delivery_couriers'))->keyBy('id');
+        $this->assertSame('nearby', $couriers[$nearProfile->id]['hub_proximity'][(string) $hub->id]['state']);
+        $this->assertSame('far', $couriers[$farProfile->id]['hub_proximity'][(string) $hub->id]['state']);
+        $this->assertGreaterThan(2, $couriers[$farProfile->id]['hub_proximity'][(string) $hub->id]['distance_km']);
+        $this->assertArrayNotHasKey('presence', $couriers[$nearProfile->id]);
+        $this->assertArrayNotHasKey('latitude', $couriers[$nearProfile->id]['hub_proximity'][(string) $hub->id]);
+
+        DB::table('courier_presences')
+            ->where('courier_profile_id', $nearProfile->id)
+            ->update(['location_updated_at' => now()->subMinutes(6)]);
+        $staleResponse = $this->getJson('/api/logistics/operations')->assertOk();
+        $staleCouriers = collect($staleResponse->json('data.eligible_delivery_couriers'))->keyBy('id');
+        $this->assertSame('stale', $staleCouriers[$nearProfile->id]['hub_proximity'][(string) $hub->id]['state']);
+
+        $this->actingAs($nearRider, 'sanctum')->postJson('/api/courier/presence', [
+            'is_available' => false,
+        ])->assertOk()->assertJsonPath('data.is_available', false)->assertJsonMissingPath('data.latitude');
+        $this->assertDatabaseHas('courier_presences', [
+            'courier_profile_id' => $nearProfile->id,
+            'is_available' => false,
+            'latitude' => null,
+            'longitude' => null,
+            'location_updated_at' => null,
+        ]);
+    }
+
+    public function test_non_riders_cannot_publish_courier_presence(): void
+    {
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+
+        $this->actingAs($buyer, 'sanctum')->postJson('/api/courier/presence', [
+            'is_available' => false,
+        ])->assertForbidden();
+    }
+
     public function test_all_psgc_cities_and_municipalities_have_active_mapped_hub_nodes(): void
     {
         $expectedLguCount = DB::table('geographic_locations')

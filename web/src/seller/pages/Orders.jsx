@@ -683,8 +683,8 @@ function Orders() {
                                             const status = pickup?.status;
                                             const labels = {
                                                 PICKUP_REQUESTED: "Pickup requested. Logistics will assign a courier.",
-                                                ASSIGNED_TO_PICKUP_RIDER: `Pickup scheduled${pickup.courier?.name ? ` with ${pickup.courier.name}` : ""}.`,
-                                                ACCEPTED_BY_PICKUP_RIDER: `Courier accepted the pickup${pickup.courier?.name ? ` · ${pickup.courier.name}` : ""}.`,
+                                                ASSIGNED_TO_PICKUP_RIDER: `Pickup scheduled${pickup?.courier?.name ? ` with ${pickup.courier.name}` : ""}.`,
+                                                ACCEPTED_BY_PICKUP_RIDER: `Courier accepted the pickup${pickup?.courier?.name ? ` · ${pickup.courier.name}` : ""}.`,
                                                 PICKED_UP: "Courier collected the parcel. It is on the way to the sorting center.",
                                                 AT_SORTING_CENTER: "Parcel received at the sorting center.",
                                                 DELIVERY_FAILED: `Delivery attempt ${selected.delivery_progress?.delivery_attempts || 1} of ${selected.delivery_progress?.max_delivery_attempts || 3} was unsuccessful.`,

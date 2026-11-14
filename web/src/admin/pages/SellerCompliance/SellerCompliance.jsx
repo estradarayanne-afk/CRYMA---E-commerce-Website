@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./SellerCompliance.css";
@@ -8,7 +9,7 @@ function SellerCompliance() {
     const [pagination, setPagination] = useState({
         current_page: 1,
         last_page: 1,
-        per_page: 10,
+        per_page: 15,
         total: 0,
     });
     const [loading, setLoading] = useState(true);
@@ -85,7 +86,7 @@ function SellerCompliance() {
             setPagination({
                 current_page: data?.current_page || 1,
                 last_page: data?.last_page || 1,
-                per_page: data?.per_page || 10,
+                per_page: data?.per_page || 15,
                 total: data?.total || 0,
             });
         } catch (err) {
@@ -539,24 +540,15 @@ function SellerCompliance() {
                         ))}
                     </div>
 
-                    <label className="seller-compliance-search">
-                        <span className="seller-search-icon" aria-hidden="true" />
-                        <input
-                            type="search"
-                            aria-label="Search sellers"
-                            placeholder="Search seller name, email, or phone"
-                            value={searchTerm}
-                            onChange={(event) => setSearchTerm(event.target.value)}
-                        />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                className="seller-search-clear"
-                                aria-label="Clear search"
-                                onClick={() => setSearchTerm("")}
-                            >x</button>
-                        )}
-                    </label>
+                    <AdminSearchField
+                        className="seller-compliance-search"
+                        ariaLabel="Search sellers"
+                        placeholder="Search seller name, email, or phone"
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        onClear={() => setSearchTerm("")}
+                        clearClassName="seller-search-clear"
+                    />
 
                 </div>
 

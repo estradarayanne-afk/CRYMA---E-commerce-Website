@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, CircleAlert, LoaderCircle, Plus, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleAlert, LoaderCircle, Plus, X } from "lucide-react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import Dialog from "../../../shared/components/Dialog";
 
 const EMPTY_ZONE = { regions: "" };
+const RATE_PAGE_SIZE = 15;
 const EMPTY_RATE = {
     origin_zone_id: "",
     destination_zone_id: "",
@@ -187,8 +189,8 @@ function ShippingZonesPanel() {
         rate.min_delivery_days,
         rate.max_delivery_days,
     ].some((value) => String(value).toLowerCase().includes(normalizedRateSearch)));
-    const ratePageCount = Math.max(1, Math.ceil(matchingRates.length / 5));
-    const visibleRates = matchingRates.slice((ratePage - 1) * 5, ratePage * 5);
+    const ratePageCount = Math.max(1, Math.ceil(matchingRates.length / RATE_PAGE_SIZE));
+    const visibleRates = matchingRates.slice((ratePage - 1) * RATE_PAGE_SIZE, ratePage * RATE_PAGE_SIZE);
 
     const openRateDialog = (rate = null) => {
         setError("");
@@ -423,20 +425,17 @@ function ShippingZonesPanel() {
             ) : (
                 <>
                     <div className="shipping-rate-toolbar">
-                        <label className="voucher-search">
-                            <Search size={17} aria-hidden="true" />
-                            <span className="voucher-visually-hidden">Search shipping rates</span>
-                            <input
-                                type="search"
-                                maxLength={100}
-                                placeholder="Search route, provider, weight, or status"
-                                value={rateSearch}
-                                onChange={(event) => {
-                                    setRatePage(1);
-                                    setRateSearch(event.target.value);
-                                }}
-                            />
-                        </label>
+                        <AdminSearchField
+                            className="voucher-search"
+                            ariaLabel="Search shipping rates"
+                            maxLength={100}
+                            placeholder="Search route, provider, weight, or status"
+                            value={rateSearch}
+                            onChange={(event) => {
+                                setRatePage(1);
+                                setRateSearch(event.target.value);
+                            }}
+                        />
                         <span>{matchingRates.length} rate{matchingRates.length === 1 ? "" : "s"}</span>
                     </div>
                     {visibleRates.length === 0 ? (
@@ -470,7 +469,7 @@ function ShippingZonesPanel() {
                         </div>
                     )}
                     {matchingRates.length > 0 && <footer className="voucher-pagination shipping-rate-pagination">
-                        <span>Showing {((ratePage - 1) * 5) + 1}–{Math.min(ratePage * 5, matchingRates.length)} of {matchingRates.length} rates</span>
+                        <span>Showing {((ratePage - 1) * RATE_PAGE_SIZE) + 1}–{Math.min(ratePage * RATE_PAGE_SIZE, matchingRates.length)} of {matchingRates.length} rates</span>
                         <div>
                             <button type="button" onClick={() => setRatePage((current) => Math.max(1, current - 1))} disabled={ratePage <= 1} aria-label="Previous shipping-rate page"><ChevronLeft size={17} /></button>
                             <span>Page {ratePage} of {ratePageCount}</span>

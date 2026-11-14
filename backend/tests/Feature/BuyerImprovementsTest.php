@@ -171,6 +171,7 @@ class BuyerImprovementsTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin', 'status' => 'active']), 'sanctum')
             ->getJson('/api/admin/product-exposure')
             ->assertOk()
+            ->assertJsonPath('data.products.per_page', 15)
             ->assertJsonPath('data.products.data.0.impressions', 4)
             ->assertJsonPath('data.products.data.0.detail_views', 2)
             ->assertJsonPath('data.products.data.0.units_sold', 3);

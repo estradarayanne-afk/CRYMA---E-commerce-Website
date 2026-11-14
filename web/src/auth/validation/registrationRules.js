@@ -17,6 +17,13 @@ export const REGISTRATION_LIMITS = Object.freeze({
     plateNumber: 15,
 });
 
+export const REGISTRATION_MINIMUM_AGES = Object.freeze({
+    buyer: 13,
+    seller: 18,
+    rider: 18,
+    logistics: 18,
+});
+
 export function capitalizeNameWords(value) {
     return String(value ?? "").replace(
         /(^|[\s'-])(\p{L})/gu,
@@ -33,6 +40,20 @@ export function getPhilippineCalendarDate(now = new Date()) {
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
     const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
     return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function getRegistrationMinimumAge(role) {
+    return REGISTRATION_MINIMUM_AGES[role] ?? 18;
+}
+
+export function getRegistrationMaximumBirthday(role, today = null) {
+    const todayString = today instanceof Date
+        ? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
+        : getPhilippineCalendarDate(today ?? new Date());
+    const [year, month, day] = todayString.split("-").map(Number);
+    const targetYear = year - getRegistrationMinimumAge(role);
+    const targetDay = Math.min(day, new Date(targetYear, month, 0).getDate());
+    return `${targetYear}-${String(month).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
 }
 
 export function normalizePhilippineMobile(value) {
@@ -70,7 +91,7 @@ const requiredTextError = (value, label, maximum) => {
     return "";
 };
 
-export function getRegistrationStepErrors(step, values) {
+export function getRegistrationStepErrors(step, values, today = null) {
     const errors = {};
     const add = (field, message) => { if (message) errors[field] = message; };
 
@@ -81,9 +102,12 @@ export function getRegistrationStepErrors(step, values) {
         if (!errors.lastName && !validName(values.lastName.trim())) errors.lastName = "Use letters, spaces, hyphens, or apostrophes for your last name.";
         if (characterLength(values.middleName) > REGISTRATION_LIMITS.middleName) errors.middleName = "Middle initial must not exceed 2 characters.";
         else if (values.middleName && !/^\p{L}\p{M}*\.?$/u.test(values.middleName)) errors.middleName = "Enter one letter with an optional period.";
-        const age = calculateAgeOnDate(values.birthDate);
+        const age = calculateAgeOnDate(values.birthDate, today);
+        const minimumAge = getRegistrationMinimumAge(values.registrationRole);
         if (age === null) errors.birthDate = "Enter a valid birthday that is not in the future.";
-        else if (age < 18) errors.birthDate = "You must be at least 18 years old to register.";
+        else if (age < minimumAge) {
+            errors.birthDate = `You must be at least ${minimumAge} years old to register.`;
+        }
         if (!["male", "female", "prefer_not_to_say"].includes(values.sex)) errors.sex = "Choose one of the available options.";
     }
 

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Clock3, MapPinned, Plus, RefreshCw, Search, ShieldCheck, UserRound, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clock3, MapPinned, Plus, RefreshCw, ShieldCheck, UserRound, X } from "lucide-react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import Dialog from "../../../shared/components/Dialog";
 import "./HubStaffManagement.css";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 15;
 
 const EMPTY_FORM = {
     first_name: "",
@@ -185,7 +186,7 @@ export default function HubStaffManagement({ base = "/admin" }) {
                 {hubs.length === 0 && <div className="hsm-alert hsm-alert--warning" role="status">No active hubs are available. Enable or create a hub before assigning staff.</div>}
 
                 <div className="hsm-toolbar">
-                    <label className="hsm-search"><Search size={17} /><input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search name, email, phone, hub, or PSGC" aria-label="Search Hub Staff accounts" /></label>
+                    <AdminSearchField className="hsm-search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search name, email, phone, hub, or PSGC" ariaLabel="Search Hub Staff accounts" />
                     <label className="hsm-filter"><span>Status</span><select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}><option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending</option><option value="suspended">Suspended</option></select></label>
                     <label className="hsm-filter"><span>Hub</span><select value={hubFilter} onChange={(event) => { setHubFilter(event.target.value); setPage(1); }}><option value="">All hubs</option>{hubs.map((hub) => <option key={hub.id} value={hub.id}>{hubLabel(hub)}</option>)}</select></label>
                     <span className="hsm-result-count">{pagination.total.toLocaleString()} account{pagination.total === 1 ? "" : "s"}</span>

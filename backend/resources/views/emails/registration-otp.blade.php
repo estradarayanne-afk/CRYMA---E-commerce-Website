@@ -24,7 +24,7 @@
             </h1>
 
             <p style="margin: 0 0 18px; color: #8A6871; font-size: 14px; line-height: 1.7;">
-                Thank you for registering with {{ $appName }}. Enter the verification code below to confirm your email and continue creating your account.
+                Enter this code on the {{ $appName }} email verification page to confirm your email address.
             </p>
 
             <div style="padding: 20px 16px; background: #FFF7F8; border: 1px solid #F0DDE2; border-radius: 16px; text-align: center;">
@@ -35,6 +35,12 @@
                     {{ $otp }}
                 </div>
             </div>
+
+            <p style="margin: 20px 0 0; text-align: center;">
+                <a href="{{ $verificationUrl }}" style="display: inline-block; padding: 12px 20px; background: #B21F3A; color: #FFFFFF; border-radius: 10px; font-size: 14px; font-weight: 700; text-decoration: none;">
+                    Open email verification
+                </a>
+            </p>
 
             <p style="margin: 18px 0 8px; color: #8A6871; font-size: 14px; line-height: 1.7;">
                 This code expires in <strong style="color: #4B1725;">10 minutes</strong>.

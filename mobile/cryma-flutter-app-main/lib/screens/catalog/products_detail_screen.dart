@@ -373,49 +373,53 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
                 onTap: available ? () => _selectColor(color) : null,
                 child: Opacity(
                   opacity: available ? 1 : 0.45,
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 9),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          selected ? const Color(0xFFF1F7F7) : AppColors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: selected
-                            ? AppColors.primary
-                            : const Color(0xFFE5E5E5),
-                        width: selected ? 1.5 : 1,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 9),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 8,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 15,
-                          height: 15,
-                          decoration: BoxDecoration(
-                            color: colorMap[color] ?? AppColors.borderStrong,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: AppColors.borderNeutral, width: 0.5),
-                          ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFFF1F7F7)
+                            : AppColors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.primary
+                              : const Color(0xFFE5E5E5),
+                          width: selected ? 1.5 : 1,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          color,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight:
-                                selected ? FontWeight.w600 : FontWeight.w400,
-                            color: selected
-                                ? AppColors.primary
-                                : AppColors.darkGray,
-                            fontFamily: 'Poppins',
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 15,
+                            height: 15,
+                            decoration: BoxDecoration(
+                              color: colorMap[color] ?? AppColors.borderStrong,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.borderNeutral, width: 0.5),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Text(
+                            color,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight:
+                                  selected ? FontWeight.w600 : FontWeight.w400,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.darkGray,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -454,30 +458,38 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
               onTap: available ? () => _selectSize(size) : null,
               child: Opacity(
                 opacity: available ? 1 : 0.45,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 48),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 13,
-                    vertical: 9,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 44,
                   ),
-                  decoration: BoxDecoration(
-                    color: selected ? const Color(0xFFF1F7F7) : AppColors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.primary
-                          : const Color(0xFFE5E5E5),
-                      width: selected ? 1.5 : 1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 9,
                     ),
-                  ),
-                  child: Text(
-                    size,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                      color: selected ? AppColors.primary : AppColors.darkGray,
-                      fontFamily: 'Poppins',
+                    decoration: BoxDecoration(
+                      color:
+                          selected ? const Color(0xFFF1F7F7) : AppColors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.primary
+                            : const Color(0xFFE5E5E5),
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      size,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w400,
+                        color:
+                            selected ? AppColors.primary : AppColors.darkGray,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
                   ),
                 ),
@@ -578,6 +590,8 @@ class _ProductsDetailScreenState extends State<ProductsDetailScreen> {
       'stock': _currentStock,
       'image': _selectedImage,
       'seller': _product['seller'],
+      'seller_id': _product['seller_id'],
+      'store_slug': _product['store_slug'],
       'color': _selectedColor,
       'selected': true,
     };

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Activity, Boxes, Clock3, Handshake, LayoutDashboard, LogOut, Menu, Package, PackageCheck, RefreshCw, Truck, X } from "lucide-react";
+import { Activity, Boxes, Clock3, Handshake, LayoutDashboard, LogOut, Menu, MessageSquareText, Package, PackageCheck, RefreshCw, Truck, X } from "lucide-react";
 import api from "../shared/services/api";
 import { getHubStaffAssignment } from "./api";
 import { HubStaffWorkspaceContext } from "./HubStaffWorkspaceContext";
@@ -16,6 +16,7 @@ const NAV = [
     { to: "/hub-staff/incoming-transfers", label: "Incoming transfers", icon: Truck },
     { to: "/hub-staff/outgoing-transfers", label: "Outgoing handoffs", icon: Handshake },
     { to: "/hub-staff/activity", label: "Activity history", icon: Activity },
+    { to: "/hub-staff/messages", label: "Parcel messages", icon: MessageSquareText },
 ];
 
 const TITLES = Object.fromEntries(NAV.map(({ to, label }) => [to, label]));
