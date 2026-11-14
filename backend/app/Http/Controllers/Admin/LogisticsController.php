@@ -73,12 +73,20 @@ class LogisticsController extends Controller
         /** @var \Illuminate\Database\Eloquent\Collection<int, CourierProfile> $couriers */
         $couriers = $eligibility->profiles()->with(['user:id,first_name,last_name', 'vehicles:id,courier_profile_id,vehicle_type', 'deliveryAreas:id,name,is_active', 'presence'])
             ->orderBy('id')->get();
+        $activeDeliveryCounts = Delivery::query()
+            ->whereNotNull('courier_profile_id')
+            ->whereIn('status', [Delivery::ASSIGNED, Delivery::PICKED_UP, Delivery::OUT_FOR_DELIVERY])
+            ->select('courier_profile_id', DB::raw('COUNT(*) as active_delivery_count'))
+            ->groupBy('courier_profile_id')
+            ->pluck('active_delivery_count', 'courier_profile_id');
         $hubIds = $deliveries->pluck('current_hub_id')
             ->merge($sortingOrders->map(fn (Order $order) => $order->delivery?->current_hub_id))
             ->filter()->unique()->values();
         $hubs = LogisticsHub::whereIn('id', $hubIds)->get(['id', 'latitude', 'longitude', 'proximity_radius_km']);
         foreach ($couriers as $courier) {
             $courier->setAttribute('hub_proximity', $proximity->forCourier($courier, $hubs));
+            $courier->setAttribute('is_available', (bool) $courier->presence?->is_available);
+            $courier->setAttribute('active_delivery_count', (int) $activeDeliveryCounts->get($courier->id, 0));
             $courier->unsetRelation('presence');
         }
 

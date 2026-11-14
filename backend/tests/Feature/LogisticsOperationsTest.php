@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CourierProfile;
+use App\Models\CourierPresence;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\GeographicLocation;
@@ -20,6 +21,44 @@ use Tests\TestCase;
 class LogisticsOperationsTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_logistics_queue_exposes_courier_availability_and_active_delivery_workload(): void
+    {
+        $logistics = $this->logisticsUser();
+        [, $availableProfile] = $this->eligibleCourier();
+        [, $busyProfile] = $this->eligibleCourier();
+        CourierPresence::create([
+            'courier_profile_id' => $availableProfile->id,
+            'is_available' => true,
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'location_updated_at' => now(),
+        ]);
+        CourierPresence::create([
+            'courier_profile_id' => $busyProfile->id,
+            'is_available' => false,
+        ]);
+
+        foreach ([Delivery::ASSIGNED, Delivery::OUT_FOR_DELIVERY] as $status) {
+            $order = $this->order($status);
+            Delivery::create([
+                'order_id' => $order->id,
+                'courier_profile_id' => $busyProfile->id,
+                'status' => $status,
+            ]);
+        }
+
+        $couriers = $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->json('data.eligible_delivery_couriers');
+        $courierById = collect($couriers)->keyBy('id');
+
+        $this->assertTrue($courierById[$availableProfile->id]['is_available']);
+        $this->assertSame(0, $courierById[$availableProfile->id]['active_delivery_count']);
+        $this->assertFalse($courierById[$busyProfile->id]['is_available']);
+        $this->assertSame(2, $courierById[$busyProfile->id]['active_delivery_count']);
+    }
 
     public function test_logistics_can_assign_pickup_and_confirm_collected_parcel_receipt(): void
     {
