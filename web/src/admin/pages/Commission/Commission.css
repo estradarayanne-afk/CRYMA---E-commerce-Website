@@ -111,11 +111,6 @@
     background: #ffffff;
 }
 
-.commission-search span {
-    font-size: 20px;
-    color: #6F6265;
-}
-
 .commission-search input {
     width: 100%;
     border: none;
@@ -542,8 +537,6 @@
 .commission-filter { display:none; }
 .commission-search { position:relative; display:flex; flex:0 1 360px; align-items:center; width:min(360px,100%); min-width:240px; height:44px; max-width:none; gap:0; padding:0 11px; border:1px solid rgba(75,23,37,.16); border-radius:12px; background:linear-gradient(180deg,#fff,#FFFAFB); box-shadow:0 3px 10px rgba(75,23,37,.045),inset 0 1px 2px rgba(75,23,37,.035); transition:border-color .18s ease,box-shadow .18s ease; }
 .commission-search:focus-within { border-color:#8A1C30; box-shadow:0 0 0 3px rgba(138,28,48,.12),0 5px 14px rgba(75,23,37,.07); }
-.commission-search span { position:relative; display:block; width:11px; height:11px; flex:0 0 11px; margin:0 12px 0 2px; border:1.8px solid #8A1C30; border-radius:50%; font-size:0; color:#8A1C30; }
-.commission-search span::after { position:absolute; right:-5px; bottom:-3px; width:6px; height:1.8px; border-radius:2px; background:currentColor; content:""; transform:rotate(45deg); }
 .commission-search input { min-width:0; height:100%; padding:0 6px; border:0; color:#26151A; font-size:13px; }
 .commission-table-wrapper { padding:2px 18px 12px; background:linear-gradient(180deg,#FFFAFB,#FFF7F8); }
 .commission-table { min-width:1050px; border-collapse:separate; border-spacing:0 9px; }

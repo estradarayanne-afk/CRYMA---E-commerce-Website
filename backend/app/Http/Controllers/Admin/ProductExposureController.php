@@ -34,7 +34,7 @@ class ProductExposureController extends Controller
             ->orderByDesc(DB::raw('SUM(detail_views)'))
             ->orderByDesc(DB::raw('SUM(impressions)'))
             ->orderByDesc(DB::raw('SUM(units_sold)'))
-            ->paginate(25)
+            ->paginate(15)
             ->withQueryString();
 
         return response()->json([

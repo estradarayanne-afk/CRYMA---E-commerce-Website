@@ -25,7 +25,7 @@ class HubStaffProvisioningController extends Controller
             'search' => ['sometimes', 'nullable', 'string', 'max:120'],
             'status' => ['sometimes', 'nullable', Rule::in(['all', 'active', 'pending', 'suspended'])],
             'hub_id' => ['sometimes', 'nullable', 'integer', Rule::exists('logistics_hubs', 'id')],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:15'],
         ]);
         $query = User::query()->where('role', 'hub_staff')
             ->with('hubStaffProfile.hub:id,name,code,is_active,address,psgc_code,location_label')
@@ -55,7 +55,7 @@ class HubStaffProvisioningController extends Controller
             $query->whereHas('hubStaffProfile', fn ($profiles) => $profiles->where('hub_id', $validated['hub_id']));
         }
 
-        $rows = $query->paginate($validated['per_page'] ?? 12)->withQueryString()
+        $rows = $query->paginate($validated['per_page'] ?? 15)->withQueryString()
             ->through(fn (User $user) => $this->serialize($user));
 
         $hubStaff = User::query()->where('role', 'hub_staff');

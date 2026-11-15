@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AccountReactivationMail;
+use App\Mail\AccountSuspensionMail;
 use App\Mail\CourierApplicationDecisionMail;
 use App\Models\User;
 use App\Models\UserDocument;
@@ -16,22 +18,116 @@ class RiderManagementController extends Controller
 {
     private const REQUIRED_DOCUMENTS = ['valid_id', 'or_cr', 'drivers_license'];
 
-    public function index()
+    public function index(Request $request)
     {
-        $riders = User::query()
+        $filters = $request->validate([
+            'status' => ['sometimes', 'in:pending,active,suspended,rejected'],
+            'search' => ['sometimes', 'string', 'max:100'],
+        ]);
+        $status = $filters['status'] ?? 'pending';
+        $query = User::query()
             ->where('role', 'rider')
-            ->where('status', 'pending')
-            ->with([
-                'courierProfile.vehicles',
+            ->whereNull('account_archived_at')
+            ->where('status', $status)
+            ->with(['courierProfile.vehicles']);
+        if ($status === 'pending') {
+            $query->with([
                 'addresses',
                 'documents' => fn ($query) => $query
                     ->whereIn('document_type', self::REQUIRED_DOCUMENTS)
                     ->orderBy('id'),
-            ])
-            ->latest()
-            ->paginate(10);
+            ]);
+        }
+
+        if (filled($filters['search'] ?? null)) {
+            $search = trim($filters['search']);
+            $query->where(function ($users) use ($search) {
+                $users->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $riders = $query->latest()->paginate(15);
 
         return response()->json(['success' => true, 'data' => $riders]);
+    }
+
+    public function updateStatus(Request $request, int $id)
+    {
+        $values = $request->validate([
+            'status' => ['required', 'in:active,suspended'],
+            'suspension_reason' => ['required_if:status,suspended', 'nullable', 'string', 'max:500', 'not_regex:/^\s*$/u'],
+        ]);
+
+        $notification = DB::transaction(function () use ($id, $values): ?array {
+            $rider = User::query()->where('role', 'rider')->whereKey($id)->lockForUpdate()->firstOrFail();
+            abort_if($rider->account_archived_at !== null, 409, 'Archived courier accounts cannot change status.');
+            abort_unless(in_array($rider->status, ['active', 'suspended'], true), 409, 'Only active or suspended courier accounts can be changed here.');
+
+            if ($values['status'] === 'active') {
+                abort_unless($rider->email_verified_at, 422, 'Email verification is required before reactivation.');
+                $approvedTypes = $rider->documents()
+                    ->whereIn('document_type', self::REQUIRED_DOCUMENTS)
+                    ->where('status', 'approved')
+                    ->pluck('document_type')
+                    ->unique()
+                    ->all();
+                abort_unless(array_diff(self::REQUIRED_DOCUMENTS, $approvedTypes) === [], 422, 'All required courier documents must be approved before reactivation.');
+            }
+
+            $wasSuspended = $rider->status === 'suspended';
+            $occurredAt = now();
+            $rider->forceFill([
+                'status' => $values['status'],
+                'suspension_reason' => $values['status'] === 'suspended'
+                    ? trim($values['suspension_reason'])
+                    : null,
+            ])->save();
+            if ($values['status'] === 'suspended') {
+                $rider->tokens()->delete();
+            }
+
+            $kind = match (true) {
+                $values['status'] === 'suspended' && !$wasSuspended => 'suspended',
+                $values['status'] === 'active' && $wasSuspended => 'reactivated',
+                default => null,
+            };
+
+            return $kind === null ? null : ['kind' => $kind, 'user' => $rider->fresh(), 'occurred_at' => $occurredAt];
+        });
+
+        $notificationSent = null;
+        if ($notification !== null) {
+            /** @var User $rider */
+            $rider = $notification['user'];
+            $name = trim($rider->first_name.' '.$rider->last_name) ?: 'there';
+            try {
+                $mail = $notification['kind'] === 'suspended'
+                    ? new AccountSuspensionMail($name, $rider->suspension_reason, $notification['occurred_at'])
+                    : new AccountReactivationMail($name, $notification['occurred_at']);
+                Mail::to($rider->email)->send($mail);
+                $notificationSent = true;
+            } catch (\Throwable $exception) {
+                $notificationSent = false;
+                Log::warning('Courier account status notification email delivery failed.', [
+                    'rider_id' => $rider->id,
+                    'status' => $rider->status,
+                    'exception_class' => $exception::class,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $notificationSent === false
+                ? 'Courier account status updated, but the email notification could not be sent.'
+                : 'Courier account status updated.',
+            'notification_sent' => $notificationSent,
+            'data' => User::whereKey($id)->firstOrFail(),
+        ]);
     }
 
     public function showDocument(int $id, int $documentId)

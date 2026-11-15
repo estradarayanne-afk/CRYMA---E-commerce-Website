@@ -1,0 +1,122 @@
+.email-verification-page {
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    padding: clamp(24px, 5vw, 64px);
+}
+
+.email-verification-card {
+    width: min(100%, 480px);
+}
+
+.email-verification-eyebrow {
+    color: var(--crimson);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .16em;
+}
+
+.email-verification-card h1 {
+    margin: 12px 0 8px;
+    color: var(--text-primary);
+    font-size: clamp(28px, 4vw, 38px);
+    letter-spacing: -.035em;
+}
+
+.email-verification-card > p {
+    margin: 0 0 24px;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.email-verification-card form {
+    display: grid;
+    gap: 18px;
+}
+
+.email-verification-card .auth-field input[name="otp"] {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: .3em;
+}
+
+.email-verification-alert {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid #d5e8dc;
+    border-radius: 10px;
+    background: #f0f8f3;
+    color: #285d3e;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.email-verification-alert.is-error {
+    border-color: #efcbd2;
+    background: #fff3f5;
+    color: #8d1d35;
+}
+
+.email-verification-submit {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 4px;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--crimson);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.email-verification-submit:hover:not(:disabled) {
+    background: var(--deep-crimson);
+}
+
+.email-verification-submit:disabled,
+.email-verification-resend:disabled {
+    cursor: not-allowed;
+    opacity: .6;
+}
+
+.email-verification-resend {
+    display: block;
+    margin: 16px auto 0;
+    padding: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--crimson);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.email-verification-next-step {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #fff7f8;
+}
+
+.email-verification-footer {
+    margin-top: 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+.email-verification-footer a {
+    color: var(--crimson);
+    font-weight: 700;
+}
+
+@media (max-width: 480px) {
+    .email-verification-page {
+        padding: 24px 18px;
+    }
+}

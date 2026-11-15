@@ -63,7 +63,7 @@ class SellerComplianceController extends Controller
 
         $sellers = $query
             ->latest()
-            ->paginate(10);
+            ->paginate(15);
 
         $sellers->getCollection()->transform(function (User $seller): User {
             $registeredCategory = $seller->sellerProfile?->line_of_business;

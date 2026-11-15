@@ -32,7 +32,7 @@ class RefundRequestController extends Controller
             $query->where('status', $validated['status']);
         }
 
-        return response()->json(['success' => true, 'data' => $query->paginate(20)]);
+        return response()->json(['success' => true, 'data' => $query->paginate(15)]);
     }
 
     public function update(Request $request, int $id)

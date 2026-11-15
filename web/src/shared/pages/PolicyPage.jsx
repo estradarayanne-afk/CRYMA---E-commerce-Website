@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { POLICY_VERSIONS } from "../constants/policyVersions";
+import { POLICY_EFFECTIVE_DATES, POLICY_VERSIONS } from "../constants/policyVersions";
 import "./PolicyPage.css";
 
 const termsSections = [
-    ["1. Eligibility and accounts", "You must be at least 18 years old to register. Provide accurate registration details, complete email verification, protect your sign-in credentials, and use an account only after any required CRYMA review. Email verification and administrator approval are separate steps; seller, courier, and logistics/sorting-center access may remain pending until review."],
+    ["1. Eligibility and accounts", "Buyer registration is available to people aged 13 or older. Seller, courier, and logistics/sorting-center registration is limited to people aged 18 or older. Where applicable law requires permission from a parent or guardian for buyers under 18, that permission must be obtained before use. Provide accurate registration details, complete email verification, protect your sign-in credentials, and use an account only after any required CRYMA review. Email verification and administrator approval are separate steps; seller, courier, and logistics/sorting-center access may remain pending until review."],
     ["2. Buyers", "Keep your contact and delivery details accurate, review the item and seller information before ordering, and use the supported checkout option shown at checkout. CRYMA currently accepts cash on delivery. Do not submit another person’s information without authority."],
     ["3. Sellers and product listings", "Seller accounts require business information and verification documents and are subject to review. Sellers are responsible for accurate product descriptions, prices, availability, stock, and lawful fulfillment. Do not list unlawful, counterfeit, unsafe, or otherwise prohibited goods. The detailed prohibited-item catalogue and seller conduct rules require CRYMA owner approval before publication."],
     ["4. Couriers", "Courier registration requires the vehicle information and verification documents requested in the registration flow and is subject to review. Keep submitted records accurate and current. The project does not yet expose a complete courier dispatch and service-level workflow; operational duties, insurance, and delivery standards must be provided by CRYMA before courier operations are represented as guaranteed."],
@@ -41,13 +41,14 @@ export default function PolicyPage({ type }) {
     const isDelivery = type === "delivery";
     const sections = isPrivacy ? privacySections : isDelivery ? deliverySections : termsSections;
     const version = isPrivacy ? POLICY_VERSIONS.privacy : POLICY_VERSIONS.terms;
+    const effectiveDate = isPrivacy ? POLICY_EFFECTIVE_DATES.privacy : POLICY_EFFECTIVE_DATES.terms;
 
     return <main className="policy-page">
         <header className="policy-page-header">
             <Link className="policy-back-link" to="/">← Back to CRYMA</Link>
             <span className="policy-eyebrow">CRYMA POLICIES</span>
             <h1>{isPrivacy ? "Privacy Notice" : isDelivery ? "Delivery and Payments" : "Terms and Conditions"}</h1>
-            <p>Version {version} · Effective 20 October 2026</p>
+            <p>Version {version} · Effective {effectiveDate}</p>
             <div className="policy-review-notice" role="note">Draft for CRYMA owner and legal review. Confirm the decisions identified on this page before production publication.</div>
         </header>
         <article className="policy-article">

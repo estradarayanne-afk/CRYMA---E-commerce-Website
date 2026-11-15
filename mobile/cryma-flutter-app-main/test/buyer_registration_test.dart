@@ -69,19 +69,21 @@ void main() {
       );
     });
 
-    test('requires an exact eighteenth birthday and rejects younger users', () {
+    test(
+        'allows buyers from their thirteenth birthday and rejects younger users',
+        () {
       final today = DateTime.utc(2025, 3, 1);
 
       expect(
         BuyerRegistrationRules.validateBirthday(
-          '2007-03-01',
+          '2012-03-01',
           today: today,
         ),
         isNull,
       );
       expect(
         BuyerRegistrationRules.validateBirthday(
-          '2007-03-02',
+          '2012-03-02',
           today: today,
         ),
         isNotNull,

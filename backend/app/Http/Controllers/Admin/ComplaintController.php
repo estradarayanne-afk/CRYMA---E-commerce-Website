@@ -41,7 +41,7 @@ class ComplaintController extends Controller
 
         $complaints = $query
             ->latest()
-            ->paginate(10);
+            ->paginate(15);
 
         return response()->json([
             'success' => true,

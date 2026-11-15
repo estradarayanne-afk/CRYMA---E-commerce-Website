@@ -58,7 +58,7 @@ class _ProductGridSkeletonState extends State<_ProductGridSkeleton>
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 0.72,
+            childAspectRatio: 0.56,
           ),
           itemBuilder: (context, index) => Container(
             decoration: BoxDecoration(
@@ -137,10 +137,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void _submitHomeSearch(String value) {
     final query = value.trim();
     if (query.isEmpty) {
-      Navigator.pushNamed(context, '/search');
+      unawaited(_openRouteAndRefreshCart('/search'));
       return;
     }
-    Navigator.pushNamed(context, '/search_results', arguments: query);
+    unawaited(_openRouteAndRefreshCart('/search_results', arguments: query));
+  }
+
+  Future<void> _openRouteAndRefreshCart(
+    String route, {
+    Object? arguments,
+  }) async {
+    await Navigator.pushNamed(context, route, arguments: arguments);
+    await _loadCartCount();
   }
 
   Future<void> _loadGreeting() async {
@@ -210,11 +218,11 @@ class _HomeScreenState extends State<HomeScreen> {
           .recordProductImpressions(
               page.items.map((item) => item['id'].toString()).toList())
           .then(
-            (_) {},
-            onError: (Object error, StackTrace stackTrace) {
-              debugPrint('Unable to record product exposure: $error');
-            },
-          ));
+        (_) {},
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('Unable to record product exposure: $error');
+        },
+      ));
       if (!mounted) return;
       setState(() {
         _featuredProducts = page.items;
@@ -291,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTopBar() {
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Row(
         children: [
           Image.asset(
@@ -313,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: SizedBox(
-              height: 40,
+              height: 44,
               child: TextField(
                 key: const Key('buyer-home-search-field'),
                 controller: _searchController,
@@ -337,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     size: 19,
                   ),
                   prefixIconConstraints:
-                      const BoxConstraints(minWidth: 36, minHeight: 40),
+                      const BoxConstraints(minWidth: 44, minHeight: 44),
                   filled: true,
                   fillColor: AppColors.white,
                   isDense: true,
@@ -365,10 +373,10 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             tooltip: 'Cart',
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 36, height: 40),
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             style: IconButton.styleFrom(
               foregroundColor: AppColors.primary,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              tapTargetSize: MaterialTapTargetSize.padded,
             ),
             icon: Stack(
               clipBehavior: Clip.none,
@@ -400,15 +408,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
               ],
             ),
-            onPressed: () => Navigator.pushNamed(context, '/cart'),
+            onPressed: () => unawaited(_openRouteAndRefreshCart('/cart')),
           ),
           IconButton(
             tooltip: 'Messages',
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 36, height: 40),
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             style: IconButton.styleFrom(
               foregroundColor: AppColors.primary,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              tapTargetSize: MaterialTapTargetSize.padded,
             ),
             icon: Stack(
               clipBehavior: Clip.none,
@@ -441,15 +449,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── WELCOME MESSAGE ──────────────────────────────────────────────────────
   Widget _buildWelcomeSection() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      padding: const EdgeInsets.fromLTRB(18, 17, 16, 17),
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      padding: const EdgeInsets.fromLTRB(18, 19, 16, 19),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AppColors.primary, AppColors.primaryDark],
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
             color: AppColors.wine.withValues(alpha: 0.16),
@@ -666,8 +674,9 @@ class _HomeScreenState extends State<HomeScreen> {
               json: json,
               isFavorite: _favoriteIds.contains(id),
               onToggleFavorite: () => _toggleFavorite(id),
-              onTap: () => Navigator.pushNamed(context, '/product_detail',
-                  arguments: id),
+              onTap: () => unawaited(
+                _openRouteAndRefreshCart('/product_detail', arguments: id),
+              ),
             );
           },
           childCount: _featuredProducts.length,

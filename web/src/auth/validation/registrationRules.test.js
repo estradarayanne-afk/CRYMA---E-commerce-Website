@@ -4,6 +4,8 @@ import {
     characterLength,
     calculateAgeOnDate,
     getRegistrationStepErrors,
+    getRegistrationMaximumBirthday,
+    getRegistrationMinimumAge,
     normalizePhilippineMobile,
 } from "./registrationRules.js";
 
@@ -29,11 +31,25 @@ test("calculates age by complete local calendar date", () => {
     assert.equal(calculateAgeOnDate("2008/06/15", today), null);
 });
 
-test("registration step rejects underage applicants, including one day before 18", () => {
-    const today = new Date();
-    const justUnder = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate() + 1);
-    const iso = `${justUnder.getFullYear()}-${String(justUnder.getMonth() + 1).padStart(2, "0")}-${String(justUnder.getDate()).padStart(2, "0")}`;
-    assert.match(getRegistrationStepErrors(1, { ...personal, birthDate: iso }).birthDate, /18 years old/);
+test("buyers may register from age 13 while other roles remain 18+", () => {
+    const today = new Date(2026, 5, 15);
+    const buyerBirthday = { ...personal, birthDate: "2013-06-15", registrationRole: "buyer" };
+    const justUnderBuyerAge = { ...buyerBirthday, birthDate: "2013-06-16" };
+
+    assert.equal(getRegistrationStepErrors(1, buyerBirthday, today).birthDate, undefined);
+    assert.match(getRegistrationStepErrors(1, justUnderBuyerAge, today).birthDate, /13 years old/);
+
+    const sellerBirthday = { ...personal, birthDate: "2008-06-15", registrationRole: "seller" };
+    const justUnderSellerAge = { ...sellerBirthday, birthDate: "2008-06-16" };
+    assert.equal(getRegistrationStepErrors(1, sellerBirthday, today).birthDate, undefined);
+    assert.match(getRegistrationStepErrors(1, justUnderSellerAge, today).birthDate, /18 years old/);
+    assert.equal(getRegistrationMinimumAge("rider"), 18);
+    assert.equal(getRegistrationMinimumAge("logistics"), 18);
+    assert.equal(getRegistrationMinimumAge("unknown"), 18);
+
+    assert.equal(getRegistrationMaximumBirthday("buyer", today), "2013-06-15");
+    assert.equal(getRegistrationMaximumBirthday("seller", today), "2008-06-15");
+    assert.equal(getRegistrationMaximumBirthday("buyer", new Date(2028, 1, 29)), "2015-02-28");
 });
 
 test("accepts Unicode Filipino names and middle initials", () => {

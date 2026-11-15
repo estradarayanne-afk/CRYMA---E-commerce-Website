@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import api from "../../../shared/services/api";
 import "./Reports.css";
+
+const PRODUCT_EXPOSURE_PAGE_SIZE = 15;
 
 const Icon = ({ name }) => {
     const icons = {
@@ -146,6 +149,8 @@ function Reports() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [productExposure, setProductExposure] = useState([]);
+    const [exposurePage, setExposurePage] = useState(1);
+    const [exposurePagination, setExposurePagination] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [exposureLoading, setExposureLoading] = useState(true);
     const [exposureError, setExposureError] = useState("");
 
@@ -196,13 +201,21 @@ function Reports() {
 
     useEffect(() => {
         let cancelled = false;
-        api.get("/admin/product-exposure")
+        api.get("/admin/product-exposure", { params: { page: exposurePage } })
             .then(({ data }) => {
-                const rows = data?.data?.products?.data;
+                const products = data?.data?.products;
+                const rows = products?.data;
                 if (!Array.isArray(rows)) {
                     throw new Error("The product exposure report response was invalid.");
                 }
-                if (!cancelled) setProductExposure(rows);
+                if (!cancelled) {
+                    setProductExposure(rows);
+                    setExposurePagination({
+                        current_page: products.current_page || 1,
+                        last_page: products.last_page || 1,
+                        total: products.total || 0,
+                    });
+                }
             })
             .catch((requestError) => {
                 console.error("Failed to load product exposure:", requestError);
@@ -212,7 +225,7 @@ function Reports() {
                 if (!cancelled) setExposureLoading(false);
             });
         return () => { cancelled = true; };
-    }, []);
+    }, [exposurePage]);
 
     const handleGenerateReport = () => {
         fetchReports();
@@ -682,6 +695,7 @@ function Reports() {
         ) : productExposure.length === 0 ? (
             <p className="product-exposure-message">No product views or purchases have been recorded yet.</p>
         ) : (
+            <>
             <div className="product-exposure-table-wrap">
                 <table className="product-exposure-table">
                     <thead>
@@ -714,6 +728,40 @@ function Reports() {
                     </tbody>
                 </table>
             </div>
+            <footer className="product-exposure-pagination">
+                <span>
+                    Showing {(exposurePagination.current_page - 1) * PRODUCT_EXPOSURE_PAGE_SIZE + 1}–
+                    {Math.min(exposurePagination.current_page * PRODUCT_EXPOSURE_PAGE_SIZE, exposurePagination.total)} of {exposurePagination.total}
+                </span>
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setExposureLoading(true);
+                            setExposureError("");
+                            setExposurePage((current) => Math.max(1, current - 1));
+                        }}
+                        disabled={exposureLoading || exposurePage <= 1}
+                        aria-label="Previous product exposure page"
+                    >
+                        <ChevronLeft size={16} /> Previous
+                    </button>
+                    <span>Page {exposurePagination.current_page} of {exposurePagination.last_page}</span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setExposureLoading(true);
+                            setExposureError("");
+                            setExposurePage((current) => Math.min(exposurePagination.last_page, current + 1));
+                        }}
+                        disabled={exposureLoading || exposurePage >= exposurePagination.last_page}
+                        aria-label="Next product exposure page"
+                    >
+                        Next <ChevronRight size={16} />
+                    </button>
+                </div>
+            </footer>
+            </>
         )}
     </section>
     </div>

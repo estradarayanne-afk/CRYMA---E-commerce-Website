@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Eye, LoaderCircle, Plus, Search, Ticket, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Eye, LoaderCircle, Plus, Ticket, X } from "lucide-react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import Dialog from "../../../shared/components/Dialog";
 import ShippingZonesPanel from "./ShippingZonesPanel";
@@ -121,7 +122,7 @@ function Vouchers() {
                     scope: scopeFilter,
                     status: statusFilter,
                     page: requestedPage,
-                    per_page: 10,
+                    per_page: 15,
                 },
             });
             const result = response.data?.data;
@@ -350,20 +351,17 @@ function Vouchers() {
                     </button>
                 </div>
                 <div className="voucher-toolbar">
-                    <label className="voucher-search">
-                        <Search size={17} aria-hidden="true" />
-                        <span className="voucher-visually-hidden">Search vouchers</span>
-                        <input
-                            type="search"
-                            maxLength={64}
-                            placeholder="Search code or description"
-                            value={search}
-                            onChange={(event) => {
-                                setPage(1);
-                                setSearch(event.target.value);
-                            }}
-                        />
-                    </label>
+                    <AdminSearchField
+                        className="voucher-search"
+                        ariaLabel="Search vouchers"
+                        maxLength={64}
+                        placeholder="Search code or description"
+                        value={search}
+                        onChange={(event) => {
+                            setPage(1);
+                            setSearch(event.target.value);
+                        }}
+                    />
                     <label className="voucher-filter">
                         <span>Voucher scope</span>
                         <select value={scopeFilter} onChange={(event) => {

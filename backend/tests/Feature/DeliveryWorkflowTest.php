@@ -7,6 +7,7 @@ use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\LogisticsHub;
 use App\Models\Order;
+use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Models\ReturnShipment;
 use App\Models\User;
@@ -38,6 +39,134 @@ class DeliveryWorkflowTest extends TestCase
         $this->assertSame('READY_FOR_PICKUP', $delivery->status);
         $this->assertFalse($delivery->legacy_imported);
         $this->assertSame($delivery->parcel_code, $response->json('data.delivery.parcel_code'));
+    }
+
+    public function test_seller_can_request_one_pickup_batch_for_multiple_ready_orders_and_rider_tracks_each_parcel(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        \App\Models\Address::create([
+            'user_id' => $seller->id, 'recipient_name' => 'Bulk Seller', 'phone' => '+639171234567',
+            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
+        ]);
+        $product = $this->product($seller);
+        $orders = collect([1, 2])->map(function () use ($seller, $product) {
+            $order = $this->order('READY_FOR_PICKUP');
+            \App\Models\OrderItem::create([
+                'order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
+                'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+            ]);
+            return $order;
+        });
+
+        $preferredScheduledAt = now()->addDay()->startOfHour();
+        $batchResponse = $this->actingAs($seller, 'sanctum')->postJson('/api/seller/pickup-batches', [
+            'order_ids' => $orders->pluck('id')->all(),
+            'preferred_scheduled_at' => $preferredScheduledAt->toISOString(),
+        ])->assertCreated()
+            ->assertJsonPath('message', 'Bulk courier pickup requested. Logistics will confirm your preferred pickup time.')
+            ->assertJsonCount(2, 'data.assignments');
+        $batchId = $batchResponse->json('data.id');
+        $this->assertDatabaseHas('pickup_batches', [
+            'id' => $batchId,
+            'seller_id' => $seller->id,
+            'status' => PickupBatch::REQUESTED,
+            'preferred_scheduled_at' => $preferredScheduledAt->toDateTimeString(),
+        ]);
+        $this->assertSame(
+            $preferredScheduledAt->timestamp,
+            PickupBatch::findOrFail($batchId)->preferred_scheduled_at->timestamp,
+        );
+        $sellerOrders = $this->getJson('/api/seller/orders')->assertOk()->json('data');
+        $this->assertSame(
+            $preferredScheduledAt->timestamp,
+            \Illuminate\Support\Carbon::parse($sellerOrders[0]['delivery_progress']['pickup']['preferred_scheduled_at'])->timestamp,
+        );
+        $this->assertSame(2, PickupAssignment::where('pickup_batch_id', $batchId)->count());
+        $this->assertSame(2, Delivery::whereIn('order_id', $orders->pluck('id'))->count());
+
+        $admin = $this->admin();
+        [$rider, $courierProfile] = $this->eligibleCourier();
+        $scheduledAt = now()->addDay()->toISOString();
+        $this->actingAs($admin, 'sanctum')->postJson("/api/admin/pickup-batches/{$batchId}/assignment", [
+            'courier_profile_id' => $courierProfile->id,
+            'scheduled_at' => $scheduledAt,
+        ])->assertOk()->assertJsonPath('data.status', PickupBatch::ASSIGNED);
+        $this->assertSame(2, PickupAssignment::where('pickup_batch_id', $batchId)
+            ->where('courier_profile_id', $courierProfile->id)
+            ->where('status', PickupAssignment::ASSIGNED)
+            ->count());
+
+        $tasks = $this->actingAs($rider, 'sanctum')->getJson('/api/courier/pickups')
+            ->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.pickup_batch.order_count', 2)
+            ->json('data');
+        foreach ($tasks as $task) {
+            $assignmentId = $task['id'];
+            $this->patchJson("/api/courier/pickups/{$assignmentId}/status", [
+                'status' => PickupAssignment::ACCEPTED,
+                'expected_status' => PickupAssignment::ASSIGNED,
+            ])->assertOk();
+            $this->patchJson("/api/courier/pickups/{$assignmentId}/status", [
+                'status' => PickupAssignment::PICKED_UP,
+                'expected_status' => PickupAssignment::ACCEPTED,
+                'parcel_code' => $task['parcel_code'],
+            ])->assertOk();
+        }
+
+        $this->assertSame(PickupBatch::PICKED_UP, PickupBatch::findOrFail($batchId)->status);
+        $this->assertSame(2, $orders->filter(fn (Order $order) => $order->fresh()->status === Delivery::PICKED_UP)->count());
+    }
+
+    public function test_bulk_pickup_rejects_an_ineligible_order_without_creating_a_partial_batch(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        \App\Models\Address::create([
+            'user_id' => $seller->id, 'recipient_name' => 'Bulk Seller', 'phone' => '+639171234567',
+            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
+        ]);
+        $product = $this->product($seller);
+        $orders = collect(['READY_FOR_PICKUP', 'PREPARING'])->map(function ($status) use ($seller, $product) {
+            $order = $this->order($status);
+            \App\Models\OrderItem::create([
+                'order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
+                'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+            ]);
+            return $order;
+        });
+
+        $this->actingAs($seller, 'sanctum')->postJson('/api/seller/pickup-batches', [
+            'order_ids' => $orders->pluck('id')->all(),
+            'preferred_scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertUnprocessable();
+        $this->assertSame(0, PickupBatch::count());
+        $this->assertSame(0, PickupAssignment::count());
+    }
+
+    public function test_bulk_pickup_requires_a_future_preferred_schedule(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        \App\Models\Address::create([
+            'user_id' => $seller->id, 'recipient_name' => 'Bulk Seller', 'phone' => '+639171234567',
+            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
+        ]);
+        $product = $this->product($seller);
+        $orders = collect([1, 2])->map(function () use ($seller, $product) {
+            $order = $this->order('READY_FOR_PICKUP');
+            \App\Models\OrderItem::create([
+                'order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
+                'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+            ]);
+            return $order;
+        });
+
+        $this->actingAs($seller, 'sanctum')->postJson('/api/seller/pickup-batches', [
+            'order_ids' => $orders->pluck('id')->all(),
+            'preferred_scheduled_at' => now()->subMinute()->toISOString(),
+        ])->assertUnprocessable()->assertJsonValidationErrors(['preferred_scheduled_at']);
+        $this->assertSame(0, PickupBatch::count());
     }
 
     public function test_admin_assigns_pickup_only_to_eligible_riders_and_only_for_ready_orders(): void

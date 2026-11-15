@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Registrations.css";
@@ -9,7 +10,7 @@ function Registrations() {
     const [pagination, setPagination] = useState({
         current_page: 1,
         last_page: 1,
-        per_page: 10,
+        per_page: 15,
         total: 0,
     });
 
@@ -94,7 +95,7 @@ function Registrations() {
             setPagination({
                 current_page: p.current_page || 1,
                 last_page: p.last_page || 1,
-                per_page: p.per_page || 10,
+                per_page: p.per_page || 15,
                 total: p.total || 0,
             });
         } catch (error) {
@@ -458,26 +459,15 @@ function Registrations() {
                             ))}
                         </div>
 
-                        <label className="registration-search">
-                            <span className="search-icon" aria-hidden="true">⌕</span>
-                            <input
-                                type="search"
-                                aria-label="Search registrations"
-                                placeholder="Search by name, email, or phone"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            {searchTerm && (
-                                <button
-                                    className="search-clear"
-                                    type="button"
-                                    aria-label="Clear search"
-                                    onClick={() => setSearchTerm("")}
-                                >
-                                    ×
-                                </button>
-                            )}
-                        </label>
+                        <AdminSearchField
+                            className="registration-search"
+                            ariaLabel="Search registrations"
+                            placeholder="Search by name, email, or phone"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            onClear={() => setSearchTerm("")}
+                            clearClassName="search-clear"
+                        />
                     </div>
 
                     {/* TABLE */}

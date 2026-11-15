@@ -28,6 +28,14 @@ function Login({
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [dismissedNoticeKey, setDismissedNoticeKey] = useState(null);
+    const routeNotice = location.state?.message && dismissedNoticeKey !== location.key
+        ? {
+            message: location.state.message,
+            type: location.state.type === "success" ? "success" : "info",
+        }
+        : null;
 
     useEffect(() => {
         document.title = "Sign in | CRYMA";
@@ -37,12 +45,38 @@ function Login({
         };
     }, []);
 
+    useEffect(() => {
+        if (!location.state?.message || dismissedNoticeKey === location.key) return undefined;
+        const timeoutId = window.setTimeout(() => setDismissedNoticeKey(location.key), 6000);
+        return () => window.clearTimeout(timeoutId);
+    }, [dismissedNoticeKey, location.key, location.state?.message]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (loading) return;
 
         setError("");
+        setFieldErrors({});
+        const form = e.currentTarget;
+        const emailInput = form.elements.namedItem("email");
+        const passwordInput = form.elements.namedItem("password");
+        const nextFieldErrors = {};
+
+        if (emailInput.validity.valueMissing) {
+            nextFieldErrors.email = "Enter your email address.";
+        } else if (emailInput.validity.typeMismatch) {
+            nextFieldErrors.email = "Enter a valid email address.";
+        }
+        if (passwordInput.validity.valueMissing) {
+            nextFieldErrors.password = "Enter your password.";
+        }
+        if (Object.keys(nextFieldErrors).length > 0) {
+            setFieldErrors(nextFieldErrors);
+            form.elements.namedItem(nextFieldErrors.email ? "email" : "password").focus();
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -72,22 +106,50 @@ function Login({
                 replace: true,
             });
         } catch (err) {
-            setError(
-                err.response?.data?.message ||
-                    (err.request
-                        ? "The server is not reachable. Please start the backend and try again."
-                        : "Login failed. Please check your email and password.")
-            );
+            const response = err.response;
+            const validationErrors = response?.data?.errors || {};
+            const getFieldMessage = (messages) =>
+                Array.isArray(messages) ? messages[0] : messages;
+            const nextErrors = {
+                email: getFieldMessage(validationErrors.email),
+                password: getFieldMessage(validationErrors.password),
+            };
+            const hasFieldErrors = Object.values(nextErrors).some(Boolean);
+
+            if (hasFieldErrors) {
+                setFieldErrors(nextErrors);
+                setError("");
+            } else if (response?.status === 401) {
+                setError("We couldn't sign you in. Check your email and password, or reset your password.");
+            } else {
+                setError(
+                    response?.data?.message ||
+                        (err.request
+                            ? "The server is not reachable. Please try again in a moment."
+                            : "We couldn't sign you in. Please try again.")
+                );
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const content = (<main
-        className={`buyer-login ${
-            embedded ? "embedded" : ""
-        }`}
-    >
+    const clearFieldError = (field) => {
+        setFieldErrors((current) => ({ ...current, [field]: undefined }));
+        setError("");
+    };
+
+    const content = (<>
+        {routeNotice && (
+            <div className={`buyer-login-route-toast buyer-login-route-toast-${routeNotice.type}`} role="status" aria-live="polite">
+                <span className="buyer-login-alert-icon" aria-hidden="true">
+                    {routeNotice.type === "success" ? "✓" : "i"}
+                </span>
+                <span>{routeNotice.message}</span>
+                <button type="button" onClick={() => setDismissedNoticeKey(location.key)} aria-label="Dismiss notification">×</button>
+            </div>
+        )}
+        <main className={`buyer-login ${embedded ? "embedded" : ""}`}>
 
             {/* LOGIN PANEL */}
             <section className="buyer-login-form-section">
@@ -123,28 +185,9 @@ function Login({
                         </p>
                     </div>
 
-                    {/* NOTICE FROM OTHER PAGES */}
-                    {location.state?.message && (
-                        <div
-                            className={`buyer-login-alert ${
-                                location.state.type === "success"
-                                    ? "buyer-login-alert-success"
-                                    : "buyer-login-alert-info"
-                            }`}
-                        >
-                            <span className="buyer-login-alert-icon">
-                                {location.state.type === "success"
-                                    ? "✓"
-                                    : "i"}
-                            </span>
-
-                            <span>{location.state.message}</span>
-                        </div>
-                    )}
-
                     {/* LOGIN ERROR */}
                     {error && (
-                        <div className="buyer-login-alert buyer-login-alert-error">
+                        <div className="buyer-login-alert buyer-login-alert-error" role="alert" aria-live="assertive">
                             <span className="buyer-login-alert-icon">
                                 !
                             </span>
@@ -156,6 +199,7 @@ function Login({
                     <form
                         className="buyer-login-form"
                         onSubmit={handleSubmit}
+                        noValidate
                     >
                         {/* EMAIL */}
                         <div className="buyer-login-field">
@@ -190,16 +234,23 @@ function Login({
                                     type="email"
                                     maxLength={254}
                                     value={email}
-                                    onChange={(e) =>
-                                        setEmail(e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                        setEmail(e.target.value);
+                                        clearFieldError("email");
+                                    }}
                                     placeholder="you@example.com"
                                     autoComplete="email"
                                     autoFocus
+                                    name="email"
                                     required
                                     disabled={loading}
+                                    aria-invalid={Boolean(fieldErrors.email)}
+                                    aria-describedby={fieldErrors.email ? "buyer-login-email-error" : undefined}
                                 />
                             </div>
+                            {fieldErrors.email && (
+                                <small id="buyer-login-email-error" className="buyer-login-field-error">{fieldErrors.email}</small>
+                            )}
                         </div>
 
                         {/* PASSWORD */}
@@ -250,13 +301,17 @@ function Login({
                                     }
                                     value={password}
                                     maxLength={128}
-                                    onChange={(e) =>
-                                        setPassword(e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        clearFieldError("password");
+                                    }}
                                     placeholder="Enter your password"
                                     autoComplete="current-password"
+                                    name="password"
                                     required
                                     disabled={loading}
+                                    aria-invalid={Boolean(fieldErrors.password)}
+                                    aria-describedby={fieldErrors.password ? "buyer-login-password-error" : undefined}
                                 />
 
                                 <button
@@ -272,6 +327,7 @@ function Login({
                                             ? "Hide password"
                                             : "Show password"
                                     }
+                                    aria-pressed={showPassword}
                                     disabled={loading}
                                 >
                                     {showPassword ? (
@@ -311,6 +367,9 @@ function Login({
                                     )}
                                 </button>
                             </div>
+                            {fieldErrors.password && (
+                                <small id="buyer-login-password-error" className="buyer-login-field-error">{fieldErrors.password}</small>
+                            )}
                         </div>
 
                         {/* SUBMIT */}
@@ -318,6 +377,7 @@ function Login({
                             type="submit"
                             className="buyer-login-submit"
                             disabled={loading}
+                            aria-busy={loading}
                         >
                             {loading ? (
                                 <>
@@ -395,7 +455,7 @@ function Login({
                 </div>
             </section>
         </main>
-    );
+    </>);
     return embedded ? content : <AuthShell>{content}</AuthShell>;
 }
 

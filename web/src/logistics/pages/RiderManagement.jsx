@@ -16,6 +16,8 @@ const applicantName = (rider) => [rider.first_name, rider.middle_name, rider.las
 
 export default function RiderManagement() {
     const [riders, setRiders] = useState([]);
+    const [status, setStatus] = useState("pending");
+    const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -24,15 +26,18 @@ export default function RiderManagement() {
     const [notice, setNotice] = useState("");
     const [rejectionReasons, setRejectionReasons] = useState({});
     const [documentRejectionReasons, setDocumentRejectionReasons] = useState({});
+    const [statusReasons, setStatusReasons] = useState({});
     const [pendingAction, setPendingAction] = useState(null);
     const actionLocked = useRef(false);
     const cancelConfirmation = useCallback(() => setPendingAction(null), []);
 
-    const load = useCallback(async (requestedPage = 1) => {
+    const load = useCallback(async (requestedPage = 1, statusFilter = status, searchFilter = search) => {
         setLoading(true);
         setError("");
         try {
-            const { data } = await api.get(`/logistics/riders?page=${requestedPage}`);
+            const params = new URLSearchParams({ page: String(requestedPage), status: statusFilter });
+            if (searchFilter.trim()) params.set("search", searchFilter.trim());
+            const { data } = await api.get(`/logistics/riders?${params.toString()}`);
             setRiders(data?.data?.data || []);
             setPage(data?.data?.current_page || 1);
             setLastPage(data?.data?.last_page || 1);
@@ -41,10 +46,10 @@ export default function RiderManagement() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [search, status]);
 
     useEffect(() => {
-        const timer = window.setTimeout(() => void load(1), 0);
+        const timer = window.setTimeout(() => void load(1), 250);
         return () => window.clearTimeout(timer);
     }, [load]);
 
@@ -124,6 +129,29 @@ export default function RiderManagement() {
         );
     };
 
+    const updateAccountStatus = (rider, nextStatus) => {
+        const reason = (statusReasons[rider.id] || "").trim();
+        if (nextStatus === "suspended" && !reason) {
+            setError("Add a reason before suspending a courier account.");
+            return;
+        }
+        requestConfirmation(
+            nextStatus === "suspended" ? "Suspend courier account?" : "Reactivate courier account?",
+            nextStatus === "suspended"
+                ? `${applicantName(rider)} will be suspended and signed out of active sessions. Reason: ${reason}`
+                : `${applicantName(rider)} will be reactivated after the server verifies registration documents.`,
+            () => runAction(
+                `status-${rider.id}`,
+                `/logistics/riders/${rider.id}/status`,
+                { status: nextStatus, ...(nextStatus === "suspended" ? { suspension_reason: reason } : {}) },
+                `Courier account ${nextStatus}.`,
+                () => setRiders((current) => current.filter((item) => item.id !== rider.id)),
+            ),
+            nextStatus === "suspended" ? "danger" : "default",
+            nextStatus === "suspended" ? "Suspend account" : "Reactivate account",
+        );
+    };
+
     const openDocument = async (riderId, document) => {
         setError("");
         try {
@@ -148,21 +176,90 @@ export default function RiderManagement() {
         <section className="lr-page">
             <header className="lw-page-heading">
                 <div>
-                    <span className="lw-eyebrow">APPLICATION REVIEW</span>
-                    <h1>Rider Management</h1>
-                    <p>Review courier eligibility documents before approving an application.</p>
+                    <span className="lw-eyebrow">PEOPLE &amp; ACCESS</span>
+                    <h1>Courier / Rider accounts</h1>
+                    <p>Review new applications and find existing courier accounts.</p>
                 </div>
                 <button type="button" onClick={() => void load(page)} disabled={loading}>
                     {loading ? "Refreshing…" : "Refresh"}
                 </button>
             </header>
 
+            <div className="lr-account-controls">
+                <nav className="lr-status-tabs" aria-label="Courier account status">
+                    {[
+                        ["pending", "Applications"],
+                        ["active", "Active"],
+                        ["suspended", "Suspended"],
+                        ["rejected", "Rejected"],
+                    ].map(([value, label]) => (
+                        <button
+                            type="button"
+                            key={value}
+                            aria-pressed={status === value}
+                            className={status === value ? "is-active" : ""}
+                            onClick={() => setStatus(value)}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </nav>
+                <label className="lr-account-search">
+                    <span className="sr-only">Search courier accounts</span>
+                    <input
+                        type="search"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search name, email, or phone"
+                    />
+                </label>
+            </div>
+
             {error && <div className="lw-alert" role="alert">{error}</div>}
             {notice && <div className="lr-notice" role="status">{notice}</div>}
             {loading ? (
-                <div className="lw-empty" role="status">Loading pending courier applications…</div>
+                <div className="lw-empty" role="status">Loading courier accounts…</div>
             ) : riders.length === 0 ? (
-                <div className="lw-empty" role="status">There are no pending courier applications.</div>
+                <div className="lw-empty" role="status">
+                    {status === "pending" ? "There are no pending courier applications." : `No ${status} courier accounts found.`}
+                </div>
+            ) : status !== "pending" ? (
+                <div className="lr-account-table-wrap">
+                    <table className="lr-account-table">
+                        <thead>
+                            <tr><th>Courier</th><th>Contact</th><th>Vehicle</th><th>Account status</th><th>Access</th></tr>
+                        </thead>
+                        <tbody>
+                            {riders.map((rider) => {
+                                const vehicle = rider.courier_profile?.vehicles?.[0];
+                                return (
+                                    <tr key={rider.id}>
+                                        <td><strong>{applicantName(rider) || "Unnamed account"}</strong><small>Courier / Rider</small></td>
+                                        <td>{rider.email}<small>{rider.phone || "No phone provided"}</small></td>
+                                        <td>{vehicle ? `${vehicle.vehicle_type} · ${vehicle.plate_number}` : "Not provided"}</td>
+                                        <td><span className={`lr-account-status lr-account-status--${status}`}>{status}</span></td>
+                                        <td>
+                                            {status === "active" ? <div className="lr-account-actions">
+                                                <input
+                                                    aria-label={`Suspension reason for ${applicantName(rider)}`}
+                                                    value={statusReasons[rider.id] || ""}
+                                                    onChange={(event) => setStatusReasons((current) => ({ ...current, [rider.id]: event.target.value }))}
+                                                    placeholder="Reason to suspend"
+                                                    maxLength={500}
+                                                />
+                                                <button type="button" className="lr-danger" disabled={!!saving || !statusReasons[rider.id]?.trim()} onClick={() => updateAccountStatus(rider, "suspended")}>
+                                                    {saving === `status-${rider.id}` ? "Saving…" : "Suspend"}
+                                                </button>
+                                            </div> : status === "suspended" ? <button type="button" className="lr-primary" disabled={!!saving} onClick={() => updateAccountStatus(rider, "active")}>
+                                                {saving === `status-${rider.id}` ? "Saving…" : "Reactivate"}
+                                            </button> : <span>—</span>}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             ) : (
                 <div className="lr-list">
                     {riders.map((rider) => {
@@ -266,10 +363,10 @@ export default function RiderManagement() {
             )}
 
             {lastPage > 1 && (
-                <nav className="lr-pagination" aria-label="Courier application pages">
-                    <button type="button" disabled={loading || page <= 1} onClick={() => void load(page - 1)}>Previous</button>
+                <nav className="lr-pagination" aria-label="Courier account pages">
+                    <button type="button" disabled={loading || page <= 1} onClick={() => void load(page - 1, status, search)}>Previous</button>
                     <span>Page {page} of {lastPage}</span>
-                    <button type="button" disabled={loading || page >= lastPage} onClick={() => void load(page + 1)}>Next</button>
+                    <button type="button" disabled={loading || page >= lastPage} onClick={() => void load(page + 1, status, search)}>Next</button>
                 </nav>
             )}
             <ConfirmationModal open={!!pendingAction} title={pendingAction?.title} description={pendingAction?.description} confirmLabel={pendingAction?.confirmLabel} tone={pendingAction?.tone} busy={!!saving} onCancel={cancelConfirmation} onConfirm={confirmAction} />

@@ -10,7 +10,10 @@
     animation: cryma-auth-fade 180ms ease-out;
 }
 
-.cryma-auth-dialog { width: min(920px, 100%); }
+.cryma-auth-dialog {
+    width: min(94vw, 1600px);
+    max-height: calc(100dvh - 48px);
+}
 
 .cryma-auth-modal-content { min-height: 100%; background: var(--rose-cream); }
 .cryma-auth-modal-content:has(.registration-choice-panel) { display: flex; flex-direction: column; }
@@ -72,11 +75,15 @@
 @keyframes cryma-auth-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 900px) {
     .cryma-auth-overlay { padding: 12px; }
+    .cryma-auth-dialog { max-height: calc(100dvh - 24px); }
     .cryma-auth-prompt { padding: 22px 28px 0; }
     .buyer-login.embedded .buyer-login-form-section,
     .register-page.embedded .register-content { padding: 28px; }
 }
 @media (max-width: 480px) {
+    .cryma-auth-overlay { align-items: center; }
+    .cryma-auth-dialog { max-height: calc(100dvh - 24px); }
+    .cryma-auth-shell-modal { height: calc(100dvh - 24px); }
     .cryma-auth-close { top: 10px; right: 10px; width: 34px; height: 34px; }
     .cryma-auth-prompt { padding: 18px 18px 0; }
     .buyer-login.embedded .buyer-login-form-section,
@@ -85,7 +92,6 @@
 }
 
 /* Give forms more room and avoid harsh browser autofill colors. */
-.cryma-auth-dialog { width: min(94vw, 1800px); }
 .cryma-auth-modal-content input:-webkit-autofill,
 .cryma-auth-modal-content input:-webkit-autofill:hover,
 .cryma-auth-modal-content input:-webkit-autofill:focus {

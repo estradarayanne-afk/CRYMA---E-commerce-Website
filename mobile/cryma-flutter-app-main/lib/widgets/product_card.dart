@@ -23,6 +23,8 @@ class ProductCard extends StatelessWidget {
     this.originalPrice,
     this.rating = 0,
     this.reviewCount = 0,
+    this.salesCount = 0,
+    this.sellerName = 'Local Seller',
     this.inStock = true,
     this.stockCount,
   });
@@ -45,6 +47,8 @@ class ProductCard extends StatelessWidget {
 
   final double rating;
   final int reviewCount;
+  final int salesCount;
+  final String sellerName;
   final bool isFavorite;
   final bool inStock;
   final int? stockCount;
@@ -81,17 +85,17 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── IMAGE AREA ──────────────────────────────────────────────
             Expanded(
-              flex: 11,
+              flex: 6,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -105,36 +109,11 @@ class ProductCard extends StatelessWidget {
                     ),
                   Positioned(
                     left: 8,
+                    right: 8,
                     bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .88),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: .75),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.storefront_outlined,
-                              color: AppColors.primaryDark, size: 12),
-                          SizedBox(width: 4),
-                          Text(
-                            'Local Seller',
-                            style: TextStyle(
-                              color: AppColors.primaryDark,
-                              fontFamily: 'Poppins',
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: _SellerBadge(name: sellerName),
                     ),
                   ),
                   // Out-of-stock overlay
@@ -169,65 +148,64 @@ class ProductCard extends StatelessWidget {
             ),
 
             // ── CONTENT AREA ─────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Category
-                  Text(
-                    category.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  // Product name
-                  Text(
-                    name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                      color: AppColors.darkGray,
-                    ),
-                  ),
-                  if (stockCount != null) ...[
-                    const SizedBox(height: 2),
+            Expanded(
+              flex: 5,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 7, 10, 9),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (category.trim().isNotEmpty)
+                      Text(
+                        category.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     Text(
-                      inStock ? '$stockCount available' : 'Out of stock',
-                      style: TextStyle(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         fontFamily: 'Poppins',
-                        fontSize: 9,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: inStock ? AppColors.textSubtle : AppColors.danger,
+                        height: 1.25,
+                        color: AppColors.darkGray,
                       ),
                     ),
+                    if (stockCount != null)
+                      Text(
+                        inStock ? '$stockCount available' : 'Out of stock',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              inStock ? AppColors.textSubtle : AppColors.danger,
+                        ),
+                      ),
+                    if (rating > 0 || salesCount > 0)
+                      _SocialProofRow(
+                        rating: rating,
+                        reviewCount: reviewCount,
+                        salesCount: salesCount,
+                      ),
+                    _PriceRow(
+                      effectivePrice: _formatPrice(_effectivePrice),
+                      strikethroughPrice: _strikethroughPrice != null
+                          ? _formatPrice(_strikethroughPrice!)
+                          : null,
+                    ),
                   ],
-                  const SizedBox(height: 5),
-                  // Rating row — only shown when actual data exists
-                  if (rating > 0) ...[
-                    _RatingRow(rating: rating, reviewCount: reviewCount),
-                    const SizedBox(height: 4),
-                  ],
-                  // Price row
-                  _PriceRow(
-                    effectivePrice: _formatPrice(_effectivePrice),
-                    strikethroughPrice: _strikethroughPrice != null
-                        ? _formatPrice(_strikethroughPrice!)
-                        : null,
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -300,25 +278,71 @@ class _SaleBadge extends StatelessWidget {
       );
 }
 
+class _SellerBadge extends StatelessWidget {
+  const _SellerBadge({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(maxWidth: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: .75)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.storefront_outlined,
+              color: AppColors.primaryDark,
+              size: 12,
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontFamily: 'Poppins',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
 class _WishlistButton extends StatelessWidget {
   const _WishlistButton({required this.isFavorite, required this.onTap});
   final bool isFavorite;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.92),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            size: 17,
-            color: isFavorite ? AppColors.danger : AppColors.textSubtle,
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: isFavorite ? 'Remove from wishlist' : 'Add to wishlist',
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.92),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              size: 18,
+              color: isFavorite ? AppColors.danger : AppColors.textSubtle,
+            ),
           ),
         ),
       );
@@ -330,32 +354,64 @@ class _RatingRow extends StatelessWidget {
   final int reviewCount;
   @override
   Widget build(BuildContext context) {
-    final fullStars = rating.floor();
-    final hasHalf = (rating - fullStars) >= 0.5;
     return Row(
       children: [
-        for (int i = 0; i < 5; i++)
-          Icon(
-            i < fullStars
-                ? Icons.star_rounded
-                : (i == fullStars && hasHalf)
-                    ? Icons.star_half_rounded
-                    : Icons.star_outline_rounded,
-            size: 12,
-            color: AppColors.gold,
-          ),
-        const SizedBox(width: 4),
-        Text(
-          reviewCount > 0 ? '($reviewCount)' : rating.toStringAsFixed(1),
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 10,
-            color: AppColors.gray,
+        const Icon(Icons.star_rounded, size: 12, color: AppColors.gold),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            reviewCount > 0
+                ? '${rating.toStringAsFixed(1)} · $reviewCount'
+                : rating.toStringAsFixed(1),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 9,
+              color: AppColors.gray,
+            ),
           ),
         ),
       ],
     );
   }
+}
+
+class _SocialProofRow extends StatelessWidget {
+  const _SocialProofRow({
+    required this.rating,
+    required this.reviewCount,
+    required this.salesCount,
+  });
+
+  final double rating;
+  final int reviewCount;
+  final int salesCount;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          if (rating > 0)
+            Expanded(
+              child: _RatingRow(rating: rating, reviewCount: reviewCount),
+            ),
+          if (rating > 0 && salesCount > 0) const SizedBox(width: 4),
+          if (salesCount > 0)
+            Flexible(
+              child: Text(
+                '$salesCount sold',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 9,
+                  color: AppColors.gray,
+                ),
+              ),
+            ),
+        ],
+      );
 }
 
 class _PriceRow extends StatelessWidget {
@@ -370,13 +426,17 @@ class _PriceRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(
-            effectivePrice,
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primaryDark,
+          Flexible(
+            child: Text(
+              effectivePrice,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primaryDark,
+              ),
             ),
           ),
           if (strikethroughPrice != null) ...[
@@ -428,9 +488,17 @@ class ProductCardData {
         double.tryParse(json['original_price']?.toString() ?? '');
     final rating =
         double.tryParse(json['average_rating']?.toString() ?? '') ?? 0;
-    final reviewCount =
-        int.tryParse(json['reviews_count']?.toString() ?? '') ?? 0;
-    final stock = int.tryParse(json['stock']?.toString() ?? '') ?? 1;
+    final reviewCount = int.tryParse(
+          (json['review_count'] ?? json['reviews_count'])?.toString() ?? '',
+        ) ??
+        0;
+    final salesCount = int.tryParse(json['sales_count']?.toString() ?? '') ?? 0;
+    final stock = int.tryParse(json['stock']?.toString() ?? '');
+    final seller = json['seller'];
+    final sellerProfile = seller is Map ? seller['seller_profile'] : null;
+    final sellerName = sellerProfile is Map
+        ? sellerProfile['business_name']?.toString().trim()
+        : null;
 
     return ProductCard(
       id: json['id'].toString(),
@@ -442,8 +510,12 @@ class ProductCardData {
       originalPrice: originalPrice,
       rating: rating,
       reviewCount: reviewCount,
+      salesCount: salesCount,
+      sellerName: sellerName == null || sellerName.isEmpty
+          ? 'Local Seller'
+          : sellerName,
       isFavorite: isFavorite,
-      inStock: stock > 0,
+      inStock: stock == null || stock > 0,
       stockCount: stock,
       onToggleFavorite: onToggleFavorite,
       onTap: onTap,

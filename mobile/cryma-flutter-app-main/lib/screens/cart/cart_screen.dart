@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
@@ -16,6 +20,8 @@ class CartItem {
     required this.availableStock,
     required this.imagePath,
     required this.seller,
+    this.sellerId,
+    this.storeSlug,
     this.selected = true,
   });
 
@@ -32,11 +38,26 @@ class CartItem {
   final int availableStock;
   final String imagePath;
   final String seller;
+  final String? sellerId;
+  final String? storeSlug;
   bool selected;
 }
 
+class _CartSellerGroup {
+  _CartSellerGroup({
+    required this.seller,
+    this.storeSlug,
+  });
+
+  final String seller;
+  String? storeSlug;
+  final List<CartItem> items = [];
+}
+
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key});
+  const CartScreen({super.key, this.api});
+
+  final ApiService? api;
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -46,6 +67,8 @@ class _CartScreenState extends State<CartScreen> {
   List<CartItem> _cartItems = [];
   bool _stockCheckLoading = false;
   String? _stockCheckError;
+
+  ApiService get _api => widget.api ?? ApiService.instance;
 
   @override
   void initState() {
@@ -57,6 +80,7 @@ class _CartScreenState extends State<CartScreen> {
     final stored = await CartStore.instance.items();
     var refreshed = stored;
     String? stockError;
+    String? storeMetadataError;
     if (stored.isNotEmpty) {
       if (mounted) {
         setState(() {
@@ -64,8 +88,14 @@ class _CartScreenState extends State<CartScreen> {
           _stockCheckError = null;
         });
       }
+      refreshed = await _backfillStorefrontMetadata(
+        refreshed,
+        onError: (message) {
+          storeMetadataError ??= message;
+        },
+      );
       try {
-        final requestItems = stored.map((item) => {
+        final requestItems = refreshed.map((item) => {
               'product_id': int.tryParse(
                   (item['product_id'] ?? item['id']).toString()),
               'variant_id': item['variant_id'],
@@ -73,8 +103,7 @@ class _CartScreenState extends State<CartScreen> {
         if (requestItems.any((item) => item['product_id'] == null)) {
           throw const ApiException('A cart product has an invalid identifier.');
         }
-        final availability =
-            await ApiService.instance.getProductAvailability(requestItems);
+        final availability = await _api.getProductAvailability(requestItems);
         final stockByKey = <String, int>{};
         for (final row in availability) {
           stockByKey[
@@ -84,7 +113,7 @@ class _CartScreenState extends State<CartScreen> {
         if (stockByKey.length != requestItems.length) {
           throw const ApiException('The stock check did not include every cart item.');
         }
-        refreshed = stored.map((item) {
+        refreshed = refreshed.map((item) {
           final productId = (item['product_id'] ?? item['id']).toString();
           final variantId = item['variant_id']?.toString() ?? '';
           final stock = stockByKey['$productId:$variantId'] ?? 0;
@@ -129,15 +158,78 @@ class _CartScreenState extends State<CartScreen> {
           availableStock: availableStock,
           imagePath: item['image']?.toString() ?? '',
           seller: item['seller']?.toString() ?? 'Seller',
+          sellerId: item['seller_id']?.toString(),
+          storeSlug: item['store_slug']?.toString(),
           selected: item['selected'] as bool? ?? true,
         );
       }).toList();
     });
-    if (stockError != null) {
+    final loadErrors = [storeMetadataError, stockError].whereType<String>();
+    if (loadErrors.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(stockError)),
+        SnackBar(content: Text(loadErrors.join(' '))),
       );
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _backfillStorefrontMetadata(
+    List<Map<String, dynamic>> items, {
+    required void Function(String message) onError,
+  }) async {
+    final productIds = <String>{
+      for (final item in items)
+        if (!item.containsKey('store_slug'))
+          (item['product_id'] ?? item['id']).toString()
+    }.where((id) => int.tryParse(id) != null).toSet();
+    if (productIds.isEmpty) return items;
+
+    final results = await Future.wait(productIds.map((id) async {
+      try {
+        return MapEntry(id, await _api.getProduct(id));
+      } on ApiException catch (error) {
+        onError(error.message);
+      } on SocketException {
+        onError('Unable to load saved store details. Check your connection.');
+      } on TimeoutException {
+        onError('Loading saved store details took too long. Please try again.');
+      } on http.ClientException {
+        onError('Unable to load saved store details. Check your connection.');
+      }
+      return null;
+    }));
+    final productsById = {
+      for (final result in results)
+        if (result != null) result.key: result.value,
+    };
+    var changed = false;
+    final updatedItems = items.map((item) {
+      if (item.containsKey('store_slug')) return item;
+      final productId = (item['product_id'] ?? item['id']).toString();
+      final product = productsById[productId];
+      if (product == null) return item;
+
+      final seller = product['seller'] is Map<String, dynamic>
+          ? product['seller'] as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final profile = seller['seller_profile'] is Map<String, dynamic>
+          ? seller['seller_profile'] as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final businessName = profile['business_name']?.toString().trim();
+      final sellerId = item['seller_id']?.toString().trim();
+      changed = true;
+      return {
+        ...item,
+        'seller_id': sellerId != null && sellerId.isNotEmpty
+            ? sellerId
+            : seller['id']?.toString(),
+        'store_slug': profile['store_slug']?.toString() ?? '',
+        if (businessName != null && businessName.isNotEmpty)
+          'seller': businessName,
+      };
+    }).toList();
+
+    if (changed) await CartStore.instance.save(updatedItems);
+    return updatedItems;
   }
 
   Future<void> _persistCart() async {
@@ -155,6 +247,8 @@ class _CartScreenState extends State<CartScreen> {
                 'stock': item.availableStock,
                 'image': item.imagePath,
                 'seller': item.seller,
+                'seller_id': item.sellerId,
+                'store_slug': item.storeSlug,
                 'selected': item.selected,
               })
           .toList(),
@@ -260,13 +354,29 @@ class _CartScreenState extends State<CartScreen> {
   int get _subtotal =>
       _selectedItems.fold(0, (s, item) => s + item.price * item.quantity);
 
-  // Group items by seller name for display.
-  List<MapEntry<String, List<CartItem>>> get _grouped {
-    final map = <String, List<CartItem>>{};
+  List<_CartSellerGroup> get _grouped {
+    final map = <String, _CartSellerGroup>{};
     for (final item in _cartItems) {
-      map.putIfAbsent(item.seller, () => []).add(item);
+      final sellerId = item.sellerId?.trim();
+      final storeSlug = item.storeSlug?.trim();
+      final key = sellerId != null && sellerId.isNotEmpty
+          ? 'id:$sellerId'
+          : storeSlug != null && storeSlug.isNotEmpty
+              ? 'slug:$storeSlug'
+              : 'name:${item.seller}';
+      final group = map.putIfAbsent(
+        key,
+        () => _CartSellerGroup(
+          seller: item.seller,
+          storeSlug: storeSlug?.isNotEmpty == true ? storeSlug : null,
+        ),
+      );
+      if (group.storeSlug == null && storeSlug?.isNotEmpty == true) {
+        group.storeSlug = storeSlug;
+      }
+      group.items.add(item);
     }
-    return map.entries.toList();
+    return map.values.toList();
   }
 
   @override
@@ -284,9 +394,9 @@ class _CartScreenState extends State<CartScreen> {
                   : ListView(
                       padding: const EdgeInsets.only(bottom: 8),
                       children: [
-                        for (final entry in _grouped) ...[
-                          _buildSellerHeader(entry.key),
-                          for (final item in entry.value) _buildCartItem(item),
+                        for (final group in _grouped) ...[
+                          _buildSellerHeader(group),
+                          for (final item in group.items) _buildCartItem(item),
                           const SizedBox(height: 8),
                         ],
                         // Shipping note
@@ -408,28 +518,47 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   // ── SELLER GROUP HEADER ─────────────────────────────────────────────────────
-  Widget _buildSellerHeader(String seller) {
-    return Container(
+  Widget _buildSellerHeader(_CartSellerGroup group) {
+    final storeSlug = group.storeSlug;
+    final canOpenStorefront = storeSlug != null && storeSlug.isNotEmpty;
+    return Material(
       color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-      child: Row(
-        children: [
-          const Icon(Icons.storefront_outlined,
-              size: 15, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              seller,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.darkGray,
+      child: InkWell(
+        onTap: canOpenStorefront
+            ? () => Navigator.pushNamed(
+                  context,
+                  '/storefront',
+                  arguments: storeSlug,
+                )
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          child: Row(
+            children: [
+              const Icon(Icons.storefront_outlined,
+                  size: 15, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  group.seller,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkGray,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
+              if (canOpenStorefront)
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: AppColors.textSubtle,
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

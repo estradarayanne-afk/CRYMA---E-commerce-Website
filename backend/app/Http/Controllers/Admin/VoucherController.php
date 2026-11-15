@@ -21,7 +21,7 @@ class VoucherController extends Controller
             'type' => ['sometimes', 'nullable', Rule::in(['all', 'fixed', 'percentage'])],
             'scope' => ['sometimes', 'nullable', Rule::in(['all', 'product', 'shipping'])],
             'status' => ['sometimes', 'nullable', Rule::in(['all', 'active', 'inactive', 'upcoming', 'expired', 'exhausted'])],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:15'],
         ]);
 
         $query = Voucher::query()
@@ -65,7 +65,7 @@ class VoucherController extends Controller
         };
 
         $vouchers = $query->orderByDesc('created_at')
-            ->paginate($validated['per_page'] ?? 10)
+            ->paginate($validated['per_page'] ?? 15)
             ->withQueryString();
 
         return response()->json([
@@ -87,7 +87,7 @@ class VoucherController extends Controller
         $redemptions = $voucher->redemptions()
             ->select(['id', 'voucher_id', 'order_id', 'discount_amount', 'created_at'])
             ->latest()
-            ->paginate(10);
+            ->paginate(15);
 
         return response()->json([
             'success' => true,

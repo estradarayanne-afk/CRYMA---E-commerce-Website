@@ -87,12 +87,14 @@ void main() {
     expect(find.text('₱450.00'), findsNWidgets(2));
     expect(find.text('Everyday Tote'), findsOneWidget);
     expect(find.text('Qty 2'), findsOneWidget);
-    expect(find.text('Contact seller'), findsOneWidget);
-    expect(find.text('Cancel order'), findsOneWidget);
     expect(find.text('ESTIMATED ARRIVAL'), findsOneWidget);
     expect(find.text('Nov 10, 2026 – Nov 13, 2026'), findsOneWidget);
     expect(find.text('Arrived at a hub'), findsOneWidget);
     expect(find.text('Your parcel arrived at North Hub. · Hub NORTH-01'),
         findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Contact seller'), 300);
+    expect(find.text('Contact seller'), findsOneWidget);
+    expect(find.text('Cancel order'), findsNothing);
   });
 }

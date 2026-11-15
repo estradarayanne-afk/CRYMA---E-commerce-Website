@@ -89,7 +89,7 @@ class CommissionController extends Controller
 
         $commissions = $query
             ->latest()
-            ->paginate(10);
+            ->paginate(15);
 
         return response()->json([
             'success' => true,

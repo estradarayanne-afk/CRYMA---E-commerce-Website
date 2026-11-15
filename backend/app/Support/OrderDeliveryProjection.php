@@ -13,7 +13,7 @@ class OrderDeliveryProjection
     {
         $order->loadMissing(['shippingCharge', 'codCollection']);
         $delivery = $order->delivery;
-        $delivery?->loadMissing('events.hub');
+        $delivery?->loadMissing(['events.hub', 'courierProfile.user']);
         $pickup = $delivery?->pickupAssignment;
         $deliveryAttempts = $delivery
             ? $delivery->events->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts'])->count()
@@ -70,6 +70,9 @@ class OrderDeliveryProjection
             'delivery_picked_up_at' => $delivery->delivery_picked_up_at,
             'delivered_at' => $delivery->delivered_at,
             'buyer_confirmed_at' => $delivery->buyer_confirmed_at,
+            'delivery_rider' => $delivery->delivery_picked_up_at && $delivery->courierProfile?->user ? [
+                'name' => trim($delivery->courierProfile->user->first_name.' '.$delivery->courierProfile->user->last_name),
+            ] : null,
             'delivery_area' => $delivery->deliveryArea ? ['name' => $delivery->deliveryArea->name] : null,
             'current_hub' => $delivery->currentHub ? ['name' => $delivery->currentHub->name, 'code' => $delivery->currentHub->code] : null,
             'return_shipment' => $delivery->returnShipment ? [
@@ -88,6 +91,7 @@ class OrderDeliveryProjection
                 'status' => $pickup->status,
                 'pickup_address' => $pickup->pickup_address,
                 'requested_at' => $pickup->requested_at,
+                'preferred_scheduled_at' => $pickup->pickupBatch?->preferred_scheduled_at,
                 'scheduled_at' => $pickup->scheduled_at,
                 'assigned_at' => $pickup->assigned_at,
                 'picked_up_at' => $pickup->picked_up_at,

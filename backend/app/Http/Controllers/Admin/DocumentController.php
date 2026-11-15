@@ -54,7 +54,7 @@ class DocumentController extends Controller
             $query->where('status', $request->status);
         }
 
-        $documents = $query->paginate(10);
+        $documents = $query->paginate(15);
 
         return response()->json([
             'success' => true,

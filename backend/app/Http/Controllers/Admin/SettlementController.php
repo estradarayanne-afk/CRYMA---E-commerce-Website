@@ -15,7 +15,7 @@ class SettlementController extends Controller
     public function codCollections()
     {
         $rows = CodCollection::with(['order:id,buyer_id,status,total_amount', 'order.buyer:id,first_name,last_name', 'courierProfile.user:id,first_name,last_name'])
-            ->latest()->paginate(25);
+            ->latest()->paginate(15);
         return response()->json(['success' => true, 'data' => $rows]);
     }
 
@@ -57,7 +57,7 @@ class SettlementController extends Controller
     public function payouts()
     {
         $rows = Commission::with(['seller:id,first_name,last_name,email', 'order:id,status,total_amount,payment_method', 'order.codCollection', 'order.refundRequests:id,order_id,status,approved_amount'])
-            ->latest()->paginate(25);
+            ->latest()->paginate(15);
         $rows->getCollection()->transform(function (Commission $row) {
             $refunded = (float) $row->order->refundRequests->where('status', 'refunded')->sum('approved_amount');
             $row->setAttribute('refunded_amount', $refunded);

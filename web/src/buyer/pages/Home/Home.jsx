@@ -13,7 +13,6 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../../../shared/services/api";
 import HomeHeroScene from "./HomeHeroScene";
 import ProductCard from "../../components/ProductCard/ProductCard";
-import { LANDING_VISUALS } from "../../../shared/constants/landingVisuals";
 import {
     getBuyerCart,
     isBuyerSession,
@@ -116,6 +115,7 @@ function Home() {
 
     const heroRef = useRef(null);
     const previousFocusRef = useRef(null);
+    const logisticsMotionRef = useRef(null);
 
     const buyerSession = isBuyerSession();
     const greetingName = buyerSession
@@ -132,6 +132,25 @@ function Home() {
     const [cartModalOpen, setCartModalOpen] = useState(false);
 
     const [retryCount, setRetryCount] = useState(0);
+
+    useEffect(() => {
+        const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const syncVehicleMotion = () => {
+            const motion = logisticsMotionRef.current;
+            if (!motion) return;
+
+            if (motionPreference.matches) {
+                motion.endElement();
+            } else {
+                motion.endElement();
+                motion.beginElement();
+            }
+        };
+
+        syncVehicleMotion();
+        motionPreference.addEventListener("change", syncVehicleMotion);
+        return () => motionPreference.removeEventListener("change", syncVehicleMotion);
+    }, []);
 
     /* =====================================================
        FEATURED PRODUCTS
@@ -978,21 +997,144 @@ function Home() {
                     <div className="buyer-logistics-card">
 
                         <div className="buyer-logistics-photo">
+                            <div
+                                className="buyer-logistics-scene"
+                                role="img"
+                                aria-label="Animated CRYMA delivery journey from a local shop to a home"
+                            >
+                                <svg className="buyer-journey-svg" viewBox="0 0 640 320" fill="none" aria-hidden="true">
+                                    <defs>
+                                        <linearGradient id="journey-sky" x1="320" y1="0" x2="320" y2="320" gradientUnits="userSpaceOnUse">
+                                            <stop stopColor="#F9E8E9" />
+                                            <stop offset="1" stopColor="#E9B9C6" />
+                                        </linearGradient>
+                                        <linearGradient id="journey-road" x1="70" y1="260" x2="580" y2="230" gradientUnits="userSpaceOnUse">
+                                            <stop stopColor="#A65770" />
+                                            <stop offset="1" stopColor="#76243F" />
+                                        </linearGradient>
+                                        <linearGradient id="journey-van" x1="265" y1="180" x2="355" y2="242" gradientUnits="userSpaceOnUse">
+                                            <stop stopColor="#FFFDFB" />
+                                            <stop offset="1" stopColor="#F2DDE1" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path className="journey-sky" fill="url(#journey-sky)" d="M0 0h640v320H0z" />
+                                    <circle className="journey-sun-glow" cx="516" cy="69" r="44" fill="#FFF6E7" />
+                                    <circle cx="516" cy="69" r="25" fill="#FFF8EC" />
+                                    <g className="journey-cloud journey-cloud--one" fill="#FFFDFC" fillOpacity=".76">
+                                        <ellipse cx="153" cy="75" rx="33" ry="9" />
+                                        <circle cx="140" cy="69" r="13" />
+                                        <circle cx="157" cy="64" r="17" />
+                                        <circle cx="174" cy="70" r="12" />
+                                    </g>
+                                    <g className="journey-cloud journey-cloud--two" fill="#FFFDFC" fillOpacity=".58">
+                                        <ellipse cx="376" cy="106" rx="27" ry="7" />
+                                        <circle cx="365" cy="100" r="11" />
+                                        <circle cx="380" cy="96" r="14" />
+                                        <circle cx="394" cy="101" r="9" />
+                                    </g>
+                                    <g className="journey-birds" fill="none" stroke="#8E4961" strokeLinecap="round" strokeWidth="2">
+                                        <path d="m248 70 7-6 7 6m5-9 5-4 5 4" />
+                                    </g>
+                                    <path fill="#D99AAC" d="M0 188c78-35 133-33 213-5 75 27 139 24 204-9 77-39 141-34 223-3v149H0V188Z" />
+                                    <path fill="#C77B92" d="M0 222c83-35 157-35 234-2 68 29 123 26 190-7 76-37 137-34 216-4v111H0V222Z" />
 
-                            <img
-                                src={LANDING_VISUALS.logistics.src}
-                                alt={LANDING_VISUALS.logistics.alt}
-                                loading="lazy"
-                                decoding="async"
-                                onError={(event) => {
-                                    event.currentTarget.hidden = true;
+                                    <g className="journey-tree journey-tree--left">
+                                        <path d="M30 232h8v-45h-8z" fill="#8A4B50" />
+                                        <circle cx="34" cy="180" r="20" fill="#8DB18D" stroke="#668C75" strokeWidth="3" />
+                                        <circle cx="22" cy="190" r="13" fill="#A4C59E" stroke="#668C75" strokeWidth="2" />
+                                        <circle cx="47" cy="190" r="13" fill="#A4C59E" stroke="#668C75" strokeWidth="2" />
+                                        <circle cx="29" cy="176" r="3" fill="#F8E8B9" />
+                                    </g>
+                                    <g className="journey-tree journey-tree--right">
+                                        <path d="M614 232h7v-39h-7z" fill="#8A4B50" />
+                                        <circle cx="617" cy="186" r="17" fill="#8DB18D" stroke="#668C75" strokeWidth="3" />
+                                        <circle cx="606" cy="195" r="11" fill="#A4C59E" stroke="#668C75" strokeWidth="2" />
+                                        <circle cx="628" cy="195" r="11" fill="#A4C59E" stroke="#668C75" strokeWidth="2" />
+                                        <circle cx="622" cy="183" r="3" fill="#F8E8B9" />
+                                    </g>
 
-                                    event.currentTarget.parentElement?.classList.add(
-                                        "image-unavailable"
-                                    );
-                                }}
-                            />
+                                    <g className="journey-shop">
+                                        <path d="M56 157h112v76H56z" fill="#FFF9F6" />
+                                        <path d="M47 157h130l-13-32H60l-13 32Z" fill="#8C3453" />
+                                        <path d="M47 157h130v8H47z" fill="#F6D6DD" stroke="#6D203C" strokeWidth="2" />
+                                        <path d="M56 157 67 130h15l-8 27m21 0 7-27h15v27m21 0 2-27h15l-2 27" fill="#C9748D" stroke="#F9DDE3" strokeWidth="2" />
+                                        <path className="journey-shop-flag" d="M164 125v-24m0 1h22l-7 8 7 7h-22" fill="#D76D87" stroke="#84314E" strokeWidth="2" strokeLinejoin="round" />
+                                        <path d="M69 157v-20h20v20m15 0v-20h20v20m15 0v-20h20v20" stroke="#F7CBD5" strokeWidth="4" />
+                                        <path d="M69 178h35v55H69z" fill="#E9B5C2" />
+                                        <path d="M117 177h38v25h-38z" fill="#D8EEF0" />
+                                        <path d="M136 177v25m-19-12h38" stroke="#FFF9F6" strokeWidth="3" />
+                                        <circle cx="96" cy="207" r="2" fill="#7B2946" />
+                                        <path d="M55 233h114" stroke="#8C3453" strokeWidth="5" strokeLinecap="round" />
+                                        <g className="journey-sign">
+                                            <rect x="76" y="106" width="75" height="19" rx="9.5" fill="#FFFDFC" fillOpacity=".94" />
+                                            <text x="113.5" y="119" textAnchor="middle" fill="#76243F" fontSize="8" fontWeight="800" letterSpacing="1.1">LOCAL SHOP</text>
+                                        </g>
+                                    </g>
 
+                                    <g className="journey-home">
+                                        <path d="m474 157 64-52 65 52v76H474v-76Z" fill="#FFF9F6" />
+                                        <path d="m461 158 77-63 78 63-8 9-70-57-70 57-7-9Z" fill="#87324F" />
+                                        <path d="M493 172h28v29h-28zm53 0h28v29h-28z" fill="#D8EEF0" stroke="#E8B8C5" strokeWidth="3" />
+                                        <path d="M507 172v29m-14-14h28m53-15v29m-14-14h28" stroke="#FFFDFC" strokeWidth="2" />
+                                        <path className="journey-home-door" d="M522 192h28v41h-28z" fill="#DCA0B0" stroke="#87324F" strokeWidth="2" />
+                                        <circle cx="543" cy="214" r="2" fill="#76243F" />
+                                        <g className="journey-delivered-parcel">
+                                            <path d="m560 229 9-5 10 5v10l-10 5-9-5v-10Z" fill="#D99B64" stroke="#7D4A3F" strokeWidth="1.5" strokeLinejoin="round" />
+                                            <path d="m560 229 9 5 10-5m-10 5v10m-5-13 10-5" stroke="#F8E3B7" strokeWidth="1.5" />
+                                        </g>
+                                        <path d="M468 233h143" stroke="#8C3453" strokeWidth="5" strokeLinecap="round" />
+                                        <g className="journey-arrival">
+                                            <circle cx="570" cy="88" r="20" fill="#FFFDFC" fillOpacity=".72" />
+                                            <circle cx="570" cy="88" r="11" fill="#8C3453" />
+                                            <path d="m565 88 4 4 7-8" stroke="#FFFDFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </g>
+                                        <g className="journey-sign">
+                                            <rect x="528" y="244" width="82" height="19" rx="9.5" fill="#FFFDFC" fillOpacity=".94" />
+                                            <text x="569" y="257" textAnchor="middle" fill="#76243F" fontSize="8" fontWeight="800" letterSpacing="1">YOUR DOOR</text>
+                                        </g>
+                                    </g>
+
+                                    <path d="M0 254c83-15 141-36 209-32 84 5 111 47 188 42 74-5 129-41 243-40v96H0v-66Z" fill="url(#journey-road)" />
+                                    <path d="M-8 254c84-15 145-36 217-31 81 6 112 46 188 41 74-5 128-41 251-40" stroke="#F2CCD4" strokeOpacity=".52" strokeWidth="3" />
+                                    <path className="journey-road-dashes" d="M-8 278c84-15 145-36 217-31 81 6 112 46 188 41 74-5 128-41 251-40" stroke="#FFF3F0" strokeWidth="3" strokeLinecap="round" strokeDasharray="12 15" />
+                                    <g className="journey-vehicle">
+                                        <g className="journey-vehicle-body">
+                                            <path d="M-42-20h45c4 0 7 3 7 7v26h-58v-27c0-3 3-6 6-6Z" fill="url(#journey-van)" stroke="#84314E" strokeWidth="2" />
+                                            <path d="M10-15h20l14 14v14H10v-28Z" fill="#EFC8D1" stroke="#84314E" strokeWidth="2" />
+                                            <path d="M14-11h13l9 10H14v-10Z" fill="#9CC8CF" />
+                                            <circle cx="25" cy="-7" r="4.5" fill="#F1C4A5" stroke="#84314E" strokeWidth="1" />
+                                            <path d="M19-8c1-7 11-8 14-2l-1 3H19z" fill="#8C3453" stroke="#84314E" strokeWidth="1" />
+                                            <circle cx="27" cy="-7" r="0.8" fill="#472034" />
+                                            <path d="M-35-13h34v15h-34z" fill="#E8B8C5" />
+                                            <path d="M-31-9h26" stroke="#FFFDFC" strokeWidth="2" />
+                                            <rect x="-25" y="-25" width="25" height="8" rx="2" fill="#8C3453" />
+                                            <text x="-12.5" y="-19" textAnchor="middle" fill="#FFF7F3" fontSize="5" fontWeight="900" letterSpacing=".4">C</text>
+                                            <g className="journey-wheel">
+                                                <circle cx="-29" cy="14" r="7" fill="#472034" />
+                                                <circle cx="-29" cy="14" r="3" fill="#F8E8E8" />
+                                                <path d="M-29 8v12m-6-6h12" stroke="#C8899B" strokeWidth="1" />
+                                            </g>
+                                            <g className="journey-wheel">
+                                                <circle cx="28" cy="14" r="7" fill="#472034" />
+                                                <circle cx="28" cy="14" r="3" fill="#F8E8E8" />
+                                                <path d="M28 8v12m-6-6h12" stroke="#C8899B" strokeWidth="1" />
+                                            </g>
+                                            <rect x="38" y="4" width="4" height="5" rx="2" fill="#FFF0D6" />
+                                            <rect x="-44" y="3" width="4" height="5" rx="2" fill="#F2A5B6" />
+                                            <path d="M-8-15v11m7-11v11m7-11v11" stroke="#FFFDFC" strokeOpacity=".76" strokeWidth="2" />
+                                            <path className="journey-van-smile" d="M24-2q3 2 6 0" stroke="#84314E" strokeWidth="1" strokeLinecap="round" />
+                                        </g>
+                                        <animateMotion
+                                            ref={logisticsMotionRef}
+                                            begin="indefinite"
+                                            dur="9s"
+                                            repeatCount="indefinite"
+                                            rotate="auto"
+                                            path="M90 246 C164 238 218 207 286 229 S397 258 462 232 S526 208 558 218"
+                                        />
+                                    </g>
+                                </svg>
+                            </div>
                         </div>
 
                         <div className="buyer-logistics-icon">

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\Address;
+use App\Models\GeographicLocation;
 use App\Models\Product;
 use App\Models\ShippingRate;
 use App\Models\User;
@@ -341,13 +342,26 @@ class OrderCheckoutIntegrityTest extends TestCase
     public function test_checkout_uses_an_owned_saved_address_snapshot(): void
     {
         [$buyer, $product] = $this->buyerAndProduct('12.00', 4);
+        $region = GeographicLocation::create(['code' => '9900000000', 'name' => 'Region VII (Central Visayas)', 'level' => 'Reg']);
+        $municipality = GeographicLocation::create([
+            'code' => '9900000100',
+            'name' => 'Carmen',
+            'level' => 'Mun',
+            'parent_code' => $region->code,
+        ]);
+        GeographicLocation::create([
+            'code' => '9900000101',
+            'name' => 'Luyang',
+            'level' => 'Bgy',
+            'parent_code' => $municipality->code,
+        ]);
         $address = Address::create([
             'label' => 'home',
             'recipient_name' => 'Ana Maria Dela Cruz',
             'phone' => '+639171234567',
             'is_default' => true,
             'user_id' => $buyer->id, 'region' => 'Region VII (Central Visayas)', 'province' => 'Cebu',
-            'municipality' => 'Carmen', 'barangay' => 'Luyang', 'street' => 'Market Road',
+            'municipality' => 'Carmen', 'barangay' => 'Luyang', 'psgc_code' => '9900000101', 'street' => 'Market Road',
             'house_number' => '18', 'postal_code' => '6005',
         ]);
         ShippingRate::create([
@@ -373,6 +387,7 @@ class OrderCheckoutIntegrityTest extends TestCase
         $order = Order::firstOrFail();
         $snapshot = 'Home, Recipient: Ana Maria Dela Cruz, Contact: +639171234567, 18, Market Road, Luyang, Carmen, Cebu, Region VII (Central Visayas), 6005';
         $this->assertSame($snapshot, $order->delivery_address);
+        $this->assertSame('9900000101', $order->delivery_psgc_code);
 
         $address->update([
             'recipient_name' => 'Changed Name',
@@ -381,6 +396,7 @@ class OrderCheckoutIntegrityTest extends TestCase
         ]);
         $address->delete();
         $this->assertSame($snapshot, $order->fresh()->delivery_address);
+        $this->assertSame('9900000101', $order->fresh()->delivery_psgc_code);
 
         $otherBuyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $foreignAddress = Address::create([

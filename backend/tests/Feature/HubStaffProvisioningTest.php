@@ -62,6 +62,10 @@ class HubStaffProvisioningTest extends TestCase
         $otp = null;
         Mail::assertSent(RegistrationOtpMail::class, function (RegistrationOtpMail $mail) use (&$otp): bool {
             $otp = $mail->otp;
+            $this->assertStringContainsString(
+                rtrim((string) config('app.frontend_url'), '/').'/verify-email',
+                $mail->render(),
+            );
 
             return true;
         });
@@ -269,6 +273,10 @@ class HubStaffProvisioningTest extends TestCase
             ->assertJsonPath('data.total', 2)
             ->assertJsonPath('data.current_page', 2)
             ->assertJsonCount(1, 'data.data');
+
+        $this->getJson('/api/admin/hub-staff?per_page=16')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['per_page']);
     }
 
     private function admin(): User

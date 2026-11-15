@@ -12,6 +12,42 @@
     font-size: 13px;
     line-height: 1.6;
 }
+.sl-logistics-bulk-bar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--color-border);
+    color:var(--text-secondary);
+    font-size:12px;
+    font-weight:650;
+}
+.sl-logistics-preferred-time {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--text-secondary);
+    font-size:12px;
+    font-weight:650;
+}
+.sl-logistics-preferred-time input {
+    min-height:38px;
+    padding:0 10px;
+    border:1px solid var(--color-border);
+    border-radius:9px;
+    background:#fff;
+    color:var(--text-primary);
+    font:inherit;
+}
+.sl-logistics-bulk-bar button { flex:0 0 auto; }
+.sl-table input[type="checkbox"] {
+    width:16px;
+    height:16px;
+    accent-color:var(--crimson);
+    cursor:pointer;
+}
+.sl-table input[type="checkbox"]:disabled { cursor:not-allowed; }
 .sl-page .sl-logistics-pickup-button {
     display:inline-flex;
     min-height:38px;
@@ -37,4 +73,9 @@
     transform:translateY(-1px);
 }
 .sl-page .sl-logistics-pickup-button:focus-visible { outline:3px solid rgba(178,31,58,.28); outline-offset:2px; }
-@media (max-width:700px) { .sl-page .sl-logistics-pickup-button { min-height:36px; padding-inline:11px; } }
+@media (max-width:700px) {
+    .sl-page .sl-logistics-pickup-button { min-height:36px; padding-inline:11px; }
+    .sl-logistics-bulk-bar { align-items:flex-start; flex-direction:column; }
+    .sl-logistics-preferred-time { width:100%; align-items:flex-start; flex-direction:column; }
+    .sl-logistics-preferred-time input { width:100%; }
+}

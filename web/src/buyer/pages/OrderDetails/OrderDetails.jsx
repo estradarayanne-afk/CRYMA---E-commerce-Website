@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ArrowLeft,
     Check,
@@ -19,6 +19,7 @@ import api from "../../../shared/services/api";
 import Dialog from "../../../shared/components/Dialog";
 import { formatDeliveryEstimate } from "../../../shared/utils/deliveryEstimate";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
+import BuyerRiderChat from "./BuyerRiderChat";
 
 import "./OrderDetails.css";
 
@@ -289,6 +290,8 @@ function OrderDetails() {
     const [deliveryIssueSubmitting, setDeliveryIssueSubmitting] = useState(false);
     const [deliveryIssueError, setDeliveryIssueError] = useState("");
     const [deliveryIssueTicketId, setDeliveryIssueTicketId] = useState(null);
+    const [riderChatOpen, setRiderChatOpen] = useState(false);
+    const closeRiderChat = useCallback(() => setRiderChatOpen(false), []);
 
     const isLoggedIn =
         !!localStorage.getItem(
@@ -1036,6 +1039,11 @@ function OrderDetails() {
                                 {order.delivery_progress?.max_delivery_attempts > 0 && <small>Delivery attempts: {order.delivery_progress.delivery_attempts || 0} of {order.delivery_progress.max_delivery_attempts}</small>}
                                 {order.delivery_progress?.delivery_area?.name && <small>Delivery area: {order.delivery_progress.delivery_area.name}</small>}
                                 {order.delivery_progress?.pickup?.status && <small>Seller pickup: {formatStatusLabel(order.delivery_progress.pickup.status)}</small>}
+                                {order.delivery_progress?.delivery_rider?.name && <div className="order-delivery-rider">
+                                    <span>Delivery rider</span>
+                                    <strong>{order.delivery_progress.delivery_rider.name}</strong>
+                                    <button type="button" onClick={() => setRiderChatOpen(true)}><MessageCircle size={14} /> Message rider</button>
+                                </div>}
                             </div>
                         </div>
                     </section>
@@ -1228,6 +1236,7 @@ function OrderDetails() {
                     </section>
                 </aside>
             </div>
+            {riderChatOpen && <BuyerRiderChat orderId={order.id} onClose={closeRiderChat} />}
             <Dialog
                 open={receiptConfirmOpen}
                 onClose={() => setReceiptConfirmOpen(false)}

@@ -31,6 +31,7 @@ class RegistrationOtpMail extends Mailable
             with: [
                 'otp' => $this->otp,
                 'appName' => $this->appName,
+                'verificationUrl' => rtrim((string) config('app.frontend_url', config('app.url')), '/').'/verify-email',
             ],
         );
     }

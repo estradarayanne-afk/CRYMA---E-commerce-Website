@@ -409,57 +409,131 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   }
 
   // ============================================================
-  // DATE PICKER (walang binago)
+  // DATE PICKER
   // ============================================================
   Widget _buildDatePicker() {
-    return GestureDetector(
-      onTap: () async {
-        final latestEligibleBirthday =
-            BuyerRegistrationRules.latestEligibleBirthday();
-        final DateTime? picked = await showDatePicker(
-          context: context,
-          initialDate: latestEligibleBirthday,
-          firstDate: DateTime(1900),
-          lastDate: latestEligibleBirthday,
-        );
-        if (picked != null) {
-          setState(() {
-            _onDateSelected(picked);
-          });
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          border: Border.all(
-            color: _birthdayController.text.isEmpty
-                ? AppColors.lightGray
-                : AppColors.lightGray,
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
           borderRadius: BorderRadius.circular(16),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _birthdayController.text.isEmpty
-                  ? 'MM / DD / YYYY'
-                  : DateFormat('MM/dd/yyyy').format(
-                      DateTime.parse(_birthdayController.text),
+          onTap: () async {
+            final latestEligibleBirthday =
+                BuyerRegistrationRules.latestEligibleBirthday();
+            final selectedBirthday =
+                DateTime.tryParse(_birthdayController.text);
+            final initialDate = selectedBirthday != null &&
+                    !selectedBirthday.isAfter(latestEligibleBirthday)
+                ? selectedBirthday
+                : latestEligibleBirthday;
+            final DateTime? picked = await showDatePicker(
+              context: context,
+              initialDate: initialDate,
+              firstDate: DateTime(1900),
+              lastDate: latestEligibleBirthday,
+              helpText: 'CHOOSE AN ELIGIBLE BIRTHDAY',
+              builder: (context, child) {
+                final theme = Theme.of(context);
+                return Theme(
+                  data: theme.copyWith(
+                    colorScheme: theme.colorScheme.copyWith(
+                      primary: AppColors.primary,
+                      onPrimary: AppColors.white,
+                      surface: AppColors.white,
+                      onSurface: AppColors.darkGray,
                     ),
-              style: TextStyle(
-                fontSize: 13,
+                    datePickerTheme: DatePickerThemeData(
+                      backgroundColor: AppColors.white,
+                      headerBackgroundColor: AppColors.primary,
+                      headerForegroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      todayBorder: const BorderSide(
+                        color: AppColors.floralPink,
+                        width: 1.5,
+                      ),
+                      cancelButtonStyle: TextButton.styleFrom(
+                        foregroundColor: AppColors.gray,
+                      ),
+                      confirmButtonStyle: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            if (picked != null) {
+              setState(() {
+                _onDateSelected(picked);
+              });
+            }
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              border: Border.all(
                 color: _birthdayController.text.isEmpty
-                    ? AppColors.gray
-                    : AppColors.darkGray,
-                fontFamily: 'Poppins',
+                    ? AppColors.lightGray
+                    : AppColors.primary,
+                width: _birthdayController.text.isEmpty ? 1 : 1.4,
               ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: _birthdayController.text.isEmpty
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
-            const Icon(Icons.calendar_today, color: AppColors.gray, size: 18),
-          ],
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _birthdayController.text.isEmpty
+                      ? 'MM / DD / YYYY'
+                      : DateFormat('MMMM d, yyyy').format(
+                          DateTime.parse(_birthdayController.text),
+                        ),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _birthdayController.text.isEmpty
+                        ? AppColors.gray
+                        : AppColors.darkGray,
+                    fontWeight: _birthdayController.text.isEmpty
+                        ? FontWeight.w400
+                        : FontWeight.w600,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                const Icon(
+                  Icons.calendar_month_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        const Padding(
+          padding: EdgeInsets.only(top: 6, left: 4),
+          child: Text(
+            'You must be at least 13 years old to register.',
+            style: TextStyle(
+              color: AppColors.gray,
+              fontSize: 10,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ),
+      ],
     );
   }
 

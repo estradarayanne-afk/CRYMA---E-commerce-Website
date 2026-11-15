@@ -760,9 +760,6 @@
 .complaints-filter { display:none; }
 .complaints-search { position:relative; display:flex; flex:0 1 360px; align-items:center; width:min(360px,100%); min-width:240px; height:44px; max-width:none; padding:0 12px; border:1px solid rgba(75,23,37,.16); border-radius:12px; background:linear-gradient(180deg,#fff,#FFFAFB); box-shadow:0 3px 10px rgba(75,23,37,.045),inset 0 1px 2px rgba(75,23,37,.035); transition:.18s ease; }
 .complaints-search:focus-within { border-color: #8A1C30; background: #fff; box-shadow: 0 0 0 3px rgba(138,28,48,.11),0 5px 14px rgba(75,23,37,.06); }
-.complaints-search .complaints-search-icon { position:relative; display:block; flex:0 0 11px; width:11px; height:11px; margin:0 12px 0 2px; border:1.8px solid #8A1C30; border-radius:50%; color:#8A1C30; }
-.complaints-search .complaints-search-icon::after { position:absolute; right:-5px; bottom:-3px; width:6px; height:1.8px; border-radius:2px; background:currentColor; content:""; transform:rotate(45deg); }
-.complaints-search > span::after { position:absolute; right:-5px; bottom:-3px; width:6px; height:1.8px; border-radius:2px; background:currentColor; content:""; transform:rotate(45deg); }
 .complaints-search input { min-width:0; height:100%; padding:0 8px; border:0; background:transparent; color:#26151A; font-size:13px; }
 .complaints-search > button { display:grid; place-items:center; width:24px; height:24px; padding:0; border:0; border-radius:50%; background:#F8EEF0; color:#7E1830; font-size:16px; font-weight:700; cursor:pointer; }
 .complaints-search input:focus { border:0; outline:0; }

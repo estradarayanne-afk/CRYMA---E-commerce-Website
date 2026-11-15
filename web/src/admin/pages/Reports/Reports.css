@@ -50,6 +50,46 @@
     white-space: normal;
 }
 
+.product-exposure-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    color: #8A6871;
+    font-size: 11px;
+}
+
+.product-exposure-pagination > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.product-exposure-pagination button {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    border: 1px solid #F0DDE2;
+    border-radius: 7px;
+    background: #fff;
+    color: #70213A;
+    font: 650 11px/1 inherit;
+    cursor: pointer;
+}
+
+.product-exposure-pagination button:disabled {
+    color: #B9A7AD;
+    cursor: not-allowed;
+}
+
+.product-exposure-pagination button:focus-visible {
+    outline: 2px solid #A93654;
+    outline-offset: 2px;
+}
+
 /* =========================================================
    PAGE HEADER
    ========================================================= */

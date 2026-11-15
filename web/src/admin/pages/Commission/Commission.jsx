@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
 import "./Commission.css";
@@ -8,7 +9,7 @@ function Commission() {
     const [pagination, setPagination] = useState({
         current_page: 1,
         last_page: 1,
-        per_page: 10,
+        per_page: 15,
         total: 0,
     });
     const [loading, setLoading] = useState(true);
@@ -58,7 +59,7 @@ function Commission() {
             setPagination({
                 current_page: data?.current_page || 1,
                 last_page: data?.last_page || 1,
-                per_page: data?.per_page || 10,
+                per_page: data?.per_page || 15,
                 total: data?.total || 0,
             });
         } catch (err) {
@@ -233,24 +234,13 @@ function Commission() {
                         ))}
                     </div>
 
-                    <div className="commission-search">
-
-                        <span>
-                            ⌕
-                        </span>
-
-                        <input
-                            type="text"
-                            placeholder="Search seller..."
-                            value={searchTerm}
-                            onChange={(event) =>
-                                setSearchTerm(
-                                    event.target.value
-                                )
-                            }
-                        />
-
-                    </div>
+                    <AdminSearchField
+                        className="commission-search"
+                        ariaLabel="Search commission records by seller"
+                        placeholder="Search seller..."
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                    />
 
 
                     <div className="commission-filter">

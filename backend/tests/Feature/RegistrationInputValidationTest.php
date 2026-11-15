@@ -132,12 +132,12 @@ class RegistrationInputValidationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_registration_api_enforces_the_complete_eighteenth_birthday(): void
+    public function test_registration_api_allows_buyers_from_their_thirteenth_birthday(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
         $today = CarbonImmutable::now('Asia/Manila')->startOfDay();
-        $eligibleBirthday = $today->subYears(18)->format('Y-m-d');
-        $notYetEligibleBirthday = $today->subYears(18)->addDay()->format('Y-m-d');
+        $eligibleBirthday = $today->subYears(13)->format('Y-m-d');
+        $notYetEligibleBirthday = $today->subYears(13)->addDay()->format('Y-m-d');
 
         foreach ([$notYetEligibleBirthday, $today->format('Y-m-d'), $today->addDay()->format('Y-m-d'), '2023-02-30', 'bad-date'] as $birthday) {
             $response = $this->postJson('/api/register', $this->buyerPayload($birthday));
@@ -148,14 +148,35 @@ class RegistrationInputValidationTest extends TestCase
         $response->assertUnprocessable()->assertJsonMissingValidationErrors(['birthday']);
     }
 
-    public function test_leap_day_birthday_becomes_eligible_on_march_first_in_a_non_leap_year(): void
+    public function test_non_buyer_registration_still_requires_eighteen(): void
     {
-        Carbon::setTestNow('2026-02-28 12:00:00 Asia/Manila');
+        $this->withoutMiddleware(ThrottleRequests::class);
+        $today = CarbonImmutable::now('Asia/Manila')->startOfDay();
+        $underageBirthday = $today->subYears(13)->format('Y-m-d');
+
+        foreach (['seller', 'rider', 'logistics'] as $role) {
+            $payload = $this->buyerPayload($underageBirthday);
+            $payload['role'] = $role;
+            $this->postJson('/api/register', $payload)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['birthday']);
+        }
+
+        $sellerPayload = $this->buyerPayload($today->subYears(18)->format('Y-m-d'));
+        $sellerPayload['role'] = 'seller';
+        $this->postJson('/api/register', $sellerPayload)
+            ->assertUnprocessable()
+            ->assertJsonMissingValidationErrors(['birthday']);
+    }
+
+    public function test_leap_day_buyer_becomes_eligible_on_march_first_in_a_non_leap_year(): void
+    {
+        Carbon::setTestNow('2025-02-28 12:00:00 Asia/Manila');
         try {
-            $this->postJson('/api/register', $this->buyerPayload('2008-02-29'))
+            $this->postJson('/api/register', $this->buyerPayload('2012-02-29'))
                 ->assertUnprocessable()->assertJsonValidationErrors(['birthday']);
-            Carbon::setTestNow('2026-03-01 00:01:00 Asia/Manila');
-            $this->postJson('/api/register', $this->buyerPayload('2008-02-29'))
+            Carbon::setTestNow('2025-03-01 00:01:00 Asia/Manila');
+            $this->postJson('/api/register', $this->buyerPayload('2012-02-29'))
                 ->assertUnprocessable()->assertJsonMissingValidationErrors(['birthday']);
         } finally {
             Carbon::setTestNow();
@@ -399,7 +420,7 @@ class RegistrationInputValidationTest extends TestCase
         Storage::fake('local');
         Mail::fake();
 
-        $this->assertSame('1.3', config('policies.terms.version'));
+        $this->assertSame('1.4', config('policies.terms.version'));
         $payload = array_merge($this->buyerPayload('1990-01-01'), [
             'email' => 'current-terms-version@example.com',
             'valid_id' => UploadedFile::fake()->createWithContent('id.pdf', "%PDF-1.4\nverified fixture"),

@@ -23,7 +23,7 @@ class BuyerRegistrationRules {
   static DateTime latestEligibleBirthday({DateTime? today}) {
     final current =
         today ?? DateTime.now().toUtc().add(const Duration(hours: 8));
-    final year = current.year - 18;
+    final year = current.year - 13;
     final candidate = DateTime(year, current.month, current.day);
     if (candidate.month != current.month || candidate.day != current.day) {
       return DateTime(year, current.month + 1, 0);
@@ -134,7 +134,7 @@ class BuyerRegistrationRules {
   static String? validateBirthday(String? value, {DateTime? today}) {
     final age = ageOnDate(value ?? '', today: today);
     if (age == null) return 'Enter a valid birthday that is not in the future.';
-    if (age < 18) return 'You must be at least 18 years old to register.';
+    if (age < 13) return 'You must be at least 13 years old to register.';
     return null;
   }
 

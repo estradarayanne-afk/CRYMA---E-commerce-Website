@@ -1673,7 +1673,7 @@
 }
 
 /* Shared CRYMA masthead across admin workspaces. */
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) {
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) {
     position: relative;
     isolation: isolate;
     overflow: hidden;
@@ -1689,7 +1689,7 @@
     background: #54192e;
     box-shadow: 0 4px 12px rgba(49,12,23,.12);
 }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading)::after {
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading)::after {
     content: "CRYMA";
     position: absolute;
     z-index: -1;
@@ -1703,8 +1703,8 @@
     white-space: nowrap;
     pointer-events: none;
 }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) > div:first-child { position: relative; z-index: 1; }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1 {
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) > div:first-child { position: relative; z-index: 1; }
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1 {
     margin-top: 3px;
     color: #fff9fa;
     font-family: var(--font-family-heading);
@@ -1714,20 +1714,20 @@
     line-height: 1.12;
     text-shadow: none;
 }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) > div:first-child > span:first-child { display: none; }
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) > div:first-child > span:first-child { display: none; }
 .al-root .al-content .dashboard-page-header > div:first-child > .dashboard-eyebrow { display: none; }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1::after { display: none; }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) p {
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) h1::after { display: none; }
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) p {
     max-width: 680px;
     margin-top: 6px;
     color: rgba(255,247,249,.84);
     font-size: 12px;
     line-height: 1.5;
 }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) :is(span,.settings-eyebrow) {
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) :is(span,.settings-eyebrow) {
     color: #f6cbd4;
 }
-.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) button {
+.al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) button {
     border-color: rgba(255,255,255,.28);
     box-shadow: none;
 }
@@ -1777,8 +1777,9 @@
 .al-root .al-content .settings-page-header { min-height: 112px; }
 
 @media (max-width:700px) {
-    .al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) { align-items: flex-start; flex-direction: column; min-height: auto; padding: 18px; }
+    .al-root .al-content :is(.account-page-header,.chat-page-header,.commission-header,.complaints-header,.dashboard-page-header,.hsm-header,.registrations-header,.refunds-header,.reports-page-header,.seller-compliance-header,.settings-page-header,.users-header,.voucher-admin-header,.ad-heading) { align-items: flex-start; flex-direction: column; min-height: auto; padding: 18px; }
 }
+.al-root .al-content .hsm-header .hsm-secondary-button { border-color: rgba(255,255,255,.32); background: rgba(255,255,255,.1); color: #fff9fa; }
 .al-root .al-content .account-page-header {
     flex-direction: column;
     align-items: flex-start;

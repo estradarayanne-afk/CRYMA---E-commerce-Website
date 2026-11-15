@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ShoppingBag, Store, Truck, Warehouse } from "lucide-react";
 import { LANDING_VISUALS } from "../../shared/constants/landingVisuals";
 import AuthShell from "../components/AuthShell";
 import "../styles/AuthPages.css";
@@ -6,19 +7,25 @@ import "./BuyerLogin.css";
 import "./RegistrationChoice.css";
 
 const roles = [
-    { key: "buyer", title: "Buyer", description: "Shop from trusted CRYMA sellers and manage your orders.", visual: LANDING_VISUALS.hero },
-    { key: "seller", title: "Seller", description: "List your products and reach customers across the marketplace.", visual: LANDING_VISUALS.sellerRegistration },
-    { key: "rider", title: "Courier", description: "Deliver orders and work with CRYMA’s logistics system.", visual: LANDING_VISUALS.logistics },
-    { key: "logistics", title: "Logistics / Sorting Center", description: "Manage CRYMA parcel operations after administrator approval.", visual: LANDING_VISUALS.logistics },
+    { key: "buyer", title: "Buyer", description: "Shop from trusted CRYMA sellers and manage your orders.", icon: ShoppingBag },
+    { key: "seller", title: "Seller", description: "List your products and reach customers across the marketplace.", icon: Store },
+    { key: "rider", title: "Courier", description: "Deliver orders and work with CRYMA’s logistics system.", icon: Truck },
+    { key: "logistics", title: "Logistics / Sorting Center", description: "Manage CRYMA parcel operations after administrator approval.", icon: Warehouse },
 ];
 
 function RoleChoices({ embedded = false, onChooseRole }) {
     return (
         <div className="registration-choices">
             {roles.map((role) => {
+                const RoleIcon = role.icon;
                 const content = (
                     <>
-                        <img src={role.visual.src} alt="" loading="lazy" />
+                        <span className={`registration-choice-art registration-choice-art--${role.key}`} aria-hidden="true">
+                            <span className="registration-choice-art-glow" />
+                            <span className="registration-choice-art-icon"><RoleIcon size={34} strokeWidth={1.8} /></span>
+                            <span className="registration-choice-art-spark registration-choice-art-spark--one" />
+                            <span className="registration-choice-art-spark registration-choice-art-spark--two" />
+                        </span>
                         <span className="registration-choice-content">
                             <strong>{role.title}</strong>
                             <span>{role.description}</span>
@@ -29,9 +36,9 @@ function RoleChoices({ embedded = false, onChooseRole }) {
                 );
 
                 return embedded ? (
-                    <button className="registration-choice" type="button" key={role.key} onClick={() => onChooseRole?.(role.key)}>{content}</button>
+                    <button className={`registration-choice registration-choice--${role.key}`} type="button" key={role.key} onClick={() => onChooseRole?.(role.key)}>{content}</button>
                 ) : (
-                    <Link className="registration-choice" to={`/register/${role.key}`} state={{ accountTypeSelected: true }} key={role.key}>{content}</Link>
+                    <Link className={`registration-choice registration-choice--${role.key}`} to={`/register/${role.key}`} state={{ accountTypeSelected: true }} key={role.key}>{content}</Link>
                 );
             })}
         </div>

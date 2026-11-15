@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import "./Complaints.css";
 
@@ -7,7 +8,7 @@ function Complaints() {
     const [pagination, setPagination] = useState({
         current_page: 1,
         last_page: 1,
-        per_page: 10,
+        per_page: 15,
         total: 0,
     });
     const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ function Complaints() {
             setPagination({
                 current_page: data?.current_page || 1,
                 last_page: data?.last_page || 1,
-                per_page: data?.per_page || 10,
+                per_page: data?.per_page || 15,
                 total: data?.total || 0,
             });
         } catch (err) {
@@ -452,24 +453,13 @@ function Complaints() {
                         ))}
                     </div>
 
-                    <div className="complaints-search">
-
-                        <span>
-                            ⌕
-                        </span>
-
-                        <input
-                            type="text"
-                            placeholder="Search complaint..."
-                            value={searchTerm}
-                            onChange={(event) =>
-                                setSearchTerm(
-                                    event.target.value
-                                )
-                            }
-                        />
-
-                    </div>
+                    <AdminSearchField
+                        className="complaints-search"
+                        ariaLabel="Search complaints"
+                        placeholder="Search complaint..."
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                    />
 
 
                     <div className="complaints-filter">
