@@ -3,7 +3,6 @@ import 'models/courier_parcel.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/auth/register_screen.dart';
 import 'screens/rider/rider_account_screen.dart';
 import 'screens/rider/rider_dashboard_screen.dart';
 import 'screens/rider/rider_parcel_detail_screen.dart';
@@ -28,7 +27,7 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
       routes: [
         GoRoute(path: '/welcome', pageBuilder: (_, __) => const NoTransitionPage(child: WelcomeScreen())),
         GoRoute(path: '/login', pageBuilder: (_, __) => const NoTransitionPage(child: LoginScreen())),
-        GoRoute(path: '/register', pageBuilder: (_, __) => const NoTransitionPage(child: RegisterScreen())),
+        GoRoute(path: '/register', redirect: (_, __) => '/login'),
 
         GoRoute(path: '/rider', pageBuilder: (_, __) => const NoTransitionPage(child: RiderDashboardScreen())),
         GoRoute(path: '/rider/parcels', pageBuilder: (_, __) => const NoTransitionPage(child: RiderParcelsScreen())),

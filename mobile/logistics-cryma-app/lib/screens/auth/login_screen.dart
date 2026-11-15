@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/website_links.dart';
 import '../../theme.dart';
 import '../../widgets/cryma_widgets.dart';
 
@@ -19,6 +20,17 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _loading = false;
   String? _errorMsg;
+
+  Future<void> _openCourierRegistration() async {
+    try {
+      await openCourierRegistration();
+    } catch (error) {
+      if (mounted) {
+        setState(
+            () => _errorMsg = 'Could not open courier registration: $error');
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -119,7 +131,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (v) =>
                       (v == null || v.isEmpty) ? 'Enter your password' : null,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _openCourierRegistration,
+                  child: const Text(
+                    'Go to Cryma.shop inorder to register as rider',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 FilledButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
@@ -132,23 +152,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       : const Text('Login'),
                 ),
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Don't have an account? ",
-                        style: CrymaText.bodyMedium),
-                    TextButton(
-                      onPressed: () => context.go('/register'),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Create Account'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => context.go('/welcome'),
                   child: const Text('← Back'),

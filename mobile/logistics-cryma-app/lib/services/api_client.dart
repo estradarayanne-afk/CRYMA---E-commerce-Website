@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,13 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class ApiFile {
+  const ApiFile({required this.bytes, required this.contentType});
+
+  final Uint8List bytes;
+  final String contentType;
 }
 
 abstract interface class TokenStore {
@@ -77,8 +85,51 @@ class ApiClient {
 
   Future<void> clearToken() => _tokenStore.delete();
 
-  Future<Map<String, dynamic>> get(String path) =>
-      _sendJson('GET', path);
+  Future<Map<String, dynamic>> get(String path) => _sendJson('GET', path);
+
+  Future<ApiFile> getFile(String path) async {
+    final headers = {'Accept': 'image/*, application/pdf'};
+    final token = await _tokenStore.read();
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    try {
+      final response = await _httpClient
+          .get(_uri(path), headers: headers)
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _decode(response);
+        throw const ApiException(
+            'The CRYMA server returned an invalid file response.');
+      }
+
+      final contentType = response.headers['content-type']
+          ?.split(';')
+          .first
+          .trim()
+          .toLowerCase();
+      if (contentType == null ||
+          (!contentType.startsWith('image/') &&
+              contentType != 'application/pdf') ||
+          response.bodyBytes.isEmpty) {
+        throw const ApiException(
+            'The CRYMA server returned an invalid file response.');
+      }
+
+      return ApiFile(bytes: response.bodyBytes, contentType: contentType);
+    } on TimeoutException {
+      throw const ApiException('The request timed out. Please try again.');
+    } on SocketException {
+      throw const ApiException(
+        'Could not connect to the CRYMA server. Check your connection and try again.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Could not connect to the CRYMA server. Check your connection and try again.',
+      );
+    }
+  }
 
   Future<Map<String, dynamic>> post(
     String path, {
@@ -134,9 +185,8 @@ class ApiClient {
           await http.MultipartFile.fromPath(entry.key, entry.value),
         );
       }
-      final streamed = await _httpClient
-          .send(request)
-          .timeout(const Duration(seconds: 30));
+      final streamed =
+          await _httpClient.send(request).timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamed)
           .timeout(const Duration(seconds: 30));
       return _decode(response);
@@ -181,7 +231,8 @@ class ApiClient {
         'POST' => _httpClient.post(uri, headers: headers, body: encodedBody),
         'PATCH' => _httpClient.patch(uri, headers: headers, body: encodedBody),
         _ => throw ArgumentError.value(method, 'method'),
-      }.timeout(const Duration(seconds: 20));
+      }
+          .timeout(const Duration(seconds: 20));
       return _decode(response);
     } on TimeoutException {
       throw const ApiException('The request timed out. Please try again.');
