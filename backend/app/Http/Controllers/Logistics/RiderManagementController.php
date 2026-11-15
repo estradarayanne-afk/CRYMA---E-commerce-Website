@@ -8,6 +8,7 @@ use App\Mail\AccountSuspensionMail;
 use App\Mail\CourierApplicationDecisionMail;
 use App\Models\User;
 use App\Models\UserDocument;
+use App\Services\LogisticsMunicipality;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +19,7 @@ class RiderManagementController extends Controller
 {
     private const REQUIRED_DOCUMENTS = ['valid_id', 'or_cr', 'drivers_license'];
 
-    public function index(Request $request)
+    public function index(Request $request, LogisticsMunicipality $municipality)
     {
         $filters = $request->validate([
             'status' => ['sometimes', 'in:pending,active,suspended,rejected'],
@@ -30,6 +31,7 @@ class RiderManagementController extends Controller
             ->whereNull('account_archived_at')
             ->where('status', $status)
             ->with(['courierProfile.vehicles']);
+        $municipality->scopeUsers($query, $request->user());
         if ($status === 'pending') {
             $query->with([
                 'addresses',

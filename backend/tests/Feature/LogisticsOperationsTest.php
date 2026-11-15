@@ -2,14 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Models\CourierProfile;
+use App\Mail\AccountReactivationMail;
+use App\Mail\AccountSuspensionMail;
+use App\Models\Address;
 use App\Models\CourierPresence;
+use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\GeographicLocation;
 use App\Models\LogisticsHub;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\PickupAssignment;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
@@ -121,6 +126,30 @@ class LogisticsOperationsTest extends TestCase
             'hub_id' => $hub->id,
             'parcel_code' => $parcelCode,
         ])->assertStatus(409);
+    }
+
+    public function test_pickup_couriers_are_limited_to_active_riders_in_the_logistics_municipality(): void
+    {
+        $logistics = $this->logisticsUser();
+        [, $localProfile] = $this->eligibleCourier();
+        [, $outsideProfile] = $this->eligibleCourier('Talisay');
+        [, $inactiveProfile] = $this->eligibleCourier('Carmen', 'suspended');
+        $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
+
+        $pickupCouriers = $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->json('data.eligible_pickup_couriers');
+
+        $this->assertSame([$localProfile->id], array_column($pickupCouriers, 'id'));
+        $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
+            'courier_profile_id' => $outsideProfile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertUnprocessable();
+        $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
+            'courier_profile_id' => $inactiveProfile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertUnprocessable();
     }
 
     public function test_logistics_can_sort_and_assign_only_to_eligible_courier_in_configured_area(): void
@@ -348,6 +377,7 @@ class LogisticsOperationsTest extends TestCase
             'role' => 'seller',
             'status' => 'active',
         ]);
+        $this->address($rider);
 
         $this->actingAs($logistics, 'sanctum')
             ->getJson('/api/logistics/riders?status=active&search=Directory')
@@ -376,13 +406,13 @@ class LogisticsOperationsTest extends TestCase
             ->assertJsonPath('data.status', 'suspended')
             ->assertJsonPath('notification_sent', true);
         $this->assertSame(0, $rider->tokens()->count());
-        Mail::assertSent(\App\Mail\AccountSuspensionMail::class);
+        Mail::assertSent(AccountSuspensionMail::class);
 
         $this->patchJson("/api/logistics/riders/{$rider->id}/status", ['status' => 'active'])
             ->assertOk()
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('notification_sent', true);
-        Mail::assertSent(\App\Mail\AccountReactivationMail::class);
+        Mail::assertSent(AccountReactivationMail::class);
 
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
         $this->patchJson("/api/logistics/riders/{$buyer->id}/status", ['status' => 'suspended', 'suspension_reason' => 'Not a courier.'])
@@ -473,21 +503,25 @@ class LogisticsOperationsTest extends TestCase
 
     private function logisticsUser(): User
     {
-        return User::factory()->create([
+        $user = User::factory()->create([
             'role' => 'logistics',
             'status' => 'active',
             'email_verified_at' => now(),
             'password' => 'password',
         ]);
+        $this->address($user);
+
+        return $user;
     }
 
-    private function eligibleCourier(): array
+    private function eligibleCourier(string $municipality = 'Carmen', string $status = 'active'): array
     {
         $user = User::factory()->create([
             'role' => 'rider',
-            'status' => 'active',
+            'status' => $status,
             'email_verified_at' => now(),
         ]);
+        $this->address($user, $municipality);
         $profile = CourierProfile::create([
             'user_id' => $user->id,
             'sex' => 'prefer_not_to_say',
@@ -504,15 +538,28 @@ class LogisticsOperationsTest extends TestCase
         Vehicle::create([
             'courier_profile_id' => $profile->id,
             'vehicle_type' => 'motorcycle',
-            'plate_number' => 'AREA' . str_pad((string) $profile->id, 6, '0', STR_PAD_LEFT),
+            'plate_number' => 'AREA'.str_pad((string) $profile->id, 6, '0', STR_PAD_LEFT),
         ]);
 
         return [$user, $profile];
     }
 
+    private function address(User $user, string $municipality = 'Carmen'): void
+    {
+        Address::create([
+            'user_id' => $user->id,
+            'is_default' => true,
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => $municipality,
+            'barangay' => 'Luyang',
+        ]);
+    }
+
     private function order(string $status): Order
     {
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+
         return Order::create([
             'buyer_id' => $buyer->id,
             'delivery_address' => 'Test delivery destination',
@@ -527,17 +574,17 @@ class LogisticsOperationsTest extends TestCase
     private function orderWithPickupAddress(string $status): Order
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        \App\Models\Address::create([
+        Address::create([
             'user_id' => $seller->id, 'recipient_name' => 'Synthetic Seller', 'phone' => '+639171234567',
             'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
             'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
         ]);
         $order = $this->order($status);
-        $product = \App\Models\Product::create([
+        $product = Product::create([
             'seller_id' => $seller->id, 'name' => 'Pickup workflow product', 'description' => 'Synthetic fixture',
             'price' => 10, 'stock' => 2, 'category' => 'Other', 'status' => 'active',
         ]);
-        \App\Models\OrderItem::create([
+        OrderItem::create([
             'order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
             'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
         ]);

@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -16,9 +19,15 @@ class RiderAccountScreen extends StatefulWidget {
 }
 
 class _RiderAccountScreenState extends State<RiderAccountScreen> {
-  RiderAccount? _account;
+  RiderAccountDetails? _details;
+  Uint8List? _driverLicenseImage;
+  Uint8List? _ewalletQrImage;
+  String? _driverLicenseError;
+  String? _ewalletQrError;
   String? _error;
   bool _loading = true;
+  bool _uploadingEwalletQr = false;
+  bool _hasEwalletQr = false;
 
   static const _navItems = [
     BottomNavigationBarItem(
@@ -56,21 +65,101 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
       _error = null;
     });
     try {
-      final account = await RiderAuthService.instance.currentUser();
+      final details = await RiderAuthService.instance.accountDetails();
+      Uint8List? driverLicenseImage;
+      Uint8List? ewalletQrImage;
+      String? driverLicenseError;
+      String? ewalletQrError;
+
+      if (details.driversLicense?.mimeType.startsWith('image/') == true) {
+        try {
+          driverLicenseImage =
+              (await RiderAuthService.instance.driversLicenseFile()).bytes;
+        } on ApiException catch (error) {
+          driverLicenseError = error.message;
+        }
+      }
+      if (details.ewalletQrAvailable) {
+        try {
+          ewalletQrImage =
+              (await RiderAuthService.instance.ewalletQrFile()).bytes;
+        } on ApiException catch (error) {
+          ewalletQrError = error.message;
+        }
+      }
+
       if (!mounted) return;
       setState(() {
-        _account = account;
+        _details = details;
+        _driverLicenseImage = driverLicenseImage;
+        _driverLicenseError = driverLicenseError;
+        _ewalletQrImage = ewalletQrImage;
+        _ewalletQrError = ewalletQrError;
+        _hasEwalletQr = details.ewalletQrAvailable;
         _loading = false;
       });
       await context
           .read<AuthProvider>()
-          .refreshUser(account.id, account.fullName);
+          .refreshUser(details.account.id, details.account.fullName);
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.message;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _uploadEwalletQr() async {
+    setState(() => _uploadingEwalletQr = true);
+    var uploaded = false;
+    try {
+      final selection = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+        allowMultiple: false,
+      );
+      if (selection == null) return;
+
+      final file = selection.files.single;
+      final path = file.path;
+      if (path == null) {
+        _showError(
+            'Could not access the selected image. Please try another photo.');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        _showError('Choose an image that is 2 MB or smaller.');
+        return;
+      }
+
+      await RiderAuthService.instance.uploadEwalletQr(path);
+      uploaded = true;
+      if (mounted) {
+        setState(() {
+          _hasEwalletQr = true;
+          _ewalletQrError = null;
+        });
+      }
+      final image = await RiderAuthService.instance.ewalletQrFile();
+      if (!mounted) return;
+      setState(() {
+        _ewalletQrImage = image.bytes;
+        _ewalletQrError = null;
+        _hasEwalletQr = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('E-wallet QR photo saved.')),
+      );
+    } on ApiException catch (error) {
+      if (mounted) {
+        if (uploaded) setState(() => _ewalletQrError = error.message);
+        _showError(error.message);
+      }
+    } catch (error) {
+      if (mounted) _showError('Could not save the e-wallet QR photo: $error');
+    } finally {
+      if (mounted) setState(() => _uploadingEwalletQr = false);
     }
   }
 
@@ -167,7 +256,8 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final account = _account;
+    final details = _details;
+    final account = details?.account;
     return Scaffold(
       appBar: AppBar(title: const Text('Account')),
       body: _loading
@@ -189,53 +279,121 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
                     ),
                   ),
                 )
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    CircleAvatar(
-                      radius: 34,
-                      backgroundColor: CrymaColors.palePink,
-                      child: Text(
-                        account!.firstName.isEmpty
-                            ? 'R'
-                            : account.firstName[0].toUpperCase(),
-                        style: CrymaText.headingLarge,
+              : details == null || account == null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Account details are unavailable.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: _load,
+                              child: const Text('Try again'),
+                            ),
+                          ],
+                        ),
                       ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: CrymaColors.palePink,
+                          child: Text(
+                            account.firstName.isEmpty
+                                ? 'R'
+                                : account.firstName[0].toUpperCase(),
+                            style: CrymaText.headingLarge,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          account.fullName,
+                          textAlign: TextAlign.center,
+                          style: CrymaText.headingMedium,
+                        ),
+                        Text(
+                          account.email,
+                          textAlign: TextAlign.center,
+                          style: CrymaText.bodyMedium,
+                        ),
+                        const SizedBox(height: 24),
+                        _sectionTitle('Personal information'),
+                        _AccountRow(
+                          label: 'Role',
+                          value: _displayLabel(account.role),
+                        ),
+                        _AccountRow(
+                          label: 'Account status',
+                          value: _displayLabel(account.status),
+                        ),
+                        _AccountRow(
+                          label: 'Phone number',
+                          value: _displayValue(account.phone),
+                        ),
+                        _AccountRow(
+                          label: 'Middle name',
+                          value: _displayValue(details.middleName),
+                        ),
+                        _AccountRow(
+                          label: 'Sex',
+                          value: _displayLabel(details.sex),
+                        ),
+                        _AccountRow(
+                          label: 'Birthday',
+                          value: _displayValue(details.birthday),
+                        ),
+                        _AccountRow(
+                          label: 'Email verification',
+                          value: details.emailVerified
+                              ? 'Verified'
+                              : 'Not verified',
+                        ),
+                        const Divider(height: 32),
+                        _sectionTitle('Registered address'),
+                        _AccountRow(
+                          label: 'Address',
+                          value: _displayValue(details.address?.formatted),
+                        ),
+                        const Divider(height: 32),
+                        _sectionTitle('Vehicle'),
+                        if (details.vehicles.isEmpty)
+                          const _AccountRow(
+                            label: 'Registered vehicle',
+                            value: 'Not provided',
+                          )
+                        else
+                          for (final vehicle in details.vehicles)
+                            _AccountRow(
+                              label: _displayLabel(vehicle.type),
+                              value: vehicle.plateNumber,
+                            ),
+                        const Divider(height: 32),
+                        _sectionTitle("Driver's license"),
+                        _driverLicenseSection(details),
+                        const SizedBox(height: 16),
+                        _sectionTitle('E-wallet QR'),
+                        _ewalletQrSection(details),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: _changePassword,
+                          icon: const Icon(Icons.lock_outline),
+                          label: const Text('Change password'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _logout,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Sign out'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      account.fullName,
-                      textAlign: TextAlign.center,
-                      style: CrymaText.headingMedium,
-                    ),
-                    Text(
-                      account.email,
-                      textAlign: TextAlign.center,
-                      style: CrymaText.bodyMedium,
-                    ),
-                    const SizedBox(height: 24),
-                    _AccountRow(label: 'Role', value: account.role),
-                    _AccountRow(
-                      label: 'Phone',
-                      value: account.phone?.isNotEmpty == true
-                          ? account.phone!
-                          : 'Not provided',
-                    ),
-                    _AccountRow(label: 'Status', value: account.status),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: _changePassword,
-                      icon: const Icon(Icons.lock_outline),
-                      label: const Text('Change password'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: _logout,
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Sign out'),
-                    ),
-                  ],
-                ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: 2,
         items: _navItems,
@@ -243,6 +401,134 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
         onNavigate: context.go,
       ),
     );
+  }
+
+  Widget _sectionTitle(String title) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(title, style: CrymaText.headingMedium),
+      );
+
+  Widget _driverLicenseSection(RiderAccountDetails details) {
+    final license = details.driversLicense;
+    if (license == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text("No driver's license document is on file."),
+        ),
+      );
+    }
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _AccountRow(
+              label: 'Review status',
+              value: _displayLabel(license.status),
+            ),
+            _AccountRow(label: 'File', value: license.fileName),
+            if (license.mimeType.startsWith('image/'))
+              if (_driverLicenseImage != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(
+                    _driverLicenseImage!,
+                    width: double.infinity,
+                    height: 240,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Text(
+                      "The driver's license photo could not be displayed.",
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  _driverLicenseError ??
+                      "The driver's license photo is unavailable.",
+                  style: CrymaText.bodyMedium,
+                )
+            else if (license.mimeType == 'application/pdf')
+              const Text(
+                "The registered driver's license is a PDF; photo preview is unavailable.",
+                style: CrymaText.bodyMedium,
+              )
+            else
+              const Text(
+                "The registered driver's license is not an image.",
+                style: CrymaText.bodyMedium,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ewalletQrSection(RiderAccountDetails details) => Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Add your e-wallet QR so it is ready when a customer wants to pay by e-wallet.',
+                style: CrymaText.bodyMedium,
+              ),
+              if (_ewalletQrImage != null) ...[
+                const SizedBox(height: 12),
+                Image.memory(
+                  _ewalletQrImage!,
+                  height: 220,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Text(
+                    'The saved e-wallet QR photo could not be displayed.',
+                  ),
+                ),
+              ] else if (_hasEwalletQr) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _ewalletQrError ?? 'The saved QR photo is unavailable.',
+                  style: CrymaText.bodyMedium,
+                ),
+              ],
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _uploadingEwalletQr ? null : _uploadEwalletQr,
+                icon: _uploadingEwalletQr
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.qr_code_2),
+                label: Text(
+                  _uploadingEwalletQr
+                      ? 'Saving QR photo...'
+                      : _hasEwalletQr
+                          ? 'Change E-wallet QR photo'
+                          : 'Add E-wallet QR photo',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  String _displayValue(String? value) =>
+      value == null || value.trim().isEmpty ? 'Not provided' : value;
+
+  String _displayLabel(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Not provided';
+    return value
+        .split('_')
+        .map((word) => word.isEmpty
+            ? word
+            : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
 }
 

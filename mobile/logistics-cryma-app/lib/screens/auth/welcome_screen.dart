@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/website_links.dart';
 import '../../theme.dart';
 import '../../widgets/cryma_widgets.dart';
 
@@ -51,7 +52,20 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const Spacer(flex: 3),
               FilledButton(
-                onPressed: () => context.go('/register'),
+                onPressed: () async {
+                  try {
+                    await openCourierRegistration();
+                  } catch (error) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Could not open courier registration: $error',
+                        ),
+                      ),
+                    );
+                  }
+                },
                 child: const Text('Apply as a rider'),
               ),
               const SizedBox(height: 12),

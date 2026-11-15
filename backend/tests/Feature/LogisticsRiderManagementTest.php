@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\CourierApplicationDecisionMail;
+use App\Models\Address;
 use App\Models\CourierProfile;
 use App\Models\User;
 use App\Models\UserDocument;
@@ -41,6 +42,20 @@ class LogisticsRiderManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_rider_directory_only_shows_accounts_in_the_logistics_municipality(): void
+    {
+        $logistics = $this->logisticsUser();
+        $localRider = $this->rider(status: 'active');
+        $outsideRider = $this->rider(status: 'active', municipality: 'Talisay');
+
+        $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/riders?status=active')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.data.0.id', $localRider->id)
+            ->assertJsonMissing(['id' => $outsideRider->id]);
+    }
+
     public function test_logistics_can_review_only_pending_rider_documents(): void
     {
         Storage::fake('local');
@@ -66,7 +81,7 @@ class LogisticsRiderManagementTest extends TestCase
         $sellerDocument = UserDocument::create([
             'user_id' => $seller->id,
             'document_type' => 'valid_id',
-            'file_path' => 'registration-documents/' . $seller->id . '/other.pdf',
+            'file_path' => 'registration-documents/'.$seller->id.'/other.pdf',
             'original_file_name' => 'other.pdf',
             'mime_type' => 'application/pdf',
             'file_size' => 10,
@@ -97,8 +112,7 @@ class LogisticsRiderManagementTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('notification_sent', true);
-        Mail::assertSent(CourierApplicationDecisionMail::class, fn ($mail) =>
-            $mail->approved && $mail->hasTo($rider->email));
+        Mail::assertSent(CourierApplicationDecisionMail::class, fn ($mail) => $mail->approved && $mail->hasTo($rider->email));
     }
 
     public function test_rejection_requires_a_reason_and_sends_it_in_the_email_notification(): void
@@ -119,8 +133,7 @@ class LogisticsRiderManagementTest extends TestCase
             ->assertJsonPath('data.status', 'rejected')
             ->assertJsonPath('notification_sent', true);
 
-        Mail::assertSent(CourierApplicationDecisionMail::class, fn ($mail) =>
-            !$mail->approved
+        Mail::assertSent(CourierApplicationDecisionMail::class, fn ($mail) => ! $mail->approved
             && $mail->rejectionReason === $reason
             && str_contains($mail->render(), $reason)
             && $mail->hasTo($rider->email));
@@ -143,20 +156,26 @@ class LogisticsRiderManagementTest extends TestCase
 
     private function logisticsUser(string $status = 'active'): User
     {
-        return User::factory()->create([
+        $user = User::factory()->create([
             'role' => 'logistics',
             'status' => $status,
             'email_verified_at' => now(),
         ]);
+        $this->address($user);
+
+        return $user;
     }
 
-    private function rider(string $status = 'pending'): User
+    private function rider(string $status = 'pending', string $municipality = 'Carmen'): User
     {
-        return User::factory()->create([
+        $user = User::factory()->create([
             'role' => 'rider',
             'status' => $status,
             'email_verified_at' => now(),
         ]);
+        $this->address($user, $municipality);
+
+        return $user;
     }
 
     private function riderWithDocuments(
@@ -177,7 +196,7 @@ class LogisticsRiderManagementTest extends TestCase
         Vehicle::create([
             'courier_profile_id' => $profile->id,
             'vehicle_type' => 'motorcycle',
-            'plate_number' => 'TEST' . str_pad((string) $profile->id, 6, '0', STR_PAD_LEFT),
+            'plate_number' => 'TEST'.str_pad((string) $profile->id, 6, '0', STR_PAD_LEFT),
         ]);
 
         $documents = [];
@@ -194,5 +213,17 @@ class LogisticsRiderManagementTest extends TestCase
         }
 
         return [$rider, $documents];
+    }
+
+    private function address(User $user, string $municipality = 'Carmen'): void
+    {
+        Address::create([
+            'user_id' => $user->id,
+            'is_default' => true,
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => $municipality,
+            'barangay' => 'Luyang',
+        ]);
     }
 }

@@ -13,6 +13,7 @@ use App\Models\PickupAssignment;
 use App\Services\CourierEligibility;
 use App\Services\DeliveryAreaResolver;
 use App\Services\HubProximity;
+use App\Services\LogisticsMunicipality;
 use App\Support\OrderDeliveryProjection;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -21,7 +22,13 @@ use Illuminate\Validation\Rule;
 
 class LogisticsController extends Controller
 {
-    public function queue(CourierEligibility $eligibility, HubProximity $proximity, DeliveryAreaResolver $areaResolver)
+    public function queue(
+        Request $request,
+        CourierEligibility $eligibility,
+        HubProximity $proximity,
+        DeliveryAreaResolver $areaResolver,
+        LogisticsMunicipality $municipality,
+    )
     {
         $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name', 'items.seller.addresses'];
         $pickupOrders = Order::with($orderDetails)->where('status', 'READY_FOR_PICKUP')
@@ -89,6 +96,9 @@ class LogisticsController extends Controller
             $courier->setAttribute('active_delivery_count', (int) $activeDeliveryCounts->get($courier->id, 0));
             $courier->unsetRelation('presence');
         }
+        $pickupCourierIds = $eligibility
+            ->profilesInMunicipality($request->user(), $municipality)
+            ->pluck('courier_profiles.id');
 
         return response()->json(['success' => true, 'data' => [
             'pickup_orders' => $pickupOrders,
@@ -96,7 +106,7 @@ class LogisticsController extends Controller
             'sorting_orders' => $sortingOrders,
             'deliveries' => $deliveries,
             'areas' => $areas,
-            'eligible_pickup_couriers' => $couriers,
+            'eligible_pickup_couriers' => $couriers->whereIn('id', $pickupCourierIds)->values(),
             'eligible_delivery_couriers' => $couriers,
         ]]);
     }
@@ -177,7 +187,12 @@ class LogisticsController extends Controller
         return response()->json(['success' => true, 'message' => 'Courier removed from future assignments in this area.']);
     }
 
-    public function assignPickup(Request $request, int $orderId, CourierEligibility $eligibility)
+    public function assignPickup(
+        Request $request,
+        int $orderId,
+        CourierEligibility $eligibility,
+        LogisticsMunicipality $municipality,
+    )
     {
         $values = $request->validate([
             'courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id'],
@@ -185,17 +200,26 @@ class LogisticsController extends Controller
             'scheduled_at' => ['required', 'date', 'after:now'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ]);
-        $courier = $eligibility->find((int) $values['courier_profile_id']);
+        $courier = $eligibility->profilesInMunicipality($request->user(), $municipality)
+            ->with('user:id,first_name,last_name,role,status,email_verified_at')
+            ->whereKey((int) $values['courier_profile_id'])
+            ->first();
         abort_unless($courier !== null, 422, 'The selected pickup rider is not eligible.');
         $reason = isset($values['reason']) ? trim($values['reason']) : null;
         $requestedSchedule = \Illuminate\Support\Carbon::parse($values['scheduled_at']);
 
         try {
-            $assignment = DB::transaction(function () use ($request, $orderId, $values, $courier, $reason, $eligibility, $requestedSchedule) {
+            $assignment = DB::transaction(function () use ($request, $orderId, $values, $courier, $reason, $eligibility, $municipality, $requestedSchedule) {
                 $order = Order::with(['items.seller.addresses'])->whereKey($orderId)->lockForUpdate()->firstOrFail();
                 $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
                 $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
-                abort_unless($eligibility->find($courier->id) !== null, 422, 'The pickup rider is no longer eligible.');
+                abort_unless(
+                    $eligibility->profilesInMunicipality($request->user(), $municipality)
+                        ->whereKey($courier->id)
+                        ->exists(),
+                    422,
+                    'The pickup rider is no longer eligible.',
+                );
                 abort_unless($order->status === 'READY_FOR_PICKUP', 422, 'Only seller-ready orders can be assigned for pickup.');
                 $courierChanged = false;
                 $scheduleChanged = true;

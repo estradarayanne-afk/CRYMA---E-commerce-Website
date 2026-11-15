@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CourierProfile;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 class CourierEligibility
@@ -28,6 +29,12 @@ class CourierEligibility
         return $this->profiles()->whereHas('deliveryAreas', fn (Builder $query) => $query
             ->where('delivery_areas.id', $areaId)
             ->where('delivery_areas.is_active', true));
+    }
+
+    public function profilesInMunicipality(User $logisticsUser, LogisticsMunicipality $municipality): Builder
+    {
+        return $this->profiles()->whereHas('user', fn (Builder $query) => $municipality
+            ->scopeUsers($query, $logisticsUser));
     }
 
     public function find(int $id): ?CourierProfile

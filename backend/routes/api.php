@@ -26,17 +26,19 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ApplicantDocumentCorrectionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuyerChatController;
+use App\Http\Controllers\Api\BuyerNotificationController;
 use App\Http\Controllers\Api\BuyerOrderController;
 use App\Http\Controllers\Api\BuyerProductMetricsController;
 use App\Http\Controllers\Api\BuyerPushTokenController;
 use App\Http\Controllers\Api\BuyerSupportController;
 use App\Http\Controllers\Api\BuyerVoucherController;
-use App\Http\Controllers\Api\DeliveryConversationController;
 use App\Http\Controllers\Api\CourierPresenceController;
+use App\Http\Controllers\Api\DeliveryConversationController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\PasswordRecoveryController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Courier\AccountController as CourierAccountController;
 use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController;
 use App\Http\Controllers\Courier\DeliveryProofController;
 use App\Http\Controllers\Courier\PickupController;
@@ -175,6 +177,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     });
 
     Route::middleware('role:rider')->group(function () {
+        Route::get('/courier/account', [CourierAccountController::class, 'show']);
+        Route::get('/courier/account/drivers-license', [CourierAccountController::class, 'showDriversLicense']);
+        Route::get('/courier/account/ewallet-qr', [CourierAccountController::class, 'showEwalletQr']);
+        Route::post('/courier/account/ewallet-qr', [CourierAccountController::class, 'updateEwalletQr'])->middleware('throttle:10,1');
         Route::get('/courier/presence', [CourierPresenceController::class, 'show']);
         Route::post('/courier/presence', [CourierPresenceController::class, 'update']);
         Route::get('/courier/parcel-returns', [ParcelFlowController::class, 'courierReturns']);
@@ -269,9 +275,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // Buyer orders
     Route::middleware('role:buyer')->group(function () {
-        Route::get('/buyer/notifications', [\App\Http\Controllers\Api\BuyerNotificationController::class, 'index']);
-        Route::patch('/buyer/notifications/read-all', [\App\Http\Controllers\Api\BuyerNotificationController::class, 'markAllRead']);
-        Route::patch('/buyer/notifications/{id}/read', [\App\Http\Controllers\Api\BuyerNotificationController::class, 'markRead']);
+        Route::get('/buyer/notifications', [BuyerNotificationController::class, 'index']);
+        Route::patch('/buyer/notifications/read-all', [BuyerNotificationController::class, 'markAllRead']);
+        Route::patch('/buyer/notifications/{id}/read', [BuyerNotificationController::class, 'markRead']);
         Route::get('/buyer/vouchers', [BuyerVoucherController::class, 'index']);
         Route::post('/buyer/vouchers/{id}/claim', [BuyerVoucherController::class, 'claim']);
         Route::post('/buyer/vouchers/validate', [BuyerVoucherController::class, 'validateCode']);

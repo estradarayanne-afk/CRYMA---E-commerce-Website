@@ -7,69 +7,69 @@ import DeliveryMessages from "./shared/components/DeliveryMessages";
 import { isBuyerSession } from "./shared/utils/buyerAccess";
 
 // â”€â”€ AUTH â”€â”€
-import Login from "./auth/pages/BuyerLogin";
-import AdminLogin from "./auth/pages/AdminLogin";
-import Register from "./auth/pages/Register";
-import EmailVerification from "./auth/pages/EmailVerification";
-import DocumentCorrection from "./auth/pages/DocumentCorrection";
-import RegistrationChoice from "./auth/pages/RegistrationChoice";
-import PasswordRecovery from "./auth/pages/PasswordRecovery";
-import PolicyPage from "./shared/pages/PolicyPage";
+const Login = lazy(() => import("./auth/pages/BuyerLogin"));
+const AdminLogin = lazy(() => import("./auth/pages/AdminLogin"));
+const Register = lazy(() => import("./auth/pages/Register"));
+const EmailVerification = lazy(() => import("./auth/pages/EmailVerification"));
+const DocumentCorrection = lazy(() => import("./auth/pages/DocumentCorrection"));
+const RegistrationChoice = lazy(() => import("./auth/pages/RegistrationChoice"));
+const PasswordRecovery = lazy(() => import("./auth/pages/PasswordRecovery"));
+const PolicyPage = lazy(() => import("./shared/pages/PolicyPage"));
 
 // â”€â”€ ADMIN â”€â”€
-import AdminLayout from "./admin/layouts/AdminLayout";
-import AdminDashboard from "./admin/pages/Dashboard/Dashboard";
-import Registrations from "./admin/pages/registrations/Registrations";
-import AdminUsers from "./admin/pages/Users/Users";
-import AdminComplaints from "./admin/pages/Complaints/Complaints";
-import AdminReports from "./admin/pages/Reports/Reports";
-import AdminSettings from "./admin/pages/Settings/Settings";
-import AccountSettings from "./admin/pages/AccountSettings/AccountSettings";
-import AdminChat from "./admin/pages/Chat/Chat";
-import AdminRefundRequests from "./admin/pages/RefundRequests/RefundRequests";
-import AdminFinance from "./admin/pages/Finance/Finance";
-import AdminParcelFlow from "./admin/pages/ParcelFlow/ParcelFlow";
-import HubStaffManagement from "./admin/pages/HubStaff/HubStaffManagement";
-import SellerCompliance from "./admin/pages/SellerCompliance/SellerCompliance";
+const AdminLayout = lazy(() => import("./admin/layouts/AdminLayout"));
+const AdminDashboard = lazy(() => import("./admin/pages/Dashboard/Dashboard"));
+const Registrations = lazy(() => import("./admin/pages/registrations/Registrations"));
+const AdminUsers = lazy(() => import("./admin/pages/Users/Users"));
+const AdminComplaints = lazy(() => import("./admin/pages/Complaints/Complaints"));
+const AdminReports = lazy(() => import("./admin/pages/Reports/Reports"));
+const AdminSettings = lazy(() => import("./admin/pages/Settings/Settings"));
+const AccountSettings = lazy(() => import("./admin/pages/AccountSettings/AccountSettings"));
+const AdminChat = lazy(() => import("./admin/pages/Chat/Chat"));
+const AdminRefundRequests = lazy(() => import("./admin/pages/RefundRequests/RefundRequests"));
+const AdminFinance = lazy(() => import("./admin/pages/Finance/Finance"));
+const AdminParcelFlow = lazy(() => import("./admin/pages/ParcelFlow/ParcelFlow"));
+const HubStaffManagement = lazy(() => import("./admin/pages/HubStaff/HubStaffManagement"));
+const SellerCompliance = lazy(() => import("./admin/pages/SellerCompliance/SellerCompliance"));
 
 // â”€â”€ BUYER â”€â”€
 const BuyerHome = lazy(() => import("./buyer/pages/Home/Home"));
-import BuyerCart from "./buyer/pages/Cart/Cart";
-import BuyerCategories from "./buyer/pages/Categories/Categories";
-import BuyerChat from "./buyer/pages/Chat/Chat";
-import SellerChatRedirect from "./buyer/pages/Chat/SellerChatRedirect";
-import BuyerCheckout from "./buyer/pages/Checkout/Checkout";
-import BuyerOrderDetails from "./buyer/pages/OrderDetails/OrderDetails";
-import BuyerOrders from "./buyer/pages/Orders/Orders";
-import BuyerProductDetails from "./buyer/pages/ProductDetails/ProductDetails";
-import BuyerReviews from "./buyer/pages/Reviews/Reviews";
-import BuyerAccount from "./buyer/pages/Account/Account";
-import BuyerVouchers from "./buyer/pages/Vouchers/Vouchers";
-import BuyerLayout from "./buyer/layouts/BuyerLayout";
-import BuyerWishlist from "./buyer/pages/Wishlist/Wishlist";
-import PublicStorefront from "./buyer/pages/Storefront";
+const BuyerCart = lazy(() => import("./buyer/pages/Cart/Cart"));
+const BuyerCategories = lazy(() => import("./buyer/pages/Categories/Categories"));
+const BuyerChat = lazy(() => import("./buyer/pages/Chat/Chat"));
+const SellerChatRedirect = lazy(() => import("./buyer/pages/Chat/SellerChatRedirect"));
+const BuyerCheckout = lazy(() => import("./buyer/pages/Checkout/Checkout"));
+const BuyerOrderDetails = lazy(() => import("./buyer/pages/OrderDetails/OrderDetails"));
+const BuyerOrders = lazy(() => import("./buyer/pages/Orders/Orders"));
+const BuyerProductDetails = lazy(() => import("./buyer/pages/ProductDetails/ProductDetails"));
+const BuyerReviews = lazy(() => import("./buyer/pages/Reviews/Reviews"));
+const BuyerAccount = lazy(() => import("./buyer/pages/Account/Account"));
+const BuyerVouchers = lazy(() => import("./buyer/pages/Vouchers/Vouchers"));
+const BuyerLayout = lazy(() => import("./buyer/layouts/BuyerLayout"));
+const BuyerWishlist = lazy(() => import("./buyer/pages/Wishlist/Wishlist"));
+const PublicStorefront = lazy(() => import("./buyer/pages/Storefront"));
 
 // â”€â”€ SELLER â”€â”€
-import SellerLayout from "./seller/layouts/SellerLayout";
-import SellerDashboard from "./seller/pages/Dashboard";
-import SellerStorefront from "./seller/pages/Storefront";
-import SellerInventory from "./seller/pages/Inventory";
-import SellerVouchers from "./seller/pages/Vouchers";
-import SellerOrders from "./seller/pages/Orders";
-import SellerLogistics from "./seller/pages/Logistics";
-import SellerFeedback from "./seller/pages/Feedback";
-import SellerReports from "./seller/pages/Reports";
-import SellerReturns from "./seller/pages/Returns";
-import SellerChat from "./seller/pages/Chat";
-import SellerAccountSettings from "./seller/pages/AccountSettings";
-import AdminVouchers from "./admin/pages/Vouchers/Vouchers";
-import LogisticsLayout from "./logistics/layouts/LogisticsLayout";
-import LogisticsDashboard from "./logistics/pages/Dashboard";
-import LogisticsReports from "./logistics/pages/Reports";
-import RiderManagement from "./logistics/pages/RiderManagement";
-import ParcelOperations from "./logistics/pages/ParcelOperations";
-import LogisticsProfile from "./logistics/pages/Profile";
-import LogisticsAccountSettings from "./logistics/pages/AccountSettings";
+const SellerLayout = lazy(() => import("./seller/layouts/SellerLayout"));
+const SellerDashboard = lazy(() => import("./seller/pages/Dashboard"));
+const SellerStorefront = lazy(() => import("./seller/pages/Storefront"));
+const SellerInventory = lazy(() => import("./seller/pages/Inventory"));
+const SellerVouchers = lazy(() => import("./seller/pages/Vouchers"));
+const SellerOrders = lazy(() => import("./seller/pages/Orders"));
+const SellerLogistics = lazy(() => import("./seller/pages/Logistics"));
+const SellerFeedback = lazy(() => import("./seller/pages/Feedback"));
+const SellerReports = lazy(() => import("./seller/pages/Reports"));
+const SellerReturns = lazy(() => import("./seller/pages/Returns"));
+const SellerChat = lazy(() => import("./seller/pages/Chat"));
+const SellerAccountSettings = lazy(() => import("./seller/pages/AccountSettings"));
+const AdminVouchers = lazy(() => import("./admin/pages/Vouchers/Vouchers"));
+const LogisticsLayout = lazy(() => import("./logistics/layouts/LogisticsLayout"));
+const LogisticsDashboard = lazy(() => import("./logistics/pages/Dashboard"));
+const LogisticsReports = lazy(() => import("./logistics/pages/Reports"));
+const RiderManagement = lazy(() => import("./logistics/pages/RiderManagement"));
+const ParcelOperations = lazy(() => import("./logistics/pages/ParcelOperations"));
+const LogisticsProfile = lazy(() => import("./logistics/pages/Profile"));
+const LogisticsAccountSettings = lazy(() => import("./logistics/pages/AccountSettings"));
 const HubStaffLayout = lazy(() => import("./hubStaff/HubStaffLayout"));
 const HubStaffOverview = lazy(() => import("./hubStaff/pages/Overview"));
 const HubStaffParcels = lazy(() => import("./hubStaff/pages/Parcels"));
@@ -83,6 +83,7 @@ function App() {
     return (
         <BrowserRouter>
             <GlobalNetworkLoadingIndicator />
+            <Suspense fallback={<div className="app-route-loading" role="status"><span className="app-route-loading__mark"><img src="/cryma-logo.png" alt="" /></span><span>Loading CRYMA…</span></div>}>
             <Routes>
 
                 {/* =====================================================
@@ -401,6 +402,7 @@ function App() {
                 />
 
             </Routes>
+            </Suspense>
         </BrowserRouter>
     );
 }

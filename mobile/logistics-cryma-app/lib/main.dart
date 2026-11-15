@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'router.dart';
@@ -8,22 +9,22 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final auth = AuthProvider();
   await auth.tryAutoLogin();
+  final router = createRouter(auth);
   runApp(
     ChangeNotifierProvider.value(
       value: auth,
-      child: const CrymaApp(),
+      child: CrymaApp(router: router),
     ),
   );
 }
 
 class CrymaApp extends StatelessWidget {
-  const CrymaApp({super.key});
+  const CrymaApp({required this.router, super.key});
+
+  final GoRouter router;
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final router = createRouter(auth);
-
     return MaterialApp.router(
       title: 'CRYMA Logistics',
       debugShowCheckedModeBanner: false,
