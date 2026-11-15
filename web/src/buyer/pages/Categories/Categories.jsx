@@ -21,7 +21,6 @@ import {
 import "./Categories.css";
 
 const SORT_OPTIONS = [
-    { value: "featured", label: "Recommended" },
     { value: "newest", label: "Newest arrivals" },
     { value: "price-low", label: "Price: low to high" },
     { value: "price-high", label: "Price: high to low" },
@@ -65,7 +64,10 @@ function Categories() {
 
     const category = searchParams.get("category") || "All";
     const search = searchParams.get("search") || "";
-    const sort = searchParams.get("sort") || "featured";
+    const requestedSort = searchParams.get("sort") || "newest";
+    const sort = SORT_OPTIONS.some((option) => option.value === requestedSort)
+        ? requestedSort
+        : "newest";
     const minPrice = searchParams.get("minPrice") || "";
     const maxPrice = searchParams.get("maxPrice") || "";
     const stockOnly = searchParams.get("stock") === "1";
@@ -76,7 +78,7 @@ function Categories() {
         min_price: minPrice || undefined,
         max_price: maxPrice || undefined,
         stock: stockOnly ? 1 : undefined,
-        sort: !search.trim() && sort === "featured" ? "randomized" : sort,
+        sort,
     }), [category, search, sort, minPrice, maxPrice, stockOnly]);
     const requestIdentity = JSON.stringify([requestKey, reloadKey]);
     const isCurrentQueryLoaded = loadedQueryIdentity === requestIdentity;
@@ -157,7 +159,7 @@ function Categories() {
                         : Array.isArray(data?.products)
                             ? data.products
                             : [];
-                if (requestParams.sort === "randomized" && items.length) {
+                if (items.length) {
                     api.post("/products/impressions", {
                             product_ids: items.map((item) => Number(item.id)),
                     }).catch((trackingError) => {
@@ -222,7 +224,7 @@ function Categories() {
                     : Array.isArray(data?.products)
                         ? data.products
                         : [];
-            if (requestParams.sort === "randomized" && items.length) {
+            if (items.length) {
                 api.post("/products/impressions", {
                         product_ids: items.map((item) => Number(item.id)),
                 }).catch((trackingError) => {
@@ -271,7 +273,7 @@ function Categories() {
                 value === false ||
                 value === "All" ||
                 value === "0" ||
-                value === "featured"
+                value === "newest"
             ) {
                 params.delete(key);
             } else {
@@ -431,7 +433,7 @@ function Categories() {
         minPrice !== "",
         maxPrice !== "",
         stockOnly,
-        sort !== "featured",
+        sort !== "newest",
     ].filter(Boolean).length;
 
     const categoryTitle =
@@ -579,8 +581,8 @@ function Categories() {
                             </button>
                         )}
 
-                        {sort !== "featured" && (
-                            <button type="button" onClick={() => handleSort("featured")}>
+                        {sort !== "newest" && (
+                            <button type="button" onClick={() => handleSort("newest")}>
                                 Sort: {SORT_OPTIONS.find((option) => option.value === sort)?.label || sort}
                                 <X size={12} />
                             </button>

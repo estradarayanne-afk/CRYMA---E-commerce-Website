@@ -357,6 +357,33 @@ class SellerProductInventoryTest extends TestCase
             ->assertJsonCount(12, 'data.data');
     }
 
+    public function test_public_newest_sort_returns_latest_products_first_with_stable_ties(): void
+    {
+        $seller = $this->seller();
+        $oldest = $this->createProduct($seller, [
+            'name' => 'Older product',
+            'review_status' => 'approved',
+        ]);
+        $firstNewest = $this->createProduct($seller, [
+            'name' => 'First newest product',
+            'review_status' => 'approved',
+        ]);
+        $secondNewest = $this->createProduct($seller, [
+            'name' => 'Second newest product',
+            'review_status' => 'approved',
+        ]);
+
+        $oldest->forceFill(['created_at' => now()->subDay()])->save();
+        $firstNewest->forceFill(['created_at' => now()])->save();
+        $secondNewest->forceFill(['created_at' => now()])->save();
+
+        $this->getJson('/api/products?sort=newest&per_page=3')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.id', $secondNewest->id)
+            ->assertJsonPath('data.data.1.id', $firstNewest->id)
+            ->assertJsonPath('data.data.2.id', $oldest->id);
+    }
+
     public function test_public_randomized_product_pages_keep_a_stable_daily_order(): void
     {
         $seller = $this->seller();

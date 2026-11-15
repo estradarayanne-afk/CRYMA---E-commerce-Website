@@ -85,7 +85,7 @@ class ProductController extends Controller
             $query->orderByRaw('((products.id * ? + ?) % 2147483647) asc', [$multiplier, $offset])
                 ->orderBy('products.id');
         } else {
-            $query->latest();
+            $query->orderByDesc('created_at')->orderByDesc('id');
         }
 
         $products = $query->paginate($validated['per_page'] ?? 20);

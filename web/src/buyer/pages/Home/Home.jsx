@@ -174,7 +174,7 @@ function Home() {
 
             try {
                 const response = await api.get(
-                    "/products?per_page=8&sort=randomized",
+                    "/products?per_page=8&sort=newest",
                     {
                         signal: controller.signal,
                     }
