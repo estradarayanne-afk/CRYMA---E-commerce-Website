@@ -62,6 +62,7 @@ class RiderAccountDetails {
     required this.vehicles,
     required this.driversLicense,
     required this.ewalletQrAvailable,
+    this.isSummaryOnly = false,
   });
 
   final RiderAccount account;
@@ -73,6 +74,7 @@ class RiderAccountDetails {
   final List<RiderVehicle> vehicles;
   final RiderDriverLicense? driversLicense;
   final bool ewalletQrAvailable;
+  final bool isSummaryOnly;
 
   factory RiderAccountDetails.fromJson(Map<String, dynamic> response) {
     final rawData = response['data'];
@@ -347,8 +349,43 @@ class RiderAuthService {
   }
 
   Future<RiderAccountDetails> accountDetails() async {
-    final response = await _api.get('courier/account');
-    return RiderAccountDetails.fromJson(response);
+    try {
+      final response = await _api.get('courier/account');
+      return RiderAccountDetails.fromJson(response);
+    } on ApiException catch (error) {
+      if (error.statusCode != 404) rethrow;
+
+      final response = await _api.get('user');
+      final rawUser = response['user'];
+      if (rawUser is! Map) {
+        throw const ApiException(
+            'The CRYMA server returned an invalid account.');
+      }
+
+      final user = Map<String, dynamic>.from(rawUser);
+      final account = RiderAccount.fromJson(user);
+      if (account.role != 'rider') {
+        await _api.clearToken();
+        throw const ApiException(
+          'This mobile app is for riders. Use the CRYMA website for other account types.',
+          statusCode: 403,
+        );
+      }
+
+      return RiderAccountDetails(
+        account: account,
+        middleName: RiderAccountDetails._optionalString(user['middle_name']),
+        emailVerified: user['email_verified_at'] is String &&
+            (user['email_verified_at'] as String).isNotEmpty,
+        sex: null,
+        birthday: null,
+        address: null,
+        vehicles: const [],
+        driversLicense: null,
+        ewalletQrAvailable: false,
+        isSummaryOnly: true,
+      );
+    }
   }
 
   Future<ApiFile> driversLicenseFile() =>

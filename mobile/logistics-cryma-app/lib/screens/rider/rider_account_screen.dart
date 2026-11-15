@@ -52,6 +52,8 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
     '/rider/parcels',
     '/rider/account',
   ];
+  static const _unavailableAccountDetails =
+      'Unavailable until the rider account API is updated.';
 
   @override
   void initState() {
@@ -323,6 +325,17 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
                           textAlign: TextAlign.center,
                           style: CrymaText.bodyMedium,
                         ),
+                        if (details.isSummaryOnly) ...[
+                          const SizedBox(height: 16),
+                          const Card(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'Your account summary is available. Additional rider details will appear when the account service is updated.',
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         _sectionTitle('Personal information'),
                         _AccountRow(
@@ -339,15 +352,21 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
                         ),
                         _AccountRow(
                           label: 'Middle name',
-                          value: _displayValue(details.middleName),
+                          value: details.isSummaryOnly
+                              ? _unavailableAccountDetails
+                              : _displayValue(details.middleName),
                         ),
                         _AccountRow(
                           label: 'Sex',
-                          value: _displayLabel(details.sex),
+                          value: details.isSummaryOnly
+                              ? _unavailableAccountDetails
+                              : _displayLabel(details.sex),
                         ),
                         _AccountRow(
                           label: 'Birthday',
-                          value: _displayValue(details.birthday),
+                          value: details.isSummaryOnly
+                              ? _unavailableAccountDetails
+                              : _displayValue(details.birthday),
                         ),
                         _AccountRow(
                           label: 'Email verification',
@@ -359,11 +378,18 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
                         _sectionTitle('Registered address'),
                         _AccountRow(
                           label: 'Address',
-                          value: _displayValue(details.address?.formatted),
+                          value: details.isSummaryOnly
+                              ? _unavailableAccountDetails
+                              : _displayValue(details.address?.formatted),
                         ),
                         const Divider(height: 32),
                         _sectionTitle('Vehicle'),
-                        if (details.vehicles.isEmpty)
+                        if (details.isSummaryOnly)
+                          const _AccountRow(
+                            label: 'Registered vehicle',
+                            value: _unavailableAccountDetails,
+                          )
+                        else if (details.vehicles.isEmpty)
                           const _AccountRow(
                             label: 'Registered vehicle',
                             value: 'Not provided',
@@ -409,6 +435,15 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
       );
 
   Widget _driverLicenseSection(RiderAccountDetails details) {
+    if (details.isSummaryOnly) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(_unavailableAccountDetails),
+        ),
+      );
+    }
+
     final license = details.driversLicense;
     if (license == null) {
       return const Card(
@@ -467,56 +502,68 @@ class _RiderAccountScreenState extends State<RiderAccountScreen> {
     );
   }
 
-  Widget _ewalletQrSection(RiderAccountDetails details) => Card(
+  Widget _ewalletQrSection(RiderAccountDetails details) {
+    if (details.isSummaryOnly) {
+      return const Card(
         margin: EdgeInsets.zero,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Add your e-wallet QR so it is ready when a customer wants to pay by e-wallet.',
-                style: CrymaText.bodyMedium,
-              ),
-              if (_ewalletQrImage != null) ...[
-                const SizedBox(height: 12),
-                Image.memory(
-                  _ewalletQrImage!,
-                  height: 220,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const Text(
-                    'The saved e-wallet QR photo could not be displayed.',
-                  ),
-                ),
-              ] else if (_hasEwalletQr) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _ewalletQrError ?? 'The saved QR photo is unavailable.',
-                  style: CrymaText.bodyMedium,
-                ),
-              ],
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _uploadingEwalletQr ? null : _uploadEwalletQr,
-                icon: _uploadingEwalletQr
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.qr_code_2),
-                label: Text(
-                  _uploadingEwalletQr
-                      ? 'Saving QR photo...'
-                      : _hasEwalletQr
-                          ? 'Change E-wallet QR photo'
-                          : 'Add E-wallet QR photo',
-                ),
-              ),
-            ],
-          ),
+          padding: EdgeInsets.all(16),
+          child: Text(_unavailableAccountDetails),
         ),
       );
+    }
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Add your e-wallet QR so it is ready when a customer wants to pay by e-wallet.',
+              style: CrymaText.bodyMedium,
+            ),
+            if (_ewalletQrImage != null) ...[
+              const SizedBox(height: 12),
+              Image.memory(
+                _ewalletQrImage!,
+                height: 220,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const Text(
+                  'The saved e-wallet QR photo could not be displayed.',
+                ),
+              ),
+            ] else if (_hasEwalletQr) ...[
+              const SizedBox(height: 12),
+              Text(
+                _ewalletQrError ?? 'The saved QR photo is unavailable.',
+                style: CrymaText.bodyMedium,
+              ),
+            ],
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _uploadingEwalletQr ? null : _uploadEwalletQr,
+              icon: _uploadingEwalletQr
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.qr_code_2),
+              label: Text(
+                _uploadingEwalletQr
+                    ? 'Saving QR photo...'
+                    : _hasEwalletQr
+                        ? 'Change E-wallet QR photo'
+                        : 'Add E-wallet QR photo',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   String _displayValue(String? value) =>
       value == null || value.trim().isEmpty ? 'Not provided' : value;

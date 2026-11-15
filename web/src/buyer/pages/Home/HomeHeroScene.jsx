@@ -138,6 +138,7 @@ export default function HomeHeroScene() {
         let camera;
         let scene;
         let mark;
+        let timer;
         let rafId = 0;
         let resizeObserver;
         let environmentTarget;
@@ -223,7 +224,7 @@ export default function HomeHeroScene() {
                 renderer.toneMapping = THREE.ACESFilmicToneMapping;
                 renderer.toneMappingExposure = 1.08;
                 renderer.shadowMap.enabled = true;
-                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                renderer.shadowMap.type = THREE.PCFShadowMap;
                 renderer.domElement.setAttribute("aria-hidden", "true");
                 canvasHost.appendChild(renderer.domElement);
 
@@ -330,11 +331,13 @@ export default function HomeHeroScene() {
                 container.addEventListener("pointerleave", pointerLeaveHandler, { passive: true });
                 document.addEventListener("visibilitychange", visibilityHandler);
 
-                const clock = new THREE.Clock();
+                timer = new THREE.Timer();
+                timer.connect(document);
                 const animate = () => {
                     if (disposed || document.hidden) return;
                     rafId = window.requestAnimationFrame(animate);
-                    const elapsed = clock.getElapsedTime();
+                    timer.update();
+                    const elapsed = timer.getElapsed();
                     pointer.x += (pointer.targetX - pointer.x) * 0.045;
                     pointer.y += (pointer.targetY - pointer.y) * 0.045;
                     mark.rotation.y = Math.sin(elapsed * 0.24) * 0.055 + pointer.x * 0.16;
@@ -349,6 +352,7 @@ export default function HomeHeroScene() {
                 animate();
             } catch (error) {
                 console.warn("The CRYMA 3D hero could not start.", error);
+                timer?.dispose();
                 renderer?.dispose();
                 renderer?.domElement.remove();
                 if (!disposed) setSceneFailed(true);
@@ -363,6 +367,7 @@ export default function HomeHeroScene() {
             if (pointerHandler) container.removeEventListener("pointermove", pointerHandler);
             if (pointerLeaveHandler) container.removeEventListener("pointerleave", pointerLeaveHandler);
             if (visibilityHandler) document.removeEventListener("visibilitychange", visibilityHandler);
+            timer?.dispose();
             scene?.traverse((object) => {
                 object.geometry?.dispose?.();
                 if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose?.());

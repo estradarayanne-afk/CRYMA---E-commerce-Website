@@ -62,6 +62,32 @@ void main() {
     });
   });
 
+  test('address parser normalizes labels and accepts string boolean defaults',
+      () {
+    final address = BuyerAddress.fromJson({
+      'id': '18',
+      'label': '  Home ',
+      'recipient_name': '  Jane Buyer  ',
+      'phone': '  +639171234567 ',
+      'region': ' Region VII ',
+      'province': ' Cebu ',
+      'municipality': ' Carmen ',
+      'barangay': ' Luyang ',
+      'house_number': ' 15 ',
+      'building_name': ' Tower B ',
+      'unit_number': ' 8A ',
+      'street': ' South Road ',
+      'postal_code': ' 1105 ',
+      'is_default': 'true',
+    });
+
+    expect(address.label, 'home');
+    expect(address.icon, Icons.home_outlined);
+    expect(address.displayLabel, 'Home');
+    expect(address.toPayload(makeDefault: true)['label'], 'home');
+    expect(address.isDefault, isTrue);
+  });
+
   test('address list and checkout use authenticated Buyer API contracts',
       () async {
     final seen = <http.Request>[];

@@ -714,6 +714,7 @@ class DeliveryWorkflowTest extends TestCase
     private function eligibleCourier(string $status = 'active', bool $verified = true, bool $approvedDocuments = true, bool $vehicle = true): array
     {
         $user = User::factory()->create(['role' => 'rider', 'status' => $status, 'email_verified_at' => $verified ? now() : null]);
+        $this->address($user);
         $profile = CourierProfile::create(['user_id' => $user->id, 'sex' => 'prefer_not_to_say', 'birthday' => '1990-01-01']);
         foreach (['valid_id', 'or_cr', 'drivers_license'] as $type) {
             UserDocument::create(['user_id' => $user->id, 'document_type' => $type, 'file_path' => "private/test/{$user->id}-{$type}.pdf", 'status' => $approvedDocuments ? 'approved' : 'pending']);
@@ -724,7 +725,22 @@ class DeliveryWorkflowTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $user = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $this->address($user);
+
+        return $user;
+    }
+
+    private function address(User $user): void
+    {
+        \App\Models\Address::create([
+            'user_id' => $user->id,
+            'is_default' => true,
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => 'Carmen',
+            'barangay' => 'Luyang',
+        ]);
     }
 
     private function order(string $status, ?User $buyer = null): Order

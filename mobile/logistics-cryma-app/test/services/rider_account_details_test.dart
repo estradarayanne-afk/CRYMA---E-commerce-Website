@@ -94,6 +94,57 @@ void main() {
     expect(details.ewalletQrAvailable, isTrue);
   });
 
+  test(
+      'falls back to the authenticated user endpoint when rider details are missing',
+      () async {
+    final client = MockClient((request) async {
+      expect(request.headers['authorization'], isNotEmpty);
+      if (request.url.path == '/api/courier/account') {
+        return http.Response(
+          jsonEncode({'message': 'The route could not be found.'}),
+          404,
+        );
+      }
+
+      expect(request.method, 'GET');
+      expect(request.url.path, '/api/user');
+      return http.Response(
+        jsonEncode({
+          'user': {
+            'id': 42,
+            'first_name': 'Juan',
+            'middle_name': 'Dela',
+            'last_name': 'Cruz',
+            'email': 'rider@example.com',
+            'phone': '+639171234567',
+            'role': 'rider',
+            'status': 'active',
+            'email_verified_at': '2026-11-15T10:00:00Z',
+          },
+        }),
+        200,
+      );
+    });
+    final service = RiderAuthService(
+      apiClient: ApiClient(
+        httpClient: client,
+        tokenStore: _MemoryTokenStore(),
+        baseUrl: 'https://cryma.test/api',
+      ),
+    );
+
+    final details = await service.accountDetails();
+
+    expect(details.isSummaryOnly, isTrue);
+    expect(details.account.fullName, 'Juan Cruz');
+    expect(details.middleName, 'Dela');
+    expect(details.emailVerified, isTrue);
+    expect(details.vehicles, isEmpty);
+    expect(details.address, isNull);
+    expect(details.driversLicense, isNull);
+    expect(details.ewalletQrAvailable, isFalse);
+  });
+
   test('downloads the authenticated driver-license image as bytes', () async {
     final client = MockClient((request) async {
       expect(request.method, 'GET');
