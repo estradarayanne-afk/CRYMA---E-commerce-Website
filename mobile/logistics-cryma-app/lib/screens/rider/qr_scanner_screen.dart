@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -18,10 +21,13 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  final MobileScannerController _ctrl = MobileScannerController();
+  final MobileScannerController _ctrl = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+  );
   bool _handled = false;
   bool _analyzing = false;
   bool _errorDialogOpen = false;
+  String? _cameraError;
 
   @override
   void dispose() {
@@ -32,7 +38,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ── Camera scan ────────────────────────────────────────────────────────────
   void _onDetect(BarcodeCapture capture) {
     if (_handled || _analyzing || _errorDialogOpen) return;
-    final value = capture.barcodes.firstOrNull?.rawValue;
+    final value = _readQrValue(capture.barcodes);
     if (value == null) return;
     _handled = true;
     _ctrl.stop();
@@ -44,55 +50,79 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     if (_handled || _analyzing) return;
     try {
       await _ctrl.stop();
-      final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+      final image = await ImagePicker().pickImage(source: ImageSource.gallery);
       if (!mounted) return;
-      if (file == null) {
+      if (image == null) {
         await _resumeScanner();
         return;
       }
 
+      await _ctrl.stop();
+      final file = File(image.path);
+      if (!await file.exists()) {
+        _showImageError(
+          'The selected image is no longer available. Choose it again from your gallery.',
+        );
+        return;
+      }
+
       setState(() => _analyzing = true);
-      final result = await _ctrl.analyzeImage(file.path);
+      final result = await _ctrl.analyzeImage(file.absolute.path);
 
       if (!mounted) return;
       setState(() => _analyzing = false);
 
-      if (result == null || result.barcodes.isEmpty) {
+      final value = result == null ? null : _readQrValue(result.barcodes);
+      if (value == null) {
         _showError(
           title: 'Invalid Image',
           message: 'No QR code was detected in the selected image. '
               'Please choose a clear, unobstructed photo of the QR code label.',
           onRetry: _retryImageAnalysis,
-          resumeScanner: true,
-        );
-        return;
-      }
-
-      final value = result.barcodes.first.rawValue;
-      if (value == null) {
-        _showError(
-          title: 'Invalid Image',
-          message: 'The QR code in the image could not be read. '
-              'Please use a clearer photo.',
-          onRetry: _retryImageAnalysis,
-          resumeScanner: true,
         );
         return;
       }
 
       _handled = true;
       _handleResult(value);
-    } catch (_) {
+    } on PlatformException catch (error) {
       if (!mounted) return;
       setState(() => _analyzing = false);
-      _showError(
-        title: 'Could not analyze image',
-        message: 'The selected image could not be analyzed. '
-            'Try another image or enter the parcel code manually.',
-        onRetry: _retryImageAnalysis,
-        resumeScanner: true,
+      _showImageError(
+        error.message?.trim().isNotEmpty == true
+            ? error.message!.trim()
+            : 'The image scanner could not read this file. Choose another image or enter the code manually.',
       );
+    } on MobileScannerException catch (error) {
+      if (!mounted) return;
+      setState(() => _analyzing = false);
+      _showImageError(
+        error.errorDetails?.message ??
+            'The image scanner could not read this file. Choose another image or enter the code manually.',
+      );
+    } on FileSystemException catch (error) {
+      if (!mounted) return;
+      setState(() => _analyzing = false);
+      _showImageError(error.message);
     }
+  }
+
+  String? _readQrValue(Iterable<Barcode> barcodes) {
+    for (final barcode in barcodes) {
+      if (barcode.format != BarcodeFormat.qrCode) continue;
+      final value = barcode.rawValue?.trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  void _showImageError(String message) {
+    _showError(
+      title: 'Could not analyze image',
+      message: message,
+      onRetry: _retryImageAnalysis,
+      resumeScanner: true,
+    );
   }
 
   void _retryImageAnalysis() {
@@ -103,9 +133,21 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   Future<void> _resumeScanner() async {
     try {
+      if (mounted) setState(() => _cameraError = null);
       await _ctrl.start();
-    } catch (_) {
-      // The manual entry option remains available if the camera cannot restart.
+      if (mounted && _ctrl.value.isRunning) {
+        setState(() => _cameraError = null);
+      }
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(() =>
+            _cameraError = error.message ?? 'Camera could not be started.');
+      }
+    } on MobileScannerException catch (error) {
+      if (mounted) {
+        setState(() => _cameraError =
+            error.errorDetails?.message ?? 'Camera could not be started.');
+      }
     }
   }
 
@@ -165,7 +207,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   // ── Shared result handler ──────────────────────────────────────────────────
   void _handleResult(String value) {
-    if (value == widget.expectedQrCode) {
+    if (value.trim() == widget.expectedQrCode.trim()) {
       Navigator.of(context).pop(true);
     } else {
       _showError(
@@ -174,7 +216,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             'Please scan or upload the correct parcel label.',
         onRetry: () {
           setState(() => _handled = false);
-          _ctrl.start();
+          _resumeScanner();
         },
       );
     }
@@ -225,17 +267,59 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         title: Text(widget.title),
         leading: BackButton(onPressed: () => Navigator.of(context).pop(false)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            onPressed: () => _ctrl.toggleTorch(),
-            tooltip: 'Toggle flash',
+          ValueListenableBuilder<MobileScannerState>(
+            valueListenable: _ctrl,
+            builder: (context, state, _) => IconButton(
+              icon: const Icon(Icons.flash_on),
+              onPressed: state.isRunning ? _ctrl.toggleTorch : null,
+              tooltip: 'Toggle flash',
+            ),
           ),
         ],
       ),
       body: Stack(
         children: [
           // Camera feed
-          MobileScanner(controller: _ctrl, onDetect: _onDetect),
+          MobileScanner(
+            controller: _ctrl,
+            onDetect: _onDetect,
+            placeholderBuilder: (context, _) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            errorBuilder: (context, error, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.no_photography_outlined,
+                      color: Colors.white,
+                      size: 44,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      error.errorCode == MobileScannerErrorCode.permissionDenied
+                          ? 'Camera access was denied. Enable camera permission in Android Settings, then close and reopen the scanner. You can also upload a QR image or enter the parcel code manually.'
+                          : (_cameraError ??
+                              error.errorDetails?.message ??
+                              'Camera is unavailable. Upload a QR image or enter the parcel code manually.'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    if (error.errorCode !=
+                        MobileScannerErrorCode.permissionDenied) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _resumeScanner,
+                        child: const Text('Try camera again'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
 
           // Scan frame overlay
           Center(
