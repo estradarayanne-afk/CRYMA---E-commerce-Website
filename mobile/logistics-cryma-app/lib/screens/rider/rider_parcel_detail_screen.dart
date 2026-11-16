@@ -293,6 +293,11 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
                       _InfoRow(label: 'Items', value: parcel.itemSummary),
                       _InfoRow(label: 'Contact', value: parcel.counterparty),
                       _InfoRow(label: 'Address', value: parcel.address),
+                      if (parcel.isPickup && parcel.pickupHub != null)
+                        _InfoRow(
+                          label: 'Deliver to municipality hub',
+                          value: parcel.pickupHub!,
+                        ),
                       if (parcel.isCod)
                         _InfoRow(
                           label: 'Collect COD',

@@ -13,6 +13,7 @@ class CourierParcel {
     required this.paymentMethod,
     required this.totalAmount,
     required this.deliveryAttempts,
+    this.pickupHub,
     this.failureReason,
     this.updatedAt,
   });
@@ -28,6 +29,7 @@ class CourierParcel {
   final String paymentMethod;
   final double totalAmount;
   final int deliveryAttempts;
+  final String? pickupHub;
   final String? failureReason;
   final DateTime? updatedAt;
 
@@ -121,6 +123,9 @@ class CourierParcel {
       status: json['status'] as String,
       itemSummary: itemNames.isEmpty ? 'Order #$orderId' : itemNames.join(', '),
       address: address.isEmpty ? 'Address not provided' : address,
+      pickupHub: type == CourierTaskType.pickup
+          ? _formatPickupHub(json['target_hub'])
+          : null,
       counterparty: counterparty.isEmpty
           ? (type == CourierTaskType.pickup ? 'Seller' : 'Recipient')
           : counterparty,
@@ -166,6 +171,15 @@ class CourierParcel {
         .map((field) => _asText(address[field]))
         .where((part) => part.isNotEmpty)
         .join(', ');
+  }
+
+  static String? _formatPickupHub(dynamic value) {
+    final hub = _asMap(value);
+    if (hub == null) return null;
+    final name = _asText(hub['name']);
+    final location = _asText(hub['location_label']);
+    final destination = [name, location].where((part) => part.isNotEmpty).join(' · ');
+    return destination.isEmpty ? null : destination;
   }
 
   static DateTime? _parseDate(dynamic value) =>

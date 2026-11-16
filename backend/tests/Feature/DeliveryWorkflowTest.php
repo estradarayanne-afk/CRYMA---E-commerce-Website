@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Address;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
@@ -25,7 +26,7 @@ class DeliveryWorkflowTest extends TestCase
     public function test_seller_fulfillment_creates_one_delivery_and_exposes_the_ready_order_to_logistics(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
+        $logistics = $this->logisticsUser();
         SellerPickupAddress::create([
             'user_id' => $seller->id,
             'recipient_name' => 'Seller Pickup Contact',
@@ -69,7 +70,8 @@ class DeliveryWorkflowTest extends TestCase
     public function test_seller_can_request_pickup_for_an_order_with_its_ready_delivery(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
+        $logistics = $this->logisticsUser();
+        $outsideLogistics = $this->logisticsUser('Talisay');
         SellerPickupAddress::create([
             'user_id' => $seller->id,
             'recipient_name' => 'Seller Pickup Contact',
@@ -114,9 +116,13 @@ class DeliveryWorkflowTest extends TestCase
             ->assertJsonPath('data.notifications.0.data.type', 'seller_pickup_requested')
             ->assertJsonPath('data.notifications.0.data.link', '/logistics/pickups')
             ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
+        $this->actingAs($outsideLogistics, 'sanctum')
+            ->getJson('/api/logistics/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 0);
         $notificationId = $notificationResponse->json('data.notifications.0.id');
-        $this->patchJson("/api/logistics/notifications/{$notificationId}/read")->assertOk();
-        $this->getJson('/api/logistics/operations')
+        $this->actingAs($logistics, 'sanctum')->patchJson("/api/logistics/notifications/{$notificationId}/read")->assertOk();
+        $this->actingAs($logistics, 'sanctum')->getJson('/api/logistics/operations')
             ->assertOk()
             ->assertJsonPath('data.pickup_assignments.0.order_id', $order->id)
             ->assertJsonPath('data.pickup_assignments.0.status', PickupAssignment::REQUESTED);
@@ -129,7 +135,7 @@ class DeliveryWorkflowTest extends TestCase
     public function test_seller_can_request_one_pickup_batch_for_multiple_ready_orders_and_rider_tracks_each_parcel(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
+        $logistics = $this->logisticsUser();
         SellerPickupAddress::create([
             'user_id' => $seller->id, 'recipient_name' => 'Bulk Seller', 'phone' => '+639171234567',
             'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
@@ -333,7 +339,7 @@ class DeliveryWorkflowTest extends TestCase
         $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
         $this->actingAs($logistics, 'sanctum')->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
             'expected_status' => Delivery::PICKED_UP,
-            'hub_id' => LogisticsHub::where('is_active', true)->value('id'),
+            'hub_id' => $assignment->fresh()->target_hub_id,
             'parcel_code' => $assignment->delivery->parcel_code,
         ])->assertOk();
 
@@ -821,6 +827,21 @@ class DeliveryWorkflowTest extends TestCase
         }
         if ($vehicle) Vehicle::create(['courier_profile_id' => $profile->id, 'vehicle_type' => 'motorcycle', 'plate_number' => 'TEST'.str_pad((string) $profile->id, 6, '0', STR_PAD_LEFT)]);
         return [$user, $profile];
+    }
+
+    private function logisticsUser(string $municipality = 'Carmen'): User
+    {
+        $user = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
+        Address::create([
+            'user_id' => $user->id,
+            'is_default' => true,
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => $municipality,
+            'barangay' => 'Luyang',
+        ]);
+
+        return $user;
     }
 
     private function admin(): User

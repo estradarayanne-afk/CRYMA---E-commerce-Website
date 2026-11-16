@@ -67,7 +67,11 @@ class HubStaffParcelOperationsController extends Controller
         $delivery = Delivery::query()->where('parcel_code', $values['parcel_code'])
             ->whereNull('current_hub_id')->where('status', Delivery::PICKED_UP)
             ->whereHas('order', fn ($query) => $query->where('status', Delivery::PICKED_UP))
-            ->whereHas('pickupAssignment', fn ($query) => $query->where('status', PickupAssignment::PICKED_UP)->whereNotNull('picked_up_at')->whereNull('received_at'))
+            ->whereHas('pickupAssignment', fn ($query) => $query
+                ->where('status', PickupAssignment::PICKED_UP)
+                ->whereNotNull('picked_up_at')
+                ->whereNull('received_at')
+                ->where(fn ($target) => $target->where('target_hub_id', $hub->id)->orWhereNull('target_hub_id')))
             ->firstOrFail();
 
         return response()->json([

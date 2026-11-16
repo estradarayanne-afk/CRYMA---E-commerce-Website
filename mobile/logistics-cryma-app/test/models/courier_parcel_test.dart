@@ -9,6 +9,10 @@ void main() {
       'parcel_code': 'CRYMA-PCL-ABCDEFGHIJKLMNOPQRST',
       'status': 'ASSIGNED_TO_PICKUP_RIDER',
       'pickup_address': '12 Main St, Makati',
+      'target_hub': {
+        'name': 'Makati Hub',
+        'location_label': 'Makati City, NCR',
+      },
       'order': {
         'items': [
           {
@@ -24,6 +28,7 @@ void main() {
     expect(parcel.type, CourierTaskType.pickup);
     expect(parcel.itemSummary, 'Headphones');
     expect(parcel.counterparty, 'Maria Santos');
+    expect(parcel.pickupHub, 'Makati Hub · Makati City, NCR');
     expect(parcel.canAcceptPickup, isTrue);
     expect(parcel.routeType, 'pickups');
   });

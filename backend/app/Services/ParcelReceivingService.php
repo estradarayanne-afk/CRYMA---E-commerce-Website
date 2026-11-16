@@ -12,7 +12,10 @@ use Illuminate\Support\Facades\DB;
 
 class ParcelReceivingService
 {
-    public function __construct(private readonly HubStaffHubResolver $hubResolver) {}
+    public function __construct(
+        private readonly HubStaffHubResolver $hubResolver,
+        private readonly LogisticsMunicipality $municipality,
+    ) {}
 
     public function receivePickup(int $orderId, string $parcelCode, User $actor, ?int $globalHubId = null): PickupAssignment
     {
@@ -23,6 +26,7 @@ class ParcelReceivingService
             abort_unless($hub->is_active, 422, 'Select an active hub.');
 
             $order = Order::query()->whereKey($orderId)->lockForUpdate()->firstOrFail();
+            $order->loadMissing('items.seller.sellerPickupAddress', 'items.seller.addresses');
             $delivery = Delivery::query()->where('parcel_code', $parcelCode)->lockForUpdate()->firstOrFail();
             abort_unless((int) $delivery->order_id === (int) $order->id, 422, 'The scanned parcel does not match this order.');
             $assignment = PickupAssignment::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
@@ -36,8 +40,23 @@ class ParcelReceivingService
                 409,
                 'Only a collected parcel awaiting hub receipt can be confirmed.',
             );
+            $targetHub = $assignment->targetHub;
+            if (! $targetHub) {
+                $pickupLocation = $this->municipality->pickupAddressForOrder($order);
+                abort_unless($pickupLocation, 422, 'The seller pickup municipality is unavailable.');
+                $targetHub = $this->municipality->hubForAddress($pickupLocation);
+            }
+            abort_unless(
+                $targetHub->is_active && (int) $targetHub->id === (int) $hub->id,
+                422,
+                "This parcel must be received at its pickup municipality hub ({$targetHub->name}).",
+            );
 
-            $assignment->update(['status' => PickupAssignment::RECEIVED, 'received_at' => now()]);
+            $assignment->update([
+                'target_hub_id' => $targetHub->id,
+                'status' => PickupAssignment::RECEIVED,
+                'received_at' => now(),
+            ]);
             $delivery->update(['status' => Delivery::AT_SORTING_CENTER, 'current_hub_id' => $hub->id]);
             $order->update(['status' => Delivery::AT_SORTING_CENTER]);
             OrderDeliveryProjection::event($delivery, [

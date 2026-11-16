@@ -56,6 +56,7 @@ class HubStaffParcelOperationsTest extends TestCase
         PickupAssignment::create([
             'order_id' => $order->id,
             'delivery_id' => $delivery->id,
+            'target_hub_id' => $hub->id,
             'status' => PickupAssignment::PICKED_UP,
             'picked_up_at' => now(),
         ]);
@@ -84,10 +85,16 @@ class HubStaffParcelOperationsTest extends TestCase
 
     public function test_qr_must_match_the_order_and_failed_receipt_does_not_mutate_custody(): void
     {
-        [$staff] = $this->hubStaff('QR-HUB');
+        [$staff, $hub] = $this->hubStaff('QR-HUB');
         $order = $this->order(Delivery::PICKED_UP);
         $delivery = Delivery::create(['order_id' => $order->id, 'status' => Delivery::PICKED_UP]);
-        PickupAssignment::create(['order_id' => $order->id, 'delivery_id' => $delivery->id, 'status' => PickupAssignment::PICKED_UP, 'picked_up_at' => now()]);
+        PickupAssignment::create([
+            'order_id' => $order->id,
+            'delivery_id' => $delivery->id,
+            'target_hub_id' => $hub->id,
+            'status' => PickupAssignment::PICKED_UP,
+            'picked_up_at' => now(),
+        ]);
         $otherOrder = $this->order(Delivery::PICKED_UP);
 
         $this->actingAs($staff, 'sanctum')->postJson('/api/hub-staff/receipts', ['order_id' => $otherOrder->id, 'parcel_code' => $delivery->parcel_code])->assertUnprocessable();

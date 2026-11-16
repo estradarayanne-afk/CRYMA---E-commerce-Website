@@ -31,6 +31,7 @@ class PickupController extends Controller
             'order.items.seller:id,first_name,last_name',
             'order.items.seller.addresses',
             'delivery.events',
+            'targetHub',
             'pickupBatch' => fn ($query) => $query->withCount('assignments'),
         ]);
     }
@@ -44,6 +45,13 @@ class PickupController extends Controller
             'parcel_code' => $assignment->delivery?->parcel_code,
             'status' => $assignment->status,
             'pickup_address' => $assignment->pickup_address,
+            'target_hub' => $assignment->targetHub ? [
+                'id' => $assignment->targetHub->id,
+                'name' => $assignment->targetHub->name,
+                'code' => $assignment->targetHub->code,
+                'address' => $assignment->targetHub->address,
+                'location_label' => $assignment->targetHub->location_label,
+            ] : null,
             'pickup_batch_id' => $assignment->pickup_batch_id,
             'pickup_batch' => $assignment->pickupBatch ? [
                 'id' => $assignment->pickupBatch->id,

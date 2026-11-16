@@ -37,6 +37,12 @@ class CourierEligibility
             ->scopeUsers($query, $logisticsUser));
     }
 
+    public function availableProfilesInMunicipality(User $logisticsUser, LogisticsMunicipality $municipality): Builder
+    {
+        return $this->profilesInMunicipality($logisticsUser, $municipality)
+            ->whereHas('presence', fn (Builder $query) => $query->where('is_available', true));
+    }
+
     public function find(int $id): ?CourierProfile
     {
         return $this->profiles()->with('user:id,first_name,last_name,role,status,email_verified_at')
@@ -47,6 +53,14 @@ class CourierEligibility
     public function isEligible(CourierProfile $profile): bool
     {
         return $this->profiles()->whereKey($profile->id)->exists();
+    }
+
+    public function isAvailable(CourierProfile $profile): bool
+    {
+        return $this->profiles()
+            ->whereKey($profile->id)
+            ->whereHas('presence', fn (Builder $query) => $query->where('is_available', true))
+            ->exists();
     }
 
     public function isEligibleForArea(CourierProfile $profile, int $areaId): bool

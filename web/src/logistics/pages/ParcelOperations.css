@@ -20,3 +20,9 @@
 .lo-transfer-destination{display:grid;gap:4px;padding:9px 10px;border:1px solid #f0dde2;border-radius:8px;background:#fffafb}
 .lo-transfer-destination span{color:#80666e;font-size:10px}
 .lo-transfer-destination strong{color:#35151f;font-size:12px}
+
+.lo-actions.lo-monitor-inline-actions{flex-direction:row;align-items:flex-end;flex-wrap:wrap;width:100%;max-width:none}
+.lo-monitor-rider-select{display:grid;flex:1 1 190px;gap:4px;min-width:190px;color:#63464f;font-size:11px;font-weight:700}
+.lo-monitor-inline-actions input{flex:1 1 200px;min-width:180px}
+.lo-monitor-inline-actions>button{flex:0 0 auto}
+@media(max-width:700px){.lo-monitor-rider-select{min-width:100%}.lo-monitor-inline-actions input{min-width:100%}.lo-monitor-inline-actions>button{flex:1 1 100%}}

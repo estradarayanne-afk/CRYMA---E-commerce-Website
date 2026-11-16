@@ -70,6 +70,10 @@ class LogisticsOperationsTest extends TestCase
     {
         $logistics = $this->logisticsUser();
         [, $courierProfile] = $this->eligibleCourier();
+        CourierPresence::create([
+            'courier_profile_id' => $courierProfile->id,
+            'is_available' => true,
+        ]);
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
         Delivery::create([
             'order_id' => $order->id,
@@ -87,7 +91,10 @@ class LogisticsOperationsTest extends TestCase
             'scheduled_at' => now()->addDay()->toISOString(),
         ])->assertOk();
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
+        $hub = $assignment->targetHub;
         $this->assertSame($logistics->id, $assignment->assigned_by);
+        $this->assertNotNull($hub);
+        $this->assertSame($hub->id, $assignment->target_hub_id);
         $this->assertStringContainsString('Luyang', $assignment->pickup_address);
         $this->assertStringContainsString('6005', $assignment->pickup_address);
 
@@ -97,7 +104,6 @@ class LogisticsOperationsTest extends TestCase
         ]);
         Delivery::where('order_id', $order->id)->update(['status' => Delivery::PICKED_UP, 'picked_up_at' => now()]);
         $order->update(['status' => Delivery::PICKED_UP]);
-        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
         $inactiveHub = LogisticsHub::create(['name' => 'Inactive Test Hub', 'code' => 'INACTIVE-TEST', 'is_active' => false]);
 
         $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
@@ -112,6 +118,12 @@ class LogisticsOperationsTest extends TestCase
         $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", ['expected_status' => Delivery::PICKED_UP, 'hub_id' => $hub->id, 'parcel_code' => 'CRYMA-PCL-AAAAAAAAAAAAAAAAAAAA'])->assertNotFound();
         $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", ['expected_status' => Delivery::PICKED_UP, 'hub_id' => $hub->id])->assertUnprocessable();
         $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", ['expected_status' => Delivery::PICKED_UP, 'hub_id' => $hub->id, 'parcel_code' => 'malformed'])->assertUnprocessable();
+        $wrongHub = LogisticsHub::query()->where('is_active', true)->whereKeyNot($hub->id)->firstOrFail();
+        $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
+            'expected_status' => Delivery::PICKED_UP,
+            'hub_id' => $wrongHub->id,
+            'parcel_code' => $parcelCode,
+        ])->assertUnprocessable();
 
         $this->patchJson("/api/logistics/orders/{$order->id}/sorting-receipt", [
             'expected_status' => Delivery::PICKED_UP,
@@ -140,24 +152,37 @@ class LogisticsOperationsTest extends TestCase
     {
         $logistics = $this->logisticsUser();
         [, $localProfile] = $this->eligibleCourier();
+        CourierPresence::create(['courier_profile_id' => $localProfile->id, 'is_available' => true]);
+        [, $unavailableProfile] = $this->eligibleCourier();
         [, $outsideProfile] = $this->eligibleCourier('Talisay');
+        CourierPresence::create(['courier_profile_id' => $outsideProfile->id, 'is_available' => true]);
         [, $inactiveProfile] = $this->eligibleCourier('Carmen', 'suspended');
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
+        $outsideOrder = $this->orderWithPickupAddress('READY_FOR_PICKUP', 'Talisay');
 
-        $pickupCouriers = $this->actingAs($logistics, 'sanctum')
+        $response = $this->actingAs($logistics, 'sanctum')
             ->getJson('/api/logistics/operations')
-            ->assertOk()
-            ->json('data.eligible_pickup_couriers');
+            ->assertOk();
+        $pickupCouriers = $response->json('data.eligible_pickup_couriers');
 
         $this->assertSame([$localProfile->id], array_column($pickupCouriers, 'id'));
+        $this->assertSame([$order->id], array_column($response->json('data.pickup_orders'), 'id'));
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $outsideProfile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertUnprocessable();
+        $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
+            'courier_profile_id' => $unavailableProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
         ])->assertUnprocessable();
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $inactiveProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
         ])->assertUnprocessable();
+        $this->postJson("/api/logistics/orders/{$outsideOrder->id}/pickup-assignment", [
+            'courier_profile_id' => $localProfile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertForbidden();
     }
 
     public function test_logistics_can_sort_and_assign_only_to_eligible_courier_in_configured_area(): void
@@ -579,12 +604,12 @@ class LogisticsOperationsTest extends TestCase
         ]);
     }
 
-    private function orderWithPickupAddress(string $status): Order
+    private function orderWithPickupAddress(string $status, string $municipality = 'Carmen'): Order
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
         SellerPickupAddress::create([
             'user_id' => $seller->id, 'recipient_name' => 'Synthetic Seller', 'phone' => '+639171234567',
-            'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => $municipality,
             'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
         ]);
         $order = $this->order($status);

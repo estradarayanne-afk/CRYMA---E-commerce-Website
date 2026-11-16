@@ -87,6 +87,28 @@ class CourierParcelCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (parcel.isPickup && parcel.pickupHub != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.store_mall_directory_outlined,
+                      size: 15,
+                      color: CrymaColors.textSecondary,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        'Deliver to ${parcel.pickupHub}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: CrymaText.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               if (parcel.codAmount > 0) ...[
                 const SizedBox(height: 6),
                 Text(

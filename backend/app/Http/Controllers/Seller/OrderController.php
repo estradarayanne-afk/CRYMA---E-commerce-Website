@@ -9,7 +9,9 @@ use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Models\User;
 use App\Notifications\LogisticsPickupRequestedNotification;
+use App\Services\LogisticsMunicipality;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -132,11 +134,13 @@ class OrderController extends Controller
         ]);
     }
 
-    public function requestPickup(Request $request, int $id)
+    public function requestPickup(Request $request, int $id, LogisticsMunicipality $municipality)
     {
         $user = $request->user();
-        $pickupAddress = $this->pickupAddressFor($user);
-        $assignment = DB::transaction(function () use ($user, $id, $pickupAddress) {
+        $pickupLocation = $this->pickupLocationFor($user, $municipality);
+        $pickupAddress = $this->formatPickupAddress($pickupLocation);
+        $targetHub = $municipality->hubForAddress($pickupLocation);
+        $assignment = DB::transaction(function () use ($user, $id, $pickupAddress, $targetHub, $pickupLocation, $municipality) {
             $order = Order::whereHas('items', fn ($query) => $query->where('seller_id', $user->id))
                 ->whereKey($id)->lockForUpdate()->firstOrFail();
             abort_unless(strtoupper((string) $order->status) === 'READY_FOR_PICKUP', 422, 'Mark the order ready before scheduling pickup.');
@@ -152,6 +156,7 @@ class OrderController extends Controller
             $assignment = PickupAssignment::create([
                 'order_id' => $order->id,
                 'delivery_id' => $delivery->id,
+                'target_hub_id' => $targetHub->id,
                 'assigned_by' => $user->id,
                 'status' => PickupAssignment::REQUESTED,
                 'pickup_address' => $pickupAddress,
@@ -163,14 +168,14 @@ class OrderController extends Controller
                 'previous_status' => 'READY_FOR_PICKUP',
                 'new_status' => PickupAssignment::REQUESTED,
             ]);
-            $this->notifyLogisticsPickupRequest((int) $order->id);
+            $this->notifyLogisticsPickupRequest((int) $order->id, $pickupLocation, $municipality);
             return $assignment;
         });
 
         return response()->json(['success' => true, 'message' => 'Courier pickup requested.', 'data' => $assignment]);
     }
 
-    public function requestPickupBatch(Request $request)
+    public function requestPickupBatch(Request $request, LogisticsMunicipality $municipality)
     {
         $user = $request->user();
         $values = $request->validate([
@@ -178,11 +183,13 @@ class OrderController extends Controller
             'order_ids.*' => ['required', 'integer', 'distinct', 'min:1'],
             'preferred_scheduled_at' => ['required', 'date', 'after:now'],
         ]);
-        $pickupAddress = $this->pickupAddressFor($user);
+        $pickupLocation = $this->pickupLocationFor($user, $municipality);
+        $pickupAddress = $this->formatPickupAddress($pickupLocation);
+        $targetHub = $municipality->hubForAddress($pickupLocation);
         $orderIds = collect($values['order_ids'])->map(fn ($id) => (int) $id)->sort()->values();
         $preferredSchedule = \Illuminate\Support\Carbon::parse($values['preferred_scheduled_at']);
 
-        $batch = DB::transaction(function () use ($user, $orderIds, $pickupAddress, $preferredSchedule) {
+        $batch = DB::transaction(function () use ($user, $orderIds, $pickupAddress, $targetHub, $pickupLocation, $preferredSchedule, $municipality) {
             $orders = Order::whereIn('id', $orderIds)
                 ->whereHas('items', fn ($query) => $query->where('seller_id', $user->id))
                 ->orderBy('id')
@@ -215,6 +222,7 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'delivery_id' => $delivery->id,
                     'pickup_batch_id' => $batch->id,
+                    'target_hub_id' => $targetHub->id,
                     'assigned_by' => $user->id,
                     'status' => PickupAssignment::REQUESTED,
                     'pickup_address' => $pickupAddress,
@@ -226,7 +234,7 @@ class OrderController extends Controller
                     'previous_status' => 'READY_FOR_PICKUP',
                     'new_status' => PickupAssignment::REQUESTED,
                 ]);
-                $this->notifyLogisticsPickupRequest((int) $order->id);
+                $this->notifyLogisticsPickupRequest((int) $order->id, $pickupLocation, $municipality);
             }
 
             return $batch->load('assignments.order');
@@ -239,12 +247,16 @@ class OrderController extends Controller
         ], 201);
     }
 
-    private function pickupAddressFor(User $user): string
+    private function pickupLocationFor(User $user, LogisticsMunicipality $municipality): Model
     {
-        $address = $user->sellerPickupAddress
-            ?? $user->addresses()->orderByDesc('is_default')->latest('id')->first();
+        $address = $municipality->pickupAddressForSeller($user);
         abort_unless($address, 422, 'Add a seller pickup address in Account Settings before requesting a courier pickup.');
 
+        return $address;
+    }
+
+    private function formatPickupAddress(Model $address): string
+    {
         return collect([
             $address->recipient_name ? 'Contact: '.$address->recipient_name : null,
             $address->phone ? 'Phone: '.$address->phone : null,
@@ -279,12 +291,23 @@ class OrderController extends Controller
         });
     }
 
-    private function notifyLogisticsPickupRequest(int $orderId): void
+    private function notifyLogisticsPickupRequest(
+        int $orderId,
+        Model $pickupLocation,
+        LogisticsMunicipality $municipality,
+    ): void
     {
-        User::query()
+        $logisticsUsers = User::query()
             ->where('role', 'logistics')
             ->where('status', 'active')
-            ->each(fn (User $logistics) => $logistics->notify(new LogisticsPickupRequestedNotification($orderId)));
+            ->with(['addresses' => fn ($query) => $query->orderByDesc('is_default')->orderByDesc('id')])
+            ->get();
+
+        foreach ($logisticsUsers as $logistics) {
+            if ($municipality->sameMunicipality($pickupLocation, $municipality->addressForUser($logistics))) {
+                $logistics->notify(new LogisticsPickupRequestedNotification($orderId));
+            }
+        }
     }
 
     private function sellerContact(User $user): array
