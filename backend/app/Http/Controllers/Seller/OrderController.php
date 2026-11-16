@@ -50,7 +50,7 @@ class OrderController extends Controller
         }
 
         $decorateOrder = function (Order $order) use ($user): void {
-            \App\Support\OrderDeliveryProjection::apply($order);
+            \App\Support\OrderDeliveryProjection::apply($order, true);
             $order->setAttribute('seller', $this->sellerContact($user));
         };
         if (isset($filters['per_page'])) {
@@ -90,7 +90,7 @@ class OrderController extends Controller
             ], 404);
         }
 
-        \App\Support\OrderDeliveryProjection::apply($order);
+        \App\Support\OrderDeliveryProjection::apply($order, true);
         $order->setAttribute('seller', $this->sellerContact($user));
 
         return response()->json([
@@ -170,24 +170,37 @@ class OrderController extends Controller
             $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
             $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
             if ($assignment) {
-                abort_unless($assignment->status === PickupAssignment::REQUESTED, 409, 'A pickup has already been scheduled or completed.');
-                return $assignment;
+                if ($assignment->status === PickupAssignment::REQUESTED) {
+                    return $assignment;
+                }
+                abort_unless($assignment->status === PickupAssignment::REJECTED_BY_LOGISTICS, 409, 'A pickup has already been requested, scheduled, or completed.');
             }
             abort_unless(!$delivery || $delivery->status === 'READY_FOR_PICKUP', 409, 'This order already has an active shipment.');
             $delivery ??= Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
-            $assignment = PickupAssignment::create([
+            $previousStatus = $assignment?->status ?? 'READY_FOR_PICKUP';
+            $assignment ??= new PickupAssignment([
                 'order_id' => $order->id,
                 'delivery_id' => $delivery->id,
+            ]);
+            $assignment->fill([
+                'pickup_batch_id' => null,
                 'target_hub_id' => $targetHub->id,
+                'courier_profile_id' => null,
                 'assigned_by' => $user->id,
                 'status' => PickupAssignment::REQUESTED,
                 'pickup_address' => $pickupAddress,
                 'requested_at' => now(),
-            ]);
+                'scheduled_at' => null,
+                'assigned_at' => null,
+                'picked_up_at' => null,
+                'received_at' => null,
+            ])->save();
             \App\Support\OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $user->id,
-                'event_type' => 'pickup_requested',
-                'previous_status' => 'READY_FOR_PICKUP',
+                'event_type' => $previousStatus === PickupAssignment::REJECTED_BY_LOGISTICS
+                    ? 'pickup_resubmitted'
+                    : 'pickup_requested',
+                'previous_status' => $previousStatus,
                 'new_status' => PickupAssignment::REQUESTED,
             ]);
             $this->notifyLogisticsPickupRequest((int) $order->id);
@@ -222,7 +235,7 @@ class OrderController extends Controller
             foreach ($orders as $order) {
                 abort_unless(strtoupper((string) $order->status) === 'READY_FOR_PICKUP', 422, "Order #{$order->id} is not ready for pickup.");
                 $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
-                abort_unless(!$assignment, 409, "Order #{$order->id} already has a pickup assignment.");
+                abort_unless(!$assignment || $assignment->status === PickupAssignment::REJECTED_BY_LOGISTICS, 409, "Order #{$order->id} already has an active pickup request.");
                 $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
                 abort_unless(!$delivery || $delivery->status === 'READY_FOR_PICKUP', 409, "Order #{$order->id} already has an active shipment.");
             }
@@ -240,20 +253,31 @@ class OrderController extends Controller
                     ['order_id' => $order->id],
                     ['status' => 'READY_FOR_PICKUP', 'legacy_imported' => false],
                 );
-                $assignment = PickupAssignment::create([
+                $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
+                $previousStatus = $assignment?->status ?? 'READY_FOR_PICKUP';
+                $assignment ??= new PickupAssignment([
                     'order_id' => $order->id,
                     'delivery_id' => $delivery->id,
+                ]);
+                $assignment->fill([
                     'pickup_batch_id' => $batch->id,
                     'target_hub_id' => $targetHub->id,
+                    'courier_profile_id' => null,
                     'assigned_by' => $user->id,
                     'status' => PickupAssignment::REQUESTED,
                     'pickup_address' => $pickupAddress,
                     'requested_at' => now(),
-                ]);
+                    'scheduled_at' => null,
+                    'assigned_at' => null,
+                    'picked_up_at' => null,
+                    'received_at' => null,
+                ])->save();
                 \App\Support\OrderDeliveryProjection::event($delivery, [
                     'actor_id' => $user->id,
-                    'event_type' => 'pickup_requested',
-                    'previous_status' => 'READY_FOR_PICKUP',
+                    'event_type' => $previousStatus === PickupAssignment::REJECTED_BY_LOGISTICS
+                        ? 'pickup_resubmitted'
+                        : 'pickup_requested',
+                    'previous_status' => $previousStatus,
                     'new_status' => PickupAssignment::REQUESTED,
                 ]);
                 $this->notifyLogisticsPickupRequest((int) $order->id);

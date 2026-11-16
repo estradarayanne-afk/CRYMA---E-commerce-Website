@@ -10,6 +10,7 @@ use App\Models\LogisticsHub;
 use App\Models\Order;
 use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
+use App\Models\PickupAssignmentDecision;
 use App\Models\User;
 use App\Services\CourierEligibility;
 use App\Services\DeliveryAreaResolver;
@@ -39,7 +40,7 @@ class LogisticsController extends Controller
             'order.buyer:id,first_name,last_name', 'order.items.product:id,name',
             'order.items.seller.addresses', 'order.items.seller.sellerPickupAddress', 'courierProfile.user:id,first_name,last_name',
             'pickupBatch' => fn ($query) => $query->withCount('assignments'),
-            'delivery.events.actor:id,first_name,last_name', 'targetHub',
+            'delivery.events.actor:id,first_name,last_name', 'decisionHistory.actor:id,first_name,last_name', 'targetHub',
         ])->latest()->get();
         /** @var \Illuminate\Database\Eloquent\Collection<int, Order> $sortingOrders */
         $sortingOrders = Order::with([
@@ -184,6 +185,56 @@ class LogisticsController extends Controller
         return response()->json(['success' => true, 'message' => 'Courier removed from future assignments in this area.']);
     }
 
+    public function decidePickup(Request $request, int $orderId)
+    {
+        if (is_string($request->input('reason'))) {
+            $request->merge(['reason' => trim($request->input('reason'))]);
+        }
+        $values = $request->validate([
+            'decision' => ['required', Rule::in(['accepted', 'rejected'])],
+            'reason' => ['required_if:decision,rejected', 'nullable', 'string', 'max:1000', 'not_regex:/^\s*$/'],
+        ]);
+        $reason = isset($values['reason']) ? trim($values['reason']) : null;
+
+        $assignment = DB::transaction(function () use ($request, $orderId, $values, $reason) {
+            $order = Order::whereKey($orderId)->lockForUpdate()->firstOrFail();
+            $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($order->status === 'READY_FOR_PICKUP', 422, 'Only seller-ready pickup requests can be decided.');
+            abort_unless($assignment->status === PickupAssignment::REQUESTED, 409, 'Only a pending pickup request can be accepted or rejected.');
+
+            $accepted = $values['decision'] === 'accepted';
+            $status = $accepted
+                ? PickupAssignment::ACCEPTED_BY_LOGISTICS
+                : PickupAssignment::REJECTED_BY_LOGISTICS;
+            $decidedAt = now();
+            PickupAssignmentDecision::create([
+                'pickup_assignment_id' => $assignment->id,
+                'decided_by' => $request->user()->id,
+                'decision' => $values['decision'],
+                'reason' => $reason,
+                'decided_at' => $decidedAt,
+            ]);
+            $assignment->update(['status' => $status]);
+            OrderDeliveryProjection::event($assignment->delivery, [
+                'actor_id' => $request->user()->id,
+                'event_type' => $accepted ? 'pickup_accepted_by_logistics' : 'pickup_rejected_by_logistics',
+                'previous_status' => PickupAssignment::REQUESTED,
+                'new_status' => $status,
+                'reason' => $reason,
+            ]);
+
+            return $assignment->fresh()->load('decisionHistory.actor:id,first_name,last_name');
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => $values['decision'] === 'accepted'
+                ? 'Pickup request accepted. Assign a courier as a separate step.'
+                : 'Pickup request rejected. The seller may submit a new request.',
+            'data' => $assignment,
+        ]);
+    }
+
     public function assignPickup(
         Request $request,
         int $orderId,
@@ -228,16 +279,17 @@ class LogisticsController extends Controller
                     abort_unless($eligibility->isEligible($courier), 422, 'The selected pickup rider is no longer eligible.');
                 }
                 abort_unless($order->status === 'READY_FOR_PICKUP', 422, 'Only seller-ready orders can be assigned for pickup.');
+                abort_unless($assignment !== null, 409, 'A seller pickup request must be accepted before assigning a courier.');
                 $targetHub = $assignment?->targetHub ?? $municipality->hubForAddress($pickupLocation);
                 abort_unless($targetHub->is_active, 422, 'The pickup municipality hub is no longer active.');
                 $courierChanged = false;
                 $scheduleChanged = true;
 
                 if ($assignment) {
-                    abort_unless(in_array($assignment->status, [PickupAssignment::REQUESTED, PickupAssignment::ASSIGNED, PickupAssignment::ACCEPTED], true) && !$assignment->picked_up_at, 422, 'Pickup rider cannot be changed after collection.');
-                    if ($assignment->status === PickupAssignment::REQUESTED) {
+                    abort_unless(in_array($assignment->status, [PickupAssignment::ACCEPTED_BY_LOGISTICS, PickupAssignment::ASSIGNED, PickupAssignment::ACCEPTED], true) && !$assignment->picked_up_at, 422, 'Pickup request must be accepted before courier assignment and cannot be changed after collection.');
+                    if ($assignment->status === PickupAssignment::ACCEPTED_BY_LOGISTICS) {
                         $previousCourier = null;
-                        $previousAssignmentStatus = PickupAssignment::REQUESTED;
+                        $previousAssignmentStatus = PickupAssignment::ACCEPTED_BY_LOGISTICS;
                     } else {
                         $courierChanged = (int) $assignment->courier_profile_id !== (int) $courier->id;
                         $scheduleChanged = !$assignment->scheduled_at || !$assignment->scheduled_at->equalTo($requestedSchedule);
@@ -247,10 +299,6 @@ class LogisticsController extends Controller
                             abort_unless($reason !== null && $reason !== '', 422, 'A reason is required when changing a pickup rider.');
                         }
                     }
-                } else {
-                    abort_unless(!$delivery || $delivery->status === 'READY_FOR_PICKUP', 409, 'This order already has an active shipment.');
-                    $delivery ??= Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
-                    $assignment = new PickupAssignment(['order_id' => $order->id, 'delivery_id' => $delivery->id]);
                 }
 
                 if (!$assignment->pickup_address) {
@@ -352,10 +400,10 @@ class LogisticsController extends Controller
                 abort_unless($eligibility->isEligible($courier), 422, 'The selected pickup rider is no longer eligible.');
             }
             abort_unless($assignments->every(fn (PickupAssignment $assignment) => in_array($assignment->status, [
-                PickupAssignment::REQUESTED,
+            PickupAssignment::ACCEPTED_BY_LOGISTICS,
                 PickupAssignment::ASSIGNED,
                 PickupAssignment::ACCEPTED,
-            ], true) && !$assignment->picked_up_at), 422, 'A pickup rider cannot be changed after collection.');
+            ], true) && !$assignment->picked_up_at), 422, 'Every pickup request must be accepted before courier assignment, and a rider cannot be changed after collection.');
             abort_unless(
                 $assignments->every(fn (PickupAssignment $assignment) => $assignment->target_hub_id === null
                     || (int) $assignment->target_hub_id === (int) $targetHub->id),

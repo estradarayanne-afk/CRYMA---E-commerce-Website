@@ -1,10 +1,12 @@
 import 'package:go_router/go_router.dart';
+
 import 'models/courier_parcel.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/rider/rider_account_screen.dart';
 import 'screens/rider/rider_dashboard_screen.dart';
+import 'screens/rider/rider_delivery_chat_screen.dart';
 import 'screens/rider/rider_parcel_detail_screen.dart';
 import 'screens/rider/rider_parcels_screen.dart';
 
@@ -25,12 +27,32 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
       },
       refreshListenable: auth,
       routes: [
-        GoRoute(path: '/welcome', pageBuilder: (_, __) => const NoTransitionPage(child: WelcomeScreen())),
-        GoRoute(path: '/login', pageBuilder: (_, __) => const NoTransitionPage(child: LoginScreen())),
+        GoRoute(
+          path: '/welcome',
+          pageBuilder: (_, __) =>
+              const NoTransitionPage(child: WelcomeScreen()),
+        ),
+        GoRoute(
+          path: '/login',
+          pageBuilder: (_, __) => const NoTransitionPage(child: LoginScreen()),
+        ),
         GoRoute(path: '/register', redirect: (_, __) => '/login'),
-
-        GoRoute(path: '/rider', pageBuilder: (_, __) => const NoTransitionPage(child: RiderDashboardScreen())),
-        GoRoute(path: '/rider/parcels', pageBuilder: (_, __) => const NoTransitionPage(child: RiderParcelsScreen())),
+        GoRoute(
+          path: '/rider',
+          pageBuilder: (_, __) =>
+              const NoTransitionPage(child: RiderDashboardScreen()),
+        ),
+        GoRoute(
+          path: '/rider/parcels',
+          pageBuilder: (_, __) =>
+              const NoTransitionPage(child: RiderParcelsScreen()),
+        ),
+        GoRoute(
+          path: '/rider/chats/:orderId',
+          builder: (_, state) => RiderDeliveryChatScreen(
+            orderId: int.tryParse(state.pathParameters['orderId'] ?? '') ?? 0,
+          ),
+        ),
         GoRoute(
           path: '/rider/parcels/:kind/:id',
           pageBuilder: (_, state) => NoTransitionPage(
@@ -42,6 +64,10 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
             ),
           ),
         ),
-        GoRoute(path: '/rider/account', pageBuilder: (_, __) => const NoTransitionPage(child: RiderAccountScreen())),
+        GoRoute(
+          path: '/rider/account',
+          pageBuilder: (_, __) =>
+              const NoTransitionPage(child: RiderAccountScreen()),
+        ),
       ],
     );

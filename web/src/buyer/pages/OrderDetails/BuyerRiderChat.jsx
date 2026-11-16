@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import api from "../../../shared/services/api";
 import { getChatMessageRequestId } from "../../../shared/utils/chatMessageRequest";
+import { getRiderChatRefreshState } from "./riderChatRefresh.js";
 import "./BuyerRiderChat.css";
 
 const formatTime = (value) => {
@@ -35,9 +36,12 @@ export default function BuyerRiderChat({ orderId, onClose }) {
         }
         try {
             const response = await api.get(`/orders/${orderId}/rider-chat`);
-            setConversation(response.data?.data || null);
+            const result = getRiderChatRefreshState(null, { response });
+            setConversation(result.conversation);
+            setError(result.error);
         } catch (requestError) {
-            setError(requestError.response?.data?.message || "We couldn't load rider messages.");
+            setConversation((current) => getRiderChatRefreshState(current, { requestError }).conversation);
+            setError(getRiderChatRefreshState(null, { requestError }).error);
         } finally {
             if (!quiet) setLoading(false);
         }

@@ -7,10 +7,13 @@ use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\HubTransfer;
+use App\Models\HubTransferShipment;
 use App\Models\LogisticsHub;
 use App\Models\ReturnShipment;
 use App\Services\CourierEligibility;
 use App\Services\DeliveryAreaResolver;
+use App\Services\HubTransferReceivingService;
+use App\Services\ThirdPartyHubTransferService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -189,6 +192,142 @@ class ParcelFlowController extends Controller
             return $area->fresh()->load('hub');
         });
         return response()->json(['success' => true, 'data' => $area->load('hub')]);
+    }
+
+    public function createThirdPartyTransferShipment(Request $request, ThirdPartyHubTransferService $transfers)
+    {
+        foreach (['carrier_name', 'tracking_reference', 'shipment_reference'] as $field) {
+            if (is_string($request->input($field))) {
+                $request->merge([$field => trim($request->input($field))]);
+            }
+        }
+        $values = $request->validate([
+            'delivery_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'delivery_ids.*' => ['required', 'integer', 'distinct', 'min:1', 'exists:deliveries,id'],
+            'from_hub_id' => ['required', 'integer', 'exists:logistics_hubs,id'],
+            'to_hub_id' => ['required', 'integer', 'exists:logistics_hubs,id', 'different:from_hub_id'],
+            'carrier_code' => ['required', Rule::in(['manual', 'flash_express'])],
+            'carrier_name' => ['required', 'string', 'max:100', 'not_regex:/^\s*$/'],
+            'tracking_reference' => ['required', 'string', 'max:120', 'not_regex:/^\s*$/'],
+            'shipment_reference' => ['sometimes', 'nullable', 'string', 'max:64', 'alpha_dash', 'not_regex:/^\s*$/'],
+        ]);
+        $created = $transfers->createShipment(
+            $request->user(),
+            array_map('intval', $values['delivery_ids']),
+            (int) $values['from_hub_id'],
+            (int) $values['to_hub_id'],
+            $values['carrier_code'],
+            trim($values['carrier_name']),
+            trim($values['tracking_reference']),
+            isset($values['shipment_reference']) && $values['shipment_reference'] !== ''
+                ? $values['shipment_reference']
+                : null,
+        );
+        $first = $created->first();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Third-party transfer shipment created. Verify each parcel when receiving.',
+            'data' => [
+                'shipment_reference' => $first->shipment_reference,
+                'carrier_code' => $first->carrier_code,
+                'carrier_name' => $first->carrier_name,
+                'tracking_reference' => $first->tracking_reference,
+                'origin_hub' => $first->fromHub?->only(['id', 'name', 'code']),
+                'destination_hub' => $first->toHub?->only(['id', 'name', 'code']),
+                'items' => $created->map(fn (HubTransfer $transfer) => [
+                    'transfer_id' => $transfer->id,
+                    'delivery_id' => $transfer->delivery_id,
+                    'parcel_code' => $transfer->delivery?->parcel_code,
+                    'status' => $transfer->status,
+                ])->values(),
+            ],
+        ], 201);
+    }
+
+    public function showThirdPartyTransferShipment(string $shipmentReference)
+    {
+        $shipment = HubTransferShipment::query()
+            ->with([
+                'fromHub:id,name,code',
+                'toHub:id,name,code',
+                'transfers' => fn ($query) => $query->where('transport_mode', 'third_party')
+                    ->with('delivery:id,parcel_code')
+                    ->orderBy('id'),
+            ])
+            ->where('shipment_reference', $shipmentReference)
+            ->firstOrFail();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'shipment_reference' => $shipment->shipment_reference,
+                'carrier_code' => $shipment->carrier_code,
+                'carrier_name' => $shipment->carrier_name,
+                'tracking_reference' => $shipment->tracking_reference,
+                'origin_hub' => $shipment->fromHub?->only(['id', 'name', 'code']),
+                'destination_hub' => $shipment->toHub?->only(['id', 'name', 'code']),
+                'total_items' => $shipment->transfers->count(),
+                'items' => $shipment->transfers->map(fn (HubTransfer $transfer) => [
+                    'transfer_id' => $transfer->id,
+                    'delivery_id' => $transfer->delivery_id,
+                    'parcel_code' => $transfer->delivery?->parcel_code,
+                    'status' => $transfer->status,
+                    'departed_at' => $transfer->departed_at,
+                    'arrived_at' => $transfer->arrived_at,
+                ])->values(),
+            ],
+        ]);
+    }
+
+    public function dispatchThirdPartyTransferShipment(Request $request, string $shipmentReference, ThirdPartyHubTransferService $transfers)
+    {
+        $request->validate([
+            'hub_id' => ['prohibited'],
+            'parcel_code' => ['prohibited'],
+            'courier_profile_id' => ['prohibited'],
+        ]);
+        $rows = $transfers->dispatchShipment($request->user(), $shipmentReference);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Third-party shipment dispatch recorded.',
+            'data' => [
+                'shipment_reference' => $shipmentReference,
+                'items' => $rows->map(fn (HubTransfer $transfer) => [
+                    'transfer_id' => $transfer->id,
+                    'parcel_code' => $transfer->delivery?->parcel_code,
+                    'status' => $transfer->status,
+                    'departed_at' => $transfer->departed_at,
+                ])->values(),
+            ],
+        ]);
+    }
+
+    public function receiveThirdPartyTransferShipment(Request $request, string $shipmentReference, ThirdPartyHubTransferService $transfers, HubTransferReceivingService $receiving)
+    {
+        $values = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.transfer_id' => ['required', 'integer', 'distinct', 'min:1'],
+            'items.*.parcel_code' => ['required', 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
+            'hub_id' => ['prohibited'],
+        ]);
+        $rows = $transfers->receiveShipment($request->user(), $shipmentReference, $values['items'], $receiving);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Every parcel in the third-party shipment was verified and received.',
+            'data' => [
+                'shipment_reference' => $shipmentReference,
+                'items' => $rows->map(fn (HubTransfer $transfer) => [
+                    'transfer_id' => $transfer->id,
+                    'parcel_code' => $transfer->delivery?->parcel_code,
+                    'status' => $transfer->status,
+                    'arrived_at' => $transfer->arrived_at,
+                    'hub' => $transfer->toHub?->only(['id', 'name', 'code']),
+                ])->values(),
+            ],
+        ]);
     }
 
     public function assignReturnCourier(Request $request, int $id, CourierEligibility $eligibility)

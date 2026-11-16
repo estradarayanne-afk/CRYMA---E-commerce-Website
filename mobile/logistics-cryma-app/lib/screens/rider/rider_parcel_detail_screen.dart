@@ -13,10 +13,12 @@ class RiderParcelDetailScreen extends StatefulWidget {
     super.key,
     required this.type,
     required this.id,
+    this.courierService,
   });
 
   final CourierTaskType type;
   final int id;
+  final CourierService? courierService;
 
   @override
   State<RiderParcelDetailScreen> createState() =>
@@ -24,6 +26,7 @@ class RiderParcelDetailScreen extends StatefulWidget {
 }
 
 class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
+  late final CourierService _courierService;
   CourierParcel? _parcel;
   bool _loading = true;
   bool _updating = false;
@@ -32,6 +35,7 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _courierService = widget.courierService ?? CourierService.instance;
     _load();
   }
 
@@ -41,8 +45,10 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
       _error = null;
     });
     try {
-      final parcel =
-          await CourierService.instance.getParcel(widget.type, widget.id);
+      final parcel = await _courierService.getParcel(
+        widget.type,
+        widget.id,
+      );
       if (!mounted) return;
       setState(() {
         _parcel = parcel;
@@ -57,14 +63,28 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
     }
   }
 
-  Future<void> _perform(Future<void> Function() action) async {
+  Future<void> _perform(
+    Future<void> Function() action, {
+    String? successMessage,
+  }) async {
     setState(() {
       _updating = true;
       _error = null;
     });
     try {
       await action();
-      if (mounted) await _load();
+      if (mounted) {
+        await _load();
+        if (mounted && successMessage != null) {
+          final status = _error == null ? _parcel?.statusLabel : null;
+          final message = status == null
+              ? 'Failure outcome submitted, but the latest status could not be loaded. Pull down to retry.'
+              : '$successMessage Current status: $status.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -91,8 +111,9 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
 
   Future<void> _collectPickup(CourierParcel parcel) async {
     if (!await _scanParcel(parcel) || !mounted) return;
-    await _perform(() => CourierService.instance
-        .collectPickup(parcel.id, parcel.parcelCode));
+    await _perform(
+      () => _courierService.collectPickup(parcel.id, parcel.parcelCode),
+    );
   }
 
   Future<void> _collectPickupByItemId(CourierParcel parcel) async {
@@ -110,7 +131,9 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
             keyboardType: TextInputType.number,
             validator: (value) {
               final parsed = int.tryParse(value?.trim() ?? '');
-              return parsed == null || parsed < 1 ? 'Enter a valid item ID.' : null;
+              return parsed == null || parsed < 1
+                  ? 'Enter a valid item ID.'
+                  : null;
             },
             decoration: InputDecoration(
               labelText: 'Item ID',
@@ -138,14 +161,15 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
     controller.dispose();
     if (itemId == null || !mounted) return;
     await _perform(
-      () => CourierService.instance.collectPickupByItemId(parcel.id, itemId),
+      () => _courierService.collectPickupByItemId(parcel.id, itemId),
     );
   }
 
   Future<void> _startDelivery(CourierParcel parcel) async {
     if (!await _scanParcel(parcel) || !mounted) return;
-    await _perform(() => CourierService.instance
-        .startDelivery(parcel.id, parcel.parcelCode));
+    await _perform(
+      () => _courierService.startDelivery(parcel.id, parcel.parcelCode),
+    );
   }
 
   Future<void> _completeDelivery(CourierParcel parcel) async {
@@ -158,7 +182,7 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
     final details = await _requestProofDetails(parcel);
     if (details == null || !mounted) return;
     await _perform(
-      () => CourierService.instance.completeDelivery(
+      () => _courierService.completeDelivery(
         id: parcel.id,
         recipientName: details.recipientName,
         photoPath: image.path,
@@ -195,8 +219,9 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: codCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
                     labelText:
                         'Cash collected (₱${parcel.codAmount.toStringAsFixed(2)})',
@@ -232,9 +257,8 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
                 context,
                 _ProofDetails(
                   recipientName: recipientCtrl.text.trim(),
-                  codAmount: parcel.isCod
-                      ? double.parse(codCtrl.text.trim())
-                      : null,
+                  codAmount:
+                      parcel.isCod ? double.parse(codCtrl.text.trim()) : null,
                 ),
               );
             },
@@ -249,39 +273,21 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
   }
 
   Future<void> _failDelivery(CourierParcel parcel) async {
-    final reasonCtrl = TextEditingController();
-    final reason = await showDialog<String>(
+    final details = await showDialog<_DeliveryFailureDetails>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Unable to deliver'),
-        content: TextField(
-          controller: reasonCtrl,
-          autofocus: true,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Reason',
-            hintText: 'Explain why delivery could not be completed',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = reasonCtrl.text.trim();
-              if (value.isNotEmpty) Navigator.pop(context, value);
-            },
-            child: const Text('Submit'),
-          ),
-        ],
-      ),
+      builder: (_) => const _DeliveryFailureDialog(),
     );
-    reasonCtrl.dispose();
-    if (reason == null || !mounted) return;
+    if (details == null || !mounted) return;
     await _perform(
-      () => CourierService.instance.failDelivery(parcel.id, reason),
+      () => _courierService.failDelivery(
+        parcel.id,
+        details.reason,
+        resolution: details.resolution,
+      ),
+      successMessage:
+          details.resolution == DeliveryFailureResolution.redeliverTomorrow
+              ? 'Redelivery requested for tomorrow.'
+              : 'Return to sender requested.',
     );
   }
 
@@ -296,7 +302,10 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : parcel == null
-              ? _ErrorState(message: _error ?? 'Assignment not found.', onRetry: _load)
+              ? _ErrorState(
+                  message: _error ?? 'Assignment not found.',
+                  onRetry: _load,
+                )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
@@ -311,7 +320,8 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(parcel.statusLabel, style: CrymaText.headingSmall),
+                            Text(parcel.statusLabel,
+                                style: CrymaText.headingSmall),
                             const SizedBox(height: 4),
                             Text(
                               parcel.isPickup
@@ -365,6 +375,15 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
                         const Center(child: CircularProgressIndicator())
                       else
                         _actions(parcel),
+                      if (!parcel.isPickup) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              context.push('/rider/chats/${parcel.orderId}'),
+                          icon: const Icon(Icons.chat_bubble_outline),
+                          label: const Text('Chat with buyer'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -375,7 +394,7 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
     if (parcel.canAcceptPickup) {
       return FilledButton(
         onPressed: () =>
-            _perform(() => CourierService.instance.acceptPickup(parcel.id)),
+            _perform(() => _courierService.acceptPickup(parcel.id)),
         child: const Text('Accept pickup'),
       );
     }
@@ -431,6 +450,115 @@ class _ProofDetails {
 
   final String recipientName;
   final double? codAmount;
+}
+
+class _DeliveryFailureDetails {
+  const _DeliveryFailureDetails({
+    required this.reason,
+    required this.resolution,
+  });
+
+  final String reason;
+  final DeliveryFailureResolution resolution;
+}
+
+class _DeliveryFailureDialog extends StatefulWidget {
+  const _DeliveryFailureDialog();
+
+  @override
+  State<_DeliveryFailureDialog> createState() => _DeliveryFailureDialogState();
+}
+
+class _DeliveryFailureDialogState extends State<_DeliveryFailureDialog> {
+  final _reasonController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  var _resolution = DeliveryFailureResolution.redeliverTomorrow;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Unable to deliver'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _reasonController,
+                autofocus: true,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  hintText: 'Explain why delivery could not be completed',
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a reason for the failed delivery.'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'What should happen next?',
+                style: CrymaText.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Redeliver tomorrow'),
+                    selected: _resolution ==
+                        DeliveryFailureResolution.redeliverTomorrow,
+                    onSelected: (_) => setState(() {
+                      _resolution = DeliveryFailureResolution.redeliverTomorrow;
+                    }),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Return to sender'),
+                    selected:
+                        _resolution == DeliveryFailureResolution.returnToSender,
+                    onSelected: (_) => setState(() {
+                      _resolution = DeliveryFailureResolution.returnToSender;
+                    }),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _resolution == DeliveryFailureResolution.redeliverTomorrow
+                    ? 'The parcel will be scheduled for another delivery attempt tomorrow.'
+                    : 'The parcel will be returned to its sender.',
+                style: CrymaText.caption,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!_formKey.currentState!.validate()) return;
+              Navigator.pop(
+                context,
+                _DeliveryFailureDetails(
+                  reason: _reasonController.text.trim(),
+                  resolution: _resolution,
+                ),
+              );
+            },
+            child: const Text('Submit outcome'),
+          ),
+        ],
+      );
 }
 
 class _InfoRow extends StatelessWidget {

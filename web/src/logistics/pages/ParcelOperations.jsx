@@ -5,6 +5,7 @@ import ConfirmationModal from "../components/ConfirmationModal";
 import PrivateDeliveryProof from "../../shared/components/PrivateDeliveryProof";
 import ParcelQrScanner from "../../shared/components/ParcelQrScanner";
 import { recommendCouriersForDelivery, sortCouriersByHubDistance } from "../utils/courierProximity";
+import { buildPickupDecisionPayload } from "../utils/parcelOperations.js";
 import "./ParcelOperations.css";
 
 const DEFAULT_QUEUE = {
@@ -58,7 +59,7 @@ const areaOptionLabel = (area) => {
 };
 
 const PAGE_CONFIG = {
-    pickups: { eyebrow: "PICKUP QUEUE", title: "Seller pickup requests", description: "Assign a verified, eligible courier to seller orders marked ready for pickup." },
+    pickups: { eyebrow: "PICKUP QUEUE", title: "Seller pickup requests", description: "Review seller requests, record an acceptance or rejection, then assign an eligible courier to accepted pickups." },
     incoming: { eyebrow: "INBOUND PARCELS", title: "Incoming parcels", description: "Verify parcel handover and record sorting-center receipt." },
     sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Scan each parcel to match its saved Philippine address to a configured delivery area and destination hub. Review routing exceptions; assign a final-mile courier only when the parcel is at that hub." },
     assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Review the suggested area-qualified courier, ranked by availability, active delivery load, then hub proximity. Every eligible rider remains selectable." },
@@ -98,6 +99,7 @@ export default function ParcelOperations({ section }) {
     const [areaSearches, setAreaSearches] = useState({});
     const [hubChoices, setHubChoices] = useState({});
     const [reasons, setReasons] = useState({});
+    const [pickupDecisionReasons, setPickupDecisionReasons] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState("");
     const [error, setError] = useState("");
@@ -221,7 +223,43 @@ export default function ParcelOperations({ section }) {
         );
     };
 
+    const decidePickup = (assignment, decision) => {
+        let payload;
+        try {
+            payload = buildPickupDecisionPayload(decision, pickupDecisionReasons[assignment.order_id]);
+        } catch (decisionError) {
+            setError(decisionError.message);
+            return;
+        }
+        const request = () => mutate(
+            `pickup-decision-${assignment.order_id}`,
+            () => api.post(`/logistics/orders/${assignment.order_id}/pickup-decision`, payload),
+            decision === "accepted"
+                ? `Pickup request for order #${assignment.order_id} accepted. Assign a courier next.`
+                : `Pickup request for order #${assignment.order_id} rejected.`,
+        );
+        if (decision === "accepted") {
+            void request();
+            return;
+        }
+        requestConfirmation(
+            "Reject seller pickup request?",
+            `Reject the pickup request for order #${assignment.order_id}? Reason: ${payload.reason}`,
+            () => void request(),
+            { destructive: true, confirmLabel: "Confirm rejection" },
+        );
+    };
+
     const assignPickup = (orderId, existing = null) => {
+        if (!existing || existing.status === "PICKUP_REQUESTED") {
+            setError("Accept the seller pickup request before assigning a courier.");
+            return;
+        }
+        const allowedStatuses = ["ACCEPTED_BY_LOGISTICS", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"];
+        if (!allowedStatuses.includes(existing.status)) {
+            setError("Only an accepted, uncollected pickup request can be assigned.");
+            return;
+        }
         const existingCourierIsAvailable = eligiblePickup.some((courier) =>
             Number(courier.id) === Number(existing?.courier_profile_id));
         const courierProfileId = Number(pickupChoices[orderId] || (existingCourierIsAvailable ? existing?.courier_profile_id : 0));
@@ -452,23 +490,35 @@ export default function ParcelOperations({ section }) {
                     {section === "pickups" && (
                         <section className="lo-panel">
                             <h2>Orders ready for pickup</h2>
-                            <p className="lo-note">Confirm the seller pickup address, choose a future pickup date and time, then assign an eligible courier. The current order workflow has no separate reject/cancel state for a pickup request.</p>
+                            <p className="lo-note">Confirm the seller pickup address, choose a future pickup date and time, then assign an eligible courier. Accept or reject each seller request before assigning a courier; rejection reasons and decision history are retained.</p>
                             {queue.pickup_orders.length === 0 && pickupRows.length === 0 ? <p className="lw-empty">No pickups are waiting for assignment or collection.</p> : <>
                                 {queue.pickup_orders.map((order) => <article className="lo-row lo-pickup-row" key={`ready-${order.id}`}>
-                                    <div><strong>Order #{order.id}</strong><span>{(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</span><small>Buyer: {[order.buyer?.first_name, order.buyer?.last_name].filter(Boolean).join(" ") || "Buyer"}</small><small>Pickup from seller: {formatPickupAddress(order.items?.[0]?.seller?.seller_pickup_address || order.items?.[0]?.seller?.addresses?.find((address) => address.is_default) || order.items?.[0]?.seller?.addresses?.[0])}</small><label className="lo-field-label">Pickup date and time<input type="datetime-local" value={pickupSchedules[order.id] || ""} onChange={(event) => setPickupSchedules((current) => ({ ...current, [order.id]: event.target.value }))} /></label><small>Parcel weight: {parcelWeight(order.items)}</small></div>
-                                    <div className="lo-actions">{courierSelect(eligiblePickup, pickupChoices[order.id], (value) => setPickupChoices((current) => ({ ...current, [order.id]: value })), `Pickup courier for order ${order.id}`)}<button type="button" disabled={!!saving || !eligiblePickup.length} onClick={() => assignPickup(order.id)}>{saving === `pickup-${order.id}` ? "Saving…" : "Assign courier"}</button></div>
+                                    <div><strong>Order #{order.id}</strong><span>{(order.items || []).map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</span><small>Buyer: {[order.buyer?.first_name, order.buyer?.last_name].filter(Boolean).join(" ") || "Buyer"}</small><small>Pickup from seller: {formatPickupAddress(order.items?.[0]?.seller?.seller_pickup_address || order.items?.[0]?.seller?.addresses?.find((address) => address.is_default) || order.items?.[0]?.seller?.addresses?.[0])}</small><small>Parcel weight: {parcelWeight(order.items)}</small></div>
+                                    <p className="lo-note">Waiting for the seller to submit a pickup request. Courier assignment is available only after logistics accepts that request.</p>
                                 </article>)}
-                                {pickupRows.filter((item) => item.status !== "PICKED_UP").map((assignment) => <article className="lo-row lo-pickup-row" key={`assigned-${assignment.id}`}>
-                                    <div><strong>Order #{assignment.order_id} · {statusLabel(assignment.status)}</strong><span>{assignment.courierProfile ? `Courier: ${courierName(assignment.courierProfile)}` : "Awaiting courier assignment"}</span>{assignment.target_hub && <small>Destination hub: {assignment.target_hub.name} · {assignment.target_hub.location_label}</small>}{assignment.requested_at && <small>Seller requested: {new Date(assignment.requested_at).toLocaleString("en-PH")}</small>}{assignment.assigned_at && <small>Courier assigned: {new Date(assignment.assigned_at).toLocaleString("en-PH")}</small>}<small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small></div>
-                                    {assignment.pickup_address && <p className="lo-pickup-schedule-summary">Pickup address: {assignment.pickup_address}</p>}
-                                    {assignment.scheduled_at && <p className="lo-pickup-schedule-summary">Pickup scheduled: {new Date(assignment.scheduled_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</p>}
-                                    {["PICKUP_REQUESTED", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(assignment.status) && <div className="lo-actions">
-                                        <label className="lo-field-label">Pickup date and time<input type="datetime-local" value={pickupSchedules[assignment.order_id] ?? localDateTimeValue(assignment.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [assignment.order_id]: event.target.value }))} /></label>
-                                        {courierSelect(eligiblePickup, pickupChoices[assignment.order_id] ?? assignment.courier_profile_id, (value) => setPickupChoices((current) => ({ ...current, [assignment.order_id]: value })), `Reassign pickup for order ${assignment.order_id}`)}
-                                        {assignment.status !== "PICKUP_REQUESTED" && <input aria-label={`Pickup reassignment reason for order ${assignment.order_id}`} placeholder="Reason to change courier" maxLength={1000} value={getReason(`pickup-${assignment.order_id}`)} onChange={(event) => setReason(`pickup-${assignment.order_id}`, event.target.value)} />}
-                                        <button type="button" disabled={!!saving || !eligiblePickup.length} onClick={() => assignPickup(assignment.order_id, assignment)}>{assignment.status === "PICKUP_REQUESTED" ? "Assign courier" : "Save assignment"}</button>
-                                    </div>}
-                                </article>)}
+                                {pickupRows.filter((item) => item.status !== "PICKED_UP").map((assignment) => {
+                                    const decisions = assignment.decision_history || assignment.decisionHistory;
+                                    const awaitingDecision = assignment.status === "PICKUP_REQUESTED";
+                                    const canAssign = ["ACCEPTED_BY_LOGISTICS", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(assignment.status);
+                                    return <article className="lo-row lo-pickup-row" key={`assigned-${assignment.id}`}>
+                                        <div><strong>Order #{assignment.order_id} | {statusLabel(assignment.status)}</strong><span>{assignment.courierProfile ? `Courier: ${courierName(assignment.courierProfile)}` : "Awaiting courier assignment"}</span>{assignment.target_hub && <small>Destination hub: {assignment.target_hub.name} | {assignment.target_hub.location_label}</small>}{assignment.requested_at && <small>Seller requested: {new Date(assignment.requested_at).toLocaleString("en-PH")}</small>}{assignment.assigned_at && <small>Courier assigned: {new Date(assignment.assigned_at).toLocaleString("en-PH")}</small>}<small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small>
+                                            {Array.isArray(decisions) && decisions.length > 0 && <div className="lo-pickup-decision-history"><strong>Decision history</strong>{decisions.map((decision) => <small key={decision.id || `${decision.decision}-${decision.decided_at}`}>{statusLabel(decision.decision)}{decision.actor ? ` by ${courierName({ user: decision.actor })}` : ""}{decision.decided_at ? ` | ${new Date(decision.decided_at).toLocaleString("en-PH")}` : ""}{decision.reason ? ` | ${decision.reason}` : ""}</small>)}</div>}
+                                        </div>
+                                        {assignment.pickup_address && <p className="lo-pickup-schedule-summary">Pickup address: {assignment.pickup_address}</p>}
+                                        {assignment.scheduled_at && <p className="lo-pickup-schedule-summary">Pickup scheduled: {new Date(assignment.scheduled_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</p>}
+                                        {awaitingDecision && <div className="lo-actions lo-pickup-decision-actions">
+                                            <label className="lo-field-label">Reason required to reject<textarea aria-label={`Pickup rejection reason for order ${assignment.order_id}`} maxLength={1000} value={pickupDecisionReasons[assignment.order_id] || ""} onChange={(event) => setPickupDecisionReasons((current) => ({ ...current, [assignment.order_id]: event.target.value }))} /></label>
+                                            <button type="button" disabled={!!saving} onClick={() => decidePickup(assignment, "accepted")}>{saving === `pickup-decision-${assignment.order_id}` ? "Saving?" : "Accept request"}</button>
+                                            <button className="lo-button-danger" type="button" disabled={!!saving} onClick={() => decidePickup(assignment, "rejected")}>Reject request</button>
+                                        </div>}
+                                        {canAssign && <div className="lo-actions">
+                                            <label className="lo-field-label">Pickup date and time<input type="datetime-local" value={pickupSchedules[assignment.order_id] ?? localDateTimeValue(assignment.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [assignment.order_id]: event.target.value }))} /></label>
+                                            {courierSelect(eligiblePickup, pickupChoices[assignment.order_id] ?? assignment.courier_profile_id, (value) => setPickupChoices((current) => ({ ...current, [assignment.order_id]: value })), `Reassign pickup for order ${assignment.order_id}`)}
+                                            {assignment.status !== "ACCEPTED_BY_LOGISTICS" && <input aria-label={`Pickup reassignment reason for order ${assignment.order_id}`} placeholder="Reason to change courier" maxLength={1000} value={getReason(`pickup-${assignment.order_id}`)} onChange={(event) => setReason(`pickup-${assignment.order_id}`, event.target.value)} />}
+                                            <button type="button" disabled={!!saving || !eligiblePickup.length} onClick={() => assignPickup(assignment.order_id, assignment)}>{assignment.status === "ACCEPTED_BY_LOGISTICS" ? "Assign courier" : "Save assignment"}</button>
+                                        </div>}
+                                    </article>;
+                                })}
                             </>}
                         </section>
                     )}
@@ -582,6 +632,8 @@ export default function ParcelOperations({ section }) {
                                 Number(courier.id) === Number(pickupAssignment?.courier_profile_id));
                             const pickupCourierId = pickupChoices[delivery.order_id]
                                 || (pickupCourierIsAvailable ? pickupAssignment.courier_profile_id : "");
+                            const pickupAwaitingDecision = pickupAssignment?.status === "PICKUP_REQUESTED";
+                            const pickupCanBeAssigned = pickupAssignment && ["ACCEPTED_BY_LOGISTICS", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(pickupAssignment.status);
                             return <article className="lo-row lo-monitor-row" key={delivery.id}>
                                 <div><strong>Order #{delivery.order_id} · {statusLabel(delivery.status)}</strong><span>Area: {delivery.deliveryArea?.name || "Not assigned"} · Courier: {courierName(delivery.courierProfile)}</span><small>Parcel weight: {parcelWeight(delivery.order?.items)}</small><small>Updated: {delivery.updated_at ? new Date(delivery.updated_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small>
                                     {delivery.failure_reason && <small className="lo-warning">Failure reason: {delivery.failure_reason}</small>}
@@ -589,7 +641,9 @@ export default function ParcelOperations({ section }) {
                                     <PrivateDeliveryProof proof={delivery.proof} basePath={`/logistics/deliveries/${delivery.id}/proof`} />
                                     <div className="lo-actions lo-monitor-inline-actions">
                                         <button type="button" disabled={!!saving} onClick={() => contactSeller(delivery)}>{saving === `seller-chat-${delivery.id}` ? "Opening…" : "Contact seller"}</button>
-                                        {needsPickupAction && <>
+                                        {pickupAwaitingDecision && <button type="button" disabled={!!saving} onClick={() => navigate("/logistics/pickups")}>Review pickup request</button>}
+                                        {needsPickupAction && !pickupAssignment && <small>Waiting for the seller to submit a pickup request.</small>}
+                                        {needsPickupAction && pickupCanBeAssigned && <>
                                             <label className="lo-monitor-rider-select">Pickup rider
                                                 {courierSelect(
                                                     eligiblePickup,
@@ -599,9 +653,9 @@ export default function ParcelOperations({ section }) {
                                                     !!saving,
                                                 )}
                                             </label>
-                                            <label className="lo-monitor-schedule">Pickup date and time<input type="datetime-local" value={pickupSchedules[delivery.order_id] ?? localDateTimeValue(pickupAssignment?.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [delivery.order_id]: event.target.value }))} /></label>
-                                            {pickupAssignment && pickupAssignment.status !== "PICKUP_REQUESTED" && <input aria-label={`Pickup reassignment reason for order ${delivery.order_id}`} placeholder="Reason if changing pickup rider" maxLength={1000} value={getReason(`pickup-${delivery.order_id}`)} onChange={(event) => setReason(`pickup-${delivery.order_id}`, event.target.value)} />}
-                                            <button type="button" disabled={!!saving || !eligiblePickup.some((courier) => Number(courier.id) === Number(pickupCourierId))} onClick={() => assignPickup(delivery.order_id, pickupAssignment)}>{saving === `pickup-${delivery.order_id}` ? "Saving…" : pickupAssignment && pickupAssignment.status !== "PICKUP_REQUESTED" ? "Save pickup assignment" : "Assign pickup"}</button>
+                                            <label className="lo-monitor-schedule">Pickup date and time<input type="datetime-local" value={pickupSchedules[delivery.order_id] ?? localDateTimeValue(pickupAssignment.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [delivery.order_id]: event.target.value }))} /></label>
+                                            {pickupAssignment.status !== "ACCEPTED_BY_LOGISTICS" && <input aria-label={`Pickup reassignment reason for order ${delivery.order_id}`} placeholder="Reason if changing pickup rider" maxLength={1000} value={getReason(`pickup-${delivery.order_id}`)} onChange={(event) => setReason(`pickup-${delivery.order_id}`, event.target.value)} />}
+                                            <button type="button" disabled={!!saving || !eligiblePickup.some((courier) => Number(courier.id) === Number(pickupCourierId))} onClick={() => assignPickup(delivery.order_id, pickupAssignment)}>{saving === `pickup-${delivery.order_id}` ? "Saving?" : pickupAssignment.status === "ACCEPTED_BY_LOGISTICS" ? "Assign pickup courier" : "Save pickup assignment"}</button>
                                         </>}
                                     </div>
                                 </div>

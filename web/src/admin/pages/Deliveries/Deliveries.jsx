@@ -3,6 +3,8 @@ import api from "../../../shared/services/api";
 import PrivateDeliveryProof from "../../../shared/components/PrivateDeliveryProof";
 import ParcelQrScanner from "../../../shared/components/ParcelQrScanner";
 import { formatStatusLabel } from "../../../shared/utils/statusLabel";
+import { preparePickupAssignment } from "./pickupAssignment.js";
+import { buildPickupDecisionPayload, canAssignPickup, needsPickupDecision } from "./pickupDecision.js";
 import "./Deliveries.css";
 
 const courierName = (profile) => [profile?.user?.first_name, profile?.user?.last_name].filter(Boolean).join(" ") || `Courier #${profile?.id}`;
@@ -21,6 +23,7 @@ export default function Deliveries() {
     const [sortingScannerOrder, setSortingScannerOrder] = useState(null);
     const [pickupChoices, setPickupChoices] = useState({});
     const [pickupSchedules, setPickupSchedules] = useState({});
+    const [pickupDecisionReasons, setPickupDecisionReasons] = useState({});
     const [areaChoices, setAreaChoices] = useState({});
     const [deliveryChoices, setDeliveryChoices] = useState({});
     const [areaCourierChoices, setAreaCourierChoices] = useState({});
@@ -52,35 +55,59 @@ export default function Deliveries() {
         finally { setSaving(""); }
     };
 
+    const decidePickup = (orderId, decision) => {
+        const payload = buildPickupDecisionPayload(decision, pickupDecisionReasons[orderId]);
+        if (!payload) {
+            setError("Enter a reason to reject the pickup request.");
+            return;
+        }
+
+        void mutate(
+            `pickup-decision-${orderId}`,
+            () => api.post(`/admin/orders/${orderId}/pickup-decision`, payload),
+            `Pickup request for order #${orderId} ${decision}.`,
+        );
+    };
+
+    const pickupDecisionActions = (row) => needsPickupDecision(row) ? (
+        <div className="ad-actions">
+            <input
+                aria-label={`Pickup rejection reason for order ${row.order_id}`}
+                maxLength={1000}
+                value={pickupDecisionReasons[row.order_id] || ""}
+                onChange={(event) => setPickupDecisionReasons((current) => ({ ...current, [row.order_id]: event.target.value }))}
+                placeholder="Reason required to reject"
+            />
+            <button type="button" disabled={!!saving} onClick={() => decidePickup(row.order_id, "accepted")}>Accept request</button>
+            <button type="button" disabled={!!saving} onClick={() => decidePickup(row.order_id, "rejected")}>Reject request</button>
+        </div>
+    ) : null;
+
     const assignPickup = (orderId, existing = null) => {
-        const courierProfileId = Number(pickupChoices[orderId]);
-        const scheduledAt = pickupSchedules[`order-${orderId}`] || localDateTimeValue(existing?.scheduled_at);
-        const reason = (reasons[`pickup-${orderId}`] || "").trim();
-        if (!courierProfileId) { setError("Select an eligible pickup rider."); return; }
-        if (!scheduledAt) { setError("Choose a pickup date and time."); return; }
-        if (existing?.courier_profile_id && Number(existing.courier_profile_id) !== courierProfileId && !reason) { setError("Enter a reason to change the pickup rider."); return; }
-        const payload = { courier_profile_id: courierProfileId, scheduled_at: scheduledAt };
-        if (existing) payload.expected_courier_profile_id = existing.courier_profile_id ?? null;
-        if (reason) payload.reason = reason;
-        void mutate(`pickup-${orderId}`, () => api.post(`/admin/orders/${orderId}/pickup-assignment`, payload), `Pickup assignment for order #${orderId} saved.`);
+        const result = preparePickupAssignment({
+            selectedCourierId: pickupChoices[orderId] ?? existing?.courier_profile_id,
+            existingCourierProfileId: existing?.courier_profile_id,
+            scheduledAt: pickupSchedules[`order-${orderId}`] || localDateTimeValue(existing?.scheduled_at),
+            reason: reasons[`pickup-${orderId}`],
+            includeExpectedCourierId: Boolean(existing),
+        });
+        if (result.error) { setError(result.error); return; }
+        void mutate(`pickup-${orderId}`, () => api.post(`/admin/orders/${orderId}/pickup-assignment`, result.payload), `Pickup assignment for order #${orderId} saved.`);
     };
 
     const assignPickupBatch = (batchId, rows) => {
         const batchKey = `batch-${batchId}`;
-        const courierProfileId = Number(pickupChoices[batchKey]);
-        const existing = rows[0]?.pickup_batch;
-        const scheduledAt = pickupSchedules[batchKey] || localDateTimeValue(existing?.scheduled_at || existing?.preferred_scheduled_at);
-        const reason = (reasons[batchKey] || "").trim();
-        if (!courierProfileId) { setError("Select an eligible pickup rider for the batch."); return; }
-        if (!scheduledAt) { setError("Choose a pickup date and time for the batch."); return; }
-        if (existing?.courier_profile_id && Number(existing.courier_profile_id) !== courierProfileId && !reason) {
-            setError("Enter a reason to change the pickup rider.");
-            return;
-        }
-        const payload = { courier_profile_id: courierProfileId, scheduled_at: scheduledAt };
-        if (existing?.courier_profile_id) payload.expected_courier_profile_id = existing.courier_profile_id;
-        if (reason) payload.reason = reason;
-        void mutate(`pickup-batch-${batchId}`, () => api.post(`/admin/pickup-batches/${batchId}/assignment`, payload), `Pickup batch #${batchId} assigned.`);
+        const existing = rows[0]?.pickup_batch || rows[0]?.pickupBatch || {};
+        const result = preparePickupAssignment({
+            selectedCourierId: pickupChoices[batchKey] ?? existing.courier_profile_id,
+            existingCourierProfileId: existing.courier_profile_id,
+            scheduledAt: pickupSchedules[batchKey] || localDateTimeValue(existing.scheduled_at || existing.preferred_scheduled_at),
+            reason: reasons[batchKey],
+            selectionMessage: "Select an eligible pickup rider for the batch.",
+            scheduleMessage: "Choose a pickup date and time for the batch.",
+        });
+        if (result.error) { setError(result.error); return; }
+        void mutate(`pickup-batch-${batchId}`, () => api.post(`/admin/pickup-batches/${batchId}/assignment`, result.payload), `Pickup batch #${batchId} assigned.`);
     };
 
     const scanParcel = (order, parcelCode) => {
@@ -165,12 +192,13 @@ export default function Deliveries() {
         <section className="ad-section"><div className="ad-section-title"><div><h2>Seller pickups</h2><p>Assign an eligible rider to carry ready parcels to the sorting center. Bulk requests share one seller stop.</p></div><span>{queue.pickup_orders.length + activePickupAssignments.length}</span></div>
             {loading ? <div className="ad-empty" role="status">Loading pickup assignments…</div> : <>
                 {queue.pickup_orders.length === 0 && activePickupAssignments.length === 0 && <div className="ad-empty">No pickups are waiting for assignment or collection.</div>}
-                {queue.pickup_orders.map((order) => <article className="ad-logistics-row" key={`order-${order.id}`}><div><strong>Order #{order.id}</strong><span>{order.items?.map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</span><small>Buyer: {[order.buyer?.first_name, order.buyer?.last_name].filter(Boolean).join(" ") || "Buyer"}</small></div><div className="ad-actions">{courierSelect(eligiblePickup, pickupChoices[order.id], (value) => setPickupChoices((current) => ({ ...current, [order.id]: value })), `Pickup rider for order ${order.id}`)}<button type="button" disabled={!!saving || !eligiblePickup.length} onClick={() => assignPickup(order.id)}>{saving === `pickup-${order.id}` ? "Saving…" : "Assign pickup"}</button></div></article>)}
+                {queue.pickup_orders.map((order) => <article className="ad-logistics-row" key={`order-${order.id}`}><div><strong>Order #{order.id}</strong><span>{order.items?.map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</span><small>Buyer: {[order.buyer?.first_name, order.buyer?.last_name].filter(Boolean).join(" ") || "Buyer"}</small><small>No seller pickup request has been submitted for this order.</small></div></article>)}
                 {pickupBatchGroups.map(([batchId, rows]) => {
                     const batch = rows[0].pickup_batch || rows[0].pickupBatch || {};
                     const batchCourier = rows[0].courierProfile || rows[0].courier_profile;
                     const batchKey = `batch-${batchId}`;
-                    const canAssign = rows.every((row) => ["PICKUP_REQUESTED", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(row.status) && !row.picked_up_at);
+                    const pendingRows = rows.filter(needsPickupDecision);
+                    const canAssign = rows.every(canAssignPickup);
                     const selectedCourierId = pickupChoices[batchKey] ?? batch.courier_profile_id;
                     return <article className="ad-logistics-row" key={`pickup-batch-${batchId}`}>
                         <div>
@@ -180,27 +208,29 @@ export default function Deliveries() {
                             <small>Preferred pickup: {batch.preferred_scheduled_at ? new Date(batch.preferred_scheduled_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }) : "Not specified"}</small>
                             <small>Pickup rider: {batchCourier ? courierName(batchCourier) : "Not assigned"}</small>
                         </div>
+                        {pendingRows.map((row) => <div key={`decision-${row.id}`}><strong>Order #{row.order_id}</strong>{pickupDecisionActions(row)}</div>)}
                         {canAssign ? <div className="ad-actions">
                             {courierSelect(eligiblePickup, selectedCourierId, (value) => setPickupChoices((current) => ({ ...current, [batchKey]: value })), `Pickup rider for batch ${batchId}`)}
                             <input type="datetime-local" aria-label={`Pickup date and time for batch ${batchId}`} value={pickupSchedules[batchKey] ?? localDateTimeValue(batch.scheduled_at || batch.preferred_scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [batchKey]: event.target.value }))} />
                             {batch.courier_profile_id && <input aria-label={`Pickup reassignment reason for batch ${batchId}`} maxLength={1000} value={reasons[batchKey] || ""} onChange={(event) => setReason(batchKey, event.target.value)} placeholder="Reason if changing rider"/>}
                             <button type="button" disabled={!!saving || !eligiblePickup.length || !selectedCourierId || !(pickupSchedules[batchKey] ?? batch.scheduled_at)} onClick={() => assignPickupBatch(batchId, rows)}>{saving === `pickup-batch-${batchId}` ? "Saving…" : batch.courier_profile_id ? "Save batch assignment" : "Assign batch"}</button>
-                        </div> : <span className="ad-muted">Pickup batch in progress.</span>}
+                        </div> : <span className="ad-muted">{pendingRows.length ? "Accept every pickup request before assigning the batch." : rows.some((row) => row.status === "REJECTED_BY_LOGISTICS") ? "Some pickup requests were rejected; sellers may resubmit." : "Pickup batch in progress."}</span>}
                     </article>;
                 })}
                 {singlePickupAssignments.map((row) => {
-                    const canAssign = ["PICKUP_REQUESTED", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(row.status) && !row.picked_up_at;
+                    const canAssign = canAssignPickup(row);
                     const selectedCourierId = pickupChoices[row.order_id] ?? row.courier_profile_id;
                     const scheduleKey = `order-${row.order_id}`;
                     const rowCourier = row.courierProfile || row.courier_profile;
                     return <article className="ad-logistics-row" key={`pickup-${row.id}`}>
                         <div><strong>Order #{row.order_id} · {label(row.status)}</strong><span>Pickup rider: {rowCourier ? courierName(rowCourier) : "Not assigned"}</span><small>{row.order?.items?.map((item) => item.product?.name).filter(Boolean).join(", ") || "Order items"}</small></div>
+                        {pickupDecisionActions(row)}
                         {canAssign ? <div className="ad-actions">
                             {courierSelect(eligiblePickup, selectedCourierId, (value) => setPickupChoices((current) => ({ ...current, [row.order_id]: value })), `Pickup rider for order ${row.order_id}`)}
                             <input type="datetime-local" aria-label={`Pickup date and time for order ${row.order_id}`} value={pickupSchedules[scheduleKey] ?? localDateTimeValue(row.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [scheduleKey]: event.target.value }))} />
                             {row.courier_profile_id && <input aria-label={`Pickup reassignment reason for order ${row.order_id}`} maxLength={1000} value={reasons[`pickup-${row.order_id}`] || ""} onChange={(event) => setReason(`pickup-${row.order_id}`, event.target.value)} placeholder="Reason if changing rider"/>}
                             <button type="button" disabled={!!saving || !eligiblePickup.length || !selectedCourierId || !(pickupSchedules[scheduleKey] ?? row.scheduled_at)} onClick={() => assignPickup(row.order_id, row)}>{saving === `pickup-${row.order_id}` ? "Saving…" : row.courier_profile_id ? "Save pickup assignment" : "Assign pickup"}</button>
-                        </div> : <span className="ad-muted">Pickup collected or sorting center received parcel.</span>}
+                        </div> : row.status === "PICKUP_REQUESTED" ? null : <span className="ad-muted">{row.status === "REJECTED_BY_LOGISTICS" ? "Pickup request rejected; seller may submit another request." : "Pickup collected or sorting center received parcel."}</span>}
                     </article>;
                 })}
             </>}

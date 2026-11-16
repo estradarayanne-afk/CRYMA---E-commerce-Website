@@ -10,6 +10,8 @@ use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
 use App\Models\GeographicLocation;
+use App\Models\HubTransfer;
+use App\Models\HubTransferShipment;
 use App\Models\LogisticsHub;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -19,6 +21,7 @@ use App\Models\SellerPickupAddress;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -86,6 +89,11 @@ class LogisticsOperationsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.pickup_orders.0.id', $order->id);
 
+        $this->requestPickupFromSeller($order);
+        $this->actingAs($logistics, 'sanctum');
+        $this->postJson("/api/logistics/orders/{$order->id}/pickup-decision", ['decision' => 'accepted'])
+            ->assertOk()
+            ->assertJsonPath('data.status', PickupAssignment::ACCEPTED_BY_LOGISTICS);
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $courierProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
@@ -170,6 +178,8 @@ class LogisticsOperationsTest extends TestCase
             [$order->id, $outsideOrder->id],
             array_column($response->json('data.pickup_orders'), 'id'),
         );
+        $this->requestPickupFromSeller($order);
+        $this->actingAs($logistics, 'sanctum');
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $unavailableProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
@@ -178,10 +188,12 @@ class LogisticsOperationsTest extends TestCase
             'courier_profile_id' => $inactiveProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
         ])->assertUnprocessable();
+        $this->postJson("/api/logistics/orders/{$order->id}/pickup-decision", ['decision' => 'accepted'])->assertOk();
         $assignmentResponse = $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $outsideProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
-        ])->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
+        ]);
+        $assignmentResponse->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
         $assignmentId = $assignmentResponse->json('data.id');
         $this->assertDatabaseHas('pickup_assignments', [
             'order_id' => $order->id,
@@ -405,6 +417,188 @@ class LogisticsOperationsTest extends TestCase
             ->assertJsonPath('data.to_hub_id', $destination->id);
     }
 
+    public function test_third_party_hub_shipment_tracks_and_receives_each_parcel_with_individual_verification(): void
+    {
+        $logistics = $this->logisticsUser();
+        $origin = LogisticsHub::create(['name' => 'Carrier origin', 'code' => 'CARRIER-ORIGIN', 'is_active' => true]);
+        $destination = LogisticsHub::create(['name' => 'Carrier destination', 'code' => 'CARRIER-DEST', 'is_active' => true]);
+        $deliveries = collect([1, 2])->map(function () use ($origin) {
+            $order = $this->order(Delivery::SORTED);
+            return Delivery::create([
+                'order_id' => $order->id,
+                'status' => Delivery::SORTED,
+                'current_hub_id' => $origin->id,
+            ]);
+        });
+
+        $created = $this->actingAs($logistics, 'sanctum')->postJson('/api/logistics/hub-transfer-shipments', [
+            'delivery_ids' => $deliveries->pluck('id')->all(),
+            'from_hub_id' => $origin->id,
+            'to_hub_id' => $destination->id,
+            'carrier_code' => 'flash_express',
+            'carrier_name' => 'Flash Express',
+            'tracking_reference' => 'FX-TRACK-123',
+            'shipment_reference' => 'BULK-001',
+        ])->assertCreated()
+            ->assertJsonPath('data.shipment_reference', 'BULK-001')
+            ->assertJsonPath('data.carrier_code', 'flash_express')
+            ->assertJsonPath('data.origin_hub.id', $origin->id)
+            ->assertJsonPath('data.destination_hub.id', $destination->id)
+            ->assertJsonCount(2, 'data.items');
+        $items = $created->json('data.items');
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->count());
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->where('transport_mode', 'third_party')->count());
+        $this->assertDatabaseHas('hub_transfers', [
+            'shipment_reference' => 'BULK-001',
+            'carrier_name' => 'Flash Express',
+            'tracking_reference' => 'FX-TRACK-123',
+            'from_hub_id' => $origin->id,
+            'to_hub_id' => $destination->id,
+        ]);
+        $this->assertDatabaseHas('hub_transfer_shipments', [
+            'shipment_reference' => 'BULK-001',
+            'carrier_name' => 'Flash Express',
+            'tracking_reference' => 'FX-TRACK-123',
+        ]);
+        $this->getJson('/api/logistics/parcel-flow')
+            ->assertOk()
+            ->assertJsonPath('data.transfers.0.carrier_name', 'Flash Express')
+            ->assertJsonPath('data.transfers.0.tracking_reference', 'FX-TRACK-123');
+
+        $collisionOrder = $this->order(Delivery::SORTED);
+        $collisionDelivery = Delivery::create([
+            'order_id' => $collisionOrder->id,
+            'status' => Delivery::SORTED,
+            'current_hub_id' => $origin->id,
+        ]);
+        $this->postJson('/api/logistics/hub-transfer-shipments', [
+            'delivery_ids' => [$collisionDelivery->id],
+            'from_hub_id' => $origin->id,
+            'to_hub_id' => $destination->id,
+            'carrier_code' => 'manual',
+            'carrier_name' => 'Another Carrier',
+            'tracking_reference' => 'OTHER-TRACK',
+            'shipment_reference' => 'BULK-001',
+        ])->assertConflict();
+        $this->assertSame(1, HubTransferShipment::where('shipment_reference', 'BULK-001')->count());
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->count());
+
+        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/dispatch')
+            ->assertOk()
+            ->assertJsonPath('data.items.0.status', 'in_transit');
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->where('status', 'in_transit')->count());
+
+        $incompleteReceipt = $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/receive', [
+            'items' => [[
+                'transfer_id' => $items[0]['transfer_id'],
+                'parcel_code' => $items[0]['parcel_code'],
+            ]],
+        ]);
+        $incompleteReceipt->assertUnprocessable()
+            ->assertJsonPath('message', 'Submit one parcel-code verification for every item in this shipment.');
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->where('status', 'in_transit')->count());
+
+        $invalidItems = $items;
+        $invalidItems[1]['parcel_code'] = $items[0]['parcel_code'];
+        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/receive', [
+            'items' => array_map(fn (array $item) => [
+                'transfer_id' => $item['transfer_id'],
+                'parcel_code' => $item['parcel_code'],
+            ], $invalidItems),
+        ])->assertUnprocessable();
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->where('status', 'in_transit')->count());
+
+        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/receive', [
+            'items' => array_map(fn (array $item) => [
+                'transfer_id' => $item['transfer_id'],
+                'parcel_code' => $item['parcel_code'],
+            ], $items),
+        ])->assertOk()
+            ->assertJsonCount(2, 'data.items')
+            ->assertJsonPath('data.items.0.status', 'arrived');
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->where('status', 'arrived')->count());
+        $this->assertSame(2, Delivery::whereIn('id', $deliveries->pluck('id'))->where('current_hub_id', $destination->id)->count());
+    }
+
+    public function test_shipment_detail_is_authorized_and_returns_all_items_beyond_operations_limit(): void
+    {
+        $logistics = $this->logisticsUser();
+        $origin = LogisticsHub::create(['name' => 'Detail origin', 'code' => 'DETAIL-ORIGIN', 'is_active' => true]);
+        $destination = LogisticsHub::create(['name' => 'Detail destination', 'code' => 'DETAIL-DEST', 'is_active' => true]);
+        $order = $this->order(Delivery::SORTED);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::SORTED,
+            'current_hub_id' => $origin->id,
+        ]);
+        $this->actingAs($logistics, 'sanctum')->postJson('/api/logistics/hub-transfer-shipments', [
+            'delivery_ids' => [$delivery->id],
+            'from_hub_id' => $origin->id,
+            'to_hub_id' => $destination->id,
+            'carrier_code' => 'manual',
+            'carrier_name' => 'Manual Carrier',
+            'tracking_reference' => 'MANUAL-DETAIL-TRACK',
+            'shipment_reference' => 'DETAIL-101',
+        ])->assertCreated();
+
+        for ($index = 0; $index < 100; $index++) {
+            HubTransfer::create([
+                'delivery_id' => null,
+                'from_hub_id' => $origin->id,
+                'to_hub_id' => $destination->id,
+                'assigned_by' => $logistics->id,
+                'status' => 'assigned',
+                'transport_mode' => 'third_party',
+                'carrier_code' => 'manual',
+                'carrier_name' => 'Manual Carrier',
+                'tracking_reference' => 'MANUAL-DETAIL-TRACK',
+                'shipment_reference' => 'DETAIL-101',
+            ]);
+        }
+
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        $this->actingAs($buyer, 'sanctum')
+            ->getJson('/api/logistics/hub-transfer-shipments/DETAIL-101')
+            ->assertForbidden();
+
+        $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/hub-transfer-shipments/DETAIL-101')
+            ->assertOk()
+            ->assertJsonPath('data.shipment_reference', 'DETAIL-101')
+            ->assertJsonPath('data.carrier_name', 'Manual Carrier')
+            ->assertJsonPath('data.tracking_reference', 'MANUAL-DETAIL-TRACK')
+            ->assertJsonPath('data.origin_hub.id', $origin->id)
+            ->assertJsonPath('data.destination_hub.id', $destination->id)
+            ->assertJsonPath('data.total_items', 101)
+            ->assertJsonCount(101, 'data.items');
+
+        $this->getJson('/api/logistics/parcel-flow')
+            ->assertOk()
+            ->assertJsonCount(100, 'data.transfers');
+    }
+
+    public function test_database_enforces_unique_shipment_references(): void
+    {
+        HubTransferShipment::create(['shipment_reference' => 'UNIQUE-SHIPMENT']);
+
+        try {
+            HubTransferShipment::create(['shipment_reference' => 'UNIQUE-SHIPMENT']);
+        } catch (QueryException) {
+            $this->assertSame(1, HubTransferShipment::where('shipment_reference', 'UNIQUE-SHIPMENT')->count());
+
+            return;
+        }
+
+        $this->fail('The shipment-reference registry must reject duplicate references at the database level.');
+        foreach ($deliveries as $delivery) {
+            $this->assertDatabaseHas('delivery_events', [
+                'delivery_id' => $delivery->id,
+                'event_type' => 'hub_transfer_arrived',
+                'hub_id' => $destination->id,
+            ]);
+        }
+    }
+
     public function test_logistics_can_search_active_courier_accounts_without_exposing_other_roles(): void
     {
         $logistics = $this->logisticsUser();
@@ -466,7 +660,7 @@ class LogisticsOperationsTest extends TestCase
     public function test_logistics_can_monitor_failed_deliveries_and_record_a_return(): void
     {
         $logistics = $this->logisticsUser();
-        $order = $this->order(Delivery::FAILED);
+        $order = $this->orderWithPickupAddress(Delivery::FAILED);
         $delivery = Delivery::create([
             'order_id' => $order->id,
             'status' => Delivery::FAILED,
@@ -634,5 +828,11 @@ class LogisticsOperationsTest extends TestCase
         ]);
 
         return $order;
+    }
+
+    private function requestPickupFromSeller(Order $order): void
+    {
+        $seller = User::findOrFail($order->items()->value('seller_id'));
+        $this->actingAs($seller, 'sanctum')->postJson("/api/seller/orders/{$order->id}/pickup-request")->assertOk();
     }
 }

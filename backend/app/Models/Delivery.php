@@ -25,6 +25,7 @@ class Delivery extends Model
         'order_id', 'parcel_code', 'courier_profile_id', 'assigned_by', 'status', 'legacy_imported',
         'assigned_at', 'picked_up_at', 'delivered_at', 'failure_reason', 'delivery_area_id',
         'current_hub_id', 'sorted_at', 'delivery_picked_up_at', 'buyer_confirmed_at', 'buyer_confirmed_by',
+        'next_delivery_attempt_at',
     ];
 
     protected static function booted(): void
@@ -47,6 +48,7 @@ class Delivery extends Model
             'assigned_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'next_delivery_attempt_at' => 'datetime',
             'sorted_at' => 'datetime',
             'delivery_picked_up_at' => 'datetime',
             'buyer_confirmed_at' => 'datetime',

@@ -9,14 +9,17 @@ use Illuminate\Support\Carbon;
 
 class OrderDeliveryProjection
 {
-    public static function apply(Order $order): Order
+    public static function apply(Order $order, bool $includePickupDecisionHistory = false): Order
     {
         $order->loadMissing(['shippingCharge', 'codCollection']);
         $delivery = $order->delivery;
         $delivery?->loadMissing(['events.hub', 'courierProfile.user']);
+        if ($includePickupDecisionHistory) {
+            $delivery?->loadMissing('pickupAssignment.decisionHistory.actor');
+        }
         $pickup = $delivery?->pickupAssignment;
         $deliveryAttempts = $delivery
-            ? $delivery->events->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts'])->count()
+            ? $delivery->events->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts', 'returned_to_sender'])->count()
             : 0;
         $shippingCharge = $order->shippingCharge;
         $estimate = null;
@@ -96,6 +99,13 @@ class OrderDeliveryProjection
                 'assigned_at' => $pickup->assigned_at,
                 'picked_up_at' => $pickup->picked_up_at,
                 'received_at' => $pickup->received_at,
+                'decision_history' => $includePickupDecisionHistory
+                    ? $pickup->decisionHistory->map(fn ($decision) => [
+                        'decision' => $decision->decision,
+                        'reason' => $decision->reason,
+                        'decided_at' => $decision->decided_at,
+                    ])->values()
+                    : [],
                 'courier' => $pickup->courierProfile?->user ? [
                     'name' => trim($pickup->courierProfile->user->first_name.' '.$pickup->courierProfile->user->last_name),
                     'phone' => $pickup->courierProfile->user->phone,
@@ -186,6 +196,8 @@ class OrderDeliveryProjection
             'delivery_collected_from_sorting_center' => ['Out for delivery', 'Your parcel is with the delivery rider and on its way to you.'],
             'failed' => ['Delivery attempt unsuccessful', 'The delivery could not be completed. We will update you when the next step is arranged.'],
             'returned_after_max_delivery_attempts' => ['Parcel returning to seller', 'We could not complete delivery, so your parcel is being returned to the seller.'],
+            'returned_to_sender' => ['Parcel returning to seller', 'The parcel is being returned to the seller.'],
+            'resolved_return' => ['Parcel returning to seller', 'Your parcel is being returned to the seller.'],
             'delivered_with_proof' => ['Parcel delivered', 'Your parcel has been marked as delivered.'],
             'buyer_receipt_confirmed' => ['Delivery confirmed', 'You confirmed that you received your parcel.'],
         ];
@@ -209,6 +221,8 @@ class OrderDeliveryProjection
             'delivery_collected_from_sorting_center',
             'failed',
             'returned_after_max_delivery_attempts',
+            'returned_to_sender',
+            'resolved_return',
             'delivered_with_proof',
             'buyer_receipt_confirmed',
         ];

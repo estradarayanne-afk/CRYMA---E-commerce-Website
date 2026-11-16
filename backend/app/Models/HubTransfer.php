@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class HubTransfer extends Model
 {
-    protected $fillable = ['delivery_id','return_shipment_id','from_hub_id','to_hub_id','courier_profile_id','assigned_by','status','departed_at','arrived_at','hub_released_by','hub_released_hub_id','hub_released_at','rider_collected_by','rider_collected_at','note'];
+    protected $fillable = ['delivery_id','return_shipment_id','from_hub_id','to_hub_id','courier_profile_id','assigned_by','status','departed_at','arrived_at','hub_released_by','hub_released_hub_id','hub_released_at','rider_collected_by','rider_collected_at','transport_mode','carrier_code','carrier_name','tracking_reference','shipment_reference','note'];
     protected function casts(): array { return ['departed_at' => 'datetime', 'arrived_at' => 'datetime', 'hub_released_at' => 'datetime', 'rider_collected_at' => 'datetime']; }
     public function fromHub() { return $this->belongsTo(LogisticsHub::class, 'from_hub_id'); }
     public function toHub() { return $this->belongsTo(LogisticsHub::class, 'to_hub_id'); }
@@ -17,4 +17,5 @@ class HubTransfer extends Model
     public function riderCollectedBy() { return $this->belongsTo(User::class, 'rider_collected_by'); }
     public function delivery() { return $this->belongsTo(Delivery::class); }
     public function returnShipment() { return $this->belongsTo(ReturnShipment::class); }
+    public function shipment() { return $this->belongsTo(HubTransferShipment::class, 'shipment_reference', 'shipment_reference'); }
 }

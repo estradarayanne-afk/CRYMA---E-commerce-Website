@@ -179,6 +179,86 @@ class DeliveryWorkflowTest extends TestCase
         $this->assertStringContainsString('Luyang', $assignment->pickup_address);
     }
 
+    public function test_pickup_decisions_are_authorized_audited_and_rejected_requests_can_be_resubmitted(): void
+    {
+        $sellerOrder = $this->orderWithPickupAddress('READY_FOR_PICKUP');
+        $seller = User::findOrFail($sellerOrder->items()->value('seller_id'));
+        $logistics = $this->logisticsUser();
+        $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
+        [, $courier] = $this->eligibleCourier();
+
+        $this->actingAs($seller, 'sanctum')
+            ->postJson("/api/seller/orders/{$sellerOrder->id}/pickup-request")
+            ->assertOk();
+        $assignment = PickupAssignment::where('order_id', $sellerOrder->id)->firstOrFail();
+
+        $this->actingAs($logistics, 'sanctum')
+            ->postJson("/api/logistics/orders/{$sellerOrder->id}/pickup-decision", [
+                'decision' => 'rejected',
+                'reason' => '   ',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['reason']);
+
+        $this->postJson("/api/logistics/orders/{$sellerOrder->id}/pickup-decision", [
+            'decision' => 'rejected',
+            'reason' => 'Pickup address could not be verified.',
+        ])->assertOk()
+            ->assertJsonPath('data.status', PickupAssignment::REJECTED_BY_LOGISTICS)
+            ->assertJsonPath('data.decision_history.0.reason', 'Pickup address could not be verified.');
+        $this->assertDatabaseHas('pickup_assignment_decisions', [
+            'pickup_assignment_id' => $assignment->id,
+            'decided_by' => $logistics->id,
+            'decision' => 'rejected',
+            'reason' => 'Pickup address could not be verified.',
+        ]);
+        $this->assertNotNull($assignment->fresh()->decisionHistory()->firstOrFail()->decided_at);
+        $this->actingAs($seller, 'sanctum')
+            ->getJson('/api/seller/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.delivery_progress.pickup.decision_history.0.reason', 'Pickup address could not be verified.');
+
+        $this->actingAs($seller, 'sanctum')
+            ->postJson("/api/seller/orders/{$sellerOrder->id}/pickup-request")
+            ->assertOk()
+            ->assertJsonPath('data.id', $assignment->id)
+            ->assertJsonPath('data.status', PickupAssignment::REQUESTED);
+        $this->assertSame(1, $assignment->fresh()->decisionHistory()->count());
+        $this->assertSame(
+            'Pickup address could not be verified.',
+            $assignment->fresh()->decisionHistory()->firstOrFail()->reason,
+        );
+
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson("/api/logistics/orders/{$sellerOrder->id}/pickup-decision", ['decision' => 'accepted'])
+            ->assertForbidden();
+        $this->actingAs($logistics, 'sanctum')
+            ->postJson("/api/logistics/orders/{$sellerOrder->id}/pickup-assignment", [
+                'courier_profile_id' => $courier->id,
+                'scheduled_at' => now()->addDay()->toISOString(),
+            ])
+            ->assertUnprocessable();
+        $this->postJson("/api/logistics/orders/{$sellerOrder->id}/pickup-decision", [
+            'decision' => 'accepted',
+            'reason' => 'Seller confirmed the pickup location.',
+        ])->assertOk()
+            ->assertJsonPath('data.status', PickupAssignment::ACCEPTED_BY_LOGISTICS);
+        $this->assertSame(2, $assignment->fresh()->decisionHistory()->count());
+        $this->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->assertJsonPath('data.pickup_assignments.0.id', $assignment->id)
+            ->assertJsonPath('data.pickup_assignments.0.status', PickupAssignment::ACCEPTED_BY_LOGISTICS);
+        $this->getJson('/api/logistics/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.pickups_awaiting_assignment', 1);
+        CourierPresence::create(['courier_profile_id' => $courier->id, 'is_available' => true]);
+
+        $this->postJson("/api/logistics/orders/{$sellerOrder->id}/pickup-assignment", [
+            'courier_profile_id' => $courier->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
+    }
+
     public function test_seller_can_request_one_pickup_batch_for_multiple_ready_orders_and_rider_tracks_each_parcel(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
@@ -238,6 +318,11 @@ class DeliveryWorkflowTest extends TestCase
             $orders->pluck('id')->all(),
             collect($pickupNotifications)->map(fn (array $notification) => $notification['data']['order_id'])->all(),
         );
+        foreach ($orders as $order) {
+            $this->postJson("/api/logistics/orders/{$order->id}/pickup-decision", ['decision' => 'accepted'])
+                ->assertOk()
+                ->assertJsonPath('data.status', PickupAssignment::ACCEPTED_BY_LOGISTICS);
+        }
 
         [$rider, $courierProfile] = $this->eligibleCourier();
         Address::create([
@@ -345,7 +430,18 @@ class DeliveryWorkflowTest extends TestCase
         $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $unverified->id])->assertUnprocessable();
         $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $missingDocs->id])->assertUnprocessable();
         $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $noVehicle->id])->assertUnprocessable();
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", [
+            'courier_profile_id' => $profile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertStatus(409);
 
+        $this->requestPickupFromSeller($order);
+        $this->actingAs($admin, 'sanctum');
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", [
+            'courier_profile_id' => $profile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ])->assertUnprocessable();
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-decision", ['decision' => 'accepted'])->assertOk();
         $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id, 'scheduled_at' => now()->addDay()->toISOString()])
             ->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'READY_FOR_PICKUP']);
@@ -508,8 +604,23 @@ class DeliveryWorkflowTest extends TestCase
     {
         [$courier, $profile] = $this->eligibleCourier();
         $order = $this->order(Delivery::ASSIGNED);
-        $area = DeliveryArea::create(['name' => 'Transit area']);
-        $delivery = Delivery::create(['order_id' => $order->id, 'courier_profile_id' => $profile->id, 'delivery_area_id' => $area->id, 'status' => Delivery::ASSIGNED]);
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $area = DeliveryArea::create(['name' => 'Transit area', 'hub_id' => $hub->id]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'courier_profile_id' => $profile->id,
+            'delivery_area_id' => $area->id,
+            'current_hub_id' => $hub->id,
+            'status' => Delivery::ASSIGNED,
+        ]);
+        $delivery->events()->create([
+            'actor_id' => $this->admin()->id,
+            'hub_id' => $hub->id,
+            'event_type' => 'parcel_scanned',
+            'previous_status' => Delivery::ASSIGNED,
+            'new_status' => Delivery::ASSIGNED,
+            'created_at' => now(),
+        ]);
         $this->actingAs($courier, 'sanctum')->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::DELIVERED, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::COMPLETED, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable();
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED])->assertUnprocessable()->assertJsonValidationErrors(['parcel_code']);
@@ -518,9 +629,169 @@ class DeliveryWorkflowTest extends TestCase
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::OUT_FOR_DELIVERY, 'expected_status' => Delivery::ASSIGNED, 'parcel_code' => $delivery->parcel_code])->assertOk();
         $this->assertNotNull($delivery->fresh()->delivery_picked_up_at);
         $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::FAILED, 'expected_status' => Delivery::OUT_FOR_DELIVERY, 'reason' => '  '])->assertUnprocessable();
-        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::FAILED, 'expected_status' => Delivery::OUT_FOR_DELIVERY, 'reason' => 'Recipient unavailable'])->assertOk();
+        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", ['status' => Delivery::FAILED, 'expected_status' => Delivery::OUT_FOR_DELIVERY, 'reason' => 'Recipient unavailable'])
+            ->assertOk()
+            ->assertJsonPath('data.last_failure_resolution', 'redeliver_tomorrow')
+            ->assertJsonPath('data.next_delivery_attempt_at', now()->addDay()->startOfDay()->toJSON());
         $this->assertSame(Delivery::FAILED, $order->fresh()->status);
+        $this->assertSame(now()->addDay()->startOfDay()->timestamp, $delivery->fresh()->next_delivery_attempt_at->timestamp);
         $this->assertDatabaseHas('delivery_events', ['event_type' => 'failed', 'reason' => 'Recipient unavailable', 'actor_id' => $courier->id]);
+    }
+
+    public function test_rider_can_choose_next_day_redelivery_or_immediate_return_to_sender(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $product = $this->product($seller);
+        [$courier, $profile] = $this->eligibleCourier();
+        $logistics = $this->logisticsUser();
+
+        $redeliveryOrder = $this->order(Delivery::OUT_FOR_DELIVERY);
+        \App\Models\OrderItem::create([
+            'order_id' => $redeliveryOrder->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
+            'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+        ]);
+        $redelivery = Delivery::create([
+            'order_id' => $redeliveryOrder->id,
+            'courier_profile_id' => $profile->id,
+            'status' => Delivery::OUT_FOR_DELIVERY,
+        ]);
+        $this->actingAs($courier, 'sanctum')
+            ->patchJson("/api/courier/deliveries/{$redelivery->id}/status", [
+                'status' => Delivery::FAILED,
+                'expected_status' => Delivery::OUT_FOR_DELIVERY,
+                'reason' => 'Recipient requested delivery tomorrow.',
+                'failure_resolution' => 'redeliver_tomorrow',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Delivery::FAILED)
+            ->assertJsonPath('data.last_failure_resolution', 'redeliver_tomorrow')
+            ->assertJsonPath('data.delivery_attempt_history.0.reason', 'Recipient requested delivery tomorrow.')
+            ->assertJsonPath('data.delivery_attempt_history.0.resolution', 'redeliver_tomorrow');
+        $this->assertSame(now()->addDay()->startOfDay()->timestamp, $redelivery->fresh()->next_delivery_attempt_at->timestamp);
+        $this->assertDatabaseHas('delivery_events', [
+            'delivery_id' => $redelivery->id,
+            'event_type' => 'failed',
+            'reason' => 'Recipient requested delivery tomorrow.',
+        ]);
+        $this->assertNotNull($redelivery->events()->latest('created_at')->firstOrFail()->created_at);
+        $redelivery->update(['status' => Delivery::ASSIGNED]);
+        $redeliveryOrder->update(['status' => Delivery::ASSIGNED]);
+        $this->patchJson("/api/courier/deliveries/{$redelivery->id}/status", [
+            'status' => Delivery::OUT_FOR_DELIVERY,
+            'expected_status' => Delivery::ASSIGNED,
+            'parcel_code' => $redelivery->parcel_code,
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'This redelivery is scheduled for a later date.');
+
+        $returnOrder = $this->order(Delivery::OUT_FOR_DELIVERY);
+        \App\Models\OrderItem::create([
+            'order_id' => $returnOrder->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
+            'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+        ]);
+        $returnDelivery = Delivery::create([
+            'order_id' => $returnOrder->id,
+            'courier_profile_id' => $profile->id,
+            'status' => Delivery::OUT_FOR_DELIVERY,
+        ]);
+        $this->patchJson("/api/courier/deliveries/{$returnDelivery->id}/status", [
+            'status' => Delivery::FAILED,
+            'expected_status' => Delivery::OUT_FOR_DELIVERY,
+            'reason' => 'Recipient refused the parcel.',
+            'failure_resolution' => 'return_to_sender',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Delivery::RETURNED)
+            ->assertJsonPath('data.last_failure_resolution', 'return_to_sender')
+            ->assertJsonPath('data.delivery_attempt_history.0.reason', 'Recipient refused the parcel.')
+            ->assertJsonPath('data.delivery_attempt_history.0.resolution', 'return_to_sender')
+            ->assertJsonPath('data.return_shipment.status', 'picked_up');
+        $this->assertDatabaseHas('return_shipments', [
+            'delivery_id' => $returnDelivery->id,
+            'order_id' => $returnOrder->id,
+            'seller_id' => $seller->id,
+            'pickup_courier_profile_id' => $profile->id,
+            'return_reason' => 'Recipient refused the parcel.',
+            'status' => 'picked_up',
+        ]);
+        $this->assertDatabaseHas('delivery_events', [
+            'delivery_id' => $returnDelivery->id,
+            'event_type' => 'returned_to_sender',
+            'reason' => 'Recipient refused the parcel.',
+            'new_status' => Delivery::RETURNED,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $logistics->id,
+            'type' => \App\Notifications\LogisticsReturnInitiatedNotification::class,
+        ]);
+    }
+
+    public function test_courier_must_scan_this_assignment_at_the_final_delivery_hub(): void
+    {
+        [$courier, $profile] = $this->eligibleCourier();
+        $origin = LogisticsHub::create(['name' => 'Rider source hub', 'code' => 'RIDER-SOURCE', 'is_active' => true]);
+        $final = LogisticsHub::create(['name' => 'Rider final hub', 'code' => 'RIDER-FINAL', 'is_active' => true]);
+        $area = DeliveryArea::create(['name' => 'Rider final area', 'hub_id' => $final->id, 'is_active' => true]);
+        $order = $this->order(Delivery::ASSIGNED);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'courier_profile_id' => $profile->id,
+            'delivery_area_id' => $area->id,
+            'current_hub_id' => $origin->id,
+            'status' => Delivery::ASSIGNED,
+        ]);
+        $actorId = $this->admin()->id;
+        $delivery->events()->create([
+            'actor_id' => $actorId,
+            'hub_id' => $origin->id,
+            'event_type' => 'parcel_scanned',
+            'previous_status' => Delivery::SORTED,
+            'new_status' => Delivery::SORTED,
+            'created_at' => now(),
+        ]);
+        $otherDelivery = Delivery::create([
+            'order_id' => $this->order(Delivery::ASSIGNED)->id,
+            'status' => Delivery::ASSIGNED,
+        ]);
+        $otherDelivery->events()->create([
+            'actor_id' => $actorId,
+            'hub_id' => $final->id,
+            'event_type' => 'parcel_scanned',
+            'previous_status' => Delivery::SORTED,
+            'new_status' => Delivery::SORTED,
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($courier, 'sanctum')
+            ->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
+                'status' => Delivery::OUT_FOR_DELIVERY,
+                'expected_status' => Delivery::ASSIGNED,
+                'parcel_code' => $delivery->parcel_code,
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'The parcel has not arrived at its final delivery hub.');
+
+        $delivery->update(['current_hub_id' => $final->id]);
+        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
+            'status' => Delivery::OUT_FOR_DELIVERY,
+            'expected_status' => Delivery::ASSIGNED,
+            'parcel_code' => $delivery->parcel_code,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Scan this parcel at its final delivery hub before starting delivery.');
+
+        $delivery->events()->create([
+            'actor_id' => $actorId,
+            'hub_id' => $final->id,
+            'event_type' => 'parcel_scanned',
+            'previous_status' => Delivery::SORTED,
+            'new_status' => Delivery::SORTED,
+            'created_at' => now(),
+        ]);
+        $this->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
+            'status' => Delivery::OUT_FOR_DELIVERY,
+            'expected_status' => Delivery::ASSIGNED,
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertOk()->assertJsonPath('data.status', Delivery::OUT_FOR_DELIVERY);
     }
 
     public function test_third_failed_delivery_attempt_automatically_returns_parcel_to_seller(): void
@@ -634,6 +905,7 @@ class DeliveryWorkflowTest extends TestCase
     public function test_admin_can_retry_or_return_failed_delivery_but_cannot_cancel_it(): void
     {
         $admin = $this->admin();
+        $logistics = $this->logisticsUser();
         [, $first] = $this->eligibleCourier();
         [, $next] = $this->eligibleCourier();
         $area = DeliveryArea::create(['name' => 'Retry area']);
@@ -646,13 +918,22 @@ class DeliveryWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('data.status', Delivery::ASSIGNED);
         $this->assertDatabaseHas('delivery_events', ['delivery_id' => $delivery->id, 'event_type' => 'retry_assigned', 'previous_courier_profile_id' => $first->id, 'courier_profile_id' => $next->id]);
 
-        $secondOrder = $this->order(Delivery::FAILED);
+        $secondOrder = $this->orderWithPickupAddress(Delivery::FAILED);
         $secondDelivery = Delivery::create(['order_id' => $secondOrder->id, 'status' => Delivery::FAILED]);
         $this->patchJson("/api/admin/orders/{$secondOrder->id}/delivery-resolution", ['status' => 'CANCELLED', 'reason' => 'Not an approved outcome'])->assertUnprocessable();
         $this->patchJson("/api/admin/orders/{$secondOrder->id}/delivery-resolution", ['status' => 'RETURNED', 'reason' => 'Administrator approved return'])->assertOk();
         $this->assertSame('RETURNED', $secondDelivery->fresh()->status);
         $this->assertSame('RETURNED', $secondOrder->fresh()->status);
         $this->assertDatabaseHas('delivery_events', ['delivery_id' => $secondDelivery->id, 'event_type' => 'resolved_return', 'actor_id' => $admin->id]);
+        $this->assertDatabaseHas('return_shipments', [
+            'delivery_id' => $secondDelivery->id,
+            'return_reason' => 'Administrator approved return',
+            'status' => 'awaiting_pickup',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $logistics->id,
+            'type' => \App\Notifications\LogisticsReturnInitiatedNotification::class,
+        ]);
     }
 
     public function test_only_order_owner_can_confirm_receipt_after_delivery_and_confirmation_is_audited(): void
@@ -860,6 +1141,8 @@ class DeliveryWorkflowTest extends TestCase
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
         [, $profile] = $this->eligibleCourier();
         $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/orders/{$order->id}/status", ['status' => Delivery::DELIVERED])->assertUnprocessable();
+        $this->requestPickupFromSeller($order);
+        $this->actingAs($admin, 'sanctum')->postJson("/api/admin/orders/{$order->id}/pickup-decision", ['decision' => 'accepted'])->assertOk();
         $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id, 'scheduled_at' => now()->addDay()->toISOString()])->assertOk();
         $this->patchJson("/api/admin/orders/{$order->id}/status", ['status' => 'CANCELLED'])->assertStatus(409);
         $this->assertSame('READY_FOR_PICKUP', $order->fresh()->status);
@@ -870,10 +1153,21 @@ class DeliveryWorkflowTest extends TestCase
         $admin = $this->admin();
         [$firstCourier, $firstProfile] = $this->eligibleCourier();
         [$secondCourier, $secondProfile] = $this->eligibleCourier();
-        $area = DeliveryArea::create(['name' => 'Reassignment area']);
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $area = DeliveryArea::create(['name' => 'Reassignment area', 'hub_id' => $hub->id]);
         $area->couriers()->attach([$firstProfile->id => ['assigned_by' => $admin->id], $secondProfile->id => ['assigned_by' => $admin->id]]);
         $order = $this->order(Delivery::ASSIGNED);
-        $delivery = Delivery::create(['order_id' => $order->id, 'courier_profile_id' => $firstProfile->id, 'delivery_area_id' => $area->id, 'status' => Delivery::ASSIGNED]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'courier_profile_id' => $firstProfile->id,
+            'delivery_area_id' => $area->id,
+            'current_hub_id' => $hub->id,
+            'status' => Delivery::ASSIGNED,
+        ]);
+        $delivery->events()->create([
+            'actor_id' => $admin->id, 'hub_id' => $hub->id, 'event_type' => 'parcel_scanned',
+            'previous_status' => Delivery::SORTED, 'new_status' => Delivery::SORTED, 'created_at' => now(),
+        ]);
 
         $this->actingAs($admin, 'sanctum')->postJson("/api/admin/orders/{$order->id}/delivery-assignment", [
             'courier_profile_id' => $secondProfile->id, 'delivery_area_id' => $area->id,
@@ -899,8 +1193,16 @@ class DeliveryWorkflowTest extends TestCase
 
     private function assignPickup(User $admin, Order $order, CourierProfile $profile): PickupAssignment
     {
+        $this->requestPickupFromSeller($order);
+        $this->actingAs($admin, 'sanctum')->postJson("/api/admin/orders/{$order->id}/pickup-decision", ['decision' => 'accepted'])->assertOk();
         $this->actingAs($admin, 'sanctum')->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profile->id, 'scheduled_at' => now()->addDay()->toISOString()])->assertOk();
         return PickupAssignment::where('order_id', $order->id)->firstOrFail();
+    }
+
+    private function requestPickupFromSeller(Order $order): void
+    {
+        $seller = User::findOrFail($order->items()->value('seller_id'));
+        $this->actingAs($seller, 'sanctum')->postJson("/api/seller/orders/{$order->id}/pickup-request")->assertOk();
     }
 
     private function eligibleCourier(string $status = 'active', bool $verified = true, bool $approvedDocuments = true, bool $vehicle = true): array

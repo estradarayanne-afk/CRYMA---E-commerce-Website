@@ -20,7 +20,7 @@ class HubTransferReceivingService
             $hub = $globalHubId === null
                 ? $this->hubResolver->resolveForUpdate($actor)
                 : LogisticsHub::query()->whereKey($globalHubId)->lockForUpdate()->firstOrFail();
-            if ($globalHubId === null) abort_unless($hub->is_active, 422, 'Select an active destination hub.');
+            abort_unless($hub->is_active, 422, 'Select an active destination hub.');
 
             $transfer = HubTransfer::query()->whereKey($transferId)->lockForUpdate()->firstOrFail();
             abort_unless($transfer->delivery_id !== null && $transfer->return_shipment_id === null, 404, 'Forward parcel transfer not found.');
@@ -45,7 +45,9 @@ class HubTransferReceivingService
                 'event_type' => 'hub_transfer_arrived',
                 'previous_status' => $delivery->status,
                 'new_status' => $delivery->status,
-                'reason' => "QR received at hub {$hub->code} (#{$hub->id}); transfer #{$transfer->id}.",
+                'reason' => $transfer->transport_mode === 'third_party'
+                    ? "QR verified at hub {$hub->code} (#{$hub->id}); carrier {$transfer->carrier_name}; tracking {$transfer->tracking_reference}; shipment {$transfer->shipment_reference}."
+                    : "QR received at hub {$hub->code} (#{$hub->id}); transfer #{$transfer->id}.",
             ]);
 
             return $transfer->fresh(['fromHub', 'toHub', 'delivery', 'returnShipment']);

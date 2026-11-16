@@ -19,7 +19,10 @@ class DashboardController extends Controller
     {
         $filters = $this->filters($request);
         $counts = [
-            'pickups_awaiting_assignment' => PickupAssignment::where('status', PickupAssignment::REQUESTED)->count()
+            'pickups_awaiting_assignment' => PickupAssignment::whereIn('status', [
+                PickupAssignment::REQUESTED,
+                PickupAssignment::ACCEPTED_BY_LOGISTICS,
+            ])->count()
                 + Order::where('status', 'READY_FOR_PICKUP')
                     ->whereDoesntHave('pickupAssignment')
                     ->where(fn ($query) => $query->whereDoesntHave('delivery')

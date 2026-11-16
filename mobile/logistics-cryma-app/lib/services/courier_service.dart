@@ -1,8 +1,18 @@
 import '../models/courier_parcel.dart';
 import 'api_client.dart';
 
+enum DeliveryFailureResolution {
+  redeliverTomorrow('redeliver_tomorrow'),
+  returnToSender('return_to_sender');
+
+  const DeliveryFailureResolution(this.apiValue);
+
+  final String apiValue;
+}
+
 class CourierService {
-  CourierService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient.instance;
+  CourierService({ApiClient? apiClient})
+      : _api = apiClient ?? ApiClient.instance;
 
   static final instance = CourierService();
 
@@ -75,13 +85,19 @@ class CourierService {
     );
   }
 
-  Future<void> failDelivery(int id, String reason) async {
+  Future<void> failDelivery(
+    int id,
+    String reason, {
+    DeliveryFailureResolution resolution =
+        DeliveryFailureResolution.redeliverTomorrow,
+  }) async {
     await _api.patch(
       'courier/deliveries/$id/status',
       body: {
         'status': 'DELIVERY_FAILED',
         'expected_status': 'OUT_FOR_DELIVERY',
         'reason': reason,
+        'failure_resolution': resolution.apiValue,
       },
     );
   }
@@ -113,7 +129,8 @@ class CourierService {
   ) {
     final data = response['data'];
     if (data is! List) {
-      throw const ApiException('The CRYMA server returned an invalid parcel list.');
+      throw const ApiException(
+          'The CRYMA server returned an invalid parcel list.');
     }
     return data.map((item) => _readParcelItem(item, type)).toList();
   }
@@ -128,7 +145,8 @@ class CourierService {
 
   static CourierParcel _readParcelItem(dynamic item, CourierTaskType type) {
     if (item is! Map) {
-      throw const ApiException('The CRYMA server returned invalid parcel data.');
+      throw const ApiException(
+          'The CRYMA server returned invalid parcel data.');
     }
     final data = Map<String, dynamic>.from(item);
     try {
@@ -136,7 +154,8 @@ class CourierService {
           ? CourierParcel.fromPickupJson(data)
           : CourierParcel.fromDeliveryJson(data);
     } on FormatException {
-      throw const ApiException('The CRYMA server returned invalid parcel data.');
+      throw const ApiException(
+          'The CRYMA server returned invalid parcel data.');
     }
   }
 

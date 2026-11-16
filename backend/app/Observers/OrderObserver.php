@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\User;
 use App\Notifications\SellerActivityNotification;
@@ -20,22 +21,33 @@ class OrderObserver
 
         $sellerIds = $order->items()->whereNotNull('seller_id')->distinct()->pluck('seller_id');
         $sellers = User::query()->whereIn('id', $sellerIds)->where('role', 'seller')->get();
+        $delivery = $status === 'RETURNED'
+            ? Delivery::query()->where('order_id', $order->id)->first()
+            : null;
+        $returnEvent = $delivery
+            ? $delivery->events()->whereIn('event_type', ['returned_after_max_delivery_attempts', 'returned_to_sender', 'resolved_return'])
+                ->latest('created_at')->first()
+            : null;
         foreach ($sellers as $seller) {
-            $autoReturn = $status === 'RETURNED'
-                && \App\Models\Delivery::query()
-                    ->where('order_id', $order->id)
-                    ->whereHas('events', fn ($query) => $query->where('event_type', 'returned_after_max_delivery_attempts'))
-                    ->exists();
-            if ($autoReturn) {
+            if ($returnEvent) {
+                $automaticReturn = $returnEvent->event_type === 'returned_after_max_delivery_attempts';
+                $administratorReturn = $returnEvent->event_type === 'resolved_return';
+                $attempts = $delivery->events()
+                        ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts', 'returned_to_sender'])
+                        ->count();
                 $seller->notify(new SellerActivityNotification(
                     'Parcel returning to your store',
-                    "Order #{$order->id} had three unsuccessful delivery attempts. The parcel is with CRYMA Logistics and is being routed back to your store.",
+                        $automaticReturn
+                            ? "Order #{$order->id} had three unsuccessful delivery attempts. The parcel is with CRYMA Logistics and is being routed back to your store."
+                            : ($administratorReturn
+                                ? "Order #{$order->id} was returned by an administrator decision. The parcel is with CRYMA Logistics and is being routed back to your store."
+                                : "Order #{$order->id} was marked for return to sender. The parcel is with CRYMA Logistics and is being routed back to your store."),
                     'parcel_returning_to_seller',
                     '/seller/returns',
                     [
                         'order_id' => $order->id,
                         'order_status' => $status,
-                        'delivery_attempts' => \App\Models\Delivery::MAX_DELIVERY_ATTEMPTS,
+                            'delivery_attempts' => $attempts,
                     ],
                 ));
                 continue;

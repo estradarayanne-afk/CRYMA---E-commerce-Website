@@ -78,6 +78,45 @@ void main() {
     await service.startDelivery(8, parcelCode);
   });
 
+  test('sends explicit failed-delivery resolutions', () async {
+    final requests = <Map<String, dynamic>>[];
+    final client = MockClient((request) async {
+      expect(request.method, 'PATCH');
+      expect(request.url.path, '/api/courier/deliveries/8/status');
+      requests.add(jsonDecode(request.body) as Map<String, dynamic>);
+      return http.Response('{}', 200);
+    });
+    final service = CourierService(
+      apiClient: ApiClient(
+        httpClient: client,
+        tokenStore: _MemoryTokenStore(),
+        baseUrl: 'https://cryma.test',
+      ),
+    );
+
+    await service.failDelivery(8, 'No one answered');
+    await service.failDelivery(
+      8,
+      'Recipient declined',
+      resolution: DeliveryFailureResolution.returnToSender,
+    );
+
+    expect(requests, [
+      {
+        'status': 'DELIVERY_FAILED',
+        'expected_status': 'OUT_FOR_DELIVERY',
+        'reason': 'No one answered',
+        'failure_resolution': 'redeliver_tomorrow',
+      },
+      {
+        'status': 'DELIVERY_FAILED',
+        'expected_status': 'OUT_FOR_DELIVERY',
+        'reason': 'Recipient declined',
+        'failure_resolution': 'return_to_sender',
+      },
+    ]);
+  });
+
   test('sends a manually entered item ID to confirm pickup', () async {
     final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
     final client = MockClient((request) async {

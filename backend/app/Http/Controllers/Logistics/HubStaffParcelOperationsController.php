@@ -131,6 +131,11 @@ class HubStaffParcelOperationsController extends Controller
                 'id' => $transfer->id,
                 'status' => $transfer->status,
                 'departed_at' => $transfer->departed_at,
+                'transport_mode' => $transfer->transport_mode,
+                'carrier_code' => $transfer->carrier_code,
+                'carrier_name' => $transfer->carrier_name,
+                'tracking_reference' => $transfer->tracking_reference,
+                'shipment_reference' => $transfer->shipment_reference,
                 'origin_hub' => $transfer->fromHub?->only(['id', 'name', 'code']),
                 'parcel' => $transfer->delivery ? [
                     'parcel_code' => $transfer->delivery->parcel_code,
@@ -176,6 +181,11 @@ class HubStaffParcelOperationsController extends Controller
             ->through(fn (HubTransfer $transfer) => [
                 'id' => $transfer->id,
                 'status' => $transfer->status,
+                'transport_mode' => $transfer->transport_mode,
+                'carrier_code' => $transfer->carrier_code,
+                'carrier_name' => $transfer->carrier_name,
+                'tracking_reference' => $transfer->tracking_reference,
+                'shipment_reference' => $transfer->shipment_reference,
                 'origin_hub' => $transfer->fromHub?->only(['id', 'name', 'code']),
                 'destination_hub' => $transfer->toHub?->only(['id', 'name', 'code']),
                 'parcel' => $transfer->delivery ? [

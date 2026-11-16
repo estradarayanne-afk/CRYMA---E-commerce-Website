@@ -157,6 +157,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::patch('/admin/hubs/{id}', [ParcelFlowController::class, 'updateHub']);
         Route::patch('/admin/delivery-areas/{id}/hub', [ParcelFlowController::class, 'mapArea']);
         Route::post('/admin/hub-transfers', [ParcelFlowController::class, 'createTransfer']);
+        Route::post('/admin/hub-transfer-shipments', [ParcelFlowController::class, 'createThirdPartyTransferShipment']);
+        Route::get('/admin/hub-transfer-shipments/{shipmentReference}', [ParcelFlowController::class, 'showThirdPartyTransferShipment']);
+        Route::patch('/admin/hub-transfer-shipments/{shipmentReference}/dispatch', [ParcelFlowController::class, 'dispatchThirdPartyTransferShipment']);
+        Route::patch('/admin/hub-transfer-shipments/{shipmentReference}/receive', [ParcelFlowController::class, 'receiveThirdPartyTransferShipment']);
         Route::post('/admin/parcel-returns/{id}/assign-courier', [ParcelFlowController::class, 'assignReturnCourier']);
         Route::patch('/admin/parcel-returns/{id}/receive-at-hub', [ParcelFlowController::class, 'receiveReturnAtHub']);
         Route::get('/admin/delivery-queue', [LogisticsController::class, 'queue']);
@@ -167,6 +171,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/admin/delivery-areas/{areaId}/couriers', [LogisticsController::class, 'assignCourierToArea']);
         Route::delete('/admin/delivery-areas/{areaId}/couriers/{courierProfileId}', [LogisticsController::class, 'removeCourierFromArea']);
         Route::post('/admin/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
+        Route::post('/admin/orders/{orderId}/pickup-decision', [LogisticsController::class, 'decidePickup']);
         Route::post('/admin/pickup-batches/{batchId}/assignment', [LogisticsController::class, 'assignPickupBatch']);
         Route::patch('/admin/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);
         Route::patch('/admin/orders/{orderId}/sort-and-assign', [LogisticsController::class, 'sortAndAssign']);
@@ -219,6 +224,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::patch('/logistics/hubs/{id}', [ParcelFlowController::class, 'updateHub']);
         Route::patch('/logistics/delivery-areas/{id}/hub', [ParcelFlowController::class, 'mapArea']);
         Route::post('/logistics/hub-transfers', [ParcelFlowController::class, 'createTransfer']);
+        Route::post('/logistics/hub-transfer-shipments', [ParcelFlowController::class, 'createThirdPartyTransferShipment']);
+        Route::get('/logistics/hub-transfer-shipments/{shipmentReference}', [ParcelFlowController::class, 'showThirdPartyTransferShipment']);
+        Route::patch('/logistics/hub-transfer-shipments/{shipmentReference}/dispatch', [ParcelFlowController::class, 'dispatchThirdPartyTransferShipment']);
+        Route::patch('/logistics/hub-transfer-shipments/{shipmentReference}/receive', [ParcelFlowController::class, 'receiveThirdPartyTransferShipment']);
         Route::patch('/logistics/hub-transfers/{id}/dispatch', [ParcelFlowController::class, 'dispatchTransfer']);
         Route::patch('/logistics/hub-transfers/{id}/receive', [ParcelFlowController::class, 'receiveTransfer']);
         Route::post('/logistics/parcel-returns/{id}/assign-courier', [ParcelFlowController::class, 'assignReturnCourier']);
@@ -233,6 +242,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/logistics/delivery-areas/{areaId}/couriers', [LogisticsController::class, 'assignCourierToArea']);
         Route::delete('/logistics/delivery-areas/{areaId}/couriers/{courierProfileId}', [LogisticsController::class, 'removeCourierFromArea']);
         Route::post('/logistics/orders/{orderId}/pickup-assignment', [LogisticsController::class, 'assignPickup']);
+        Route::post('/logistics/orders/{orderId}/pickup-decision', [LogisticsController::class, 'decidePickup']);
         Route::post('/logistics/pickup-batches/{batchId}/assignment', [LogisticsController::class, 'assignPickupBatch']);
         Route::patch('/logistics/orders/{orderId}/sorting-receipt', [ParcelOperationsController::class, 'confirmSortingReceipt']);
         Route::patch('/logistics/orders/{orderId}/scan', [LogisticsController::class, 'scanParcel']);

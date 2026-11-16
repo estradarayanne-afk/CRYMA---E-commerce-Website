@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\ReturnShipment;
 use App\Models\User;
 use App\Services\CourierEligibility;
+use App\Services\DeliveryAreaResolver;
 use App\Support\OrderDeliveryProjection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -39,15 +40,35 @@ class DeliveryController extends Controller
     private function parcelData(Delivery $delivery): array
     {
         $order = $delivery->order;
+        $lastFailedAttempt = $delivery->events
+            ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts', 'returned_to_sender'])
+            ->last();
         return [
             'id' => $delivery->id,
             'order_id' => $delivery->order_id,
             'parcel_code' => $delivery->parcel_code,
             'status' => $delivery->status,
             'delivery_attempts' => $delivery->events
-                ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts'])
+                ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts', 'returned_to_sender'])
                 ->count(),
             'max_delivery_attempts' => Delivery::MAX_DELIVERY_ATTEMPTS,
+            'next_delivery_attempt_at' => $delivery->next_delivery_attempt_at,
+            'last_failure_resolution' => match ($lastFailedAttempt?->event_type) {
+                'returned_to_sender', 'returned_after_max_delivery_attempts' => 'return_to_sender',
+                'failed' => 'redeliver_tomorrow',
+                default => null,
+            },
+            'delivery_attempt_history' => $delivery->events
+                ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts', 'returned_to_sender'])
+                ->values()
+                ->map(fn ($event, int $index) => [
+                    'attempt' => $index + 1,
+                    'resolution' => in_array($event->event_type, ['returned_to_sender', 'returned_after_max_delivery_attempts'], true)
+                        ? 'return_to_sender'
+                        : 'redeliver_tomorrow',
+                    'reason' => $event->reason,
+                    'occurred_at' => $event->created_at,
+                ]),
             'return_shipment' => $delivery->returnShipment ? [
                 'id' => $delivery->returnShipment->id,
                 'status' => $delivery->returnShipment->status,
@@ -116,13 +137,14 @@ class DeliveryController extends Controller
             : response()->json(['success' => false, 'message' => 'Assigned delivery not found.'], 404);
     }
 
-    public function updateStatus(Request $request, int $id, CourierEligibility $eligibility)
+    public function updateStatus(Request $request, int $id, CourierEligibility $eligibility, DeliveryAreaResolver $areaResolver)
     {
         $validated = $request->validate([
             'status' => ['required', 'in:OUT_FOR_DELIVERY,DELIVERY_FAILED'],
             'expected_status' => ['required', 'in:ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY'],
             'reason' => ['nullable', 'string', 'max:1000'],
             'parcel_code' => ['required_if:status,'.Delivery::OUT_FOR_DELIVERY, 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
+            'failure_resolution' => ['sometimes', 'required', 'in:redeliver_tomorrow,return_to_sender'],
         ]);
         $reason = isset($validated['reason']) ? trim($validated['reason']) : null;
         if ($validated['status'] === Delivery::FAILED && !$reason) {
@@ -132,7 +154,7 @@ class DeliveryController extends Controller
         $profile = $this->profile($request->user(), $eligibility);
         $initial = Delivery::where('courier_profile_id', $profile->id)->find($id);
         abort_unless($initial, 404, 'Assigned delivery not found.');
-        $result = DB::transaction(function () use ($request, $id, $profile, $validated, $reason, $initial, $eligibility) {
+        $result = DB::transaction(function () use ($request, $id, $profile, $validated, $reason, $initial, $eligibility, $areaResolver) {
             $order = Order::whereKey($initial->order_id)->lockForUpdate()->firstOrFail();
             $delivery = Delivery::where('courier_profile_id', $profile->id)->whereKey($id)->lockForUpdate()->first();
             if (!$delivery) abort(404, 'Assigned delivery not found.');
@@ -160,21 +182,55 @@ class DeliveryController extends Controller
                 abort(409, 'Order and delivery status are out of sync. Contact an administrator.');
             }
 
+            if ($next === Delivery::OUT_FOR_DELIVERY) {
+                abort_unless(
+                    !$delivery->next_delivery_attempt_at || !$delivery->next_delivery_attempt_at->isFuture(),
+                    422,
+                    'This redelivery is scheduled for a later date.',
+                );
+                $area = $delivery->deliveryArea()->with('hub')->first();
+                if (!$area) {
+                    $route = $areaResolver->resolve($order->delivery_psgc_code);
+                    $area = $route['status'] === 'mapped' ? $route['area'] : null;
+                }
+                abort_unless($area && $area->is_active && $area->hub?->is_active, 409, 'The parcel has no active final delivery hub.');
+                abort_unless(
+                    $delivery->current_hub_id && (int) $delivery->current_hub_id === (int) $area->hub_id,
+                    409,
+                    'The parcel has not arrived at its final delivery hub.',
+                );
+                abort_unless(
+                    $delivery->events()->where('event_type', 'parcel_scanned')
+                        ->where('hub_id', $area->hub_id)->whereNotNull('actor_id')->exists(),
+                    422,
+                    'Scan this parcel at its final delivery hub before starting delivery.',
+                );
+            }
+
             $previousStatus = $delivery->status;
             $failedAttempts = $delivery->events()
-                ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts'])
+                ->whereIn('event_type', ['failed', 'returned_after_max_delivery_attempts', 'returned_to_sender'])
                 ->count();
-            $returnToSeller = $next === Delivery::FAILED
-                && $failedAttempts + 1 >= Delivery::MAX_DELIVERY_ATTEMPTS;
+            $failureResolution = $validated['failure_resolution'] ?? 'redeliver_tomorrow';
+            $returnToSeller = $next === Delivery::FAILED && (
+                $failureResolution === 'return_to_sender'
+                || $failedAttempts + 1 >= Delivery::MAX_DELIVERY_ATTEMPTS
+            );
             $resultingStatus = $returnToSeller ? Delivery::RETURNED : $next;
             $changes = ['status' => $resultingStatus, 'failure_reason' => $next === Delivery::FAILED ? $reason : null];
-            if ($next === Delivery::OUT_FOR_DELIVERY) $changes['delivery_picked_up_at'] = now();
+            if ($next === Delivery::OUT_FOR_DELIVERY) {
+                $changes['delivery_picked_up_at'] = now();
+                $changes['next_delivery_attempt_at'] = null;
+            }
             if ($next === Delivery::DELIVERED) $changes['delivered_at'] = now();
+            if ($next === Delivery::FAILED) {
+                $changes['next_delivery_attempt_at'] = $returnToSeller ? null : now()->addDay()->startOfDay();
+            }
             $delivery->update($changes);
             OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $request->user()->id,
                 'event_type' => $returnToSeller
-                    ? 'returned_after_max_delivery_attempts'
+                    ? ($failureResolution === 'return_to_sender' ? 'returned_to_sender' : 'returned_after_max_delivery_attempts')
                     : ($next === Delivery::FAILED ? 'failed' : ($next === Delivery::OUT_FOR_DELIVERY ? 'delivery_collected_from_sorting_center' : 'status_changed')),
                 'previous_status' => $previousStatus,
                 'new_status' => $resultingStatus,
@@ -197,8 +253,19 @@ class DeliveryController extends Controller
                         'pickup_courier_profile_id' => $profile->id,
                         'status' => 'picked_up',
                         'picked_up_at' => now(),
-                        'note' => 'Parcel remains in the final-mile courier custody after three unsuccessful delivery attempts.',
+                        'note' => $failureResolution === 'return_to_sender'
+                            ? 'Parcel remains in the final-mile courier custody after a return-to-sender decision.'
+                            : 'Parcel remains in the final-mile courier custody after three unsuccessful delivery attempts.',
                     ],
+                );
+                $returnShipment = $delivery->returnShipment()->firstOrFail();
+                User::query()->where('role', 'logistics')->where('status', 'active')->get()->each(
+                    fn (User $logistics) => $logistics->notify(new \App\Notifications\LogisticsReturnInitiatedNotification(
+                        (int) $order->id,
+                        (int) $delivery->id,
+                        (int) $returnShipment->id,
+                        (string) $reason,
+                    )),
                 );
             }
             $order->update(['status' => $resultingStatus]);
@@ -208,7 +275,9 @@ class DeliveryController extends Controller
 
         $result->load(['order.items.product:id,name,image,weight_kg', 'deliveryArea:id,name', 'events']);
         $message = $result->status === Delivery::RETURNED
-            ? 'Three delivery attempts were unsuccessful. The parcel is being returned to the seller.'
+            ? (($validated['failure_resolution'] ?? null) === 'return_to_sender'
+                ? 'The parcel is being returned to the sender.'
+                : 'Three delivery attempts were unsuccessful. The parcel is being returned to the seller.')
             : 'Delivery status updated.';
 
         return response()->json(['success' => true, 'message' => $message, 'data' => $this->parcelData($result)]);

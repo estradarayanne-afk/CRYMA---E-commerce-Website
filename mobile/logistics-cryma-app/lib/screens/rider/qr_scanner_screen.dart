@@ -21,6 +21,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   final MobileScannerController _ctrl = MobileScannerController();
   bool _handled = false;
   bool _analyzing = false;
+  bool _errorDialogOpen = false;
 
   @override
   void dispose() {
@@ -30,7 +31,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   // ── Camera scan ────────────────────────────────────────────────────────────
   void _onDetect(BarcodeCapture capture) {
-    if (_handled) return;
+    if (_handled || _analyzing || _errorDialogOpen) return;
     final value = capture.barcodes.firstOrNull?.rawValue;
     if (value == null) return;
     _handled = true;
@@ -41,47 +42,125 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ── Upload from gallery ────────────────────────────────────────────────────
   Future<void> _uploadImage() async {
     if (_handled || _analyzing) return;
-    final file = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (file == null) return;
+    try {
+      await _ctrl.stop();
+      final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (!mounted) return;
+      if (file == null) {
+        await _resumeScanner();
+        return;
+      }
 
-    setState(() => _analyzing = true);
-    _ctrl.stop();
+      setState(() => _analyzing = true);
+      final result = await _ctrl.analyzeImage(file.path);
 
-    final result = await _ctrl.analyzeImage(file.path);
+      if (!mounted) return;
+      setState(() => _analyzing = false);
 
-    if (!mounted) return;
-    setState(() => _analyzing = false);
+      if (result == null || result.barcodes.isEmpty) {
+        _showError(
+          title: 'Invalid Image',
+          message: 'No QR code was detected in the selected image. '
+              'Please choose a clear, unobstructed photo of the QR code label.',
+          onRetry: _retryImageAnalysis,
+          resumeScanner: true,
+        );
+        return;
+      }
 
-    if (result == null || result.barcodes.isEmpty) {
-      // No QR found in image
+      final value = result.barcodes.first.rawValue;
+      if (value == null) {
+        _showError(
+          title: 'Invalid Image',
+          message: 'The QR code in the image could not be read. '
+              'Please use a clearer photo.',
+          onRetry: _retryImageAnalysis,
+          resumeScanner: true,
+        );
+        return;
+      }
+
+      _handled = true;
+      _handleResult(value);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _analyzing = false);
       _showError(
-        title: 'Invalid Image',
-        message: 'No QR code was detected in the selected image. '
-            'Please choose a clear, unobstructed photo of the QR code label.',
-        onRetry: () {
-          _ctrl.start();
-          _uploadImage();
-        },
+        title: 'Could not analyze image',
+        message: 'The selected image could not be analyzed. '
+            'Try another image or enter the parcel code manually.',
+        onRetry: _retryImageAnalysis,
+        resumeScanner: true,
       );
-      return;
     }
+  }
 
-    final value = result.barcodes.first.rawValue;
-    if (value == null) {
-      _showError(
-        title: 'Invalid Image',
-        message: 'The QR code in the image could not be read. '
-            'Please use a clearer photo.',
-        onRetry: () {
-          _ctrl.start();
-          _uploadImage();
-        },
-      );
-      return;
+  void _retryImageAnalysis() {
+    _resumeScanner().then((_) {
+      if (mounted) _uploadImage();
+    });
+  }
+
+  Future<void> _resumeScanner() async {
+    try {
+      await _ctrl.start();
+    } catch (_) {
+      // The manual entry option remains available if the camera cannot restart.
     }
+  }
 
+  Future<void> _enterCode() async {
+    if (_handled || _analyzing) return;
     _handled = true;
-    _handleResult(value);
+    try {
+      await _ctrl.stop();
+    } catch (_) {
+      // Manual verification can still be used if the camera cannot stop.
+    }
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter parcel code'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Parcel code',
+            ),
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Enter the parcel code.'
+                : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(context).pop(controller.text.trim());
+              }
+            },
+            child: const Text('Verify code'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted) return;
+    if (code == null) {
+      _handled = false;
+      await _resumeScanner();
+      return;
+    }
+    _handleResult(code);
   }
 
   // ── Shared result handler ──────────────────────────────────────────────────
@@ -105,8 +184,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     required String title,
     required String message,
     required VoidCallback onRetry,
+    bool resumeScanner = false,
   }) {
-    showDialog(
+    _errorDialogOpen = true;
+    final dialog = showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
@@ -130,6 +211,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         ],
       ),
     );
+    if (resumeScanner) _resumeScanner();
+    dialog.whenComplete(() => _errorDialogOpen = false);
   }
 
   @override
@@ -182,14 +265,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             ),
           ),
 
-          // Upload button
+          // Upload and typed-code options
           Positioned(
-            bottom: 40,
+            bottom: 28,
             left: 0,
             right: 0,
             child: Center(
-              child: _analyzing
-                  ? const Column(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_analyzing)
+                    const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CircularProgressIndicator(color: Colors.white),
@@ -200,7 +286,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         ),
                       ],
                     )
-                  : TextButton.icon(
+                  else ...[
+                    TextButton.icon(
                       onPressed: _uploadImage,
                       icon: const Icon(Icons.upload_file_outlined,
                           color: Colors.white),
@@ -220,6 +307,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             borderRadius: BorderRadius.circular(24)),
                       ),
                     ),
+                    TextButton(
+                      onPressed: _enterCode,
+                      child: const Text(
+                        'Enter parcel code manually',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ],

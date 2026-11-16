@@ -4,10 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PickupAssignment extends Model
 {
     public const REQUESTED = 'PICKUP_REQUESTED';
+    public const ACCEPTED_BY_LOGISTICS = 'ACCEPTED_BY_LOGISTICS';
+    public const REJECTED_BY_LOGISTICS = 'REJECTED_BY_LOGISTICS';
     public const ASSIGNED = 'ASSIGNED_TO_PICKUP_RIDER';
     public const ACCEPTED = 'ACCEPTED_BY_PICKUP_RIDER';
     public const PICKED_UP = 'PICKED_UP';
@@ -35,4 +38,5 @@ class PickupAssignment extends Model
     public function pickupBatch(): BelongsTo { return $this->belongsTo(PickupBatch::class); }
     public function courierProfile(): BelongsTo { return $this->belongsTo(CourierProfile::class); }
     public function assignedBy(): BelongsTo { return $this->belongsTo(User::class, 'assigned_by'); }
+    public function decisionHistory(): HasMany { return $this->hasMany(PickupAssignmentDecision::class)->orderBy('decided_at')->orderBy('id'); }
 }
