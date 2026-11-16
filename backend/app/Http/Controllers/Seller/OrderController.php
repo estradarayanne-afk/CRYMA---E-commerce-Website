@@ -31,13 +31,35 @@ class OrderController extends Controller
             ], 403);
         }
 
-        $orders = $this->sellerOrderQuery($user)
-            ->latest()
-            ->get();
-        $orders->each(function (Order $order) use ($user) {
+        $filters = $request->validate([
+            'status' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        $ordersQuery = $this->sellerOrderQuery($user);
+        $status = strtoupper(trim((string) ($filters['status'] ?? '')));
+        if ($status !== '') {
+            $ordersQuery->where(function (Builder $query) use ($status): void {
+                if (in_array($status, ['PENDING', 'PLACED'], true)) {
+                    $query->whereRaw('UPPER(orders.status) IN (?, ?)', ['PENDING', 'PLACED']);
+
+                    return;
+                }
+
+                $query->whereRaw('UPPER(orders.status) = ?', [$status]);
+            });
+        }
+
+        $decorateOrder = function (Order $order) use ($user): void {
             \App\Support\OrderDeliveryProjection::apply($order);
             $order->setAttribute('seller', $this->sellerContact($user));
-        });
+        };
+        if (isset($filters['per_page'])) {
+            $orders = $ordersQuery->latest()->paginate((int) $filters['per_page']);
+            $orders->getCollection()->each($decorateOrder);
+        } else {
+            $orders = $ordersQuery->latest()->get();
+            $orders->each($decorateOrder);
+        }
 
         return response()->json([
             'success' => true,

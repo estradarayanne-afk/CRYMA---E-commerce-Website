@@ -23,6 +23,47 @@ class DeliveryWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_seller_pending_order_query_returns_a_filtered_paginated_count(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $otherSeller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $sellerProduct = $this->product($seller);
+        $otherSellerProduct = $this->product($otherSeller);
+
+        foreach (['PENDING', 'PLACED', 'CONFIRMED'] as $status) {
+            $order = $this->order($status);
+            \App\Models\OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $sellerProduct->id,
+                'seller_id' => $seller->id,
+                'quantity' => 1,
+                'unit_price' => 10,
+                'subtotal' => 10,
+            ]);
+        }
+
+        $otherSellerOrder = $this->order('PLACED');
+        \App\Models\OrderItem::create([
+            'order_id' => $otherSellerOrder->id,
+            'product_id' => $otherSellerProduct->id,
+            'seller_id' => $otherSeller->id,
+            'quantity' => 1,
+            'unit_price' => 10,
+            'subtotal' => 10,
+        ]);
+
+        $this->actingAs($seller, 'sanctum')
+            ->getJson('/api/seller/orders?status=placed&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('data.total', 2)
+            ->assertJsonPath('data.per_page', 1)
+            ->assertJsonCount(1, 'data.data');
+
+        $this->getJson('/api/seller/orders')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
+    }
+
     public function test_seller_fulfillment_creates_one_delivery_and_exposes_the_ready_order_to_logistics(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
