@@ -116,6 +116,10 @@ class DeliveryWorkflowTest extends TestCase
             ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
         $notificationId = $notificationResponse->json('data.notifications.0.id');
         $this->patchJson("/api/logistics/notifications/{$notificationId}/read")->assertOk();
+        $this->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->assertJsonPath('data.pickup_assignments.0.order_id', $order->id)
+            ->assertJsonPath('data.pickup_assignments.0.status', PickupAssignment::REQUESTED);
 
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
         $this->assertSame($delivery->id, $assignment->delivery_id);
