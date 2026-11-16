@@ -190,7 +190,7 @@ class OrderController extends Controller
                 'previous_status' => 'READY_FOR_PICKUP',
                 'new_status' => PickupAssignment::REQUESTED,
             ]);
-            $this->notifyLogisticsPickupRequest((int) $order->id, $pickupLocation, $municipality);
+            $this->notifyLogisticsPickupRequest((int) $order->id);
             return $assignment;
         });
 
@@ -256,7 +256,7 @@ class OrderController extends Controller
                     'previous_status' => 'READY_FOR_PICKUP',
                     'new_status' => PickupAssignment::REQUESTED,
                 ]);
-                $this->notifyLogisticsPickupRequest((int) $order->id, $pickupLocation, $municipality);
+                $this->notifyLogisticsPickupRequest((int) $order->id);
             }
 
             return $batch->load('assignments.order');
@@ -313,22 +313,15 @@ class OrderController extends Controller
         });
     }
 
-    private function notifyLogisticsPickupRequest(
-        int $orderId,
-        Model $pickupLocation,
-        LogisticsMunicipality $municipality,
-    ): void
+    private function notifyLogisticsPickupRequest(int $orderId): void
     {
         $logisticsUsers = User::query()
             ->where('role', 'logistics')
             ->where('status', 'active')
-            ->with(['addresses' => fn ($query) => $query->orderByDesc('is_default')->orderByDesc('id')])
             ->get();
 
         foreach ($logisticsUsers as $logistics) {
-            if ($municipality->sameMunicipality($pickupLocation, $municipality->addressForUser($logistics))) {
-                $logistics->notify(new LogisticsPickupRequestedNotification($orderId));
-            }
+            $logistics->notify(new LogisticsPickupRequestedNotification($orderId));
         }
     }
 

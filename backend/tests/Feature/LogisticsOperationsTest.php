@@ -148,13 +148,13 @@ class LogisticsOperationsTest extends TestCase
         ])->assertStatus(409);
     }
 
-    public function test_pickup_couriers_are_limited_to_active_riders_in_the_logistics_municipality(): void
+    public function test_logistics_can_see_and_assign_pickups_across_municipalities_to_available_riders(): void
     {
-        $logistics = $this->logisticsUser();
+        $logistics = $this->logisticsUser('Talisay');
         [, $localProfile] = $this->eligibleCourier();
         CourierPresence::create(['courier_profile_id' => $localProfile->id, 'is_available' => true]);
         [, $unavailableProfile] = $this->eligibleCourier();
-        [, $outsideProfile] = $this->eligibleCourier('Talisay');
+        [$outsideRider, $outsideProfile] = $this->eligibleCourier('Talisay');
         CourierPresence::create(['courier_profile_id' => $outsideProfile->id, 'is_available' => true]);
         [, $inactiveProfile] = $this->eligibleCourier('Carmen', 'suspended');
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
@@ -165,12 +165,11 @@ class LogisticsOperationsTest extends TestCase
             ->assertOk();
         $pickupCouriers = $response->json('data.eligible_pickup_couriers');
 
-        $this->assertSame([$localProfile->id], array_column($pickupCouriers, 'id'));
-        $this->assertSame([$order->id], array_column($response->json('data.pickup_orders'), 'id'));
-        $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
-            'courier_profile_id' => $outsideProfile->id,
-            'scheduled_at' => now()->addDay()->toISOString(),
-        ])->assertUnprocessable();
+        $this->assertEqualsCanonicalizing([$localProfile->id, $outsideProfile->id], array_column($pickupCouriers, 'id'));
+        $this->assertEqualsCanonicalizing(
+            [$order->id, $outsideOrder->id],
+            array_column($response->json('data.pickup_orders'), 'id'),
+        );
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $unavailableProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
@@ -179,10 +178,22 @@ class LogisticsOperationsTest extends TestCase
             'courier_profile_id' => $inactiveProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
         ])->assertUnprocessable();
-        $this->postJson("/api/logistics/orders/{$outsideOrder->id}/pickup-assignment", [
-            'courier_profile_id' => $localProfile->id,
+        $assignmentResponse = $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
+            'courier_profile_id' => $outsideProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
-        ])->assertForbidden();
+        ])->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
+        $assignmentId = $assignmentResponse->json('data.id');
+        $this->assertDatabaseHas('pickup_assignments', [
+            'order_id' => $order->id,
+            'courier_profile_id' => $outsideProfile->id,
+            'assigned_by' => $logistics->id,
+        ]);
+        $this->actingAs($outsideRider, 'sanctum')
+            ->getJson('/api/courier/pickups')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $assignmentId)
+            ->assertJsonPath('data.0.order_id', $order->id)
+            ->assertJsonPath('data.0.target_hub.id', $assignmentResponse->json('data.target_hub_id'));
     }
 
     public function test_logistics_can_sort_and_assign_only_to_eligible_courier_in_configured_area(): void
@@ -534,7 +545,7 @@ class LogisticsOperationsTest extends TestCase
         $this->getJson('/api/admin/delivery-areas')->assertForbidden();
     }
 
-    private function logisticsUser(): User
+    private function logisticsUser(string $municipality = 'Carmen'): User
     {
         $user = User::factory()->create([
             'role' => 'logistics',
@@ -542,7 +553,7 @@ class LogisticsOperationsTest extends TestCase
             'email_verified_at' => now(),
             'password' => 'password',
         ]);
-        $this->address($user);
+        $this->address($user, $municipality);
 
         return $user;
     }

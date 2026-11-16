@@ -46,12 +46,20 @@ class CourierService {
   }
 
   Future<void> collectPickup(int id, String parcelCode) async {
+    await _confirmPickup(id, {'parcel_code': parcelCode});
+  }
+
+  Future<void> collectPickupByItemId(int id, int orderId) async {
+    await _confirmPickup(id, {'order_id': orderId});
+  }
+
+  Future<void> _confirmPickup(int id, Map<String, dynamic> confirmation) async {
     await _api.patch(
       'courier/pickups/$id/status',
       body: {
         'status': 'PICKED_UP',
         'expected_status': 'ACCEPTED_BY_PICKUP_RIDER',
-        'parcel_code': parcelCode,
+        ...confirmation,
       },
     );
   }

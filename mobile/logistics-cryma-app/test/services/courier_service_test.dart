@@ -78,6 +78,30 @@ void main() {
     await service.startDelivery(8, parcelCode);
   });
 
+  test('sends a manually entered item ID to confirm pickup', () async {
+    final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
+    final client = MockClient((request) async {
+      expect(request.method, 'PATCH');
+      expect(request.url.path, '/api/courier/pickups/12/status');
+      expect(request.headers['authorization'], 'Bearer local-test-token');
+      expect(jsonDecode(request.body), {
+        'status': 'PICKED_UP',
+        'expected_status': 'ACCEPTED_BY_PICKUP_RIDER',
+        'order_id': 34,
+      });
+      return http.Response('{}', 200);
+    });
+    final service = CourierService(
+      apiClient: ApiClient(
+        httpClient: client,
+        tokenStore: tokenStore,
+        baseUrl: 'https://cryma.test',
+      ),
+    );
+
+    await service.collectPickupByItemId(12, 34);
+  });
+
   test('sends delivery proof as multipart with required backend fields',
       () async {
     final tokenStore = _MemoryTokenStore()..token = 'local-test-token';

@@ -62,7 +62,7 @@ const PAGE_CONFIG = {
     incoming: { eyebrow: "INBOUND PARCELS", title: "Incoming parcels", description: "Verify parcel handover and record sorting-center receipt." },
     sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Scan each parcel to match its saved Philippine address to a configured delivery area and destination hub. Review routing exceptions; assign a final-mile courier only when the parcel is at that hub." },
     assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Review the suggested area-qualified courier, ranked by availability, active delivery load, then hub proximity. Every eligible rider remains selectable." },
-    monitoring: { eyebrow: "DELIVERY OPERATIONS", title: "Courier Deliveries", description: "Monitor courier assignments, delivery status, history, failed attempts, and returns." },
+    monitoring: { eyebrow: "DELIVERY OPERATIONS", title: "Courier Deliveries", description: "Assign available riders to seller pickups and monitor delivery status, history, failed attempts, and returns." },
     reports: { eyebrow: "OPERATIONS SUMMARY", title: "Logistics reports", description: "Current counts derived from CRYMA order and delivery records." },
 };
 
@@ -73,6 +73,17 @@ const MONITOR_FILTERS = [
     { key: "completed", label: "Completed" },
     { key: "returned", label: "Returned" },
 ];
+
+const isPickupAssignmentActionable = (delivery) =>
+    delivery.status === "READY_FOR_PICKUP"
+    && (!delivery.pickup_assignment
+        || ["PICKUP_REQUESTED", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(delivery.pickup_assignment.status))
+    && !delivery.pickup_assignment?.picked_up_at;
+const needsDeliveryAction = (delivery) =>
+    delivery.status === "DELIVERY_FAILED"
+    || (delivery.status === "ASSIGNED_TO_RIDER" && !delivery.delivery_picked_up_at);
+const needsMonitorAction = (delivery) =>
+    isPickupAssignmentActionable(delivery) || needsDeliveryAction(delivery);
 
 export default function ParcelOperations({ section }) {
     const navigate = useNavigate();
@@ -211,10 +222,12 @@ export default function ParcelOperations({ section }) {
     };
 
     const assignPickup = (orderId, existing = null) => {
-        const courierProfileId = Number(pickupChoices[orderId] || existing?.courier_profile_id);
+        const existingCourierIsAvailable = eligiblePickup.some((courier) =>
+            Number(courier.id) === Number(existing?.courier_profile_id));
+        const courierProfileId = Number(pickupChoices[orderId] || (existingCourierIsAvailable ? existing?.courier_profile_id : 0));
         const localSchedule = pickupSchedules[orderId] ?? localDateTimeValue(existing?.scheduled_at);
         const reason = getReason(`pickup-${orderId}`).trim();
-        if (!courierProfileId) {
+        if (!courierProfileId || !eligiblePickup.some((courier) => Number(courier.id) === courierProfileId)) {
             setError("Choose an eligible courier for this pickup.");
             return;
         }
@@ -398,14 +411,14 @@ export default function ParcelOperations({ section }) {
     const scannedSortingCount = sortingQueue.filter((order) => order.delivery?.events?.some((event) => event.event_type === "parcel_scanned")).length;
     const unscannedSortingCount = sortingQueue.length - scannedSortingCount;
     const filteredDeliveries = deliveries.filter((delivery) => {
-        if (monitorFilter === "attention") return delivery.status === "DELIVERY_FAILED" || (delivery.status === "ASSIGNED_TO_RIDER" && !delivery.delivery_picked_up_at);
+        if (monitorFilter === "attention") return needsMonitorAction(delivery);
         if (monitorFilter === "active") return ["ASSIGNED_TO_RIDER", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(delivery.status);
         if (monitorFilter === "completed") return ["DELIVERED", "COMPLETED"].includes(delivery.status);
         if (monitorFilter === "returned") return delivery.status === "RETURNED";
         return true;
     });
     const monitorFilterCount = (key) => {
-        if (key === "attention") return deliveries.filter((delivery) => delivery.status === "DELIVERY_FAILED" || (delivery.status === "ASSIGNED_TO_RIDER" && !delivery.delivery_picked_up_at)).length;
+        if (key === "attention") return deliveries.filter(needsMonitorAction).length;
         if (key === "active") return deliveries.filter((delivery) => ["ASSIGNED_TO_RIDER", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(delivery.status)).length;
         if (key === "completed") return deliveries.filter((delivery) => ["DELIVERED", "COMPLETED"].includes(delivery.status)).length;
         if (key === "returned") return deliveries.filter((delivery) => delivery.status === "RETURNED").length;
@@ -559,10 +572,16 @@ export default function ParcelOperations({ section }) {
                     {section === "monitoring" && <section className="lo-panel lo-monitoring-panel"><div className="lo-panel-heading"><div><h2>Parcel status and history</h2><p>Filter the delivery queue to focus on exceptions or review completed work.</p></div><span className="lo-queue-count">{deliveries.length} records</span></div>
                         <nav className="lo-queue-filters" aria-label="Filter courier deliveries">{MONITOR_FILTERS.map(({ key, label }) => <button type="button" key={key} className={monitorFilter === key ? "is-active" : ""} aria-pressed={monitorFilter === key} onClick={() => setMonitorFilter(key)}>{label}<span>{monitorFilterCount(key)}</span></button>)}</nav>
                         {deliveries.length === 0 ? <p className="lw-empty">No delivery records are available.</p> : filteredDeliveries.length === 0 ? <p className="lw-empty">No deliveries match this filter.</p> : filteredDeliveries.map((delivery) => {
-                            const needsAction = delivery.status === "DELIVERY_FAILED" || (delivery.status === "ASSIGNED_TO_RIDER" && !delivery.delivery_picked_up_at);
+                            const needsAction = needsDeliveryAction(delivery);
+                            const needsPickupAction = isPickupAssignmentActionable(delivery);
+                            const pickupAssignment = delivery.pickup_assignment;
                             const areaId = delivery.delivery_area_id || areaChoices[delivery.order_id] || "";
                             const eligibleCouriers = eligibleForArea(areaId);
                             const recommendedCourierId = suggestedCourier(eligibleCouriers, delivery.current_hub_id)?.id || "";
+                            const pickupCourierIsAvailable = eligiblePickup.some((courier) =>
+                                Number(courier.id) === Number(pickupAssignment?.courier_profile_id));
+                            const pickupCourierId = pickupChoices[delivery.order_id]
+                                || (pickupCourierIsAvailable ? pickupAssignment.courier_profile_id : "");
                             return <article className="lo-row lo-monitor-row" key={delivery.id}>
                                 <div><strong>Order #{delivery.order_id} · {statusLabel(delivery.status)}</strong><span>Area: {delivery.deliveryArea?.name || "Not assigned"} · Courier: {courierName(delivery.courierProfile)}</span><small>Parcel weight: {parcelWeight(delivery.order?.items)}</small><small>Updated: {delivery.updated_at ? new Date(delivery.updated_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small>
                                     {delivery.failure_reason && <small className="lo-warning">Failure reason: {delivery.failure_reason}</small>}
@@ -570,19 +589,19 @@ export default function ParcelOperations({ section }) {
                                     <PrivateDeliveryProof proof={delivery.proof} basePath={`/logistics/deliveries/${delivery.id}/proof`} />
                                     <div className="lo-actions lo-monitor-inline-actions">
                                         <button type="button" disabled={!!saving} onClick={() => contactSeller(delivery)}>{saving === `seller-chat-${delivery.id}` ? "Opening…" : "Contact seller"}</button>
-                                        {needsAction && <>
+                                        {needsPickupAction && <>
                                             <label className="lo-monitor-rider-select">Pickup rider
                                                 {courierSelect(
-                                                    eligibleCouriers,
-                                                    deliveryChoices[delivery.order_id] || recommendedCourierId,
-                                                    (value) => setDeliveryChoices((current) => ({ ...current, [delivery.order_id]: value })),
+                                                    eligiblePickup,
+                                                    pickupCourierId,
+                                                    (value) => setPickupChoices((current) => ({ ...current, [delivery.order_id]: value })),
                                                     `Pickup rider for order ${delivery.order_id}`,
-                                                    !areaId || !!saving,
-                                                    delivery.current_hub_id,
+                                                    !!saving,
                                                 )}
                                             </label>
-                                            <input aria-label={`Reason for rider assignment on order ${delivery.order_id}`} placeholder="Reason for assigning or changing rider" maxLength={1000} value={getReason(`delivery-${delivery.order_id}`)} onChange={(event) => setReason(`delivery-${delivery.order_id}`, event.target.value)} />
-                                            <button type="button" disabled={!!saving || !areaId || !eligibleCouriers.length || !getReason(`delivery-${delivery.order_id}`).trim()} onClick={() => reassignDelivery(delivery)}>{saving === `delivery-${delivery.order_id}` ? "Saving…" : delivery.status === "DELIVERY_FAILED" ? "Retry delivery" : delivery.courier_profile_id ? "Reassign rider" : "Assign rider"}</button>
+                                            <label className="lo-monitor-schedule">Pickup date and time<input type="datetime-local" value={pickupSchedules[delivery.order_id] ?? localDateTimeValue(pickupAssignment?.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [delivery.order_id]: event.target.value }))} /></label>
+                                            {pickupAssignment && pickupAssignment.status !== "PICKUP_REQUESTED" && <input aria-label={`Pickup reassignment reason for order ${delivery.order_id}`} placeholder="Reason if changing pickup rider" maxLength={1000} value={getReason(`pickup-${delivery.order_id}`)} onChange={(event) => setReason(`pickup-${delivery.order_id}`, event.target.value)} />}
+                                            <button type="button" disabled={!!saving || !eligiblePickup.some((courier) => Number(courier.id) === Number(pickupCourierId))} onClick={() => assignPickup(delivery.order_id, pickupAssignment)}>{saving === `pickup-${delivery.order_id}` ? "Saving…" : pickupAssignment && pickupAssignment.status !== "PICKUP_REQUESTED" ? "Save pickup assignment" : "Assign pickup"}</button>
                                         </>}
                                     </div>
                                 </div>
@@ -590,6 +609,9 @@ export default function ParcelOperations({ section }) {
                                     {delivery.delivery_area_id
                                         ? <small>Destination area: {delivery.deliveryArea?.name || "Mapped area"}</small>
                                         : <label className="lo-field-label">Resolve missing route<select aria-label={`Area for delivery order ${delivery.order_id}`} value={areaId} onChange={(event) => setAreaChoices((current) => ({ ...current, [delivery.order_id]: event.target.value }))}><option value="">Select active area</option>{activeAreas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></label>}
+                                    <label className="lo-field-label">Delivery rider{courierSelect(eligibleCouriers, deliveryChoices[delivery.order_id] || recommendedCourierId, (value) => setDeliveryChoices((current) => ({ ...current, [delivery.order_id]: value })), `Delivery rider for order ${delivery.order_id}`, !areaId || !!saving, delivery.current_hub_id)}</label>
+                                    <input aria-label={`Reason for delivery assignment on order ${delivery.order_id}`} placeholder="Reason for assigning or changing delivery rider" maxLength={1000} value={getReason(`delivery-${delivery.order_id}`)} onChange={(event) => setReason(`delivery-${delivery.order_id}`, event.target.value)} />
+                                    <button type="button" disabled={!!saving || !areaId || !eligibleCouriers.length || !getReason(`delivery-${delivery.order_id}`).trim()} onClick={() => reassignDelivery(delivery)}>{saving === `delivery-${delivery.order_id}` ? "Saving…" : delivery.status === "DELIVERY_FAILED" ? "Retry delivery" : delivery.courier_profile_id ? "Reassign rider" : "Assign rider"}</button>
                                     {delivery.status === "DELIVERY_FAILED" && <><input aria-label={`Return reason for order ${delivery.order_id}`} placeholder="Reason for return to center" maxLength={1000} value={getReason(`return-${delivery.order_id}`)} onChange={(event) => setReason(`return-${delivery.order_id}`, event.target.value)} /><button className="lo-danger" type="button" disabled={!!saving} onClick={() => returnDelivery(delivery)}>{saving === `return-${delivery.order_id}` ? "Saving…" : "Mark returned"}</button></>}
                                 </div>}
                             </article>;

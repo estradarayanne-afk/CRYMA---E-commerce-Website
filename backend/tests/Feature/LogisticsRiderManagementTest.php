@@ -42,18 +42,19 @@ class LogisticsRiderManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_rider_directory_only_shows_accounts_in_the_logistics_municipality(): void
+    public function test_rider_directory_shows_accounts_across_municipalities(): void
     {
         $logistics = $this->logisticsUser();
         $localRider = $this->rider(status: 'active');
         $outsideRider = $this->rider(status: 'active', municipality: 'Talisay');
 
-        $this->actingAs($logistics, 'sanctum')
+        $response = $this->actingAs($logistics, 'sanctum')
             ->getJson('/api/logistics/riders?status=active')
             ->assertOk()
-            ->assertJsonPath('data.total', 1)
-            ->assertJsonPath('data.data.0.id', $localRider->id)
-            ->assertJsonMissing(['id' => $outsideRider->id]);
+            ->assertJsonPath('data.total', 2);
+
+        $riderIds = $response->json('data.data.*.id');
+        $this->assertEqualsCanonicalizing([$localRider->id, $outsideRider->id], $riderIds);
     }
 
     public function test_logistics_can_review_only_pending_rider_documents(): void

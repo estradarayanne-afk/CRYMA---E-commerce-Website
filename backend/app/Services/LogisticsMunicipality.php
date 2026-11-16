@@ -6,28 +6,10 @@ use App\Models\GeographicLocation;
 use App\Models\LogisticsHub;
 use App\Models\Order;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class LogisticsMunicipality
 {
-    public function scopeUsers(Builder $users, User $logisticsUser): Builder
-    {
-        return $this->scopeUsersAtAddress($users, $this->addressForUser($logisticsUser));
-    }
-
-    public function addressForUser(User $user): ?Model
-    {
-        if ($user->relationLoaded('addresses')) {
-            return $user->addresses->sort($this->defaultAddressComparator(...))->first();
-        }
-
-        return $user->addresses()
-            ->orderByDesc('is_default')
-            ->latest('id')
-            ->first();
-    }
-
     public function pickupAddressForSeller(User $seller): ?Model
     {
         $seller->loadMissing('sellerPickupAddress');
@@ -48,63 +30,6 @@ class LogisticsMunicipality
         $seller = $order->items->first()?->seller;
 
         return $seller ? $this->pickupAddressForSeller($seller) : null;
-    }
-
-    public function scopeUsersAtAddress(Builder $users, ?Model $address): Builder
-    {
-        if (! $address || trim((string) $address->municipality) === '') {
-            return $users->whereRaw('1 = 0');
-        }
-
-        $municipalityCode = $this->municipalityCode($address);
-        $locationCodes = collect();
-        if ($municipalityCode !== null) {
-            $subMunicipalityCodes = GeographicLocation::query()
-                ->where('parent_code', $municipalityCode)
-                ->where('level', 'SubMun')
-                ->pluck('code')
-                ->prepend($municipalityCode);
-            $locationCodes = GeographicLocation::query()
-                ->whereIn('parent_code', $subMunicipalityCodes)
-                ->where('level', 'Bgy')
-                ->pluck('code')
-                ->prepend($municipalityCode);
-        }
-
-        return $users->whereHas('addresses', function (Builder $addresses) use ($address, $locationCodes): void {
-            $addresses->where(function (Builder $locality) use ($address): void {
-                foreach (['region', 'province', 'municipality'] as $field) {
-                    $locality->whereRaw(
-                        "LOWER(TRIM(COALESCE({$field}, ''))) = ?",
-                        [mb_strtolower(trim((string) $address->{$field}))],
-                    );
-                }
-            });
-            if ($locationCodes->isNotEmpty()) {
-                $addresses->orWhereIn('psgc_code', $locationCodes);
-            }
-        });
-    }
-
-    public function sameMunicipality(?Model $first, ?Model $second): bool
-    {
-        if (! $first || ! $second) {
-            return false;
-        }
-
-        $firstCode = $this->municipalityCode($first);
-        $secondCode = $this->municipalityCode($second);
-        if ($firstCode !== null && $secondCode !== null) {
-            return $firstCode === $secondCode;
-        }
-
-        foreach (['region', 'province', 'municipality'] as $field) {
-            if (mb_strtolower(trim((string) $first->{$field})) !== mb_strtolower(trim((string) $second->{$field}))) {
-                return false;
-            }
-        }
-
-        return trim((string) $first->municipality) !== '';
     }
 
     public function municipalityCode(Model $address): ?string

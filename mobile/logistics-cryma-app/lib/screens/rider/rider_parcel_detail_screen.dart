@@ -95,6 +95,53 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
         .collectPickup(parcel.id, parcel.parcelCode));
   }
 
+  Future<void> _collectPickupByItemId(CourierParcel parcel) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final itemId = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm pickup by item ID'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              final parsed = int.tryParse(value?.trim() ?? '');
+              return parsed == null || parsed < 1 ? 'Enter a valid item ID.' : null;
+            },
+            decoration: InputDecoration(
+              labelText: 'Item ID',
+              hintText: 'Order #${parcel.orderId}',
+              helperText: 'Enter the order ID shown for this task.',
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(context).pop(int.parse(controller.text.trim()));
+              }
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (itemId == null || !mounted) return;
+    await _perform(
+      () => CourierService.instance.collectPickupByItemId(parcel.id, itemId),
+    );
+  }
+
   Future<void> _startDelivery(CourierParcel parcel) async {
     if (!await _scanParcel(parcel) || !mounted) return;
     await _perform(() => CourierService.instance
@@ -333,9 +380,20 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
       );
     }
     if (parcel.canCollectPickup) {
-      return FilledButton(
-        onPressed: () => _collectPickup(parcel),
-        child: const Text('Scan and confirm pickup'),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FilledButton(
+            onPressed: () => _collectPickup(parcel),
+            child: const Text('Scan and confirm pickup'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => _collectPickupByItemId(parcel),
+            icon: const Icon(Icons.pin_outlined),
+            label: const Text('Enter item ID instead'),
+          ),
+        ],
       );
     }
     if (parcel.canStartDelivery) {

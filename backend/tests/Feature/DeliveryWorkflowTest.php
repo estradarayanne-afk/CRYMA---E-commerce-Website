@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Address;
+use App\Models\CourierPresence;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
@@ -160,13 +161,18 @@ class DeliveryWorkflowTest extends TestCase
         $this->actingAs($outsideLogistics, 'sanctum')
             ->getJson('/api/logistics/notifications')
             ->assertOk()
-            ->assertJsonPath('data.unread_count', 0);
+            ->assertJsonPath('data.unread_count', 1)
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
         $notificationId = $notificationResponse->json('data.notifications.0.id');
         $this->actingAs($logistics, 'sanctum')->patchJson("/api/logistics/notifications/{$notificationId}/read")->assertOk();
         $this->actingAs($logistics, 'sanctum')->getJson('/api/logistics/operations')
             ->assertOk()
             ->assertJsonPath('data.pickup_assignments.0.order_id', $order->id)
-            ->assertJsonPath('data.pickup_assignments.0.status', PickupAssignment::REQUESTED);
+            ->assertJsonPath('data.pickup_assignments.0.status', PickupAssignment::REQUESTED)
+            ->assertJsonPath('data.deliveries.0.pickup_assignment.status', PickupAssignment::REQUESTED);
+        $this->actingAs($outsideLogistics, 'sanctum')->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->assertJsonPath('data.pickup_assignments.0.order_id', $order->id);
 
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
         $this->assertSame($delivery->id, $assignment->delivery_id);
@@ -176,7 +182,7 @@ class DeliveryWorkflowTest extends TestCase
     public function test_seller_can_request_one_pickup_batch_for_multiple_ready_orders_and_rider_tracks_each_parcel(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        $logistics = $this->logisticsUser();
+        $logistics = $this->logisticsUser('Talisay');
         SellerPickupAddress::create([
             'user_id' => $seller->id, 'recipient_name' => 'Bulk Seller', 'phone' => '+639171234567',
             'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
@@ -233,10 +239,18 @@ class DeliveryWorkflowTest extends TestCase
             collect($pickupNotifications)->map(fn (array $notification) => $notification['data']['order_id'])->all(),
         );
 
-        $admin = $this->admin();
         [$rider, $courierProfile] = $this->eligibleCourier();
+        Address::create([
+            'user_id' => $rider->id,
+            'is_default' => true,
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => 'Talisay',
+            'barangay' => 'Luyang',
+        ]);
+        CourierPresence::create(['courier_profile_id' => $courierProfile->id, 'is_available' => true]);
         $scheduledAt = now()->addDay()->toISOString();
-        $this->actingAs($admin, 'sanctum')->postJson("/api/admin/pickup-batches/{$batchId}/assignment", [
+        $this->actingAs($logistics, 'sanctum')->postJson("/api/logistics/pickup-batches/{$batchId}/assignment", [
             'courier_profile_id' => $courierProfile->id,
             'scheduled_at' => $scheduledAt,
         ])->assertOk()->assertJsonPath('data.status', PickupBatch::ASSIGNED);
@@ -392,7 +406,7 @@ class DeliveryWorkflowTest extends TestCase
         $this->getJson('/api/courier/pickup-history')->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_pickup_qr_scan_must_match_the_riders_assigned_parcel_and_cannot_be_replayed(): void
+    public function test_pickup_qr_scan_must_match_the_assigned_parcel_and_cannot_be_replayed(): void
     {
         [$rider, $profile] = $this->eligibleCourier();
         $order = $this->order('READY_FOR_PICKUP');
@@ -423,6 +437,36 @@ class DeliveryWorkflowTest extends TestCase
             'parcel_code' => $delivery->parcel_code,
         ])->assertStatus(409);
         $this->assertSame(Delivery::PICKED_UP, $delivery->fresh()->status);
+    }
+
+    public function test_pickup_item_id_can_confirm_only_the_riders_assigned_order(): void
+    {
+        [$rider, $profile] = $this->eligibleCourier();
+        $order = $this->order('READY_FOR_PICKUP');
+        $delivery = Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP']);
+        $assignment = PickupAssignment::create([
+            'order_id' => $order->id,
+            'delivery_id' => $delivery->id,
+            'courier_profile_id' => $profile->id,
+            'status' => PickupAssignment::ACCEPTED,
+            'pickup_address' => 'Synthetic seller pickup point',
+        ]);
+
+        $this->actingAs($rider, 'sanctum')
+            ->patchJson("/api/courier/pickups/{$assignment->id}/status", [
+                'status' => PickupAssignment::PICKED_UP,
+                'expected_status' => PickupAssignment::ACCEPTED,
+                'order_id' => $order->id + 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The entered item ID does not match this pickup assignment.');
+
+        $this->patchJson("/api/courier/pickups/{$assignment->id}/status", [
+            'status' => PickupAssignment::PICKED_UP,
+            'expected_status' => PickupAssignment::ACCEPTED,
+            'order_id' => $order->id,
+        ])->assertOk()->assertJsonPath('data.order_id', $order->id);
+        $this->assertSame(Delivery::PICKED_UP, $order->fresh()->status);
     }
 
     public function test_admin_sorts_parcel_and_assigns_only_a_courier_configured_for_the_area(): void

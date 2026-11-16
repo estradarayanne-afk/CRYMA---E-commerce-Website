@@ -23,6 +23,7 @@
 
 .lo-actions.lo-monitor-inline-actions{flex-direction:row;align-items:flex-end;flex-wrap:wrap;width:100%;max-width:none}
 .lo-monitor-rider-select{display:grid;flex:1 1 190px;gap:4px;min-width:190px;color:#63464f;font-size:11px;font-weight:700}
+.lo-monitor-schedule{display:grid;flex:1 1 190px;gap:4px;min-width:190px;color:#63464f;font-size:11px;font-weight:700}
 .lo-monitor-inline-actions input{flex:1 1 200px;min-width:180px}
 .lo-monitor-inline-actions>button{flex:0 0 auto}
-@media(max-width:700px){.lo-monitor-rider-select{min-width:100%}.lo-monitor-inline-actions input{min-width:100%}.lo-monitor-inline-actions>button{flex:1 1 100%}}
+@media(max-width:700px){.lo-monitor-rider-select,.lo-monitor-schedule{min-width:100%}.lo-monitor-inline-actions input{min-width:100%}.lo-monitor-inline-actions>button{flex:1 1 100%}}

@@ -13,6 +13,7 @@ use App\Services\CourierEligibility;
 use App\Support\OrderDeliveryProjection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PickupController extends Controller
 {
@@ -128,8 +129,18 @@ class PickupController extends Controller
         $values = $request->validate([
             'status' => ['required', 'in:ACCEPTED_BY_PICKUP_RIDER,PICKED_UP'],
             'expected_status' => ['required', 'in:ASSIGNED_TO_PICKUP_RIDER,ACCEPTED_BY_PICKUP_RIDER'],
-            'parcel_code' => ['required_if:status,'.PickupAssignment::PICKED_UP, 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
+            'parcel_code' => ['nullable', 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
+            'order_id' => ['nullable', 'integer', 'min:1'],
         ]);
+        if (
+            $values['status'] === PickupAssignment::PICKED_UP
+            && !isset($values['parcel_code'])
+            && !isset($values['order_id'])
+        ) {
+            throw ValidationException::withMessages([
+                'parcel_code' => 'Scan the parcel QR code or enter its item ID to confirm pickup.',
+            ]);
+        }
         $profile = $this->profile($request->user(), $eligibility);
         $initial = PickupAssignment::where('courier_profile_id', $profile->id)->find($id);
         abort_unless($initial instanceof PickupAssignment, 404, 'Assigned pickup was not found.');
@@ -141,6 +152,9 @@ class PickupController extends Controller
             abort_unless($eligibility->isEligible($profile), 403, 'Courier eligibility changed. Contact an administrator.');
             if (isset($values['parcel_code'])) {
                 abort_unless(hash_equals((string) $delivery->parcel_code, $values['parcel_code']), 422, 'The scanned parcel does not match this pickup assignment.');
+            }
+            if (isset($values['order_id'])) {
+                abort_unless((int) $values['order_id'] === (int) $order->id, 422, 'The entered item ID does not match this pickup assignment.');
             }
             $expectedOrderStatus = 'READY_FOR_PICKUP';
             if ($assignment->status !== $values['expected_status'] || $order->status !== $expectedOrderStatus || $delivery->status !== $expectedOrderStatus) {
