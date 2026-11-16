@@ -58,7 +58,7 @@ class ApiClient {
 
   static const _defaultBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8000/api',
+    defaultValue: 'https://api.cryma.store/api',
   );
 
   static final instance = ApiClient();

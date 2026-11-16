@@ -2,7 +2,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 const _websiteBaseUrl = String.fromEnvironment(
   'WEBSITE_BASE_URL',
-  defaultValue: 'https://cryma.shop',
+  defaultValue: 'https://cryma.store',
 );
 
 final courierRegistrationUri = Uri.parse('$_websiteBaseUrl/register/rider');

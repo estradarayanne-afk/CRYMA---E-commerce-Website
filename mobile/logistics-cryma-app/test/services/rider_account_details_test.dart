@@ -18,6 +18,22 @@ class _MemoryTokenStore implements TokenStore {
 }
 
 void main() {
+  test('uses the deployed CRYMA API by default', () async {
+    final client = MockClient((request) async {
+      expect(
+        request.url,
+        Uri.parse('https://api.cryma.store/api/courier/account'),
+      );
+      return http.Response('{}', 200);
+    });
+    final api = ApiClient(
+      httpClient: client,
+      tokenStore: _MemoryTokenStore(),
+    );
+
+    await api.get('courier/account');
+  });
+
   test('loads the full rider account details from the courier endpoint',
       () async {
     final client = MockClient((request) async {

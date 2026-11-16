@@ -11,7 +11,7 @@ import '../../theme.dart';
 
 const _websiteBaseUrl = String.fromEnvironment(
   'WEBSITE_BASE_URL',
-  defaultValue: 'http://127.0.0.1:5173',
+  defaultValue: 'https://cryma.store',
 );
 const _documentLimitBytes = 5 * 1024 * 1024;
 const _namePattern = r"^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$";
