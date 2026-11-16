@@ -68,12 +68,13 @@ class ApiClient {
   final Uri _baseUri;
 
   static Uri _parseBaseUri(String value) {
-    final normalized = value.endsWith('/') ? value : '$value/';
-    final uri = Uri.parse(normalized);
+    final uri = Uri.parse(value);
     if (!uri.hasScheme || uri.host.isEmpty) {
       throw ArgumentError.value(value, 'baseUrl', 'Must be an absolute URL.');
     }
-    return uri;
+    final basePath = uri.path.replaceFirst(RegExp(r'/+$'), '');
+    final apiPath = basePath.endsWith('/api') ? basePath : '$basePath/api';
+    return uri.replace(path: '$apiPath/');
   }
 
   Uri _uri(String path) =>

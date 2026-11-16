@@ -8,6 +8,7 @@ use App\Models\Delivery;
 use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Models\User;
+use App\Notifications\LogisticsPickupRequestedNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -162,6 +163,7 @@ class OrderController extends Controller
                 'previous_status' => 'READY_FOR_PICKUP',
                 'new_status' => PickupAssignment::REQUESTED,
             ]);
+            $this->notifyLogisticsPickupRequest((int) $order->id);
             return $assignment;
         });
 
@@ -224,6 +226,7 @@ class OrderController extends Controller
                     'previous_status' => 'READY_FOR_PICKUP',
                     'new_status' => PickupAssignment::REQUESTED,
                 ]);
+                $this->notifyLogisticsPickupRequest((int) $order->id);
             }
 
             return $batch->load('assignments.order');
@@ -274,6 +277,14 @@ class OrderController extends Controller
         ])->whereHas('items', function ($query) use ($user) {
             $query->where('seller_id', $user->id);
         });
+    }
+
+    private function notifyLogisticsPickupRequest(int $orderId): void
+    {
+        User::query()
+            ->where('role', 'logistics')
+            ->where('status', 'active')
+            ->each(fn (User $logistics) => $logistics->notify(new LogisticsPickupRequestedNotification($orderId)));
     }
 
     private function sellerContact(User $user): array

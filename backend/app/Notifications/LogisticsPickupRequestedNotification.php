@@ -5,7 +5,7 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
-class LogisticsPickupReadyNotification extends Notification
+class LogisticsPickupRequestedNotification extends Notification
 {
     use Queueable;
 
@@ -20,8 +20,8 @@ class LogisticsPickupReadyNotification extends Notification
     {
         return [
             'title' => 'New pickup request',
-            'message' => "Order #{$this->orderId} is ready for pickup. Review it and assign a courier.",
-            'type' => 'seller_pickup_ready',
+            'message' => "The seller requested courier pickup for order #{$this->orderId}. Review it and assign a courier.",
+            'type' => 'seller_pickup_requested',
             'link' => '/logistics/pickups',
             'order_id' => $this->orderId,
         ];

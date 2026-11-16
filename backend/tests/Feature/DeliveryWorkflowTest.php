@@ -15,7 +15,6 @@ use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
 use App\Notifications\BuyerDeliveryMilestoneNotification;
-use App\Notifications\LogisticsPickupReadyNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -23,7 +22,7 @@ class DeliveryWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_seller_fulfillment_creates_one_delivery_linked_to_the_ready_order(): void
+    public function test_seller_fulfillment_creates_one_delivery_and_exposes_the_ready_order_to_logistics(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
         $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
@@ -55,12 +54,9 @@ class DeliveryWorkflowTest extends TestCase
         $this->assertFalse($delivery->legacy_imported);
         $this->assertSame($delivery->parcel_code, $response->json('data.delivery.parcel_code'));
 
-        $notificationResponse = $this->actingAs($logistics, 'sanctum')->getJson('/api/logistics/notifications')
+        $this->actingAs($logistics, 'sanctum')->getJson('/api/logistics/notifications')
             ->assertOk()
-            ->assertJsonPath('data.unread_count', 1)
-            ->assertJsonPath('data.notifications.0.data.link', '/logistics/pickups')
-            ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
-        $notificationId = $notificationResponse->json('data.notifications.0.id');
+            ->assertJsonPath('data.unread_count', 0);
         $this->getJson('/api/logistics/operations')
             ->assertOk()
             ->assertJsonPath('data.pickup_orders.0.id', $order->id)
@@ -68,13 +64,12 @@ class DeliveryWorkflowTest extends TestCase
         $this->getJson('/api/logistics/dashboard')
             ->assertOk()
             ->assertJsonPath('data.pickups_awaiting_assignment', 1);
-        $this->patchJson("/api/logistics/notifications/{$notificationId}/read")->assertOk();
-        $this->getJson('/api/logistics/notifications')->assertJsonPath('data.unread_count', 0);
     }
 
     public function test_seller_can_request_pickup_for_an_order_with_its_ready_delivery(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
         SellerPickupAddress::create([
             'user_id' => $seller->id,
             'recipient_name' => 'Seller Pickup Contact',
@@ -108,6 +103,19 @@ class DeliveryWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.delivery_id', $delivery->id)
             ->assertJsonPath('data.status', PickupAssignment::REQUESTED);
+        $this->postJson("/api/seller/orders/{$order->id}/pickup-request")
+            ->assertOk()
+            ->assertJsonPath('data.status', PickupAssignment::REQUESTED);
+
+        $notificationResponse = $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1)
+            ->assertJsonPath('data.notifications.0.data.type', 'seller_pickup_requested')
+            ->assertJsonPath('data.notifications.0.data.link', '/logistics/pickups')
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
+        $notificationId = $notificationResponse->json('data.notifications.0.id');
+        $this->patchJson("/api/logistics/notifications/{$notificationId}/read")->assertOk();
 
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
         $this->assertSame($delivery->id, $assignment->delivery_id);
@@ -117,6 +125,7 @@ class DeliveryWorkflowTest extends TestCase
     public function test_seller_can_request_one_pickup_batch_for_multiple_ready_orders_and_rider_tracks_each_parcel(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
         SellerPickupAddress::create([
             'user_id' => $seller->id, 'recipient_name' => 'Bulk Seller', 'phone' => '+639171234567',
             'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
@@ -163,6 +172,15 @@ class DeliveryWorkflowTest extends TestCase
         );
         $this->assertSame(2, PickupAssignment::where('pickup_batch_id', $batchId)->count());
         $this->assertSame(2, Delivery::whereIn('order_id', $orders->pluck('id'))->count());
+        $pickupNotifications = $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 2)
+            ->json('data.notifications');
+        $this->assertEqualsCanonicalizing(
+            $orders->pluck('id')->all(),
+            collect($pickupNotifications)->map(fn (array $notification) => $notification['data']['order_id'])->all(),
+        );
 
         $admin = $this->admin();
         [$rider, $courierProfile] = $this->eligibleCourier();

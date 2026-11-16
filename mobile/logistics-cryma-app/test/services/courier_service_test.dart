@@ -37,11 +37,45 @@ void main() {
       apiClient: ApiClient(
         httpClient: client,
         tokenStore: tokenStore,
-        baseUrl: 'https://cryma.test/api',
+        baseUrl: 'https://cryma.test',
       ),
     );
 
     await service.acceptPickup(12);
+  });
+
+  test('sends scanned parcel codes to the shared courier API', () async {
+    const parcelCode = 'CRYMA-PCL-ABCDEFGHIJKLMNOPQRST';
+    final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
+    final client = MockClient((request) async {
+      expect(request.method, 'PATCH');
+      expect(request.url.path,
+          matches(r'^/api/courier/(pickups/12|deliveries/8)/status$'));
+      expect(request.headers['authorization'], 'Bearer local-test-token');
+      final expectedStatus = request.url.path.contains('/pickups/')
+          ? {
+              'status': 'PICKED_UP',
+              'expected_status': 'ACCEPTED_BY_PICKUP_RIDER',
+              'parcel_code': parcelCode,
+            }
+          : {
+              'status': 'OUT_FOR_DELIVERY',
+              'expected_status': 'ASSIGNED_TO_RIDER',
+              'parcel_code': parcelCode,
+            };
+      expect(jsonDecode(request.body), expectedStatus);
+      return http.Response('{}', 200);
+    });
+    final service = CourierService(
+      apiClient: ApiClient(
+        httpClient: client,
+        tokenStore: tokenStore,
+        baseUrl: 'https://cryma.test/api/',
+      ),
+    );
+
+    await service.collectPickup(12, parcelCode);
+    await service.startDelivery(8, parcelCode);
   });
 
   test('sends delivery proof as multipart with required backend fields',

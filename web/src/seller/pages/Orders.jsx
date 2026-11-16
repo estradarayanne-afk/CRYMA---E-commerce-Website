@@ -277,7 +277,7 @@ function Orders() {
 
             if (nextStatus === "READY_FOR_PICKUP") await loadOrders({ quiet: true });
             setNotice(nextStatus === "READY_FOR_PICKUP"
-                ? `Order #${order.id} is ready. Logistics has been notified and can assign a pickup.`
+                ? `Order #${order.id} is ready. Schedule a courier pickup to notify Logistics.`
                 : `Order #${order.id} is now ${STATUS_LABEL[nextStatus]}.`);
         } catch (err) {
             setError(
@@ -695,7 +695,7 @@ function Orders() {
                                                 {pickup?.pickup_address && <p>Pickup location: {pickup.pickup_address}</p>}
                                                 {pickup?.scheduled_at && <p>Pickup scheduled: {formatDateTime(pickup.scheduled_at)}</p>}
                                                 {pickup?.courier?.phone && <p>Courier contact: {pickup.courier.phone}</p>}
-                                                {!status && <><p>Logistics has been notified. They can review this order in Pickup Requests and assign a courier.</p><button type="button" className="sl-btn-primary" disabled={actionLoading} onClick={() => void requestPickup(selected)}>{actionLoading ? "Scheduling…" : "Schedule courier pickup"}</button></>}
+                                                {!status && <><p>Schedule a courier pickup to notify Logistics and request a courier assignment.</p><button type="button" className="sl-btn-primary" disabled={actionLoading} onClick={() => void requestPickup(selected)}>{actionLoading ? "Scheduling…" : "Schedule courier pickup"}</button></>}
                                                 {pickup?.picked_up_at && <p>Collected {formatDateTime(pickup.picked_up_at)}</p>}
                                                 {pickup?.received_at && <p>Received at sorting center {formatDateTime(pickup.received_at)}</p>}
                                                 {(selected.delivery_progress?.events || []).length > 0 && <ol className="sl-preparation-steps">{selected.delivery_progress.events.map((event, index) => <li key={`${event.event_type}-${index}`}>{String(event.event_type || "Shipment update").replaceAll("_", " ")} · {formatDateTime(event.created_at)}</li>)}</ol>}

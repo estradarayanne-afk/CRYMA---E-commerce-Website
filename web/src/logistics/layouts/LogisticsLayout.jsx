@@ -111,7 +111,7 @@ function LogisticsLayout() {
             if (active) setNotificationError(error.response?.data?.message || error.message || "Unable to load logistics notifications.");
         });
         void refreshNotifications();
-        const timer = window.setInterval(refreshNotifications, 30_000);
+        const timer = window.setInterval(refreshNotifications, 10_000);
         return () => { active = false; window.clearInterval(timer); };
     }, [user?.id, user?.role]);
 

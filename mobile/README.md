@@ -3,17 +3,18 @@
 There are two separate Flutter apps in this folder:
 
 - Shopper: `cryma-flutter-app-main`
-- Rider: `logistics_cryma_app/flutter_app`
+- Rider: `logistics-cryma-app`
 
 Both apps use the Laravel API in `backend`. The API origin is configured with
-`API_BASE_URL` (the host and port only; do not add `/api`).
+`API_BASE_URL`. You can provide the host and port alone or include `/api`;
+the rider app normalizes either form to Laravel's API path.
 
 ## Start the web/API backend
 
 In PowerShell, start Laravel from the repository root:
 
 ```powershell
-cd C:\Code\e-commerce\ecommerce-system\backend
+cd C:\Code\e-commerce\backend
 php artisan serve --host=0.0.0.0 --port=8000
 ```
 
@@ -26,7 +27,7 @@ if you also want to open the website.
 Install dependencies once for each app:
 
 ```powershell
-cd C:\Code\e-commerce\ecommerce-system\mobile\cryma-flutter-app-main
+cd C:\Code\e-commerce\mobile\cryma-flutter-app-main
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```
@@ -34,7 +35,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 In another terminal, launch the rider app:
 
 ```powershell
-cd C:\Code\e-commerce\ecommerce-system\mobile\logistics_cryma_app\flutter_app
+cd C:\Code\e-commerce\mobile\logistics-cryma-app
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```
@@ -129,7 +130,7 @@ cleartext HTTP for local development only.
   process:
 
 ```powershell
-cd C:\Code\e-commerce\ecommerce-system\backend\public
+cd C:\Code\e-commerce\backend\public
 php -d curl.cainfo="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" `
   -d openssl.cafile="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" `
   -S 0.0.0.0:8000 -t . `

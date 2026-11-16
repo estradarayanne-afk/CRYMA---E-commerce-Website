@@ -4,7 +4,6 @@ namespace App\Observers;
 
 use App\Models\Order;
 use App\Models\User;
-use App\Notifications\LogisticsPickupReadyNotification;
 use App\Notifications\SellerActivityNotification;
 
 class OrderObserver
@@ -14,14 +13,7 @@ class OrderObserver
         if (!$order->wasChanged('status')) return;
 
         $status = strtoupper((string) $order->status);
-        if ($status === 'READY_FOR_PICKUP') {
-            User::query()
-                ->where('role', 'logistics')
-                ->where('status', 'active')
-                ->each(fn (User $logistics) => $logistics->notify(new LogisticsPickupReadyNotification((int) $order->id)));
-
-            return;
-        }
+        if ($status === 'READY_FOR_PICKUP') return;
 
         // These transitions are performed by the seller, who already initiated the action.
         if (in_array($status, ['CONFIRMED', 'PREPARING'], true)) return;
