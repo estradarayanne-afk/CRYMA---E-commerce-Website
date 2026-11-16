@@ -8,6 +8,7 @@ use App\Models\DeliveryEvent;
 use App\Models\HubTransfer;
 use App\Models\LogisticsHub;
 use App\Models\Order;
+use App\Models\PickupAssignment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,9 +19,12 @@ class DashboardController extends Controller
     {
         $filters = $this->filters($request);
         $counts = [
-            'pickups_awaiting_assignment' => Order::where('status', 'READY_FOR_PICKUP')
-                ->whereDoesntHave('pickupAssignment')
-                ->where(fn ($query) => $query->whereDoesntHave('delivery')->orWhereHas('delivery', fn ($delivery) => $delivery->where('legacy_imported', true)->where('status', 'READY_FOR_PICKUP')))->count(),
+            'pickups_awaiting_assignment' => PickupAssignment::where('status', PickupAssignment::REQUESTED)->count()
+                + Order::where('status', 'READY_FOR_PICKUP')
+                    ->whereDoesntHave('pickupAssignment')
+                    ->where(fn ($query) => $query->whereDoesntHave('delivery')
+                        ->orWhereHas('delivery', fn ($delivery) => $delivery->where('status', 'READY_FOR_PICKUP')))
+                    ->count(),
             'incoming_parcels' => Delivery::where('status', Delivery::PICKED_UP)->count(),
             'parcels_awaiting_sorting' => Delivery::where('status', Delivery::AT_SORTING_CENTER)->count(),
             'parcels_ready_for_dispatch' => Delivery::where('status', Delivery::SORTED)->count(),

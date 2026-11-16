@@ -146,7 +146,7 @@ class OrderController extends Controller
                 abort_unless($assignment->status === PickupAssignment::REQUESTED, 409, 'A pickup has already been scheduled or completed.');
                 return $assignment;
             }
-            abort_unless(!$delivery || ($delivery->legacy_imported && $delivery->status === 'READY_FOR_PICKUP'), 409, 'This order already has an active shipment.');
+            abort_unless(!$delivery || $delivery->status === 'READY_FOR_PICKUP', 409, 'This order already has an active shipment.');
             $delivery ??= Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
             $assignment = PickupAssignment::create([
                 'order_id' => $order->id,
@@ -193,7 +193,7 @@ class OrderController extends Controller
                 $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
                 abort_unless(!$assignment, 409, "Order #{$order->id} already has a pickup assignment.");
                 $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
-                abort_unless(!$delivery || ($delivery->legacy_imported && $delivery->status === 'READY_FOR_PICKUP'), 409, "Order #{$order->id} already has an active shipment.");
+                abort_unless(!$delivery || $delivery->status === 'READY_FOR_PICKUP', 409, "Order #{$order->id} already has an active shipment.");
             }
 
             $batch = PickupBatch::create([
@@ -238,7 +238,8 @@ class OrderController extends Controller
 
     private function pickupAddressFor(User $user): string
     {
-        $address = $user->addresses()->orderByDesc('is_default')->latest('id')->first();
+        $address = $user->sellerPickupAddress
+            ?? $user->addresses()->orderByDesc('is_default')->latest('id')->first();
         abort_unless($address, 422, 'Add a seller pickup address in Account Settings before requesting a courier pickup.');
 
         return collect([

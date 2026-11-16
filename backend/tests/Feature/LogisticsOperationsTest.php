@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PickupAssignment;
 use App\Models\Product;
+use App\Models\SellerPickupAddress;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
@@ -70,6 +71,11 @@ class LogisticsOperationsTest extends TestCase
         $logistics = $this->logisticsUser();
         [, $courierProfile] = $this->eligibleCourier();
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
+        Delivery::create([
+            'order_id' => $order->id,
+            'status' => 'READY_FOR_PICKUP',
+            'legacy_imported' => false,
+        ]);
 
         $this->actingAs($logistics, 'sanctum')
             ->getJson('/api/logistics/operations')
@@ -82,6 +88,8 @@ class LogisticsOperationsTest extends TestCase
         ])->assertOk();
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
         $this->assertSame($logistics->id, $assignment->assigned_by);
+        $this->assertStringContainsString('Luyang', $assignment->pickup_address);
+        $this->assertStringContainsString('6005', $assignment->pickup_address);
 
         $assignment->update([
             'status' => PickupAssignment::PICKED_UP,
@@ -574,9 +582,9 @@ class LogisticsOperationsTest extends TestCase
     private function orderWithPickupAddress(string $status): Order
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        Address::create([
+        SellerPickupAddress::create([
             'user_id' => $seller->id, 'recipient_name' => 'Synthetic Seller', 'phone' => '+639171234567',
-            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
             'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
         ]);
         $order = $this->order($status);

@@ -30,15 +30,15 @@ class LogisticsController extends Controller
         LogisticsMunicipality $municipality,
     )
     {
-        $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name', 'items.seller.addresses'];
+        $orderDetails = ['buyer:id,first_name,last_name', 'items.product:id,name,weight_kg', 'items.seller:id,first_name,last_name', 'items.seller.addresses', 'items.seller.sellerPickupAddress'];
         $pickupOrders = Order::with($orderDetails)->where('status', 'READY_FOR_PICKUP')
             ->whereDoesntHave('pickupAssignment')
             ->where(fn ($query) => $query->whereDoesntHave('delivery')
-                ->orWhereHas('delivery', fn ($delivery) => $delivery->where('legacy_imported', true)->where('status', 'READY_FOR_PICKUP')))
+                ->orWhereHas('delivery', fn ($delivery) => $delivery->where('status', 'READY_FOR_PICKUP')))
             ->latest()->get();
         $pickups = PickupAssignment::with([
             'order.buyer:id,first_name,last_name', 'order.items.product:id,name',
-            'order.items.seller.addresses', 'courierProfile.user:id,first_name,last_name',
+            'order.items.seller.addresses', 'order.items.seller.sellerPickupAddress', 'courierProfile.user:id,first_name,last_name',
             'pickupBatch' => fn ($query) => $query->withCount('assignments'),
             'delivery.events.actor:id,first_name,last_name',
         ])->latest()->get();
@@ -210,7 +210,7 @@ class LogisticsController extends Controller
 
         try {
             $assignment = DB::transaction(function () use ($request, $orderId, $values, $courier, $reason, $eligibility, $municipality, $requestedSchedule) {
-                $order = Order::with(['items.seller.addresses'])->whereKey($orderId)->lockForUpdate()->firstOrFail();
+                $order = Order::with(['items.seller.addresses', 'items.seller.sellerPickupAddress'])->whereKey($orderId)->lockForUpdate()->firstOrFail();
                 $delivery = Delivery::where('order_id', $order->id)->lockForUpdate()->first();
                 $assignment = PickupAssignment::where('order_id', $order->id)->lockForUpdate()->first();
                 abort_unless(
@@ -239,13 +239,15 @@ class LogisticsController extends Controller
                         }
                     }
                 } else {
-                    abort_unless(!$delivery || ($delivery->legacy_imported && $delivery->status === 'READY_FOR_PICKUP'), 409, 'This order already has a delivery record and cannot enter pickup assignment automatically.');
+                    abort_unless(!$delivery || $delivery->status === 'READY_FOR_PICKUP', 409, 'This order already has an active shipment.');
                     $delivery ??= Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
                     $assignment = new PickupAssignment(['order_id' => $order->id, 'delivery_id' => $delivery->id]);
                 }
 
                 if (!$assignment->pickup_address) {
-                    $address = $order->items->first()?->seller?->addresses?->sortByDesc('is_default')->first();
+                    $seller = $order->items->first()?->seller;
+                    $address = $seller?->sellerPickupAddress
+                        ?? $seller?->addresses?->sortByDesc('is_default')->first();
                     abort_unless($address, 422, 'Add a seller pickup address in Account Settings before assigning a courier.');
                     $assignment->pickup_address = collect([
                         $address->recipient_name ? 'Contact: '.$address->recipient_name : null,

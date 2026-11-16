@@ -23,7 +23,7 @@ function getName(person) {
 
 function getSellerHelpReply(question) {
     const text = question.toLowerCase();
-    if (/pickup|courier|shipping|shipment|delivery/.test(text)) return "For a ready order, open Logistics and choose Schedule pickup. The request uses your default saved seller address. Logistics assigns a courier and sets the pickup date and time; you can follow updates from the order details.";
+    if (/pickup|courier|shipping|shipment|delivery/.test(text)) return "After packing an order, select Mark Ready for Pickup in Orders. This sends it to Logistics Pickup Requests, where the team can review your saved seller pickup address and assign a courier.";
     if (/return|refund|repay/.test(text)) return "Customer Service reviews and approves refund requests. If a return is required, follow it in Returns. Confirm the parcel only after it physically reaches your store; Customer Service can then complete the approved repayment.";
     if (/order|prepare|status|confirm/.test(text)) return "Open Orders and select the order to review its details. Move it through Confirm Order, Start Preparing, and Mark Ready for Pickup. Mark it ready only after the parcel is packed.";
     if (/stock|inventory|product|price/.test(text)) return "Open Manage Inventory to add or update products, prices, discounts, vouchers, and stock levels. Check the product’s stock value before confirming availability to a buyer.";
