@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/courier_parcel.dart';
+import '../../models/courier_app_notification.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/courier_service.dart';
@@ -20,6 +23,11 @@ class RiderDashboardScreen extends StatefulWidget {
 class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   List<CourierParcel> _active = [];
   int _completedCount = 0;
+  int _unreadNotificationCount = 0;
+  Set<String> _knownNotificationIds = {};
+  bool _notificationsInitialized = false;
+  String? _notificationError;
+  Timer? _notificationTimer;
   bool _loading = true;
   String? _error;
 
@@ -51,6 +59,16 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   void initState() {
     super.initState();
     _load();
+    _notificationTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshNotifications(showNew: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -74,12 +92,49 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             .length;
         _loading = false;
       });
+      _refreshNotifications(showNew: false);
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.message;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _refreshNotifications({required bool showNew}) async {
+    try {
+      final notifications = await CourierService.instance.getNotifications();
+      if (!mounted) return;
+      final newNotifications = _notificationsInitialized
+          ? notifications
+              .where((notification) =>
+                  !notification.isRead &&
+                  !_knownNotificationIds.contains(notification.id))
+              .toList()
+          : const <CourierAppNotification>[];
+      setState(() {
+        _unreadNotificationCount =
+            notifications.where((notification) => !notification.isRead).length;
+        _notificationError = null;
+        _knownNotificationIds =
+            notifications.map((notification) => notification.id).toSet();
+        _notificationsInitialized = true;
+      });
+      if (showNew && newNotifications.isNotEmpty) {
+        final notification = newNotifications.first;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${notification.title}: ${notification.message}'),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () => context.push('/rider/notifications'),
+            ),
+          ),
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _notificationError = error.message);
     }
   }
 
@@ -90,6 +145,48 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       appBar: AppBar(
         title: const CrymaLogo(size: 19, showSubtitle: false),
         actions: [
+          IconButton(
+            tooltip: _notificationError == null
+                ? 'Notifications'
+                : 'Notifications unavailable',
+            onPressed: () async {
+              await context.push('/rider/notifications');
+              if (mounted) _refreshNotifications(showNew: false);
+            },
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_outlined),
+                if (_unreadNotificationCount > 0)
+                  Positioned(
+                    right: -7,
+                    top: -5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: CrymaColors.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      child: Text(
+                        _unreadNotificationCount > 99
+                            ? '99+'
+                            : '$_unreadNotificationCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loading ? null : _load,

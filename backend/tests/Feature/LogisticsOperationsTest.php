@@ -72,7 +72,7 @@ class LogisticsOperationsTest extends TestCase
     public function test_logistics_can_assign_pickup_and_confirm_collected_parcel_receipt(): void
     {
         $logistics = $this->logisticsUser();
-        [, $courierProfile] = $this->eligibleCourier();
+        [$courierUser, $courierProfile] = $this->eligibleCourier();
         CourierPresence::create([
             'courier_profile_id' => $courierProfile->id,
             'is_available' => true,
@@ -99,6 +99,20 @@ class LogisticsOperationsTest extends TestCase
             'scheduled_at' => now()->addDay()->toISOString(),
         ])->assertOk();
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
+        $courierNotifications = $this->actingAs($courierUser, 'sanctum')
+            ->getJson('/api/courier/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1)
+            ->assertJsonPath('data.notifications.0.data.notification_type', 'parcel_assigned')
+            ->assertJsonPath('data.notifications.0.data.task_type', 'pickup')
+            ->assertJsonPath('data.notifications.0.data.task_id', $assignment->id)
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id)
+            ->json('data.notifications.0.id');
+        $this->patchJson("/api/courier/notifications/{$courierNotifications}/read")
+            ->assertOk();
+        $this->getJson('/api/courier/notifications')
+            ->assertJsonPath('data.unread_count', 0);
+        $this->actingAs($logistics, 'sanctum');
         $hub = $assignment->targetHub;
         $this->assertSame($logistics->id, $assignment->assigned_by);
         $this->assertNotNull($hub);
@@ -295,6 +309,12 @@ class LogisticsOperationsTest extends TestCase
             'event_type' => 'delivery_assigned',
             'courier_profile_id' => $courierProfile->id,
         ]);
+        $this->actingAs($courier, 'sanctum')
+            ->getJson('/api/courier/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.notifications.0.data.task_type', 'delivery')
+            ->assertJsonPath('data.notifications.0.data.task_id', $delivery->id)
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
     }
 
     public function test_logistics_auto_routes_a_saved_barangay_to_its_delivery_hub(): void

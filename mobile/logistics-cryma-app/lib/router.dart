@@ -7,6 +7,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/rider/rider_account_screen.dart';
 import 'screens/rider/rider_dashboard_screen.dart';
 import 'screens/rider/rider_delivery_chat_screen.dart';
+import 'screens/rider/rider_notifications_screen.dart';
 import 'screens/rider/rider_parcel_detail_screen.dart';
 import 'screens/rider/rider_parcels_screen.dart';
 
@@ -46,6 +47,10 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
           path: '/rider/parcels',
           pageBuilder: (_, __) =>
               const NoTransitionPage(child: RiderParcelsScreen()),
+        ),
+        GoRoute(
+          path: '/rider/notifications',
+          builder: (_, __) => const RiderNotificationsScreen(),
         ),
         GoRoute(
           path: '/rider/chats/:orderId',

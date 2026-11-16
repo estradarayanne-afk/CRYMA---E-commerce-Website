@@ -44,6 +44,69 @@ void main() {
     await service.acceptPickup(12);
   });
 
+  test('loads and marks courier assignment notifications as read', () async {
+    final requests = <http.Request>[];
+    final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
+    final client = MockClient((request) async {
+      requests.add(request);
+      if (request.method == 'GET') {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'unread_count': 1,
+              'notifications': [
+                {
+                  'id': 'notification-1',
+                  'data': {
+                    'notification_type': 'parcel_assigned',
+                    'title': 'Delivery assigned',
+                    'message':
+                        'Order #34 has been assigned to you for delivery.',
+                    'task_type': 'delivery',
+                    'task_id': 8,
+                    'order_id': 34,
+                  },
+                  'read_at': null,
+                  'created_at': '2026-11-17T00:00:00.000000Z',
+                },
+              ],
+            },
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 200);
+    });
+    final service = CourierService(
+      apiClient: ApiClient(
+        httpClient: client,
+        tokenStore: tokenStore,
+        baseUrl: 'https://cryma.test',
+      ),
+    );
+
+    final notifications = await service.getNotifications();
+    await service.markNotificationRead(notifications.single.id);
+    await service.markAllNotificationsRead();
+
+    expect(notifications.single.title, 'Delivery assigned');
+    expect(notifications.single.taskType, 'delivery');
+    expect(notifications.single.taskId, 8);
+    expect(notifications.single.orderId, 34);
+    expect(requests.map((request) => request.url.path), [
+      '/api/courier/notifications',
+      '/api/courier/notifications/notification-1/read',
+      '/api/courier/notifications/read-all',
+    ]);
+    expect(
+        requests.every(
+          (request) =>
+              request.headers['authorization'] == 'Bearer local-test-token',
+        ),
+        isTrue);
+  });
+
   test('sends scanned parcel codes to the shared courier API', () async {
     const parcelCode = 'CRYMA-PCL-ABCDEFGHIJKLMNOPQRST';
     final tokenStore = _MemoryTokenStore()..token = 'local-test-token';

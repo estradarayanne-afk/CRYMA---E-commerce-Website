@@ -1,4 +1,5 @@
 import '../models/courier_parcel.dart';
+import '../models/courier_app_notification.dart';
 import 'api_client.dart';
 
 enum DeliveryFailureResolution {
@@ -38,6 +39,47 @@ class CourierService {
       ..._readParcels(responses[0], CourierTaskType.pickup),
       ..._readParcels(responses[1], CourierTaskType.delivery),
     ]..sort(_newestFirst);
+  }
+
+  Future<List<CourierAppNotification>> getNotifications() async {
+    final response = await _api.get('courier/notifications');
+    final data = response['data'];
+    if (data is! Map || data['notifications'] is! List) {
+      throw const ApiException(
+        'The CRYMA server returned invalid courier notifications.',
+      );
+    }
+
+    return (data['notifications'] as List).map((item) {
+      if (item is! Map) {
+        throw const ApiException(
+          'The CRYMA server returned invalid courier notifications.',
+        );
+      }
+      try {
+        return CourierAppNotification.fromJson(
+          Map<String, dynamic>.from(item),
+        );
+      } on FormatException {
+        throw const ApiException(
+          'The CRYMA server returned invalid courier notifications.',
+        );
+      }
+    }).toList();
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    await _api.patch(
+      'courier/notifications/${Uri.encodeComponent(id)}/read',
+      body: const {},
+    );
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _api.patch(
+      'courier/notifications/read-all',
+      body: const {},
+    );
   }
 
   Future<CourierParcel> getParcel(CourierTaskType type, int id) async {

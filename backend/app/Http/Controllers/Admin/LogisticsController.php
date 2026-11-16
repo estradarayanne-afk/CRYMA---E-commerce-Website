@@ -12,6 +12,7 @@ use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Models\PickupAssignmentDecision;
 use App\Models\User;
+use App\Notifications\CourierParcelAssignedNotification;
 use App\Services\CourierEligibility;
 use App\Services\DeliveryAreaResolver;
 use App\Services\HubProximity;
@@ -318,6 +319,12 @@ class LogisticsController extends Controller
                     'courier_profile_id' => $courier->id,
                     'reason' => $reason,
                 ]);
+                $courier->user?->notify(new CourierParcelAssignedNotification(
+                    'pickup',
+                    (int) $assignment->id,
+                    (int) $order->id,
+                    $assignment->scheduled_at?->toIso8601String(),
+                ));
                 return $assignment->load(['order', 'courierProfile.user', 'delivery.events']);
             });
         } catch (QueryException $exception) {
@@ -420,6 +427,12 @@ class LogisticsController extends Controller
                     'courier_profile_id' => $courier->id,
                     'reason' => $reason,
                 ]);
+                $courier->user?->notify(new CourierParcelAssignedNotification(
+                    'pickup',
+                    (int) $assignment->id,
+                    (int) $assignment->order_id,
+                    $assignment->scheduled_at?->toIso8601String(),
+                ));
             }
 
             $batch->update([
@@ -528,6 +541,11 @@ class LogisticsController extends Controller
                 'courier_profile_id' => $courier->id,
                 'reason' => $reason,
             ]);
+            $courier->user?->notify(new CourierParcelAssignedNotification(
+                'delivery',
+                (int) $delivery->id,
+                (int) $order->id,
+            ));
 
             return [
                 'delivery' => $delivery->load(['order', 'deliveryArea.hub', 'courierProfile.user', 'events.actor']),
@@ -641,6 +659,11 @@ class LogisticsController extends Controller
                 'courier_profile_id' => $courier->id,
                 'reason' => $reason,
             ]);
+            $courier->user?->notify(new CourierParcelAssignedNotification(
+                'delivery',
+                (int) $delivery->id,
+                (int) $order->id,
+            ));
             return $delivery->load(['order', 'deliveryArea', 'courierProfile.user', 'events.actor']);
         });
 

@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Courier\AccountController as CourierAccountController;
 use App\Http\Controllers\Courier\DeliveryController as CourierDeliveryController;
 use App\Http\Controllers\Courier\DeliveryProofController;
+use App\Http\Controllers\Courier\NotificationController as CourierNotificationController;
 use App\Http\Controllers\Courier\PickupController;
 use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboardController;
 use App\Http\Controllers\Logistics\HubStaffParcelOperationsController;
@@ -183,6 +184,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     });
 
     Route::middleware('role:rider')->group(function () {
+        Route::get('/courier/notifications', [CourierNotificationController::class, 'index']);
+        Route::patch('/courier/notifications/read-all', [CourierNotificationController::class, 'markAllRead']);
+        Route::patch('/courier/notifications/{id}/read', [CourierNotificationController::class, 'markRead']);
         Route::get('/courier/account', [CourierAccountController::class, 'show']);
         Route::get('/courier/account/drivers-license', [CourierAccountController::class, 'showDriversLicense']);
         Route::get('/courier/account/ewallet-qr', [CourierAccountController::class, 'showEwalletQr']);
