@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\DeliveryConversation;
 use App\Models\DeliveryConversationMessage;
+use App\Models\DeliveryProof;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DeliveryConversationController extends Controller
 {
@@ -215,6 +217,30 @@ class DeliveryConversationController extends Controller
             'success' => true,
             'data' => $message->load('sender:id,first_name,last_name,role'),
         ], 201);
+    }
+
+    public function showSellerDeliveryProof(Request $request, int $conversationId, int $proofId)
+    {
+        $conversation = DeliveryConversation::query()
+            ->where('type', DeliveryConversation::SELLER_LOGISTICS)
+            ->where('seller_id', $request->user()->id)
+            ->findOrFail($conversationId);
+        $message = $conversation->messages()
+            ->where('delivery_proof_id', $proofId)
+            ->firstOrFail();
+        $proof = DeliveryProof::query()
+            ->whereKey($proofId)
+            ->where('delivery_id', $conversation->delivery_id)
+            ->firstOrFail();
+        abort_unless(Storage::disk('local')->exists($proof->photo_path), 404);
+        $extension = pathinfo($proof->photo_path, PATHINFO_EXTENSION);
+
+        return Storage::disk('local')->response($proof->photo_path, "delivery-proof.{$extension}", [
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
+        ], 'inline');
     }
 
     private function buyerRiderConversation(Request $request, int $orderId): DeliveryConversation

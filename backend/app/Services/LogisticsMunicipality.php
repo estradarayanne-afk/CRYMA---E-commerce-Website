@@ -86,16 +86,36 @@ class LogisticsMunicipality
 
     public function hubForAddress(Model $address): LogisticsHub
     {
-        $municipalityCode = $this->municipalityCode($address);
-        abort_unless($municipalityCode, 422, 'The seller pickup municipality could not be matched to a logistics hub.');
-
-        $hub = LogisticsHub::query()
-            ->where('psgc_code', $municipalityCode)
-            ->where('is_active', true)
-            ->first();
+        $hub = $this->resolveHubForAddress($address);
         abort_unless($hub, 422, 'No active logistics hub is configured for the seller pickup municipality.');
 
         return $hub;
+    }
+
+    public function resolveHubForAddress(?Model $address): ?LogisticsHub
+    {
+        if ($address === null) {
+            return null;
+        }
+
+        $municipalityCode = $this->municipalityCode($address);
+
+        return $municipalityCode
+            ? LogisticsHub::query()
+                ->where('psgc_code', $municipalityCode)
+                ->where('is_active', true)
+                ->first()
+            : null;
+    }
+
+    public function hubForUser(User $user): ?LogisticsHub
+    {
+        $address = $user->addresses()
+            ->orderByDesc('is_default')
+            ->orderByDesc('id')
+            ->first();
+
+        return $this->resolveHubForAddress($address);
     }
 
     private function defaultAddressComparator(Model $first, Model $second): int

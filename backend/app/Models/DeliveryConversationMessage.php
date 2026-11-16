@@ -11,6 +11,7 @@ class DeliveryConversationMessage extends Model
         'delivery_conversation_id',
         'sender_id',
         'message',
+        'delivery_proof_id',
         'client_message_id',
         'is_read',
     ];
@@ -29,5 +30,10 @@ class DeliveryConversationMessage extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    public function deliveryProof(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryProof::class);
     }
 }

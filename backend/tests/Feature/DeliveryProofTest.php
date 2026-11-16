@@ -5,7 +5,11 @@ namespace Tests\Feature;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
+use App\Models\DeliveryConversation;
+use App\Models\DeliveryConversationMessage;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
@@ -150,6 +154,66 @@ class DeliveryProofTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'logistics', 'status' => 'active']), 'sanctum')
             ->get("/api/logistics/deliveries/{$delivery->id}/proof/photo")
             ->assertOk();
+    }
+
+    public function test_delivery_proof_is_shared_to_the_order_seller_chat_with_private_photo_access(): void
+    {
+        [$courier, $profile] = $this->eligibleCourier();
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $otherSeller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $order = $this->order(Delivery::OUT_FOR_DELIVERY);
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Proof chat product',
+            'description' => 'Test product',
+            'price' => 10,
+            'stock' => 1,
+            'category' => 'Other',
+            'status' => 'active',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'quantity' => 1,
+            'unit_price' => 10,
+            'subtotal' => 10,
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'courier_profile_id' => $profile->id,
+            'status' => Delivery::OUT_FOR_DELIVERY,
+        ]);
+
+        $this->actingAs($courier, 'sanctum')
+            ->post("/api/courier/deliveries/{$delivery->id}/proof", $this->proofInput(), ['Accept' => 'application/json'])
+            ->assertOk();
+
+        $conversation = DeliveryConversation::query()
+            ->where('delivery_id', $delivery->id)
+            ->where('seller_id', $seller->id)
+            ->firstOrFail();
+        $message = DeliveryConversationMessage::query()
+            ->where('delivery_conversation_id', $conversation->id)
+            ->firstOrFail();
+        $proof = $delivery->fresh()->proof;
+
+        $this->assertSame($courier->id, $message->sender_id);
+        $this->assertSame($proof->id, $message->delivery_proof_id);
+        $this->assertSame('Successful delivery confirmed. Proof of delivery photo attached.', $message->message);
+        $this->assertSame(DeliveryConversation::SELLER_LOGISTICS, $conversation->type);
+
+        $this->actingAs($seller, 'sanctum')
+            ->getJson("/api/seller/delivery-chats/{$conversation->id}")
+            ->assertOk()
+            ->assertJsonPath('data.messages.0.delivery_proof_id', $proof->id);
+        $this->get("/api/seller/delivery-chats/{$conversation->id}/proofs/{$proof->id}")
+            ->assertOk()
+            ->assertHeader('x-content-type-options', 'nosniff');
+
+        $this->actingAs($otherSeller, 'sanctum')
+            ->get("/api/seller/delivery-chats/{$conversation->id}/proofs/{$proof->id}")
+            ->assertNotFound();
     }
 
     public function test_proof_upload_rejects_stale_status_and_invalid_photo(): void

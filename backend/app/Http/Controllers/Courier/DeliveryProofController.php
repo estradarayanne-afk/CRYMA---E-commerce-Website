@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Courier;
 
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
+use App\Models\DeliveryConversation;
+use App\Models\DeliveryConversationMessage;
 use App\Models\DeliveryProof;
 use App\Models\CodCollection;
 use App\Models\Order;
@@ -87,7 +89,7 @@ class DeliveryProofController extends Controller
                 $storedPaths[] = $photoPath;
 
 
-                $delivery->proof()->create([
+                $proof = $delivery->proof()->create([
                     'courier_profile_id' => $profile->id,
                     'recipient_full_name' => $recipientName,
                     'photo_path' => $photoPath,
@@ -112,6 +114,7 @@ class DeliveryProofController extends Controller
                     'courier_profile_id' => $profile->id,
                     'created_at' => $capturedAt,
                 ]);
+                $this->shareProofWithSellers($delivery, $order, $request->user(), $proof);
 
                 return $delivery->load('proof');
             });
@@ -179,5 +182,36 @@ class DeliveryProofController extends Controller
             'recipient_full_name' => $proof->recipient_full_name,
             'captured_at' => $proof->captured_at,
         ];
+    }
+
+    private function shareProofWithSellers(Delivery $delivery, Order $order, User $courier, DeliveryProof $proof): void
+    {
+        $sellerIds = $order->items()
+            ->select('seller_id')
+            ->distinct()
+            ->pluck('seller_id');
+
+        foreach ($sellerIds as $sellerId) {
+            $conversation = DeliveryConversation::query()->firstOrCreate(
+                [
+                    'delivery_id' => $delivery->id,
+                    'type' => DeliveryConversation::SELLER_LOGISTICS,
+                    'seller_id' => $sellerId,
+                    'thread_key' => "seller-logistics:{$delivery->id}:{$sellerId}",
+                ],
+                ['created_by' => $courier->id],
+            );
+            DeliveryConversationMessage::query()->firstOrCreate(
+                [
+                    'delivery_conversation_id' => $conversation->id,
+                    'delivery_proof_id' => $proof->id,
+                ],
+                [
+                    'sender_id' => $courier->id,
+                    'message' => 'Successful delivery confirmed. Proof of delivery photo attached.',
+                ],
+            );
+            $conversation->touch();
+        }
     }
 }

@@ -411,6 +411,235 @@ class LogisticsOperationsTest extends TestCase
             ->assertJsonPath('data.0.id', $delivery->id);
     }
 
+    public function test_bulk_shipment_inventory_uses_the_seller_and_buyer_municipality_hubs(): void
+    {
+        $logistics = $this->logisticsUser();
+        $region = GeographicLocation::create(['code' => '9100000000', 'name' => 'Bulk Route Region', 'level' => 'Reg']);
+        $originMunicipality = GeographicLocation::create([
+            'code' => '9100000100',
+            'name' => 'Bulk Origin Municipality',
+            'level' => 'Mun',
+            'parent_code' => $region->code,
+        ]);
+        $destinationMunicipality = GeographicLocation::create([
+            'code' => '9100000200',
+            'name' => 'Bulk Destination Municipality',
+            'level' => 'Mun',
+            'parent_code' => $region->code,
+        ]);
+        $destinationBarangay = GeographicLocation::create([
+            'code' => '9100000201',
+            'name' => 'Bulk Destination Barangay',
+            'level' => 'Bgy',
+            'parent_code' => $destinationMunicipality->code,
+        ]);
+        $origin = LogisticsHub::create([
+            'name' => 'Bulk origin hub',
+            'code' => 'BULK-ORIGIN',
+            'psgc_code' => $originMunicipality->code,
+            'is_active' => true,
+        ]);
+        $destination = LogisticsHub::create([
+            'name' => 'Bulk destination hub',
+            'code' => 'BULK-DEST',
+            'psgc_code' => $destinationMunicipality->code,
+            'is_active' => true,
+        ]);
+        DeliveryArea::create([
+            'name' => 'Bulk destination area',
+            'psgc_code' => $destinationMunicipality->code,
+            'hub_id' => $destination->id,
+            'is_active' => true,
+        ]);
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        SellerPickupAddress::create([
+            'user_id' => $seller->id,
+            'recipient_name' => 'Bulk Seller',
+            'phone' => '+639171234567',
+            'region' => 'Bulk Route Region',
+            'municipality' => 'Bulk Origin Municipality',
+            'barangay' => 'Seller Barangay',
+            'street' => 'Market Road',
+            'house_number' => '18',
+            'postal_code' => '6005',
+        ]);
+        $order = $this->order(Delivery::SORTED);
+        $order->update(['delivery_psgc_code' => $destinationBarangay->code]);
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Bulk route product',
+            'description' => 'Synthetic fixture',
+            'price' => 10,
+            'stock' => 1,
+            'category' => 'Other',
+            'status' => 'active',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'quantity' => 1,
+            'unit_price' => 10,
+            'subtotal' => 10,
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::SORTED,
+            'current_hub_id' => $origin->id,
+        ]);
+
+        $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/parcel-flow')
+            ->assertOk()
+            ->assertJsonPath('data.deliveries.0.seller_origin.municipality', $originMunicipality->name)
+            ->assertJsonPath('data.deliveries.0.seller_origin.hub.id', $origin->id)
+            ->assertJsonPath('data.deliveries.0.buyer_destination.municipality', $destinationMunicipality->name)
+            ->assertJsonPath('data.deliveries.0.buyer_destination.hub.id', $destination->id)
+            ->assertJsonPath('data.deliveries.0.bulk_shipment_available', true);
+
+        $this->postJson('/api/logistics/hub-transfer-shipments', [
+            'delivery_ids' => [$delivery->id],
+            'from_hub_id' => $origin->id,
+            'to_hub_id' => $destination->id,
+            'carrier_code' => 'manual',
+            'carrier_name' => 'Manual carrier',
+            'tracking_reference' => 'BULK-ROUTE-TRACK',
+            'shipment_reference' => 'BULK-ROUTE-01',
+        ])->assertCreated();
+        $this->assertSame($destination->id, $delivery->fresh()->deliveryArea?->hub_id);
+
+        $this->assertDatabaseHas('hub_transfers', [
+            'delivery_id' => $delivery->id,
+            'from_hub_id' => $origin->id,
+            'to_hub_id' => $destination->id,
+            'shipment_reference' => 'BULK-ROUTE-01',
+        ]);
+
+        Address::create([
+            'user_id' => $logistics->id,
+            'is_default' => true,
+            'psgc_code' => $destinationMunicipality->code,
+            'region' => $region->name,
+            'province' => 'Bulk Route Province',
+            'municipality' => $destinationMunicipality->name,
+            'barangay' => $destinationBarangay->name,
+        ]);
+        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-ROUTE-01/dispatch')
+            ->assertOk();
+        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-ROUTE-01/receive', [
+            'tracking_reference' => 'BULK-ROUTE-TRACK',
+        ])->assertOk();
+        $this->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->assertJsonPath('data.sorting_orders.0.delivery.delivery_area.hub_id', $destination->id);
+    }
+
+    public function test_logistics_receives_all_incoming_bulk_parcels_by_tracking_reference_at_their_municipality_hub(): void
+    {
+        $region = GeographicLocation::create(['code' => '9200000000', 'name' => 'Arrival Region', 'level' => 'Reg']);
+        $municipality = GeographicLocation::create([
+            'code' => '9200000100',
+            'name' => 'Arrival Municipality',
+            'level' => 'Mun',
+            'parent_code' => $region->code,
+        ]);
+        $logistics = User::factory()->create([
+            'role' => 'logistics',
+            'status' => 'active',
+            'email_verified_at' => now(),
+        ]);
+        Address::create([
+            'user_id' => $logistics->id,
+            'is_default' => true,
+            'psgc_code' => $municipality->code,
+            'region' => $region->name,
+            'province' => 'Arrival Province',
+            'municipality' => $municipality->name,
+            'barangay' => 'Arrival Barangay',
+        ]);
+        $origin = LogisticsHub::create(['name' => 'Arrival origin', 'code' => 'ARRIVAL-ORIGIN', 'is_active' => true]);
+        $destination = LogisticsHub::create([
+            'name' => 'Arrival destination',
+            'code' => 'ARRIVAL-DEST',
+            'psgc_code' => $municipality->code,
+            'is_active' => true,
+        ]);
+        $deliveries = collect([1, 2])->map(function () use ($origin) {
+            $order = $this->order(Delivery::SORTED);
+
+            return Delivery::create([
+                'order_id' => $order->id,
+                'status' => Delivery::SORTED,
+                'current_hub_id' => $origin->id,
+            ]);
+        });
+
+        $this->actingAs($logistics, 'sanctum')->postJson('/api/logistics/hub-transfer-shipments', [
+            'delivery_ids' => $deliveries->pluck('id')->all(),
+            'from_hub_id' => $origin->id,
+            'to_hub_id' => $destination->id,
+            'carrier_code' => 'manual',
+            'carrier_name' => 'Manual carrier',
+            'tracking_reference' => 'ARRIVAL-TRACK-01',
+            'shipment_reference' => 'ARRIVAL-SHIPMENT-01',
+        ])->assertCreated();
+        $this->patchJson('/api/logistics/hub-transfer-shipments/ARRIVAL-SHIPMENT-01/dispatch')
+            ->assertOk();
+        $items = $this->getJson('/api/logistics/parcel-flow')
+            ->assertOk()
+            ->assertJsonPath('data.current_user_hub.id', $destination->id)
+            ->assertJsonPath('data.incoming_shipments.0.shipment_reference', 'ARRIVAL-SHIPMENT-01')
+            ->assertJsonCount(2, 'data.incoming_shipments.0.items');
+        $this->assertSame(2, count($items->json('data.incoming_shipments.0.items')));
+
+        $this->patchJson('/api/logistics/hub-transfer-shipments/ARRIVAL-SHIPMENT-01/receive', [
+            'tracking_reference' => 'WRONG-TRACK',
+        ])->assertUnprocessable();
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'ARRIVAL-SHIPMENT-01')->where('status', 'in_transit')->count());
+
+        $otherMunicipality = GeographicLocation::create([
+            'code' => '9200000200',
+            'name' => 'Other Arrival Municipality',
+            'level' => 'Mun',
+            'parent_code' => $region->code,
+        ]);
+        $otherLogistics = User::factory()->create([
+            'role' => 'logistics',
+            'status' => 'active',
+            'email_verified_at' => now(),
+        ]);
+        Address::create([
+            'user_id' => $otherLogistics->id,
+            'is_default' => true,
+            'psgc_code' => $otherMunicipality->code,
+            'region' => $region->name,
+            'province' => 'Arrival Province',
+            'municipality' => $otherMunicipality->name,
+            'barangay' => 'Other Arrival Barangay',
+        ]);
+        LogisticsHub::create([
+            'name' => 'Other arrival hub',
+            'code' => 'ARRIVAL-OTHER',
+            'psgc_code' => $otherMunicipality->code,
+            'is_active' => true,
+        ]);
+        $this->actingAs($otherLogistics, 'sanctum')
+            ->patchJson('/api/logistics/hub-transfer-shipments/ARRIVAL-SHIPMENT-01/receive', [
+                'tracking_reference' => 'ARRIVAL-TRACK-01',
+            ])
+            ->assertNotFound();
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'ARRIVAL-SHIPMENT-01')->where('status', 'in_transit')->count());
+
+        $this->actingAs($logistics, 'sanctum');
+        $this->patchJson('/api/logistics/hub-transfer-shipments/ARRIVAL-SHIPMENT-01/receive', [
+            'tracking_reference' => 'ARRIVAL-TRACK-01',
+        ])->assertOk()
+            ->assertJsonCount(2, 'data.items')
+            ->assertJsonPath('data.items.0.status', 'arrived');
+        $this->assertSame(2, HubTransfer::where('shipment_reference', 'ARRIVAL-SHIPMENT-01')->where('status', 'arrived')->count());
+        $this->assertSame(2, Delivery::whereIn('id', $deliveries->pluck('id'))->where('current_hub_id', $destination->id)->count());
+    }
+
     public function test_logistics_auto_routes_a_saved_barangay_to_its_delivery_hub(): void
     {
         $logistics = $this->logisticsUser();
@@ -553,7 +782,8 @@ class LogisticsOperationsTest extends TestCase
 
     public function test_third_party_hub_shipment_tracks_and_receives_each_parcel_with_individual_verification(): void
     {
-        $logistics = $this->logisticsUser();
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $base = '/api/admin';
         $origin = LogisticsHub::create(['name' => 'Carrier origin', 'code' => 'CARRIER-ORIGIN', 'is_active' => true]);
         $destination = LogisticsHub::create(['name' => 'Carrier destination', 'code' => 'CARRIER-DEST', 'is_active' => true]);
         $deliveries = collect([1, 2])->map(function () use ($origin) {
@@ -565,7 +795,7 @@ class LogisticsOperationsTest extends TestCase
             ]);
         });
 
-        $created = $this->actingAs($logistics, 'sanctum')->postJson('/api/logistics/hub-transfer-shipments', [
+        $created = $this->actingAs($admin, 'sanctum')->postJson("{$base}/hub-transfer-shipments", [
             'delivery_ids' => $deliveries->pluck('id')->all(),
             'from_hub_id' => $origin->id,
             'to_hub_id' => $destination->id,
@@ -594,7 +824,7 @@ class LogisticsOperationsTest extends TestCase
             'carrier_name' => 'Flash Express',
             'tracking_reference' => 'FX-TRACK-123',
         ]);
-        $this->getJson('/api/logistics/parcel-flow')
+        $this->getJson("{$base}/parcel-flow")
             ->assertOk()
             ->assertJsonPath('data.transfers.0.carrier_name', 'Flash Express')
             ->assertJsonPath('data.transfers.0.tracking_reference', 'FX-TRACK-123');
@@ -605,7 +835,7 @@ class LogisticsOperationsTest extends TestCase
             'status' => Delivery::SORTED,
             'current_hub_id' => $origin->id,
         ]);
-        $this->postJson('/api/logistics/hub-transfer-shipments', [
+        $this->postJson("{$base}/hub-transfer-shipments", [
             'delivery_ids' => [$collisionDelivery->id],
             'from_hub_id' => $origin->id,
             'to_hub_id' => $destination->id,
@@ -617,12 +847,12 @@ class LogisticsOperationsTest extends TestCase
         $this->assertSame(1, HubTransferShipment::where('shipment_reference', 'BULK-001')->count());
         $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->count());
 
-        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/dispatch')
+        $this->patchJson("{$base}/hub-transfer-shipments/BULK-001/dispatch")
             ->assertOk()
             ->assertJsonPath('data.items.0.status', 'in_transit');
         $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->where('status', 'in_transit')->count());
 
-        $incompleteReceipt = $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/receive', [
+        $incompleteReceipt = $this->patchJson("{$base}/hub-transfer-shipments/BULK-001/receive", [
             'items' => [[
                 'transfer_id' => $items[0]['transfer_id'],
                 'parcel_code' => $items[0]['parcel_code'],
@@ -634,7 +864,7 @@ class LogisticsOperationsTest extends TestCase
 
         $invalidItems = $items;
         $invalidItems[1]['parcel_code'] = $items[0]['parcel_code'];
-        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/receive', [
+        $this->patchJson("{$base}/hub-transfer-shipments/BULK-001/receive", [
             'items' => array_map(fn (array $item) => [
                 'transfer_id' => $item['transfer_id'],
                 'parcel_code' => $item['parcel_code'],
@@ -642,7 +872,7 @@ class LogisticsOperationsTest extends TestCase
         ])->assertUnprocessable();
         $this->assertSame(2, HubTransfer::where('shipment_reference', 'BULK-001')->where('status', 'in_transit')->count());
 
-        $this->patchJson('/api/logistics/hub-transfer-shipments/BULK-001/receive', [
+        $this->patchJson("{$base}/hub-transfer-shipments/BULK-001/receive", [
             'items' => array_map(fn (array $item) => [
                 'transfer_id' => $item['transfer_id'],
                 'parcel_code' => $item['parcel_code'],

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { MessageSquareText, Package, RefreshCw, Send } from "lucide-react";
 import api from "../services/api";
 import { getChatMessageRequestId } from "../utils/chatMessageRequest";
+import DeliveryProofChatImage from "./DeliveryProofChatImage";
 import "./DeliveryMessages.css";
 
 const MODE_PATHS = {
@@ -264,6 +265,11 @@ export default function DeliveryMessages({ mode }) {
                                     return <article key={item.id} className={`delivery-message-bubble${mine ? " is-mine" : ""}`}>
                                         <span>{mine ? "You" : fullName(item.sender, item.sender?.role === "rider" ? "Rider" : "Participant")}</span>
                                         <p>{item.message}</p>
+                                        {isSeller && item.delivery_proof_id && <DeliveryProofChatImage
+                                            key={`${selectedConversation.id}-${item.delivery_proof_id}`}
+                                            conversationId={selectedConversation.id}
+                                            proofId={item.delivery_proof_id}
+                                        />}
                                         <time>{formatTime(item.created_at)}</time>
                                     </article>;
                                 })}

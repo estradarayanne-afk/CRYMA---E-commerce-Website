@@ -414,6 +414,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/seller/delivery-chats', [DeliveryConversationController::class, 'sellerConversations']);
         Route::get('/seller/delivery-chats/{conversationId}', [DeliveryConversationController::class, 'showSellerConversation']);
         Route::post('/seller/delivery-chats/{conversationId}/messages', [DeliveryConversationController::class, 'sendSellerMessage']);
+        Route::get('/seller/delivery-chats/{conversationId}/proofs/{proofId}', [DeliveryConversationController::class, 'showSellerDeliveryProof']);
         // Seller order management
         Route::get('/seller/orders', [
             SellerOrderController::class,

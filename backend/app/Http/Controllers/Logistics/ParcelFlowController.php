@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CourierProfile;
 use App\Models\Delivery;
 use App\Models\DeliveryArea;
+use App\Models\GeographicLocation;
 use App\Models\HubTransfer;
 use App\Models\HubTransferShipment;
 use App\Models\LogisticsHub;
@@ -13,6 +14,7 @@ use App\Models\ReturnShipment;
 use App\Services\CourierEligibility;
 use App\Services\DeliveryAreaResolver;
 use App\Services\HubTransferReceivingService;
+use App\Services\LogisticsMunicipality;
 use App\Services\ThirdPartyHubTransferService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +24,7 @@ class ParcelFlowController extends Controller
 {
     public function hubs() { return response()->json(['success' => true, 'data' => LogisticsHub::where('is_active', true)->orderBy('name')->get()]); }
 
-    public function operations(CourierEligibility $eligibility, DeliveryAreaResolver $areaResolver)
+    public function operations(Request $request, CourierEligibility $eligibility, DeliveryAreaResolver $areaResolver, LogisticsMunicipality $municipality)
     {
         $transfers = HubTransfer::with([
             'fromHub:id,name,code',
@@ -74,6 +76,8 @@ class ParcelFlowController extends Controller
 
         $deliveries = Delivery::with([
             'order:id,status,delivery_address,delivery_psgc_code',
+            'order.items.seller.sellerPickupAddress',
+            'order.items.seller.addresses',
             'currentHub:id,name,code',
             'deliveryArea:id,name,hub_id,is_active',
             'deliveryArea.hub:id,name,code,is_active',
@@ -83,6 +87,18 @@ class ParcelFlowController extends Controller
             ->whereDoesntHave('hubTransfers', fn ($query) => $query->whereIn('status', ['assigned', 'in_transit']))
             ->latest()->get();
         $routes = $areaResolver->resolveMany($deliveries->pluck('order.delivery_psgc_code'));
+        $municipalityCodes = $hubs->pluck('psgc_code')
+            ->merge(collect($routes)->map(fn (array $route) => $route['area']?->psgc_code))
+            ->filter()
+            ->unique()
+            ->values();
+        $municipalityNames = GeographicLocation::query()
+            ->whereIn('code', $municipalityCodes)
+            ->pluck('name', 'code');
+        $localHub = $request->user()->role === 'logistics'
+            ? $municipality->hubForUser($request->user())
+            : null;
+        $sellerRoutes = [];
         foreach ($deliveries as $delivery) {
             $code = $delivery->order?->delivery_psgc_code;
             $route = $routes[$code ?? ''] ?? ['status' => 'missing_address_code', 'area' => null];
@@ -105,11 +121,105 @@ class ParcelFlowController extends Controller
                 'requires_transfer',
                 !$area || (int) $area->hub_id !== (int) $delivery->current_hub_id,
             );
+
+            $sellerAddresses = $delivery->order?->items
+                ->map(fn ($item) => $item->seller)
+                ->filter()
+                ->unique('id')
+                ->map(function ($seller) use ($municipality, &$sellerRoutes) {
+                    if (!array_key_exists($seller->id, $sellerRoutes)) {
+                        $address = $municipality->pickupAddressForSeller($seller);
+                        $sellerRoutes[$seller->id] = [
+                            'address' => $address,
+                            'hub' => $municipality->resolveHubForAddress($address),
+                        ];
+                    }
+
+                    return $sellerRoutes[$seller->id];
+                })
+                ->values() ?? collect();
+            $sellerOriginHubIds = $sellerAddresses
+                ->pluck('hub.id')
+                ->filter()
+                ->map(fn ($hubId) => (int) $hubId)
+                ->unique()
+                ->values();
+            $sellerOrigin = $sellerOriginHubIds->count() === 1
+                && $sellerAddresses->every(fn (array $sellerRoute) => $sellerRoute['hub'] !== null)
+                ? $sellerAddresses->first()['hub']
+                : null;
+            $sellerMunicipalities = $sellerAddresses
+                ->map(fn (array $sellerRoute) => trim((string) ($sellerRoute['address']?->municipality ?? '')))
+                ->filter()
+                ->unique()
+                ->values();
+            $sellerMunicipality = $sellerMunicipalities->count() === 1
+                ? $sellerMunicipalities->first()
+                : ($sellerOrigin?->psgc_code
+                    ? $municipalityNames->get($sellerOrigin->psgc_code)
+                    : $sellerOrigin?->location_label);
+            $buyerArea = in_array($route['status'], ['mapped', 'mapping_conflict'], true) ? $route['area'] : null;
+            $buyerMunicipality = $buyerArea?->psgc_code
+                ? $municipalityNames->get($buyerArea->psgc_code)
+                : null;
+            $buyerHub = $buyerArea?->hub;
+            $delivery->setAttribute('seller_origin', [
+                'municipality' => $sellerMunicipality,
+                'hub' => $sellerOrigin?->only(['id', 'name', 'code', 'psgc_code']),
+            ]);
+            $delivery->setAttribute('buyer_destination', [
+                'municipality' => $buyerMunicipality ?: $buyerArea?->name,
+                'hub' => $buyerHub?->only(['id', 'name', 'code', 'psgc_code']),
+            ]);
+            $delivery->setAttribute(
+                'bulk_shipment_available',
+                $sellerOrigin
+                    && $buyerHub?->is_active
+                    && in_array($route['status'], ['mapped', 'mapping_conflict'], true)
+                    && (int) $sellerOrigin->id === (int) $delivery->current_hub_id
+                    && (int) $sellerOrigin->id !== (int) $buyerHub->id,
+            );
         }
+
+        $incomingShipments = $localHub
+            ? HubTransferShipment::query()
+                ->where('to_hub_id', $localHub->id)
+                ->whereHas('transfers', fn ($query) => $query
+                    ->where('transport_mode', 'third_party')
+                    ->where('status', 'in_transit'))
+                ->with([
+                    'fromHub:id,name,code',
+                    'toHub:id,name,code',
+                    'transfers' => fn ($query) => $query
+                        ->where('transport_mode', 'third_party')
+                        ->with('delivery:id,order_id,parcel_code,status,current_hub_id')
+                        ->orderBy('id'),
+                ])
+                ->latest()
+                ->get()
+                ->map(fn (HubTransferShipment $shipment) => [
+                    'shipment_reference' => $shipment->shipment_reference,
+                    'carrier_code' => $shipment->carrier_code,
+                    'carrier_name' => $shipment->carrier_name,
+                    'tracking_reference' => $shipment->tracking_reference,
+                    'origin_hub' => $shipment->fromHub?->only(['id', 'name', 'code']),
+                    'destination_hub' => $shipment->toHub?->only(['id', 'name', 'code']),
+                    'items' => $shipment->transfers->map(fn (HubTransfer $transfer) => [
+                        'id' => $transfer->id,
+                        'delivery_id' => $transfer->delivery_id,
+                        'status' => $transfer->status,
+                        'parcel_code' => $transfer->delivery?->parcel_code,
+                        'order_id' => $transfer->delivery?->order_id,
+                    ])->values(),
+                ])
+                ->values()
+            : collect();
 
         return response()->json(['success' => true, 'data' => [
             'hubs' => $hubs,
             'areas' => $areas,
+            'current_user_hub' => $localHub?->only(['id', 'name', 'code', 'psgc_code']),
+            'incoming_shipments' => $incomingShipments,
             'transfers' => $transfers,
             'returns' => ReturnShipment::with(['refundRequest:id,status,requested_amount,approved_amount','delivery:id,order_id,parcel_code','order.items.product:id,name','buyer:id,first_name,last_name','seller:id,first_name,last_name','pickupCourier.user:id,first_name,last_name','deliveryCourier.user:id,first_name,last_name','currentHub:id,name,code'])->latest()->limit(100)->get(),
             'deliveries' => $deliveries,
@@ -303,19 +413,45 @@ class ParcelFlowController extends Controller
         ]);
     }
 
-    public function receiveThirdPartyTransferShipment(Request $request, string $shipmentReference, ThirdPartyHubTransferService $transfers, HubTransferReceivingService $receiving)
+    public function receiveThirdPartyTransferShipment(
+        Request $request,
+        string $shipmentReference,
+        ThirdPartyHubTransferService $transfers,
+        HubTransferReceivingService $receiving,
+        LogisticsMunicipality $municipality,
+    )
     {
-        $values = $request->validate([
-            'items' => ['required', 'array', 'min:1', 'max:100'],
-            'items.*.transfer_id' => ['required', 'integer', 'distinct', 'min:1'],
-            'items.*.parcel_code' => ['required', 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
-            'hub_id' => ['prohibited'],
-        ]);
-        $rows = $transfers->receiveShipment($request->user(), $shipmentReference, $values['items'], $receiving);
+        if ($request->user()->role === 'logistics') {
+            $values = $request->validate([
+                'tracking_reference' => ['required', 'string', 'max:120', 'not_regex:/^\s*$/'],
+                'items' => ['prohibited'],
+                'hub_id' => ['prohibited'],
+            ]);
+            $hub = $municipality->hubForUser($request->user());
+            abort_unless($hub, 422, 'Set your logistics account address to a municipality with an active hub before receiving shipments.');
+            $rows = $transfers->receiveShipmentByTrackingReference(
+                $request->user(),
+                $shipmentReference,
+                trim($values['tracking_reference']),
+                $hub,
+                $receiving,
+            );
+            $message = 'Shipment tracking reference confirmed; every parcel was received at your municipality hub.';
+        } else {
+            $values = $request->validate([
+                'items' => ['required', 'array', 'min:1', 'max:100'],
+                'items.*.transfer_id' => ['required', 'integer', 'distinct', 'min:1'],
+                'items.*.parcel_code' => ['required', 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
+                'tracking_reference' => ['prohibited'],
+                'hub_id' => ['prohibited'],
+            ]);
+            $rows = $transfers->receiveShipment($request->user(), $shipmentReference, $values['items'], $receiving);
+            $message = 'Every parcel in the third-party shipment was verified and received.';
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Every parcel in the third-party shipment was verified and received.',
+            'message' => $message,
             'data' => [
                 'shipment_reference' => $shipmentReference,
                 'items' => $rows->map(fn (HubTransfer $transfer) => [

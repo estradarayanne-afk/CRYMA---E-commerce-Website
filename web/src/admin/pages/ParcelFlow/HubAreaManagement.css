@@ -150,3 +150,42 @@
 .lo-parcel-item>label select,.lo-parcel-item>input{width:100%;min-height:38px;padding:7px 9px;border:1px solid #e7d5da;border-radius:8px;background:#fff;color:#35151f;font:inherit;font-size:11px}
 .lo-parcel-item>span small{display:block;margin-top:5px;color:#9d1c2c}
 @media(max-width:700px){.lo-return-item,.lo-transfer-prepare{margin:0 12px}.lo-return-item>summary,.lo-transfer-prepare>summary{grid-template-columns:minmax(0,1fr) auto;gap:4px 8px}.lo-return-item>summary small,.lo-transfer-prepare>summary span{grid-column:1/-1;white-space:normal}.lo-return-item-body>div{align-items:stretch;flex-direction:column}.lo-return-item-body select,.lo-return-item-body button{width:100%}}
+
+.lo-parcel-flow-heading-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.lo-parcel-flow-heading-actions button{min-height:40px;padding:0 14px;border:1px solid #e7d5da;border-radius:9px;background:#fff;color:#35151f;font:inherit;font-weight:650;cursor:pointer}
+.lo-parcel-flow-heading-actions button:disabled{opacity:.6;cursor:wait}
+.lo-parcel-flow-heading-actions .lo-proceed-bulk{display:inline-flex;align-items:center;gap:9px;border-color:#e7d5da;background:#fff;color:#705b61}
+.lo-parcel-flow-heading-actions .lo-proceed-bulk.is-ready{border-color:#f6bac7;background:#fff1f4;color:#8a1c30;box-shadow:0 0 0 3px rgba(248,177,192,.18)}
+.lo-proceed-bulk span{min-width:22px;padding:3px 7px;border-radius:999px;background:#eee3e6;color:#745d64;font-size:10px;text-align:center}
+.lo-proceed-bulk.is-ready span{background:#a92340;color:#fff}
+.lo-bulk-candidate-list{display:grid;gap:7px;margin:0 18px 12px}
+.lo-bulk-candidate{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #f0dde2;border-radius:9px;background:#fffafb}
+.lo-bulk-candidate>span{min-width:0;color:#63464f;font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.lo-bulk-candidate>span strong{color:#35151f}
+.lo-bulk-candidate small{display:block;color:#80666e;font-size:10px}
+.lo-bulk-candidate button,.lo-bulk-staged-list button,.lo-arrival-reference+button{flex:none;min-height:36px;padding:7px 11px;border:0;border-radius:8px;background:linear-gradient(135deg,#a92340,#7e1830);color:#fff;font:inherit;font-size:11px;font-weight:750;cursor:pointer}
+.lo-bulk-candidate button:disabled,.lo-bulk-staged-list button:disabled,.lo-arrival-reference+button:disabled{opacity:.55;cursor:not-allowed}
+.lo-bulk-staged-list{display:grid;gap:7px;margin:0 18px 12px;padding:11px;border:1px solid #e8cbd2;border-radius:10px;background:#fff8fa;color:#513c43;font-size:12px}
+.lo-bulk-staged-list>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lo-bulk-staged-list>div button{min-height:30px;padding:5px 9px;background:#fff1f2;color:#8f1d2d;border:1px solid #efc1c5}
+.lo-bulk-staged-list>button:last-child{justify-self:start;background:#fff;color:#782039;border:1px solid #e7d5da}
+.lo-arrival-hub{color:#513c43!important}
+.lo-arrival-parcel-list{display:grid;gap:5px;margin:0 18px 12px;padding-left:22px;color:#63464f;font-size:11px}
+.lo-arrival-reference{display:grid;gap:5px;margin:0 18px 12px;color:#63464f;font-size:11px;font-weight:750}
+.lo-arrival-reference input{min-height:40px;padding:8px 10px;border:1px solid #e7d5da;border-radius:8px;background:#fff;color:#35151f;font:inherit}
+.lo-third-party-shipment>.lo-arrival-reference+button{margin:0 18px 14px}
+.lo-third-party-shipment-form{margin:0 18px 18px;padding:14px;border:1px solid #f0dde2;border-radius:12px;background:#fffafb}
+.lo-third-party-shipment-form>h3,.lo-transfer-queue>h3{margin:0 0 10px;color:#35151f;font-size:15px}
+.lo-third-party-shipment-form>.lo-parcel-item{margin:0;padding:0;border:0}
+.lo-transfer-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0;padding:0}
+.lo-transfer-inputs label{display:grid;min-width:0;gap:5px;color:#63464f;font-size:11px;font-weight:750}
+.lo-transfer-inputs input,.lo-transfer-inputs select{width:100%;min-width:0;min-height:39px;padding:7px 9px;border:1px solid #e7d5da;border-radius:8px;background:#fff;color:#35151f;font:inherit;font-size:12px}
+.lo-transfer-inputs input:focus,.lo-transfer-inputs select:focus,.lo-arrival-reference input:focus{border-color:#b21f3a;outline:3px solid rgba(178,31,58,.12)}
+.lo-third-party-shipment-form>p{margin:12px 0;color:#80666e;font-size:11px;line-height:1.45}
+.lo-third-party-shipment-form .lo-bulk-candidate-list{margin-right:0;margin-left:0}
+.lo-third-party-shipment-form .lo-bulk-staged-list{margin-right:0;margin-left:0}
+.lo-third-party-shipment-form .lo-parcel-item>small{color:#80666e;font-size:11px}
+.lo-arrival-reference{margin-top:12px}
+@media(max-width:700px){.lo-parcel-flow>.lw-page-heading{align-items:flex-start;flex-direction:column}.lo-parcel-flow-heading-actions{width:100%;justify-content:stretch}.lo-parcel-flow-heading-actions button{flex:1}.lo-bulk-candidate{align-items:stretch;flex-direction:column}.lo-bulk-candidate button{width:100%}.lo-bulk-staged-list>div{align-items:flex-start}.lo-arrival-reference{margin-right:14px;margin-left:14px}.lo-arrival-parcel-list{margin-right:14px;margin-left:14px}.lo-third-party-shipment>.lo-arrival-reference+button{width:calc(100% - 28px);margin-right:14px;margin-left:14px}}
+@media(max-width:700px){.lo-transfer-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.lo-third-party-shipment-form{margin-right:12px;margin-left:12px;padding:11px}}
+@media(max-width:480px){.lo-transfer-inputs{grid-template-columns:1fr}}
