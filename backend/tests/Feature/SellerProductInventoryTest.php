@@ -146,6 +146,10 @@ class SellerProductInventoryTest extends TestCase
                 'data.variants.0.color_image_url',
                 '/storage/'.$product->variants[0]['image']
             );
+        $this->getJson('/api/products?category=Men%27s%20Apparel')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.data')
+            ->assertJsonPath('data.data.0.id', $product->id);
     }
 
     public function test_color_variants_require_a_photo_for_every_color(): void
@@ -457,7 +461,7 @@ class SellerProductInventoryTest extends TestCase
         ]);
     }
 
-    public function test_public_storefront_lists_newest_products_with_images_first(): void
+    public function test_public_storefront_lists_newest_products_and_hides_products_without_images(): void
     {
         $seller = $this->seller(['store_slug' => 'fixture-store']);
         $oldest = $this->createProduct($seller, [
@@ -470,7 +474,7 @@ class SellerProductInventoryTest extends TestCase
             'review_status' => 'approved',
         ]);
         $this->attachImage($newest);
-        $this->createProduct($seller, [
+        $unpictured = $this->createProduct($seller, [
             'name' => 'Unpictured store sample',
             'review_status' => 'approved',
         ]);
@@ -481,7 +485,8 @@ class SellerProductInventoryTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data.products')
             ->assertJsonPath('data.products.0.id', $newest->id)
-            ->assertJsonPath('data.products.1.id', $oldest->id);
+            ->assertJsonPath('data.products.1.id', $oldest->id)
+            ->assertJsonMissing(['id' => $unpictured->id]);
     }
 
     private function createProduct(User $seller, array $overrides = []): Product

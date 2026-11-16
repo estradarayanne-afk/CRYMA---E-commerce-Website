@@ -238,7 +238,8 @@ class OrderController extends Controller
 
     private function pickupAddressFor(User $user): string
     {
-        $address = $user->addresses()->orderByDesc('is_default')->latest('id')->first();
+        $address = $user->sellerPickupAddress
+            ?? $user->addresses()->orderByDesc('is_default')->latest('id')->first();
         abort_unless($address, 422, 'Add a seller pickup address in Account Settings before requesting a courier pickup.');
 
         return collect([

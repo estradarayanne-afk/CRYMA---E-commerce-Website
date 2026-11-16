@@ -1,33 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../../shared/services/api";
 import { getPhilPostPostalCode } from "../utils/postalCode";
 import { normalizePsgcPlaceName } from "../utils/normalizePsgcPlaceName";
+import {
+    findPlace,
+    getAvailableRegions,
+    getSelectedRegionName,
+} from "../utils/philippineAddressOptions";
 
 const normalizePsgcPlaces = (places) =>
     places.map((place) => ({
         ...place,
         name: normalizePsgcPlaceName(place.name),
     }));
-
-const locationNameVariants = (value) => {
-    const name = normalizePsgcPlaceName(String(value ?? "")).trim().toLocaleLowerCase();
-    const parenthetical = name.match(/\(([^()]*)\)\s*$/u)?.[1]?.trim();
-
-    return new Set([
-        name,
-        name.replace(/^city of\s+/u, ""),
-        name.replace(/\s*\([^()]*\)\s*$/u, "").trim(),
-        parenthetical,
-    ].filter(Boolean));
-};
-
-const findPlace = (places, value) => {
-    const variants = locationNameVariants(value);
-
-    return places.find((place) => (
-        [...locationNameVariants(place.name)].some((variant) => variants.has(variant))
-    ));
-};
 
 async function loadPsgcOptions(path) {
     const response = await api.get("/philippine-address-options", { params: { path } });
@@ -46,8 +31,11 @@ function PhilippineAddressFields({
     onChange,
     onPostalCodeChange,
     onProvinceRequirementChange,
+    allowedRegions = null,
     hydrateExisting = false,
     disabled = false,
+    idPrefix = "",
+    cityLabel = "Municipality",
 }) {
     const [regions, setRegions] = useState([]);
     const [provinces, setProvinces] = useState([]);
@@ -64,6 +52,22 @@ function PhilippineAddressFields({
     const [loadingBarangays, setLoadingBarangays] = useState(false);
 
     const [addressError, setAddressError] = useState("");
+    const fieldId = (name) => idPrefix ? `${idPrefix}-${name}` : name;
+    const visibleRegions = getAvailableRegions(regions, allowedRegions);
+    const addressValuesRef = useRef({});
+
+    useEffect(() => {
+        addressValuesRef.current = {
+            region,
+            province,
+            city,
+            barangay,
+            psgcCode,
+            onChange,
+            onProvinceRequirementChange,
+            hydrateExisting,
+        };
+    });
 
     // =========================
     // LOAD REGIONS
@@ -74,24 +78,25 @@ function PhilippineAddressFields({
 
         const loadRegions = async () => {
             setLoadingRegions(true);
-            setAddressError("");
 
             try {
                 const loadedRegions = await loadPsgcOptions("regions");
 
                 if (!cancelled) {
                     setRegions(loadedRegions);
-                    const savedRegion = hydrateExisting && findPlace(loadedRegions, region);
+                    const availableRegions = getAvailableRegions(loadedRegions, allowedRegions);
+                    const current = addressValuesRef.current;
+                    const savedRegion = current.hydrateExisting && findPlace(availableRegions, current.region);
                     if (savedRegion) {
                         setLoadingProvinces(true);
                         setRegionCode(String(savedRegion.code));
-                        if (region !== savedRegion.name) {
-                            onChange({
+                        if (current.region !== savedRegion.name) {
+                            current.onChange({
                                 region: savedRegion.name,
-                                province,
-                                city,
-                                barangay,
-                                psgc_code: psgcCode,
+                                province: current.province,
+                                city: current.city,
+                                barangay: current.barangay,
+                                psgc_code: current.psgcCode,
                             });
                         }
                     }
@@ -119,7 +124,7 @@ function PhilippineAddressFields({
         return () => {
             cancelled = true;
         };
-    }, [region, province, city, barangay, psgcCode, onChange, hydrateExisting]);
+    }, [hydrateExisting, allowedRegions]);
 
     // =========================
     // LOAD PROVINCES
@@ -134,31 +139,31 @@ function PhilippineAddressFields({
 
         const loadProvinces = async () => {
             setLoadingProvinces(true);
-            setAddressError("");
 
             try {
                 const loadedProvinces = await loadPsgcOptions(`regions/${encodeURIComponent(regionCode)}/provinces`);
 
                 if (!cancelled) {
                     setProvinces(loadedProvinces);
-                    onProvinceRequirementChange?.(loadedProvinces.length > 0);
-                    const savedProvince = hydrateExisting && findPlace(loadedProvinces, province);
+                    const current = addressValuesRef.current;
+                    current.onProvinceRequirementChange?.(loadedProvinces.length > 0);
+                    const savedProvince = current.hydrateExisting && findPlace(loadedProvinces, current.province);
                     if (savedProvince) {
                         setProvinceCode(String(savedProvince.code));
-                        if (province !== savedProvince.name) {
-                            onChange({
-                                region,
+                        if (current.province !== savedProvince.name) {
+                            current.onChange({
+                                region: current.region,
                                 province: savedProvince.name,
-                                city,
-                                barangay,
-                                psgc_code: psgcCode,
+                                city: current.city,
+                                barangay: current.barangay,
+                                psgc_code: current.psgcCode,
                             });
                         }
                     } else if (hydrateExisting) {
                         setProvinceCode("");
-                        if (String(province ?? "").trim()) {
-                            onChange({
-                                region,
+                        if (String(current.province ?? "").trim()) {
+                            current.onChange({
+                                region: current.region,
                                 province: "",
                                 city: "",
                                 barangay: "",
@@ -190,7 +195,7 @@ function PhilippineAddressFields({
         return () => {
             cancelled = true;
         };
-    }, [regionCode, region, province, city, barangay, psgcCode, hydrateExisting, onProvinceRequirementChange, onChange]);
+    }, [regionCode, hydrateExisting]);
 
     // =========================
     // LOAD CITIES / MUNICIPALITIES
@@ -205,7 +210,6 @@ function PhilippineAddressFields({
 
         const loadCities = async () => {
             setLoadingCities(true);
-            setAddressError("");
 
             try {
                 const path = provinceCode
@@ -215,16 +219,17 @@ function PhilippineAddressFields({
 
                 if (!cancelled) {
                     setCities(loadedCities);
-                    const savedCity = hydrateExisting && findPlace(loadedCities, city);
+                    const current = addressValuesRef.current;
+                    const savedCity = current.hydrateExisting && findPlace(loadedCities, current.city);
                     if (savedCity) {
                         setCityCode(String(savedCity.code));
-                        if (city !== savedCity.name) {
-                            onChange({
-                                region,
-                                province,
+                        if (current.city !== savedCity.name) {
+                            current.onChange({
+                                region: current.region,
+                                province: current.province,
                                 city: savedCity.name,
-                                barangay,
-                                psgc_code: psgcCode,
+                                barangay: current.barangay,
+                                psgc_code: current.psgcCode,
                             });
                         }
                     }
@@ -252,7 +257,7 @@ function PhilippineAddressFields({
         return () => {
             cancelled = true;
         };
-    }, [regionCode, provinceCode, region, province, city, barangay, psgcCode, hydrateExisting, loadingProvinces, provinces.length, onChange]);
+    }, [regionCode, provinceCode, hydrateExisting, loadingProvinces, provinces.length]);
 
     // =========================
     // LOAD BARANGAYS
@@ -270,7 +275,6 @@ function PhilippineAddressFields({
 
         const loadBarangays = async () => {
             setLoadingBarangays(true);
-            setAddressError("");
 
             try {
                 const path = provinceCode
@@ -280,17 +284,18 @@ function PhilippineAddressFields({
 
                 if (!cancelled) {
                     setBarangays(loadedBarangays);
+                    const current = addressValuesRef.current;
                     const nameMatches = loadedBarangays.filter((item) => (
-                        [...locationNameVariants(item.name)].some((variant) => locationNameVariants(barangay).has(variant))
+                        findPlace([item], current.barangay)
                     ));
-                    const savedBarangay = psgcCode
-                        ? loadedBarangays.find((item) => String(item.code) === String(psgcCode))
+                    const savedBarangay = current.psgcCode
+                        ? loadedBarangays.find((item) => String(item.code) === String(current.psgcCode))
                         : nameMatches.length === 1 ? nameMatches[0] : null;
-                    if (hydrateExisting && savedBarangay && (barangay !== savedBarangay.name || psgcCode !== savedBarangay.code)) {
-                        onChange({
-                            region,
-                            province,
-                            city,
+                    if (current.hydrateExisting && savedBarangay && (current.barangay !== savedBarangay.name || current.psgcCode !== savedBarangay.code)) {
+                        current.onChange({
+                            region: current.region,
+                            province: current.province,
+                            city: current.city,
                             barangay: savedBarangay.name,
                             psgc_code: savedBarangay.code,
                         });
@@ -319,7 +324,7 @@ function PhilippineAddressFields({
         return () => {
             cancelled = true;
         };
-    }, [regionCode, provinceCode, cityCode, hydrateExisting, psgcCode, barangay, region, province, city, onChange]);
+    }, [regionCode, provinceCode, cityCode, hydrateExisting]);
 
     // =========================
     // REGION CHANGE
@@ -328,9 +333,7 @@ function PhilippineAddressFields({
     const handleRegionChange = (event) => {
         const selectedCode = event.target.value;
 
-        const selectedRegion = regions.find(
-            (item) => String(item.code) === String(selectedCode)
-        );
+        const selectedRegionName = getSelectedRegionName(regions, allowedRegions, selectedCode);
 
         setRegionCode(selectedCode);
         setProvinceCode("");
@@ -346,7 +349,7 @@ function PhilippineAddressFields({
         onPostalCodeChange?.("");
 
         onChange({
-            region: selectedRegion?.name || "",
+            region: selectedRegionName,
             province: "",
             city: "",
             barangay: "",
@@ -441,12 +444,12 @@ function PhilippineAddressFields({
 
                 {/* REGION */}
                 <div className="auth-field">
-                    <label htmlFor="region">
+                    <label htmlFor={fieldId("region")}>
                         Region
                     </label>
 
                     <select
-                        id="region"
+                        id={fieldId("region")}
                         required
                         aria-invalid={Boolean(errors.region)}
                         value={regionCode}
@@ -456,10 +459,12 @@ function PhilippineAddressFields({
                         <option value="">
                             {loadingRegions
                                 ? "Loading regions..."
-                                : "Select region"}
+                                : visibleRegions.length === 0 && Array.isArray(allowedRegions)
+                                    ? "No pickup regions available"
+                                    : "Select region"}
                         </option>
 
-                        {regions.map((item) => (
+                        {visibleRegions.map((item) => (
                             <option
                                 key={item.code}
                                 value={item.code}
@@ -473,12 +478,12 @@ function PhilippineAddressFields({
 
                 {/* PROVINCE */}
                 <div className="auth-field">
-                    <label htmlFor="province">
+                    <label htmlFor={fieldId("province")}>
                         Province {provinces.length > 0 && <b>*</b>}
                     </label>
 
                     <select
-                        id="province"
+                        id={fieldId("province")}
                         required={provinces.length > 0}
                         aria-invalid={Boolean(errors.province)}
                         value={provinceCode}
@@ -514,12 +519,12 @@ function PhilippineAddressFields({
 
                 {/* CITY / MUNICIPALITY */}
                 <div className="auth-field">
-                    <label htmlFor="city">
-                        Municipality <b>*</b>
+                    <label htmlFor={fieldId("city")}>
+                        {cityLabel} <b>*</b>
                     </label>
 
                     <select
-                        id="city"
+                        id={fieldId("city")}
                         required
                         aria-invalid={Boolean(errors.municipality)}
                         value={cityCode}
@@ -556,12 +561,12 @@ function PhilippineAddressFields({
 
                 {/* BARANGAY */}
                 <div className="auth-field">
-                    <label htmlFor="barangay">
+                    <label htmlFor={fieldId("barangay")}>
                         Barangay <b>*</b>
                     </label>
 
                         <select
-                            id="barangay"
+                            id={fieldId("barangay")}
                             required
                             aria-invalid={Boolean(errors.barangay)}
                             value={

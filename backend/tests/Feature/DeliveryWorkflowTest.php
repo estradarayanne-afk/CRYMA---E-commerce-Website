@@ -10,10 +10,12 @@ use App\Models\Order;
 use App\Models\PickupBatch;
 use App\Models\PickupAssignment;
 use App\Models\ReturnShipment;
+use App\Models\SellerPickupAddress;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
 use App\Notifications\BuyerDeliveryMilestoneNotification;
+use App\Notifications\LogisticsPickupReadyNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -24,6 +26,19 @@ class DeliveryWorkflowTest extends TestCase
     public function test_seller_fulfillment_creates_one_delivery_linked_to_the_ready_order(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        $logistics = User::factory()->create(['role' => 'logistics', 'status' => 'active']);
+        SellerPickupAddress::create([
+            'user_id' => $seller->id,
+            'recipient_name' => 'Seller Pickup Contact',
+            'phone' => '+639171234567',
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => 'Carmen',
+            'barangay' => 'Luyang',
+            'street' => 'Market Road',
+            'house_number' => '18',
+            'postal_code' => '6005',
+        ]);
         $order = $this->order('PLACED');
         $product = $this->product($seller);
         \App\Models\OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id, 'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10]);
@@ -39,14 +54,72 @@ class DeliveryWorkflowTest extends TestCase
         $this->assertSame('READY_FOR_PICKUP', $delivery->status);
         $this->assertFalse($delivery->legacy_imported);
         $this->assertSame($delivery->parcel_code, $response->json('data.delivery.parcel_code'));
+
+        $notificationResponse = $this->actingAs($logistics, 'sanctum')->getJson('/api/logistics/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1)
+            ->assertJsonPath('data.notifications.0.data.link', '/logistics/pickups')
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
+        $notificationId = $notificationResponse->json('data.notifications.0.id');
+        $this->getJson('/api/logistics/operations')
+            ->assertOk()
+            ->assertJsonPath('data.pickup_orders.0.id', $order->id)
+            ->assertJsonPath('data.pickup_orders.0.items.0.seller.seller_pickup_address.municipality', 'Carmen');
+        $this->getJson('/api/logistics/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.pickups_awaiting_assignment', 1);
+        $this->patchJson("/api/logistics/notifications/{$notificationId}/read")->assertOk();
+        $this->getJson('/api/logistics/notifications')->assertJsonPath('data.unread_count', 0);
+    }
+
+    public function test_seller_can_request_pickup_for_an_order_with_its_ready_delivery(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+        SellerPickupAddress::create([
+            'user_id' => $seller->id,
+            'recipient_name' => 'Seller Pickup Contact',
+            'phone' => '+639171234567',
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => 'Carmen',
+            'barangay' => 'Luyang',
+            'street' => 'Market Road',
+            'house_number' => '18',
+            'postal_code' => '6005',
+        ]);
+        $order = $this->order('READY_FOR_PICKUP');
+        $product = $this->product($seller);
+        \App\Models\OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'quantity' => 1,
+            'unit_price' => 10,
+            'subtotal' => 10,
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => 'READY_FOR_PICKUP',
+            'legacy_imported' => false,
+        ]);
+
+        $this->actingAs($seller, 'sanctum')
+            ->postJson("/api/seller/orders/{$order->id}/pickup-request")
+            ->assertOk()
+            ->assertJsonPath('data.delivery_id', $delivery->id)
+            ->assertJsonPath('data.status', PickupAssignment::REQUESTED);
+
+        $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
+        $this->assertSame($delivery->id, $assignment->delivery_id);
+        $this->assertStringContainsString('Luyang', $assignment->pickup_address);
     }
 
     public function test_seller_can_request_one_pickup_batch_for_multiple_ready_orders_and_rider_tracks_each_parcel(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        \App\Models\Address::create([
+        SellerPickupAddress::create([
             'user_id' => $seller->id, 'recipient_name' => 'Bulk Seller', 'phone' => '+639171234567',
-            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
             'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
         ]);
         $product = $this->product($seller);
@@ -55,6 +128,11 @@ class DeliveryWorkflowTest extends TestCase
             \App\Models\OrderItem::create([
                 'order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $seller->id,
                 'quantity' => 1, 'unit_price' => 10, 'subtotal' => 10,
+            ]);
+            Delivery::create([
+                'order_id' => $order->id,
+                'status' => 'READY_FOR_PICKUP',
+                'legacy_imported' => false,
             ]);
             return $order;
         });
@@ -66,6 +144,7 @@ class DeliveryWorkflowTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('message', 'Bulk courier pickup requested. Logistics will confirm your preferred pickup time.')
             ->assertJsonCount(2, 'data.assignments');
+        $this->assertStringContainsString('Luyang', $batchResponse->json('data.pickup_address'));
         $batchId = $batchResponse->json('data.id');
         $this->assertDatabaseHas('pickup_batches', [
             'id' => $batchId,
@@ -752,9 +831,9 @@ class DeliveryWorkflowTest extends TestCase
     private function orderWithPickupAddress(string $status): Order
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
-        \App\Models\Address::create([
+        SellerPickupAddress::create([
             'user_id' => $seller->id, 'recipient_name' => 'Synthetic Seller', 'phone' => '+639171234567',
-            'is_default' => true, 'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
+            'region' => 'Region VII', 'province' => 'Cebu', 'municipality' => 'Carmen',
             'barangay' => 'Luyang', 'street' => 'Market Road', 'house_number' => '18', 'postal_code' => '6005',
         ]);
         $order = $this->order($status);

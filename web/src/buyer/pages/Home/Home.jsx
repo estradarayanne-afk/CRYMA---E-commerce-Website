@@ -19,6 +19,7 @@ import {
     requestBuyerSignIn,
     saveBuyerCart,
 } from "../../../shared/utils/buyerAccess";
+import { getProductImageCandidates } from "../../../shared/utils/productDiscovery";
 
 import "./Home.css";
 
@@ -157,7 +158,7 @@ function Home() {
     ===================================================== */
 
     const featuredProducts = useMemo(
-        () => products.slice(0, 8),
+        () => products.slice(0, 12),
         [products]
     );
 
@@ -174,7 +175,7 @@ function Home() {
 
             try {
                 const response = await api.get(
-                    "/products?per_page=8&sort=newest",
+                    "/products?per_page=12&sort=newest",
                     {
                         signal: controller.signal,
                     }
@@ -184,7 +185,8 @@ function Home() {
                     return;
                 }
 
-                const items = getProductList(response?.data);
+                const items = getProductList(response?.data)
+                    .filter((item) => getProductImageCandidates(item).length > 0);
                 if (items.length) {
                     api.post("/products/impressions", {
                         product_ids: items.map((item) => Number(item.id)),

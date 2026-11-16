@@ -46,6 +46,14 @@
 .sl-account-card > .sl-panel-head p { margin-top:4px; color:#806a71; font-size:10px; line-height:1.45; }
 .sl-account-form { display:grid; gap:14px; padding:17px 18px; }
 .sl-account-form .sl-form-row { margin: 0; }
+.seller-pickup-location-fields .address-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px 10px; margin:0; }
+.seller-pickup-location-fields .address-fields .auth-field { display:flex; min-width:0; flex-direction:column; gap:6px; margin:0; }
+.seller-pickup-location-fields .auth-field label { color:var(--text-secondary); font-size:12px; font-weight:600; }
+.seller-pickup-location-fields .auth-field label b { color:var(--crimson); }
+.seller-pickup-location-fields .auth-field select { width:100%; min-width:0; min-height:42px; padding:10px 12px; border:1.5px solid var(--color-border); border-radius:9px; outline:none; background:var(--white); color:var(--text-primary); font:inherit; font-size:13px; }
+.seller-pickup-location-fields .auth-field select:focus { border-color:var(--crimson); box-shadow:var(--focus-ring); }
+.seller-pickup-location-fields .auth-field select:disabled { background:var(--surface-neutral); color:var(--text-subtle); cursor:not-allowed; }
+.seller-pickup-location-fields .address-api-error { grid-column:1/-1; margin:0; padding:10px 12px; border:1px solid #e9bfc6; border-radius:9px; background:#fff4f5; color:var(--deep-crimson); font-size:11px; line-height:1.5; }
 .sl-account-store-name-card .sl-form-row { grid-template-columns:minmax(0,1fr); gap:12px; }
 .sl-account-store-name-card .sl-account-form > p[role="status"] { padding:10px 12px; border:1px solid #ead9de; border-radius:9px; background:#fff8fa; color:#694753; font-size:11px; line-height:1.5; }
 .sl-account-store-name-card .sl-account-form > button,.sl-account-profile-card .sl-account-form > button,.sl-account-password-card .sl-account-form > button { justify-self:start; min-height:40px; padding:0 16px; }
@@ -867,6 +875,7 @@
     .sl-account-settings { gap: 14px; }
     .sl-account-card > .sl-panel-head { min-height: 70px; }
     .sl-account-form { padding: 16px; }
+    .seller-pickup-location-fields .address-grid { grid-template-columns:minmax(0,1fr); }
     .sl-account-info-grid { grid-template-columns:minmax(0,1fr); padding:14px; }
     .sl-account-store-name-card .sl-form-row { grid-template-columns:minmax(0,1fr); }
     .sl-account-password-card .sl-account-current-password { max-width:none; }

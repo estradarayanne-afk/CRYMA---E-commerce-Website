@@ -130,7 +130,7 @@ function getStatusHelp(status) {
         PLACED: "New order received. Confirm it to start preparing the items.",
         CONFIRMED: "Order confirmed. Gather the items and prepare the parcel.",
         PREPARING: "Parcel is being prepared. Mark it ready after packing is complete.",
-        READY_FOR_PICKUP: "Parcel is ready. Waiting for pickup.",
+        READY_FOR_PICKUP: "Pickup request sent to Logistics. Waiting for courier assignment.",
         DELIVERY_FAILED: "A delivery attempt was unsuccessful. Logistics may arrange another attempt.",
         RETURNED: "Three delivery attempts were unsuccessful. The parcel is being returned to your store.",
         COMPLETED: "This order has been completed.",
@@ -275,11 +275,10 @@ function Orders() {
                     : current
             );
 
-            setNotice(
-                `Order #${order.id} is now ${
-                    STATUS_LABEL[nextStatus]
-                }.`
-            );
+            if (nextStatus === "READY_FOR_PICKUP") await loadOrders({ quiet: true });
+            setNotice(nextStatus === "READY_FOR_PICKUP"
+                ? `Order #${order.id} is ready. Logistics has been notified and can assign a pickup.`
+                : `Order #${order.id} is now ${STATUS_LABEL[nextStatus]}.`);
         } catch (err) {
             setError(
                 err.response?.data?.message ||
@@ -328,7 +327,7 @@ function Orders() {
                 <div>
                     <span className="sl-eyebrow">SELLER WORKSPACE · ORDERS</span>
                     <h1 className="sl-h1">Orders</h1>
-                    <p>Confirm new orders, prepare the parcel, then mark it ready for pickup. Select any order below to see buyer and item details.</p>
+                    <p>Confirm new orders and prepare the parcel. Mark it ready after packing to notify Logistics and send it to Pickup Requests.</p>
                 </div>
                 <div className="sl-orders-header-status" role="status" aria-live="polite">
                     <span className="sl-orders-header-status-dot" aria-hidden="true" />
@@ -696,7 +695,7 @@ function Orders() {
                                                 {pickup?.pickup_address && <p>Pickup location: {pickup.pickup_address}</p>}
                                                 {pickup?.scheduled_at && <p>Pickup scheduled: {formatDateTime(pickup.scheduled_at)}</p>}
                                                 {pickup?.courier?.phone && <p>Courier contact: {pickup.courier.phone}</p>}
-                                                {!status && <><p>Schedule a pickup to send this parcel to the logistics team.</p><button type="button" className="sl-btn-primary" disabled={actionLoading} onClick={() => void requestPickup(selected)}>{actionLoading ? "Scheduling…" : "Schedule courier pickup"}</button></>}
+                                                {!status && <><p>Logistics has been notified. They can review this order in Pickup Requests and assign a courier.</p><button type="button" className="sl-btn-primary" disabled={actionLoading} onClick={() => void requestPickup(selected)}>{actionLoading ? "Scheduling…" : "Schedule courier pickup"}</button></>}
                                                 {pickup?.picked_up_at && <p>Collected {formatDateTime(pickup.picked_up_at)}</p>}
                                                 {pickup?.received_at && <p>Received at sorting center {formatDateTime(pickup.received_at)}</p>}
                                                 {(selected.delivery_progress?.events || []).length > 0 && <ol className="sl-preparation-steps">{selected.delivery_progress.events.map((event, index) => <li key={`${event.event_type}-${index}`}>{String(event.event_type || "Shipment update").replaceAll("_", " ")} · {formatDateTime(event.created_at)}</li>)}</ol>}
@@ -711,7 +710,7 @@ function Orders() {
                                             <li>Print and attach the CRYMA parcel slip.</li>
                                         </ol>
                                         <p className="sl-preparation-note">
-                                            The preparation guide does not save a separate packing status. Select “Mark Ready for Pickup” only after the parcel is packed; that action updates the order status.
+                                            Select “Mark Ready for Pickup” only after the parcel is packed. The order will appear in Logistics Pickup Requests.
                                         </p>
                                     </>
                                 )}

@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./shared/components/ProtectedRoute";
 import GlobalNetworkLoadingIndicator from "./shared/components/GlobalNetworkLoadingIndicator";
 import DeliveryMessages from "./shared/components/DeliveryMessages";
-import { isBuyerSession } from "./shared/utils/buyerAccess";
 
 // â”€â”€ AUTH â”€â”€
 const Login = lazy(() => import("./auth/pages/BuyerLogin"));
@@ -120,11 +119,11 @@ function App() {
                     <Route path="/privacy" element={<PolicyPage type="privacy" />} />
                     <Route path="/delivery-and-payments" element={<PolicyPage type="delivery" />} />
 
-                    {/* PUBLIC / GUEST */}
+                    {/* PUBLIC / SHARED HOME */}
 
                     <Route
                         path="/"
-                        element={isBuyerSession() ? <Navigate to="/shop" replace /> : <Suspense fallback={<div className="app-route-loading" role="status"><span className="app-route-loading__mark"><img src="/cryma-logo.png" alt="" /></span><span>Loading CRYMA…</span></div>}><BuyerHome /></Suspense>}
+                        element={<Suspense fallback={<div className="app-route-loading" role="status"><span className="app-route-loading__mark"><img src="/cryma-logo.png" alt="" /></span><span>Loading CRYMA…</span></div>}><BuyerHome /></Suspense>}
                     />
 
                     <Route

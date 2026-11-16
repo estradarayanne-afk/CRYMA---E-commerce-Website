@@ -1,3 +1,51 @@
+// These catalog paths belong to a different seller and must not be shown as product photos.
+const KNOWN_MISMATCHED_PRODUCT_MEDIA = new Map([
+    ["10", new Set([
+        "/storage/products/10/tHbKkfs0Y9zXqUReFgoxxFwYoR9AqrdV1sHRFyYA.jpg",
+        "/storage/products/10/HjunRcu6Wmw93Bhsbw3wd533ui3tVVQQLAJ9DICI.mp4",
+    ])],
+]);
+
+function getImageUrl(media) {
+    const url = typeof media === "string" ? media : media?.url || media?.image_url;
+    return typeof url === "string" ? url.trim() : "";
+}
+
+export function isKnownMismatchedProductMedia(product, mediaUrl) {
+    const mismatchedPaths = KNOWN_MISMATCHED_PRODUCT_MEDIA.get(String(product?.id));
+    if (!mismatchedPaths) return false;
+
+    try {
+        const pathname = decodeURIComponent(new URL(mediaUrl, "https://cryma.store").pathname).toLowerCase();
+        return [...mismatchedPaths].some((path) => path.toLowerCase() === pathname);
+    } catch {
+        return [...mismatchedPaths].some((path) => path.toLowerCase() === String(mediaUrl).toLowerCase());
+    }
+}
+
+export function getProductImageCandidates(product) {
+    const imageCandidates = [
+        product?.image,
+        product?.image_url,
+        product?.thumbnail,
+        product?.displayImage,
+        product?.primary_image,
+    ].map(getImageUrl);
+    const imageArray = Array.isArray(product?.images) ? product.images.map(getImageUrl) : [];
+    const mediaImages = Array.isArray(product?.media)
+        ? product.media.filter((media) => String(media?.type || "").toLowerCase() === "image").map(getImageUrl)
+        : [];
+    const variantImages = Array.isArray(product?.variants)
+        ? product.variants.flatMap((variant) => [
+            variant?.color_image_url,
+            String(variant?.media_type || "").toLowerCase() === "image" ? variant?.media_url : "",
+        ]).map(getImageUrl)
+        : [];
+
+    return [...new Set([...imageCandidates, ...mediaImages, ...imageArray, ...variantImages]
+        .filter((image) => image && !isKnownMismatchedProductMedia(product, image)))];
+}
+
 export function getProductCategory(product) {
     const category = product?.category;
     if (typeof category === "string") return category.trim();

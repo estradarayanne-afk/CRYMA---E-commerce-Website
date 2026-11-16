@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     BarChart3,
+    Bell,
     Boxes,
     ClipboardList,
     Clock3,
@@ -52,9 +53,14 @@ function LogisticsLayout() {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notificationError, setNotificationError] = useState("");
     const [canManageHubStaff, setCanManageHubStaff] = useState(false);
     const [logoutModalOpen, setLogoutModalOpen] = useState(false);
     const profileRef = useRef(null);
+    const notificationsRef = useRef(null);
     const [user, setUser] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem("user") || "null");
@@ -90,6 +96,40 @@ function LogisticsLayout() {
             });
         return () => { active = false; };
     }, []);
+
+    useEffect(() => {
+        if (!localStorage.getItem("token") || user?.role !== "logistics") return undefined;
+        let active = true;
+        const refreshNotifications = () => api.get("/logistics/notifications").then(({ data }) => {
+            if (!active) return;
+            const items = data?.data?.notifications;
+            if (!Array.isArray(items)) throw new Error("The logistics notifications response is invalid.");
+            setNotifications(items);
+            setUnreadNotifications(Number(data.data.unread_count || 0));
+            setNotificationError("");
+        }).catch((error) => {
+            if (active) setNotificationError(error.response?.data?.message || error.message || "Unable to load logistics notifications.");
+        });
+        void refreshNotifications();
+        const timer = window.setInterval(refreshNotifications, 30_000);
+        return () => { active = false; window.clearInterval(timer); };
+    }, [user?.id, user?.role]);
+
+    useEffect(() => {
+        if (!notificationsOpen) return undefined;
+        const closeOnOutsideClick = (event) => {
+            if (!notificationsRef.current?.contains(event.target)) setNotificationsOpen(false);
+        };
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") setNotificationsOpen(false);
+        };
+        document.addEventListener("mousedown", closeOnOutsideClick);
+        window.addEventListener("keydown", closeOnEscape);
+        return () => {
+            document.removeEventListener("mousedown", closeOnOutsideClick);
+            window.removeEventListener("keydown", closeOnEscape);
+        };
+    }, [notificationsOpen]);
 
     useEffect(() => {
         if (!mobileNavOpen) return undefined;
@@ -159,6 +199,37 @@ function LogisticsLayout() {
         navigate("/logistics/settings");
     };
 
+    const openNotification = async (notification) => {
+        if (!notification.read_at) {
+            try {
+                const { data } = await api.patch(`/logistics/notifications/${notification.id}/read`);
+                const readAt = data?.data?.read_at || new Date().toISOString();
+                setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read_at: readAt } : item));
+                setUnreadNotifications((current) => Math.max(0, current - 1));
+                setNotificationError("");
+            } catch (error) {
+                setNotificationError(error.response?.data?.message || "Unable to mark this notification as read.");
+                return;
+            }
+        }
+        setNotificationsOpen(false);
+        if (notification.data?.link?.startsWith("/logistics/")) {
+            navigate(notification.data.link, { state: { logisticsNotification: notification.data } });
+        }
+    };
+
+    const markAllNotificationsRead = async () => {
+        try {
+            await api.patch("/logistics/notifications/read-all");
+            const readAt = new Date().toISOString();
+            setNotifications((current) => current.map((item) => ({ ...item, read_at: item.read_at || readAt })));
+            setUnreadNotifications(0);
+            setNotificationError("");
+        } catch (error) {
+            setNotificationError(error.response?.data?.message || "Unable to mark logistics notifications as read.");
+        }
+    };
+
     return (
         <div className={`lw-root${sidebarCollapsed ? " lw-root--collapsed" : ""}${mobileNavOpen ? " lw-root--mobile-open" : ""}`}>
             <aside className="lw-sidebar">
@@ -210,7 +281,33 @@ function LogisticsLayout() {
                         </button>
                         <div className="lw-breadcrumb"><span>CRYMA</span><span>/</span><strong>{currentPage}</strong></div>
                     </div>
-                    <div className="lw-header-right"><div className="lw-header-status"><Boxes size={14} aria-hidden="true" />Logistics workspace</div><div className="lw-header-date"><span className="lw-header-date-icon"><Clock3 aria-hidden="true" /></span><div><span>Today</span><strong>{headerDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" })}</strong></div></div></div>
+                    <div className="lw-header-right">
+                        <div className="lw-notification-wrap" ref={notificationsRef}>
+                            <button type="button" className={`lw-notification-trigger${notificationsOpen ? " is-open" : ""}`} onClick={() => setNotificationsOpen((open) => !open)} aria-label={unreadNotifications ? `Notifications, ${unreadNotifications} unread` : "Notifications"} aria-expanded={notificationsOpen} aria-haspopup="true" aria-controls="logistics-notification-menu">
+                                <Bell size={17} strokeWidth={1.9} />
+                                {unreadNotifications > 0 && <span className="lw-notification-count">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}
+                            </button>
+                            {notificationsOpen && <div className="lw-notification-menu" id="logistics-notification-menu" role="dialog" aria-label="Logistics notifications">
+                                <div className="lw-notification-menu-head">
+                                    <div><strong>Notifications</strong><span>{unreadNotifications ? `${unreadNotifications} unread` : "You're all caught up"}</span></div>
+                                    {unreadNotifications > 0 && <button type="button" onClick={() => void markAllNotificationsRead()}>Mark all read</button>}
+                                </div>
+                                {notificationError && <p className="lw-notification-error" role="alert">{notificationError}</p>}
+                                <div className="lw-notification-list">
+                                    {notifications.length ? notifications.map((notification) => <button type="button" key={notification.id} className={`lw-notification-item${notification.read_at ? " is-read" : " is-unread"}`} onClick={() => void openNotification(notification)}>
+                                        <span className="lw-notification-indicator" />
+                                        <span className="lw-notification-copy">
+                                            <strong>{notification.data?.title || "Notification"}</strong>
+                                            <span>{notification.data?.message || "You have an update."}</span>
+                                            <small>{new Date(notification.created_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</small>
+                                        </span>
+                                    </button>) : <p className="lw-notification-empty">New pickup requests will appear here.</p>}
+                                </div>
+                            </div>}
+                        </div>
+                        <div className="lw-header-status"><Boxes size={14} aria-hidden="true" />Logistics workspace</div>
+                        <div className="lw-header-date"><span className="lw-header-date-icon"><Clock3 aria-hidden="true" /></span><div><span>Today</span><strong>{headerDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" })}</strong></div></div>
+                    </div>
                 </header>
                 <main className="lw-content al-content"><Outlet /></main>
             </div>

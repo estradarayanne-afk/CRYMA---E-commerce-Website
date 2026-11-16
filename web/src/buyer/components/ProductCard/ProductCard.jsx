@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, PackageOpen, ShoppingCart, Star } from "lucide-react";
+import { Heart, ShoppingCart, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     getBuyerWishlist,
@@ -9,36 +9,12 @@ import {
     showBuyerToast,
 } from "../../../shared/utils/buyerAccess";
 import { getProductDetailPath, toggleWishlistProduct } from "../../../shared/utils/buyerProductActions";
-import { getProductCategory, getProductShopName } from "../../../shared/utils/productDiscovery";
+import {
+    getProductCategory,
+    getProductImageCandidates,
+    getProductShopName,
+} from "../../../shared/utils/productDiscovery";
 import "./ProductCard.css";
-
-// Known catalog mismatch: product 10 points to unrelated seller media.
-// Keep its product data intact and use the neutral fallback until the catalog is corrected.
-const KNOWN_MISMATCHED_PRODUCT_MEDIA = new Map([
-    ["10", new Set([
-        "/storage/products/10/tHbKkfs0Y9zXqUReFgoxxFwYoR9AqrdV1sHRFyYA.jpg",
-        "/storage/products/10/HjunRcu6Wmw93Bhsbw3wd533ui3tVVQQLAJ9DICI.mp4",
-    ])],
-]);
-
-function isKnownMismatchedMedia(product, mediaUrl) {
-    const mismatchedPaths = KNOWN_MISMATCHED_PRODUCT_MEDIA.get(String(product?.id));
-    if (!mismatchedPaths) return false;
-
-    try {
-        const pathname = decodeURIComponent(new URL(mediaUrl, window.location.origin).pathname).toLowerCase();
-        return [...mismatchedPaths].some((path) => path.toLowerCase() === pathname);
-    } catch {
-        return [...mismatchedPaths].some((path) => path.toLowerCase() === String(mediaUrl).toLowerCase());
-    }
-}
-
-function getMediaUrl(media) {
-    const url = typeof media === "string"
-        ? media
-        : media?.url || media?.image_url || media?.video_url;
-    return typeof url === "string" ? url.trim() : "";
-}
 
 function ProductCard({
     product,
@@ -49,22 +25,9 @@ function ProductCard({
 }) {
     const navigate = useNavigate();
     const [wishlist, setWishlist] = useState(getBuyerWishlist);
-    const imageCandidates = [product?.image, product?.image_url, product?.thumbnail, product?.displayImage]
-        .map(getMediaUrl);
-    const imageArray = Array.isArray(product?.images) ? product.images.map(getMediaUrl) : [];
-    const mediaImages = Array.isArray(product?.media)
-        ? product.media.filter((media) => String(media?.type || "").toLowerCase() === "image").map(getMediaUrl)
-        : [];
-    const videoCandidates = Array.isArray(product?.videos) ? product.videos.map(getMediaUrl) : [];
-    const productImages = [...new Set([...imageCandidates, ...mediaImages, ...imageArray]
-        .filter((image) => typeof image === "string" && image.trim() && !isKnownMismatchedMedia(product, image)))];
+    const productImages = getProductImageCandidates(product);
     const [failedImage, setFailedImage] = useState("");
     const productImage = productImages.find((image) => image !== failedImage) || "";
-    const productVideoCandidates = [...videoCandidates, ...(Array.isArray(product?.media)
-        ? product.media.filter((media) => String(media?.type || "").toLowerCase() === "video").map(getMediaUrl)
-        : [])].filter((video) => typeof video === "string" && video.trim() && !isKnownMismatchedMedia(product, video));
-    const [failedVideo, setFailedVideo] = useState("");
-    const productVideo = productVideoCandidates.find((video) => video !== failedVideo) || "";
     const [loadedImage, setLoadedImage] = useState("");
 
     const localSaved = wishlist.some((id) => String(id) === String(product?.id));
@@ -162,6 +125,8 @@ function ProductCard({
         }
     };
 
+    if (!productImage) return null;
+
     return (
         <article
             className={`buyer-product-card ${tiltOnHover ? "is-tiltable" : ""}`}
@@ -176,34 +141,16 @@ function ProductCard({
                     product?.name || "product"
                 }`}
             >
-                <div className={`buyer-product-image ${productImage || productVideo ? "has-image" : ""} ${((productImage && loadedImage === productImage) || (productVideo && loadedImage === productVideo)) ? "has-loaded-image" : ""}`}>
+                <div className={`buyer-product-image has-image ${loadedImage === productImage ? "has-loaded-image" : ""}`}>
                     {sellerOnVacation && <span className="buyer-product-vacation-badge">On vacation</span>}
-                    {productImage && failedImage !== productImage ? (
-                        <img
-                            src={productImage}
-                            alt={product?.name || "Product"}
-                            loading="lazy"
-                            decoding="async"
-                            onLoad={() => setLoadedImage(productImage)}
-                            onError={() => setFailedImage(productImage)}
-                        />
-                    ) : productVideo ? (
-                        <video
-                            src={productVideo}
-                            muted
-                            playsInline
-                            preload="metadata"
-                            aria-label={`${product?.name || "Product"} video preview`}
-                            onLoadedData={() => setLoadedImage(productVideo)}
-                            onError={() => setFailedVideo(productVideo)}
-                        />
-                    ) : (
-                        <span className="buyer-product-image-fallback" role="img" aria-label={`Illustrated placeholder for ${product?.name || "product"}`}>
-                            <span className="buyer-product-fallback-orbit" aria-hidden="true" />
-                            <span className="buyer-product-fallback-mark" aria-hidden="true"><PackageOpen size={32} strokeWidth={1.4} /></span>
-                            <small>Image unavailable</small>
-                        </span>
-                    )}
+                    <img
+                        src={productImage}
+                        alt={product?.name || "Product"}
+                        loading="lazy"
+                        decoding="async"
+                        onLoad={() => setLoadedImage(productImage)}
+                        onError={() => setFailedImage(productImage)}
+                    />
                 </div>
             </Link>
 

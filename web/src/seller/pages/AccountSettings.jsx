@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import api from "../../shared/services/api";
 import { formatStatusLabel } from "../../shared/utils/statusLabel";
+import PhilippineAddressFields from "../../auth/components/PhilippineAddressFields";
 
 function SellerAccountSettings() {
     const [user, setUser] = useState(null);
@@ -19,6 +20,7 @@ function SellerAccountSettings() {
     const [profilePhotoError, setProfilePhotoError] = useState("");
     const profilePhotoPreviewRef = useRef("");
     const [pickupRegions, setPickupRegions] = useState([]);
+    const [pickupPsgcCode, setPickupPsgcCode] = useState("");
     const [pickupAddress, setPickupAddress] = useState({
         recipient_name: "",
         phone: "",
@@ -72,6 +74,13 @@ function SellerAccountSettings() {
     const setP = (e) => setProfileForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     const setPw = (e) => setPasswordForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     const setPickup = (event) => setPickupAddress((current) => ({ ...current, [event.target.name]: event.target.value }));
+    const handlePickupLocationChange = useCallback(({ region, province, city, barangay, psgc_code }) => {
+        setPickupAddress((current) => ({ ...current, region, province, municipality: city, barangay }));
+        setPickupPsgcCode(psgc_code || "");
+    }, []);
+    const handlePickupPostalCodeChange = useCallback((postalCode) => {
+        setPickupAddress((current) => ({ ...current, postal_code: postalCode || "" }));
+    }, []);
 
     const savePickupAddress = async (event) => {
         event.preventDefault();
@@ -264,28 +273,21 @@ function SellerAccountSettings() {
                             <input id="seller-pickup-phone" name="phone" type="tel" value={pickupAddress.phone} onChange={setPickup} maxLength={13} placeholder="09XXXXXXXXX" required />
                         </div>
                     </div>
-                    <div className="sl-form-row">
-                        <div className="sl-field">
-                            <label htmlFor="seller-pickup-region">Region</label>
-                            <select id="seller-pickup-region" name="region" value={pickupAddress.region} onChange={setPickup} required>
-                                <option value="">Select a region</option>
-                                {pickupRegions.map((region) => <option value={region} key={region}>{region}</option>)}
-                            </select>
-                        </div>
-                        <div className="sl-field">
-                            <label htmlFor="seller-pickup-province">Province</label>
-                            <input id="seller-pickup-province" name="province" value={pickupAddress.province} onChange={setPickup} maxLength={160} required />
-                        </div>
-                    </div>
-                    <div className="sl-form-row">
-                        <div className="sl-field">
-                            <label htmlFor="seller-pickup-municipality">City / Municipality</label>
-                            <input id="seller-pickup-municipality" name="municipality" value={pickupAddress.municipality} onChange={setPickup} maxLength={160} required />
-                        </div>
-                        <div className="sl-field">
-                            <label htmlFor="seller-pickup-barangay">Barangay</label>
-                            <input id="seller-pickup-barangay" name="barangay" value={pickupAddress.barangay} onChange={setPickup} maxLength={160} required />
-                        </div>
+                    <div className="seller-pickup-location-fields">
+                        <PhilippineAddressFields
+                            region={pickupAddress.region}
+                            province={pickupAddress.province}
+                            city={pickupAddress.municipality}
+                            barangay={pickupAddress.barangay}
+                            psgcCode={pickupPsgcCode}
+                            onChange={handlePickupLocationChange}
+                            onPostalCodeChange={handlePickupPostalCodeChange}
+                            allowedRegions={pickupRegions}
+                            hydrateExisting
+                            disabled={savingPickup}
+                            idPrefix="seller-pickup"
+                            cityLabel="City / Municipality"
+                        />
                     </div>
                     <div className="sl-form-row">
                         <div className="sl-field">

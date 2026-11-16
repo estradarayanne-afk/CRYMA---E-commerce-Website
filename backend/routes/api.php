@@ -44,6 +44,7 @@ use App\Http\Controllers\Courier\DeliveryProofController;
 use App\Http\Controllers\Courier\PickupController;
 use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboardController;
 use App\Http\Controllers\Logistics\HubStaffParcelOperationsController;
+use App\Http\Controllers\Logistics\NotificationController as LogisticsNotificationController;
 use App\Http\Controllers\Logistics\ParcelFlowController;
 use App\Http\Controllers\Logistics\ParcelOperationsController;
 use App\Http\Controllers\Logistics\RiderManagementController;
@@ -205,6 +206,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     });
 
     Route::middleware('role:logistics')->group(function () {
+        Route::get('/logistics/notifications', [LogisticsNotificationController::class, 'index']);
+        Route::patch('/logistics/notifications/read-all', [LogisticsNotificationController::class, 'markAllRead']);
+        Route::patch('/logistics/notifications/{id}/read', [LogisticsNotificationController::class, 'markRead']);
         Route::post('/logistics/deliveries/{deliveryId}/seller-chat', [DeliveryConversationController::class, 'startSellerLogisticsConversation']);
         Route::get('/logistics/delivery-chats', [DeliveryConversationController::class, 'logisticsConversations']);
         Route::get('/logistics/delivery-chats/{conversationId}', [DeliveryConversationController::class, 'showLogisticsConversation']);

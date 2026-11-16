@@ -4,10 +4,13 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import api from "../../shared/services/api";
 import { getBuyerWishlist, isBuyerSession, requestBuyerSignIn, saveBuyerWishlist, showBuyerToast } from "../../shared/utils/buyerAccess";
 import { toggleWishlistProduct } from "../../shared/utils/buyerProductActions";
+import { getProductImageCandidates } from "../../shared/utils/productDiscovery";
 import "./Storefront.css";
 
 function StoreProductCard({ product }) {
-    const image = product.image || product.images?.[0] || "";
+    const imageCandidates = getProductImageCandidates(product);
+    const [failedImage, setFailedImage] = useState("");
+    const image = imageCandidates.find((candidate) => candidate !== failedImage) || "";
     const price = Number(product.price || 0);
     const originalPrice = Number(product.original_price || 0);
     const [wishlist, setWishlist] = useState(getBuyerWishlist);
@@ -22,6 +25,8 @@ function StoreProductCard({ product }) {
             window.removeEventListener("storage", syncWishlist);
         };
     }, []);
+
+    if (!image) return null;
 
     const saveFavorite = () => {
         if (!isBuyerSession()) {
@@ -43,7 +48,7 @@ function StoreProductCard({ product }) {
     return (
         <article className="public-store-product">
             <Link className="public-store-product-link" to={`/products/${product.id}`}>
-                <div className="public-store-product-image">{product.seller?.is_on_vacation && <span className="public-store-vacation-badge">On vacation</span>}{image ? <img src={image} alt={product.name} loading="lazy" /> : <span className="public-store-product-fallback">{product.name?.charAt(0)?.toUpperCase() || "C"}</span>}</div>
+                <div className="public-store-product-image">{product.seller?.is_on_vacation && <span className="public-store-vacation-badge">On vacation</span>}{image ? <img src={image} alt={product.name} loading="lazy" onError={() => setFailedImage(image)} /> : <span className="public-store-product-fallback">{product.name?.charAt(0)?.toUpperCase() || "C"}</span>}</div>
                 <div className="public-store-product-copy"><span>{product.store_category || product.category}</span><h3>{product.name}</h3><div className="public-store-product-pricing"><strong>{String.fromCharCode(8369)}{price.toLocaleString()}</strong>{originalPrice > price && <del>{String.fromCharCode(8369)}{originalPrice.toLocaleString()}</del>}</div></div>
             </Link>
             <button type="button" className={`public-store-product-save${isSaved ? " saved" : ""}`} onClick={saveFavorite} aria-pressed={isSaved} aria-label={isSaved ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}><Heart size={16} fill={isSaved ? "currentColor" : "none"} /></button>
@@ -60,6 +65,7 @@ function PublicStorefront() {
     const requestMatches = storeResult.slug === slug;
     const store = requestMatches ? storeResult.store : null;
     const products = requestMatches ? storeResult.products : [];
+    const displayableProducts = products.filter((product) => getProductImageCandidates(product).length > 0);
     const loading = !requestMatches;
     const error = requestMatches ? storeResult.error : "";
     const selectedCategory = categorySelection.locationKey === location.key ? categorySelection.value : "all";
@@ -80,10 +86,10 @@ function PublicStorefront() {
 
     const settings = store?.settings || {};
     const visibleCategories = Array.isArray(settings.store_categories) ? settings.store_categories : [];
-    const selectedProducts = (selectedCategory === "all" ? products : products.filter((product) => product.store_category === selectedCategory))
+    const selectedProducts = (selectedCategory === "all" ? displayableProducts : displayableProducts.filter((product) => product.store_category === selectedCategory))
         .filter((product) => `${product.name || ""} ${product.store_category || ""} ${product.category || ""}`.toLowerCase().includes(productQuery.trim().toLowerCase()));
     const featuredProducts = (settings.show_featured && Array.isArray(settings.featured_product_ids))
-        ? settings.featured_product_ids.map((id) => products.find((product) => String(product.id) === String(id))).filter(Boolean)
+        ? settings.featured_product_ids.map((id) => displayableProducts.find((product) => String(product.id) === String(id))).filter(Boolean)
         : [];
 
     const contactStore = () => {
@@ -134,14 +140,14 @@ function PublicStorefront() {
             <nav className="public-store-shop-nav" aria-label="Store sections">
                 <a href="#store-landing" className="is-active">Home</a>
                 <a href="#store-categories">Categories</a>
-                <a href="#store-products">Products <span>{products.length}</span></a>
+                <a href="#store-products">Products <span>{displayableProducts.length}</span></a>
             </nav>
 
             {settings.show_categories && visibleCategories.length > 0 && <section className="public-store-category-section" id="store-categories">
                 <div className="public-store-section-heading"><div><span>FIND YOUR FAVORITES</span><h2>Shop by category</h2></div><p>{visibleCategories.length} categories</p></div>
                 <nav className="public-store-categories" aria-label="Shop store categories">
                     <button type="button" className={selectedCategory === "all" ? "is-active" : ""} onClick={() => setSelectedCategory("all")}>All products</button>
-                    {visibleCategories.map((category) => <button type="button" key={category} className={selectedCategory === category ? "is-active" : ""} onClick={() => { setSelectedCategory(category); document.getElementById("store-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{category}<span>{products.filter((product) => product.store_category === category).length}</span></button>)}
+                    {visibleCategories.map((category) => <button type="button" key={category} className={selectedCategory === category ? "is-active" : ""} onClick={() => { setSelectedCategory(category); document.getElementById("store-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{category}<span>{displayableProducts.filter((product) => product.store_category === category).length}</span></button>)}
                 </nav>
             </section>}
 
@@ -153,7 +159,7 @@ function PublicStorefront() {
             <section className="public-store-products public-store-all-products" id="store-products">
                 <div className="public-store-section-heading"><div><span>THE STORE COLLECTION</span><h2>{selectedCategory === "all" ? "All products" : selectedCategory}</h2></div><p>{selectedProducts.length} {selectedProducts.length === 1 ? "product" : "products"}</p></div>
                 <label className="public-store-search"><Search size={17} /><input type="search" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Search this store" aria-label="Search products in this store" /></label>
-                {selectedProducts.length ? <div className="public-store-grid">{selectedProducts.map((product) => <StoreProductCard product={product} key={product.id} />)}</div> : <div className="public-store-empty">{products.length ? "No products match your search." : "This store is getting ready. Check back soon for new products."}</div>}
+                {selectedProducts.length ? <div className="public-store-grid">{selectedProducts.map((product) => <StoreProductCard product={product} key={product.id} />)}</div> : <div className="public-store-empty">{displayableProducts.length ? "No products match your search." : "This store is getting ready. Check back soon for new products."}</div>}
             </section>
         </main>
     );
