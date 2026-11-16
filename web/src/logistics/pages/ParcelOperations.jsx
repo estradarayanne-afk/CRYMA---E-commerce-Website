@@ -5,7 +5,7 @@ import ConfirmationModal from "../components/ConfirmationModal";
 import PrivateDeliveryProof from "../../shared/components/PrivateDeliveryProof";
 import ParcelQrScanner from "../../shared/components/ParcelQrScanner";
 import { recommendCouriersForDelivery, sortCouriersByHubDistance } from "../utils/courierProximity";
-import { buildPickupDecisionPayload } from "../utils/parcelOperations.js";
+import { buildPickupDecisionPayload, requiresPickupReassignmentReason } from "../utils/parcelOperations.js";
 import "./ParcelOperations.css";
 
 const DEFAULT_QUEUE = {
@@ -260,9 +260,9 @@ export default function ParcelOperations({ section }) {
             setError("Only an accepted, uncollected pickup request can be assigned.");
             return;
         }
-        const existingCourierIsAvailable = eligiblePickup.some((courier) =>
+        const existingCourierIsEligible = eligiblePickup.some((courier) =>
             Number(courier.id) === Number(existing?.courier_profile_id));
-        const courierProfileId = Number(pickupChoices[orderId] || (existingCourierIsAvailable ? existing?.courier_profile_id : 0));
+        const courierProfileId = Number(pickupChoices[orderId] || (existingCourierIsEligible ? existing?.courier_profile_id : 0));
         const localSchedule = pickupSchedules[orderId] ?? localDateTimeValue(existing?.scheduled_at);
         const reason = getReason(`pickup-${orderId}`).trim();
         if (!courierProfileId || !eligiblePickup.some((courier) => Number(courier.id) === courierProfileId)) {
@@ -274,7 +274,7 @@ export default function ParcelOperations({ section }) {
             setError("Choose a pickup date and time in the future.");
             return;
         }
-        if (existing && existing.status !== "PICKUP_REQUESTED" && courierProfileId !== Number(existing.courier_profile_id) && !reason) {
+        if (requiresPickupReassignmentReason(existing, courierProfileId) && !reason) {
             setError("Provide a reason when changing the assigned pickup courier.");
             return;
         }
@@ -480,7 +480,7 @@ export default function ParcelOperations({ section }) {
                 <div><span className="lw-eyebrow">{config.eyebrow}</span><h1>{config.title}</h1><p>{config.description}</p></div>
                 <button type="button" onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
             </header>
-            {error && <div className="lw-alert" role="alert"><span>{error}</span><button type="button" onClick={() => void load()} disabled={loading}>Retry</button></div>}
+            {error && <div className="lw-alert" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")}>Dismiss</button></div>}
             {notice && <div className="lr-notice" role="status">{notice}</div>}
             {receiptResult && <div className="lr-notice" role="status">Backend verified parcel {receiptResult.parcelCode}{receiptResult.orderId ? ` · Order #${receiptResult.orderId}` : ""}{receiptResult.transferId ? ` · Transfer #${receiptResult.transferId}` : ""} at {receiptResult.hubName || "the selected hub"}.</div>}
             {loading ? <div className="lw-empty" role="status">Loading parcel records…</div> : (
@@ -498,10 +498,11 @@ export default function ParcelOperations({ section }) {
                                 </article>)}
                                 {pickupRows.filter((item) => item.status !== "PICKED_UP").map((assignment) => {
                                     const decisions = assignment.decision_history || assignment.decisionHistory;
+                                    const assignedCourier = assignment.courier_profile || assignment.courierProfile;
                                     const awaitingDecision = assignment.status === "PICKUP_REQUESTED";
                                     const canAssign = ["ACCEPTED_BY_LOGISTICS", "ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"].includes(assignment.status);
                                     return <article className="lo-row lo-pickup-row" key={`assigned-${assignment.id}`}>
-                                        <div><strong>Order #{assignment.order_id} | {statusLabel(assignment.status)}</strong><span>{assignment.courierProfile ? `Courier: ${courierName(assignment.courierProfile)}` : "Awaiting courier assignment"}</span>{assignment.target_hub && <small>Destination hub: {assignment.target_hub.name} | {assignment.target_hub.location_label}</small>}{assignment.requested_at && <small>Seller requested: {new Date(assignment.requested_at).toLocaleString("en-PH")}</small>}{assignment.assigned_at && <small>Courier assigned: {new Date(assignment.assigned_at).toLocaleString("en-PH")}</small>}<small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small>
+                                        <div><strong>Order #{assignment.order_id} | {statusLabel(assignment.status)}</strong><span>{assignedCourier ? `Courier: ${courierName(assignedCourier)}` : "Awaiting courier assignment"}</span>{assignment.target_hub && <small>Destination hub: {assignment.target_hub.name} | {assignment.target_hub.location_label}</small>}{assignment.requested_at && <small>Seller requested: {new Date(assignment.requested_at).toLocaleString("en-PH")}</small>}{assignment.assigned_at && <small>Courier assigned: {new Date(assignment.assigned_at).toLocaleString("en-PH")}</small>}<small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small>
                                             {Array.isArray(decisions) && decisions.length > 0 && <div className="lo-pickup-decision-history"><strong>Decision history</strong>{decisions.map((decision) => <small key={decision.id || `${decision.decision}-${decision.decided_at}`}>{statusLabel(decision.decision)}{decision.actor ? ` by ${courierName({ user: decision.actor })}` : ""}{decision.decided_at ? ` | ${new Date(decision.decided_at).toLocaleString("en-PH")}` : ""}{decision.reason ? ` | ${decision.reason}` : ""}</small>)}</div>}
                                         </div>
                                         {assignment.pickup_address && <p className="lo-pickup-schedule-summary">Pickup address: {assignment.pickup_address}</p>}
@@ -525,7 +526,7 @@ export default function ParcelOperations({ section }) {
 
                     {section === "incoming" && <section className="lo-panel"><div className="lo-panel-heading"><div><h2>Parcels awaiting sorting-center receipt</h2><p>Choose the receiving hub, then scan the parcel QR to confirm custody.</p></div><span className="lo-queue-count">{awaitingReceipt.length} waiting</span></div>
                         {awaitingReceipt.length === 0 ? <p className="lw-empty">No collected parcels are awaiting sorting-center receipt.</p> : awaitingReceipt.map((assignment) => <article className="lo-row lo-incoming-row" key={assignment.id}>
-                            <div><strong>Order #{assignment.order_id} · Collected</strong><span>Pickup courier: {courierName(assignment.courierProfile)}</span><small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small><small>Collection recorded: {assignment.picked_up_at ? new Date(assignment.picked_up_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small></div>
+                            <div><strong>Order #{assignment.order_id} · Collected</strong><span>Pickup courier: {courierName(assignment.courier_profile || assignment.courierProfile)}</span><small>{(assignment.order?.items || []).map((item) => item.product?.name).filter(Boolean).join(", ")}</small><small>Parcel weight: {parcelWeight(assignment.order?.items)}</small><small>Collection recorded: {assignment.picked_up_at ? new Date(assignment.picked_up_at).toLocaleString("en-PH") : "Timestamp unavailable"}</small></div>
                             <div className="lo-actions"><label className="lo-field-label">Receiving hub<select aria-label={`Receiving hub for order ${assignment.order_id}`} value={assignment.target_hub?.id || hubChoices[assignment.id] || ""} disabled={!!assignment.target_hub?.id} onChange={(event) => setHubChoices((current) => ({ ...current, [assignment.id]: event.target.value }))}><option value="">Select active hub</option>{hubs.filter((hub) => hub.is_active && (!assignment.target_hub?.id || Number(hub.id) === Number(assignment.target_hub.id))).map((hub) => <option key={hub.id} value={hub.id}>{hub.name} · {hub.code}</option>)}</select></label><button type="button" disabled={!!saving || !(assignment.target_hub?.id || hubChoices[assignment.id])} onClick={() => setReceiptScannerAssignment(assignment)}>{saving === `receipt-${assignment.id}` ? "Receiving…" : "Scan QR and receive"}</button>{receiptScannerAssignment?.id === assignment.id && <ParcelQrScanner title={`Receive parcel for order ${assignment.order_id}`} onScan={(code) => confirmReceipt(assignment, code)} onClose={() => setReceiptScannerAssignment(null)} />}</div>
                         </article>)}</section>}
                     {section === "incoming" && <section className="lo-panel"><h2>Hub transfer arrivals</h2><p className="lo-note">The transfer already has an assigned destination. Verify its parcel QR to record receipt at that hub.</p>{transfers.filter((transfer) => transfer.status === "in_transit").length === 0 ? <p className="lw-empty">No hub transfers are awaiting receipt.</p> : transfers.filter((transfer) => transfer.status === "in_transit").map((transfer) => <article className="lo-row" key={`transfer-${transfer.id}`}><div><strong>Transfer #{transfer.id} · {transfer.delivery ? `Order #${transfer.delivery.order_id}` : `Return #${transfer.return_shipment?.id}`}</strong><span>{transfer.from_hub?.name || "Origin unavailable"} → {transfer.to_hub?.name || "Destination unavailable"}</span><small>Parcel: {transfer.delivery?.parcel_code || "Scan the parcel QR to verify"}</small></div><div className="lo-actions"><div className="lo-transfer-destination"><span>Assigned destination</span><strong>{transfer.to_hub ? `${transfer.to_hub.name} · ${transfer.to_hub.code}` : "Destination unavailable"}</strong></div><button type="button" disabled={!!saving || !transfer.to_hub?.id} onClick={() => setTransferScannerId(transfer.id)}>Scan QR and receive at destination</button>{transferScannerId === transfer.id && <ParcelQrScanner title={`Receive transfer ${transfer.id}`} onScan={(code) => receiveTransferQr(transfer, code)} onClose={() => setTransferScannerId(null)} />}</div></article>)}</section>}

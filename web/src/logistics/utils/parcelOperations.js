@@ -6,6 +6,15 @@ export function buildPickupDecisionPayload(decision, reason = "") {
     return { decision: "rejected", reason: normalizedReason };
 }
 
+export function requiresPickupReassignmentReason(assignment, courierProfileId) {
+    const assignedStatuses = ["ASSIGNED_TO_PICKUP_RIDER", "ACCEPTED_BY_PICKUP_RIDER"];
+    const currentCourierId = Number(assignment?.courier_profile_id || 0);
+
+    return assignedStatuses.includes(assignment?.status)
+        && currentCourierId > 0
+        && Number(courierProfileId) !== currentCourierId;
+}
+
 export function buildThirdPartyShipmentPayload({
     deliveryIds,
     fromHubId,

@@ -6,6 +6,7 @@ import {
     buildThirdPartyShipmentPayload,
     groupThirdPartyShipments,
     parcelCodeMatches,
+    requiresPickupReassignmentReason,
 } from "./parcelOperations.js";
 
 test("pickup decisions use the API payload and require a rejection reason", () => {
@@ -15,6 +16,31 @@ test("pickup decisions use the API payload and require a rejection reason", () =
         reason: "Seller unavailable",
     });
     assert.throws(() => buildPickupDecisionPayload("rejected", "  "), /reason is required/);
+});
+
+test("initial pickup assignment does not require a courier-change reason", () => {
+    assert.equal(requiresPickupReassignmentReason({
+        status: "ACCEPTED_BY_LOGISTICS",
+        courier_profile_id: null,
+    }, 17), false);
+    assert.equal(requiresPickupReassignmentReason({
+        status: "ACCEPTED_BY_LOGISTICS",
+        courier_profile_id: 12,
+    }, 17), false);
+});
+
+test("changing an assigned pickup courier requires a reason only when the courier changes", () => {
+    const assignment = {
+        status: "ASSIGNED_TO_PICKUP_RIDER",
+        courier_profile_id: 12,
+    };
+
+    assert.equal(requiresPickupReassignmentReason(assignment, 12), false);
+    assert.equal(requiresPickupReassignmentReason(assignment, 17), true);
+    assert.equal(requiresPickupReassignmentReason({
+        ...assignment,
+        status: "ACCEPTED_BY_PICKUP_RIDER",
+    }, 17), true);
 });
 
 test("bulk third-party transfer payload matches the backend field names", () => {
