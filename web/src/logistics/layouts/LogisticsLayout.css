@@ -10,7 +10,7 @@
 .lw-main{min-height:100vh;margin-left:var(--lw-sidebar-width);transition:margin-left 180ms ease}.lw-header{position:sticky;top:0;z-index:20;display:flex;height:64px;align-items:center;justify-content:space-between;gap:14px;padding:0 26px;border-bottom:1px solid var(--color-border,#eadfe1);background:rgba(255,255,255,.96);backdrop-filter:blur(10px)}.lw-header-left{display:flex;align-items:center;gap:12px}.lw-breadcrumb{display:flex;align-items:center;gap:9px;color:var(--text-muted,#6f6265);font-size:12px}.lw-breadcrumb strong{color:var(--text-primary,#26151a)}.lw-header-status{display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--color-border,#eadfe1);border-radius:999px;background:#fff;color:var(--text-muted,#6f6265);font-size:11px}.lw-header-status span{width:7px;height:7px;border-radius:50%;background:#2f9a62}.lw-mobile-menu-toggle{display:none}.lw-content{width:min(1280px,100%);margin:0 auto;padding:clamp(18px,3vw,36px)}
 .lw-root--collapsed{--lw-sidebar-width:76px}.lw-root--collapsed .lw-sidebar-top{justify-content:center;padding:0 16px}.lw-root--collapsed .lw-brand,.lw-root--collapsed .lw-brand-copy,.lw-root--collapsed .lw-section-label,.lw-root--collapsed .lw-nav-label,.lw-root--collapsed .lw-nav small,.lw-root--collapsed .lw-user-copy{display:none}.lw-root--collapsed .lw-sidebar-toggle{transform:rotate(180deg)}.lw-root--collapsed .lw-nav{padding:0 10px}.lw-root--collapsed .lw-nav a{justify-content:center;padding:0}.lw-root--collapsed .lw-nav a.active::after{right:2px}.lw-root--collapsed .lw-sidebar-bottom{justify-content:center;flex-wrap:wrap;padding:12px 8px}.lw-root--collapsed .lw-logout{width:100%}
 .lw-mobile-backdrop{display:none}
-@media(max-width:700px){.lw-sidebar{width:280px;transform:translateX(-100%)}.lw-root--mobile-open .lw-sidebar{transform:translateX(0)}.lw-root--mobile-open .lw-mobile-backdrop{position:fixed;inset:0;z-index:900;display:block;border:0;background:rgba(38,21,26,.32)}.lw-sidebar-toggle{display:none}.lw-mobile-menu-toggle{display:flex}.lw-main,.lw-root--collapsed .lw-main{margin-left:0}.lw-root--collapsed{--lw-sidebar-width:0px}.lw-header{height:62px;padding:0 15px}.lw-content{padding:17px 14px 28px}.lw-header-status{padding:6px 8px;font-size:10px}}
+@media(max-width:700px){.lw-sidebar{width:280px;transform:translateX(-100%)}.lw-root--mobile-open .lw-sidebar{transform:translateX(0)}.lw-root--mobile-open .lw-mobile-backdrop{position:fixed;inset:0;z-index:900;display:block;border:0;background:rgba(38,21,26,.32)}.lw-sidebar-toggle{display:none}.lw-mobile-menu-toggle{display:flex}.lw-main,.lw-root--collapsed .lw-main{margin-left:0}.lw-root.lw-root--collapsed{--lw-sidebar-width:0px}.lw-header{height:62px;padding:0 15px}.lw-content{padding:17px 14px 28px}.lw-header-status{padding:6px 8px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){.lw-sidebar,.lw-main{transition:none}}
 
 /* Shared compact CRYMA masthead and clearer operations flow. */
@@ -121,7 +121,7 @@
 .lw-nav a.active{border-color:#f2cad4;background:var(--blush,#f9dce4);box-shadow:inset 3px 0 0 var(--crimson,#b21f3a)}
 .lw-nav a.active::after{display:none}
 .lw-sidebar-toggle{width:38px;height:38px}
-.lw-root--collapsed{--lw-sidebar-width:82px}
+.lw-root.lw-root--collapsed{--lw-sidebar-width:82px}
 .lw-header{height:72px;padding-inline:30px}
 .lw-content{width:100%;max-width:none;padding:28px 30px 40px}
 .lw-page-heading h1,.lw-unavailable h1{font-size:25px;font-weight:700;letter-spacing:-.4px}
