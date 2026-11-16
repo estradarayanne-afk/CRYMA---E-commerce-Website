@@ -317,6 +317,92 @@ class LogisticsOperationsTest extends TestCase
             ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
     }
 
+    public function test_parcel_flow_lists_all_hub_inventory_and_marks_transfer_requirements(): void
+    {
+        $logistics = $this->logisticsUser();
+        $origin = LogisticsHub::where('is_active', true)->firstOrFail();
+        $destination = LogisticsHub::create(['name' => 'Inventory destination hub', 'code' => 'INVENTORY-DEST', 'is_active' => true]);
+        $destinationArea = DeliveryArea::create(['name' => 'Inventory destination area', 'is_active' => true, 'hub_id' => $destination->id]);
+        $originArea = DeliveryArea::create(['name' => 'Inventory origin area', 'is_active' => true, 'hub_id' => $origin->id]);
+        $transferDelivery = null;
+
+        for ($i = 0; $i < 101; $i++) {
+            $order = $this->order(Delivery::AT_SORTING_CENTER);
+            $delivery = Delivery::create([
+                'order_id' => $order->id,
+                'status' => Delivery::AT_SORTING_CENTER,
+                'current_hub_id' => $origin->id,
+                'delivery_area_id' => $destinationArea->id,
+            ]);
+            $transferDelivery ??= $delivery;
+        }
+
+        $localOrder = $this->order(Delivery::SORTED);
+        $localDelivery = Delivery::create([
+            'order_id' => $localOrder->id,
+            'status' => Delivery::SORTED,
+            'current_hub_id' => $origin->id,
+            'delivery_area_id' => $originArea->id,
+        ]);
+
+        $response = $this->actingAs($logistics, 'sanctum')
+            ->getJson('/api/logistics/parcel-flow')
+            ->assertOk();
+        $deliveries = collect($response->json('data.deliveries'))->keyBy('id');
+
+        $this->assertCount(102, $deliveries);
+        $this->assertTrue($deliveries[$transferDelivery->id]['requires_transfer']);
+        $this->assertFalse($deliveries[$localDelivery->id]['requires_transfer']);
+    }
+
+    public function test_logistics_can_assign_a_scanned_parcel_for_global_direct_delivery(): void
+    {
+        $logistics = $this->logisticsUser();
+        [$courier, $courierProfile] = $this->eligibleCourier('Talisay');
+        $hub = LogisticsHub::where('is_active', true)->firstOrFail();
+        $order = $this->order(Delivery::AT_SORTING_CENTER);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'status' => Delivery::AT_SORTING_CENTER,
+            'current_hub_id' => $hub->id,
+        ]);
+        $this->actingAs($logistics, 'sanctum');
+
+        $this->postJson("/api/logistics/orders/{$order->id}/direct-delivery", [
+            'courier_profile_id' => $courierProfile->id,
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+        ])->assertUnprocessable();
+
+        $this->patchJson("/api/logistics/orders/{$order->id}/scan", [
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+            'parcel_code' => $delivery->parcel_code,
+        ])->assertOk();
+
+        $this->postJson("/api/logistics/orders/{$order->id}/direct-delivery", [
+            'courier_profile_id' => $courierProfile->id,
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+        ])->assertOk()
+            ->assertJsonPath('message', 'Parcel assigned for direct delivery to the buyer.')
+            ->assertJsonPath('data.status', Delivery::ASSIGNED)
+            ->assertJsonPath('data.courier_profile_id', $courierProfile->id);
+
+        $this->assertSame(Delivery::ASSIGNED, $order->fresh()->status);
+        $this->assertDatabaseHas('delivery_events', [
+            'delivery_id' => $delivery->id,
+            'actor_id' => $logistics->id,
+            'hub_id' => $hub->id,
+            'event_type' => 'direct_delivery_assigned',
+            'new_status' => Delivery::ASSIGNED,
+            'courier_profile_id' => $courierProfile->id,
+        ]);
+        $this->actingAs($courier, 'sanctum')
+            ->getJson('/api/courier/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.notifications.0.data.task_type', 'delivery')
+            ->assertJsonPath('data.notifications.0.data.task_id', $delivery->id)
+            ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
+    }
+
     public function test_logistics_auto_routes_a_saved_barangay_to_its_delivery_hub(): void
     {
         $logistics = $this->logisticsUser();

@@ -60,3 +60,12 @@ export function parcelCodeMatches(expectedCode, candidate) {
         expectedCode.trim().toUpperCase() === candidate.trim().toUpperCase()
     );
 }
+
+export function getTransferableDeliveries(deliveries, originHubId) {
+    if (!originHubId || !Array.isArray(deliveries)) return [];
+    return deliveries.filter(
+        (delivery) =>
+            delivery.requires_transfer === true &&
+            Number(delivery.current_hub_id) === Number(originHubId)
+    );
+}

@@ -4,6 +4,7 @@ import {
     buildPickupDecisionPayload,
     buildThirdPartyReceivePayload,
     buildThirdPartyShipmentPayload,
+    getTransferableDeliveries,
     groupThirdPartyShipments,
     parcelCodeMatches,
 } from "./parcelOperations.js";
@@ -72,4 +73,15 @@ test("bulk receive payload includes a verified parcel code for every transfer", 
     });
     assert.equal(parcelCodeMatches("CRYMA-PCL-123", " cryma-pcl-123 "), true);
     assert.equal(parcelCodeMatches("CRYMA-PCL-123", "CRYMA-PCL-999"), false);
+});
+
+test("transfer selection includes every parcel needing transfer at the selected origin only", () => {
+    const deliveries = [
+        { id: 1, current_hub_id: 3, requires_transfer: true },
+        { id: 2, current_hub_id: 3, requires_transfer: false },
+        { id: 3, current_hub_id: 4, requires_transfer: true },
+    ];
+
+    assert.deepEqual(getTransferableDeliveries(deliveries, "3"), [deliveries[0]]);
+    assert.deepEqual(getTransferableDeliveries(deliveries, ""), []);
 });

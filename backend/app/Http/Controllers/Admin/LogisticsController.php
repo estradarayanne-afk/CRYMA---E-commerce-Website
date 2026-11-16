@@ -562,6 +562,94 @@ class LogisticsController extends Controller
         ]);
     }
 
+    public function assignDirectDelivery(Request $request, int $orderId, CourierEligibility $eligibility)
+    {
+        $values = $request->validate([
+            'courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id'],
+            'expected_status' => ['required', Rule::in([Delivery::AT_SORTING_CENTER, Delivery::SORTED])],
+        ]);
+        $courier = $eligibility->find((int) $values['courier_profile_id']);
+        abort_unless($courier, 422, 'Select an eligible courier.');
+
+        $delivery = DB::transaction(function () use ($request, $orderId, $values, $courier, $eligibility) {
+            $order = Order::query()->whereKey($orderId)->lockForUpdate()->firstOrFail();
+            $delivery = Delivery::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(
+                $order->status === $values['expected_status'] && $delivery->status === $order->status,
+                409,
+                'Parcel status changed. Refresh the transfer list.',
+            );
+            abort_unless($delivery->current_hub_id, 409, 'Parcel must be received at a hub before direct delivery.');
+            abort_unless(
+                $delivery->events()->where('event_type', 'parcel_scanned')
+                    ->where('hub_id', $delivery->current_hub_id)->exists()
+                || $delivery->events()->where('event_type', 'hub_transfer_arrived')
+                    ->where('hub_id', $delivery->current_hub_id)->exists(),
+                422,
+                'Verify the parcel at its current hub before direct delivery.',
+            );
+            abort_if(
+                $delivery->hubTransfers()->whereIn('status', ['assigned', 'in_transit'])->exists(),
+                409,
+                'This parcel already has an active hub transfer.',
+            );
+            abort_unless(
+                $delivery->courier_profile_id === null && $delivery->delivery_picked_up_at === null,
+                409,
+                'This parcel already has a rider assignment or has been collected.',
+            );
+            $courier = $eligibility->find($courier->id);
+            abort_unless($courier, 422, 'The selected courier is no longer eligible.');
+
+            if ($delivery->status === Delivery::AT_SORTING_CENTER) {
+                app(\App\Services\ParcelSortingService::class)->transitionToSorted(
+                    $delivery,
+                    $request->user(),
+                    $delivery->delivery_area_id,
+                );
+            }
+
+            $previousStatus = $delivery->status;
+            $currentHubId = (int) $delivery->current_hub_id;
+            $delivery->update([
+                'courier_profile_id' => $courier->id,
+                'assigned_by' => $request->user()->id,
+                'status' => Delivery::ASSIGNED,
+                'assigned_at' => now(),
+                'failure_reason' => null,
+            ]);
+            $order->update(['status' => Delivery::ASSIGNED]);
+            OrderDeliveryProjection::event($delivery, [
+                'actor_id' => $request->user()->id,
+                'hub_id' => $currentHubId,
+                'event_type' => 'direct_delivery_assigned',
+                'previous_status' => $previousStatus,
+                'new_status' => Delivery::ASSIGNED,
+                'courier_profile_id' => $courier->id,
+                'reason' => 'Assigned for direct delivery from the current hub without a hub-to-hub transfer.',
+            ]);
+            $courier->user?->notify(new CourierParcelAssignedNotification(
+                'delivery',
+                (int) $delivery->id,
+                (int) $order->id,
+            ));
+
+            return $delivery->fresh()->load([
+                'order',
+                'currentHub',
+                'deliveryArea.hub',
+                'courierProfile.user',
+                'events.actor',
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Parcel assigned for direct delivery to the buyer.',
+            'data' => $delivery,
+        ]);
+    }
+
     public function scanParcel(Request $request, int $orderId)
     {
         $values = $request->validate([

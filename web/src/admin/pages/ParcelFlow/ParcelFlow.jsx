@@ -3,7 +3,7 @@ import AdminSearchField from "../../components/AdminSearchField";
 import api from "../../../shared/services/api";
 import HubAreaManagement from "./HubAreaManagement";
 import { canDispatchReturnTransfer } from "../../../hubStaff/utils/hubStaffWorkspace";
-import { buildThirdPartyReceivePayload, buildThirdPartyShipmentPayload, groupThirdPartyShipments, parcelCodeMatches } from "../../../logistics/utils/parcelOperations.js";
+import { buildThirdPartyReceivePayload, buildThirdPartyShipmentPayload, getTransferableDeliveries, groupThirdPartyShipments, parcelCodeMatches } from "../../../logistics/utils/parcelOperations.js";
 import { normalizeCompleteHubShipment } from "./shipmentDetails.js";
 
 const human = (s = "") => s.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
@@ -128,10 +128,16 @@ export default function ParcelFlow({ base = "/admin" }) {
             },
             `Hub transfer created for ${type} #${id}.`
         );
-    const eligibleShipmentDeliveries = data.deliveries.filter((delivery) =>
-        ["AT_SORTING_CENTER", "SORTED"].includes(delivery.status));
-    const availableShipmentDeliveries = eligibleShipmentDeliveries.filter((delivery) =>
-        shipmentForm.fromHubId && Number(delivery.current_hub_id) === Number(shipmentForm.fromHubId));
+    const directDelivery = (delivery) =>
+        run(
+            () =>
+                api.post(`${base}/orders/${delivery.order_id}/direct-delivery`, {
+                    courier_profile_id: choices[`direct-delivery-${delivery.id}`],
+                    expected_status: delivery.status,
+                }),
+            `Order #${delivery.order_id} assigned for direct delivery.`,
+        );
+    const availableShipmentDeliveries = getTransferableDeliveries(data.deliveries, shipmentForm.fromHubId);
     const thirdPartyShipments = groupThirdPartyShipments(data.transfers);
     const createThirdPartyShipment = async (event) => {
         event.preventDefault();
@@ -349,7 +355,7 @@ export default function ParcelFlow({ base = "/admin" }) {
                         <label>Tracking reference<input required maxLength={120} value={shipmentForm.trackingReference} onChange={(event) => setShipmentForm((current) => ({ ...current, trackingReference: event.target.value }))} /></label>
                         <label>Shipment reference (optional)<input maxLength={64} value={shipmentForm.shipmentReference} onChange={(event) => setShipmentForm((current) => ({ ...current, shipmentReference: event.target.value }))} /></label>
                     </div>
-                    <p>Select transferable parcels whose current hub is the chosen origin. All selected parcels will share this carrier shipment and destination.</p>
+                    <p>Select from all transfer-ready parcels at the chosen origin. All selected parcels will share this carrier shipment and destination.</p>
                     {!shipmentForm.fromHubId ? <p className="lo-parcel-empty">Choose an origin hub to list parcels available there.</p> : availableShipmentDeliveries.length === 0 ? <p className="lo-parcel-empty">No transferable parcels are currently at this origin hub.</p> : <div className="lo-parcel-item lo-transfer-item-selection" aria-label="Parcels for bulk transfer">{availableShipmentDeliveries.map((delivery) => {
                         const checked = selectedTransferDeliveryIds.some((id) => Number(id) === Number(delivery.id));
                         return <label key={delivery.id}><input type="checkbox" checked={checked} disabled={busy || (!checked && selectedTransferDeliveryIds.length >= 100)} onChange={(event) => setSelectedTransferDeliveryIds((current) => event.target.checked ? [...current.filter((id) => Number(id) !== Number(delivery.id)), String(delivery.id)] : current.filter((id) => Number(id) !== Number(delivery.id)))} /><span>Order #{delivery.order_id} | {delivery.delivery?.parcel_code || delivery.parcel_code || `Parcel #${delivery.id}`} | {human(delivery.status)}</span></label>;
@@ -387,8 +393,8 @@ export default function ParcelFlow({ base = "/admin" }) {
                         {allArrived && <small role="status">Every listed parcel has arrived.</small>}
                     </article>;
                 })}
-                <h3>Existing courier transfers</h3>
-                <p>These retain the existing internal courier path with hub-staff release and receipt.</p>
+                <h3>All available hub items ({data.deliveries.length})</h3>
+                <p>Items from every hub are listed below. Use a hub transfer when the buyer’s delivery hub is elsewhere, or choose Direct Delivery to assign any eligible rider globally.</p>
                 {data.deliveries.map((d) => {
                     const route = d.destination_route;
                     const areaIsMapped = ["mapped", "mapping_conflict", "manual_route"].includes(route?.status);
@@ -396,12 +402,18 @@ export default function ParcelFlow({ base = "/admin" }) {
                     const selectedAreaId = areaIsMapped ? routeArea?.id : choices[`area-delivery-${d.id}`] || "";
                     const selectedArea = areaIsMapped ? routeArea : data.areas.find((area) => Number(area.id) === Number(selectedAreaId));
                     const destinationHub = selectedArea?.hub;
+                    const transferNeeded = selectedArea
+                        ? Number(selectedArea.hub_id) !== Number(d.current_hub_id)
+                        : d.requires_transfer;
                     const needsNote = !!d.order?.delivery_psgc_code && !["mapped", "mapping_conflict"].includes(route?.status);
+                    const verifiedAtCurrentHub = d.events?.some((event) =>
+                        Number(event.hub_id) === Number(d.current_hub_id)
+                        && ["parcel_scanned", "hub_transfer_arrived"].includes(event.event_type));
                     return (
                         <details className="lo-transfer-prepare" key={`d${d.id}`}>
                             <summary>
                                 <strong>Order #{d.order_id} · {human(d.status)}</strong>
-                                <span>{d.current_hub?.name || "Unknown hub"} → {destinationHub?.name || "Routing exception"}</span>
+                                <span>{d.current_hub?.name || "Unknown hub"} → {destinationHub?.name || (d.requires_transfer ? "Routing exception" : "Buyer")}</span>
                             </summary>
                             <div className="lo-parcel-item">
                                 <span>
@@ -436,27 +448,47 @@ export default function ParcelFlow({ base = "/admin" }) {
                                     value={choices[`route-note-${d.id}`] || ""}
                                     onChange={(event) => setChoices({ ...choices, [`route-note-${d.id}`]: event.target.value })}
                                 />}
+                                {transferNeeded ? (
+                                    <>
+                                        <label>
+                                            Transfer courier
+                                            <select
+                                                value={choices[`transfer-delivery-${d.id}`] || ""}
+                                                onChange={(event) => setChoices({ ...choices, [`transfer-delivery-${d.id}`]: event.target.value })}
+                                            >
+                                                {courierOptions}
+                                            </select>
+                                        </label>
+                                        <button
+                                            disabled={busy || !selectedAreaId || !choices[`transfer-delivery-${d.id}`] || (needsNote && !choices[`route-note-${d.id}`]?.trim())}
+                                            onClick={() => void transfer("delivery", d.id)}
+                                        >
+                                            Create transfer to {destinationHub?.name || "destination hub"}
+                                        </button>
+                                    </>
+                                ) : <p>This parcel is already at its delivery hub; no hub transfer is needed.</p>}
                                 <label>
-                                    Transfer courier
+                                    Direct delivery rider (global)
                                     <select
-                                        value={choices[`transfer-delivery-${d.id}`] || ""}
-                                        onChange={(event) => setChoices({ ...choices, [`transfer-delivery-${d.id}`]: event.target.value })}
+                                        value={choices[`direct-delivery-${d.id}`] || ""}
+                                        onChange={(event) => setChoices({ ...choices, [`direct-delivery-${d.id}`]: event.target.value })}
                                     >
                                         {courierOptions}
                                     </select>
                                 </label>
+                                {!verifiedAtCurrentHub && <small className="lo-warning">Scan or receive this parcel at its current hub before assigning direct delivery.</small>}
                                 <button
-                                    disabled={busy || !selectedAreaId || !choices[`transfer-delivery-${d.id}`] || (needsNote && !choices[`route-note-${d.id}`]?.trim())}
-                                    onClick={() => void transfer("delivery", d.id)}
+                                    disabled={busy || !verifiedAtCurrentHub || !choices[`direct-delivery-${d.id}`]}
+                                    onClick={() => void directDelivery(d)}
                                 >
-                                    Create transfer to {destinationHub?.name || "destination hub"}
+                                    Direct Delivery
                                 </button>
                             </div>
                         </details>
                     );
                 })}
                 {data.deliveries.length === 0 && !data.returns.some((item) => item.status === "at_hub") && (
-                    <p className="lo-parcel-empty">No parcels are currently waiting for a hub-to-hub transfer.</p>
+                    <p className="lo-parcel-empty">No parcels are currently available for transfer or direct delivery.</p>
                 )}
                 {data.returns
                     .filter((r) => r.status === "at_hub")

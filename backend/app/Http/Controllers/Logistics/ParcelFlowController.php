@@ -79,7 +79,9 @@ class ParcelFlowController extends Controller
             'deliveryArea.hub:id,name,code,is_active',
             'events',
         ])->whereIn('status', [Delivery::AT_SORTING_CENTER, Delivery::SORTED])
-            ->whereNotNull('current_hub_id')->latest()->limit(100)->get();
+            ->whereNotNull('current_hub_id')
+            ->whereDoesntHave('hubTransfers', fn ($query) => $query->whereIn('status', ['assigned', 'in_transit']))
+            ->latest()->get();
         $routes = $areaResolver->resolveMany($deliveries->pluck('order.delivery_psgc_code'));
         foreach ($deliveries as $delivery) {
             $code = $delivery->order?->delivery_psgc_code;
@@ -98,15 +100,12 @@ class ParcelFlowController extends Controller
                 ];
             }
             $delivery->setAttribute('destination_route', $route);
-        }
-        $deliveries = $deliveries->filter(function (Delivery $delivery): bool {
-            $route = $delivery->destination_route;
-            if (!in_array($route['status'] ?? null, ['mapped', 'mapping_conflict', 'manual_route'], true)) {
-                return true;
-            }
             $area = $route['area'] ?? $delivery->deliveryArea;
-            return !$area || (int) $area->hub_id !== (int) $delivery->current_hub_id;
-        })->values();
+            $delivery->setAttribute(
+                'requires_transfer',
+                !$area || (int) $area->hub_id !== (int) $delivery->current_hub_id,
+            );
+        }
 
         return response()->json(['success' => true, 'data' => [
             'hubs' => $hubs,
