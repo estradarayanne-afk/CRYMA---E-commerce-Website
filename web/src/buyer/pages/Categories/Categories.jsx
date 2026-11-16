@@ -15,6 +15,7 @@ import ProductCard from "../../components/ProductCard/ProductCard";
 import { CATEGORY_FILTERS } from "../../../shared/constants/categories";
 import { isBuyerSession } from "../../../shared/utils/buyerAccess";
 import {
+    getProductImageCandidates,
     matchesProductCategory,
     matchesProductSearch,
 } from "../../../shared/utils/productDiscovery";
@@ -150,13 +151,13 @@ function Categories() {
             .then(({ data }) => {
                 if (cancelled || requestVersion !== requestVersionRef.current) return;
                 const pageData = data?.data;
-                const items = Array.isArray(pageData?.data)
+                const items = (Array.isArray(pageData?.data)
                     ? pageData.data
                     : Array.isArray(data?.data)
                         ? data.data
                         : Array.isArray(data?.products)
                             ? data.products
-                            : [];
+                            : []).filter((product) => getProductImageCandidates(product).length > 0);
                 if (requestParams.sort === "randomized" && items.length) {
                     api.post("/products/impressions", {
                             product_ids: items.map((item) => Number(item.id)),
@@ -215,13 +216,13 @@ function Categories() {
             if (requestVersion !== requestVersionRef.current) return;
 
             const pageData = data?.data;
-            const items = Array.isArray(pageData?.data)
+            const items = (Array.isArray(pageData?.data)
                 ? pageData.data
                 : Array.isArray(data?.data)
                     ? data.data
                     : Array.isArray(data?.products)
                         ? data.products
-                        : [];
+                        : []).filter((product) => getProductImageCandidates(product).length > 0);
             if (requestParams.sort === "randomized" && items.length) {
                 api.post("/products/impressions", {
                         product_ids: items.map((item) => Number(item.id)),
@@ -949,7 +950,11 @@ function Categories() {
                             <RotateCcw size={14} />
                             Clear filters
                         </button>
-
+                        {hasMore && (
+                            <button type="button" onClick={loadMoreProducts} disabled={loadingMore}>
+                                {loadingMore ? "Loading products…" : "Load more products"}
+                            </button>
+                        )}
                     </div>
                 )}
 

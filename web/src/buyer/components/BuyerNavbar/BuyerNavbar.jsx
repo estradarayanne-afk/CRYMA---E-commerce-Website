@@ -239,7 +239,7 @@ function BuyerNavbar() {
             .toUpperCase() ||
         userName.charAt(0).toUpperCase();
 
-    const logoDestination = user ? "/shop" : "/";
+    const logoDestination = "/";
     const sellerConversations = getBuyerInboxConversations(conversations);
     const profilePhotoUrl = profilePhoto.key === profileImageKey && failedProfilePhotoKey !== profileImageKey
         ? profilePhoto.url
@@ -377,7 +377,7 @@ function BuyerNavbar() {
                             to={logoDestination}
                             className="cryma-navbar-logo"
                             onClick={closeMenus}
-                            aria-label={user ? "CRYMA All Categories" : "CRYMA landing page"}
+                            aria-label="CRYMA landing page"
                         >
                             <img className="cryma-logo-mark" src="/cryma-favicon.png" alt="" />
                             <span className="cryma-logo-word">CRYMA</span>

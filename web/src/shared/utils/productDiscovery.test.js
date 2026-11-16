@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 
 import {
     getProductCategory,
+    getProductImageCandidates,
     getProductShopName,
     getProductSellerName,
+    isKnownMismatchedProductMedia,
     matchesProductCategory,
     matchesProductSearch,
 } from "./productDiscovery.js";
@@ -43,4 +45,19 @@ test("buyer-facing shop name prefers the seller business name", () => {
         getProductShopName({ first_name: "Maria", last_name: "Santos" }),
         "CRYMA Shop",
     );
+});
+
+test("product image discovery includes variant photos and excludes products without photos", () => {
+    assert.deepEqual(getProductImageCandidates({ id: 2, variants: [
+        { color_image_url: " /storage/blue.jpg " },
+        { media_type: "video", media_url: "/storage/preview.mp4" },
+    ] }), ["/storage/blue.jpg"]);
+    assert.deepEqual(getProductImageCandidates({ id: 3, media: [{ type: "video", url: "/storage/preview.mp4" }] }), []);
+    assert.deepEqual(getProductImageCandidates({ id: 4, images: [{ video_url: "/storage/preview.mp4" }] }), []);
+});
+
+test("product image discovery omits known mismatched catalog media", () => {
+    const mismatchedImage = "/storage/products/10/tHbKkfs0Y9zXqUReFgoxxFwYoR9AqrdV1sHRFyYA.jpg";
+    assert.equal(isKnownMismatchedProductMedia({ id: 10 }, mismatchedImage), true);
+    assert.deepEqual(getProductImageCandidates({ id: 10, image: mismatchedImage }), []);
 });

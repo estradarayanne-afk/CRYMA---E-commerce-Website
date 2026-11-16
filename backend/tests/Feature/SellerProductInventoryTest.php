@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ProductMedia;
 use App\Models\SellerProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,6 +146,10 @@ class SellerProductInventoryTest extends TestCase
                 'data.variants.0.color_image_url',
                 '/storage/'.$product->variants[0]['image']
             );
+        $this->getJson('/api/products?category=Men%27s%20Apparel')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.data')
+            ->assertJsonPath('data.data.0.id', $product->id);
     }
 
     public function test_color_variants_require_a_photo_for_every_color(): void
@@ -362,10 +367,12 @@ class SellerProductInventoryTest extends TestCase
         $seller = $this->seller();
         $products = [];
         for ($index = 1; $index <= 9; $index++) {
-            $products[] = $this->createProduct($seller, [
+            $product = $this->createProduct($seller, [
                 'name' => "Daily mix product {$index}",
                 'review_status' => 'approved',
             ]);
+            $this->attachImage($product);
+            $products[] = $product;
         }
 
         $firstPage = $this->getJson('/api/products?category=Pet%20Supplies&sort=randomized&per_page=4')
@@ -400,6 +407,46 @@ class SellerProductInventoryTest extends TestCase
             ->assertJsonValidationErrors(['shuffle_day']);
     }
 
+    public function test_public_product_listings_hide_products_without_images_without_deleting_them(): void
+    {
+        $seller = $this->seller();
+        $visibleProduct = $this->createProduct($seller, ['review_status' => 'approved']);
+        $this->attachImage($visibleProduct);
+        $hiddenProduct = $this->createProduct($seller, [
+            'name' => 'Product without a photo',
+            'review_status' => 'approved',
+            'variants' => [['id' => 'variant-without-image']],
+        ]);
+
+        $this->getJson('/api/products?sort=newest')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.data')
+            ->assertJsonPath('data.data.0.id', $visibleProduct->id);
+
+        $this->getJson("/api/products/{$hiddenProduct->id}")
+            ->assertNotFound();
+        $this->assertDatabaseHas('products', [
+            'id' => $hiddenProduct->id,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_public_storefront_hides_products_without_images(): void
+    {
+        $seller = $this->seller(['store_slug' => 'fixture-store']);
+        $visibleProduct = $this->createProduct($seller, ['review_status' => 'approved']);
+        $this->attachImage($visibleProduct);
+        $this->createProduct($seller, [
+            'name' => 'Unpictured store sample',
+            'review_status' => 'approved',
+        ]);
+
+        $this->getJson('/api/stores/fixture-store')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.products')
+            ->assertJsonPath('data.products.0.id', $visibleProduct->id);
+    }
+
     private function createProduct(User $seller, array $overrides = []): Product
     {
         return Product::create(array_merge([
@@ -413,6 +460,16 @@ class SellerProductInventoryTest extends TestCase
             'category' => 'Pet Supplies',
             'status' => 'active',
         ], $overrides));
+    }
+
+    private function attachImage(Product $product): void
+    {
+        ProductMedia::create([
+            'product_id' => $product->id,
+            'type' => 'image',
+            'path' => "products/{$product->id}/front.jpg",
+            'position' => 0,
+        ]);
     }
 
     private function seller(array $profileOverrides = []): User

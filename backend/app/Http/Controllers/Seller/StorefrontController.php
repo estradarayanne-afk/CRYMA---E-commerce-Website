@@ -150,6 +150,7 @@ class StorefrontController extends Controller
             ->where('seller_id', $profile->user_id)
             ->where('status', 'active')
             ->where('review_status', 'approved')
+            ->hasDisplayableImage()
             ->latest()
             ->get()
             ->map(fn (Product $product) => $this->publicProductData($product));

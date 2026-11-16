@@ -42,7 +42,7 @@ class PickupAddressController extends Controller
                     }
                 },
             ],
-            'province' => ['required', 'string', 'max:160', 'not_regex:/^\s*$/u'],
+            'province' => ['nullable', 'string', 'max:160', 'not_regex:/^\s*$/u'],
             'municipality' => ['required', 'string', 'max:160', 'not_regex:/^\s*$/u'],
             'barangay' => ['required', 'string', 'max:160', 'not_regex:/^\s*$/u'],
             'street' => ['required', 'string', 'max:255', 'not_regex:/^\s*$/u'],

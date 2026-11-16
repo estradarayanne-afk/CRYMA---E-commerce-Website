@@ -3,14 +3,18 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Review;
+use Illuminate\Support\Facades\DB;
 
 class Product extends Model
 {
     use HasFactory;
+
+    private const MAX_VARIANTS = 20;
 
     protected $fillable = [
         'seller_id',
@@ -56,6 +60,22 @@ class Product extends Model
     public function media(): HasMany
     {
         return $this->hasMany(ProductMedia::class)->orderBy('position')->orderBy('id');
+    }
+
+    public function scopeHasDisplayableImage(Builder $query): Builder
+    {
+        $variantImageExpression = DB::connection()->getDriverName() === 'mysql'
+            ? "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(variants, '$[%d].image')), '') IS NOT NULL"
+            : "NULLIF(json_extract(variants, '$[%d].image'), '') IS NOT NULL";
+
+        return $query->where(function (Builder $query) use ($variantImageExpression): void {
+            $query->whereHas('media', fn (Builder $media) => $media->where('type', 'image'))
+                ->orWhere(function (Builder $query) use ($variantImageExpression): void {
+                    for ($index = 0; $index < self::MAX_VARIANTS; $index++) {
+                        $query->orWhereRaw(sprintf($variantImageExpression, $index));
+                    }
+                });
+        });
     }
 
     public function sellingPrice(): string
