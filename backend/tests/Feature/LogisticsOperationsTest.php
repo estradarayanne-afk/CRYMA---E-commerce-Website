@@ -202,6 +202,11 @@ class LogisticsOperationsTest extends TestCase
             'courier_profile_id' => $unavailableProfile->id,
             'assigned_by' => $logistics->id,
         ]);
+        $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
+            'courier_profile_id' => $outsideProfile->id,
+            'expected_courier_profile_id' => $unavailableProfile->id,
+            'scheduled_at' => now()->addDays(2)->toISOString(),
+        ])->assertOk()->assertJsonPath('data.courier_profile_id', $outsideProfile->id);
 
         $this->requestPickupFromSeller($outsideOrder);
         $this->actingAs($logistics, 'sanctum')
@@ -212,12 +217,15 @@ class LogisticsOperationsTest extends TestCase
             'scheduled_at' => now()->addDay()->toISOString(),
         ]);
         $outsideAssignment->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
-        $this->actingAs($outsideRider, 'sanctum')
+        $pickupTasks = $this->actingAs($outsideRider, 'sanctum')
             ->getJson('/api/courier/pickups')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $outsideAssignment->json('data.id'))
-            ->assertJsonPath('data.0.order_id', $outsideOrder->id)
-            ->assertJsonPath('data.0.target_hub.id', $outsideAssignment->json('data.target_hub_id'));
+            ->assertJsonCount(2, 'data')
+            ->json('data');
+        $outsidePickupTask = collect($pickupTasks)->firstWhere('order_id', $outsideOrder->id);
+        $this->assertNotNull($outsidePickupTask);
+        $this->assertSame($outsideAssignment->json('data.id'), $outsidePickupTask['id']);
+        $this->assertSame($outsideAssignment->json('data.target_hub_id'), $outsidePickupTask['target_hub']['id']);
     }
 
     public function test_logistics_can_sort_and_assign_only_to_eligible_courier_in_configured_area(): void

@@ -280,7 +280,6 @@ class LogisticsController extends Controller
                         if (!$courierChanged && !$scheduleChanged) return $assignment;
                         if ($courierChanged) {
                             abort_unless($request->filled('expected_courier_profile_id') && (int) $values['expected_courier_profile_id'] === (int) $assignment->courier_profile_id, 409, 'Pickup assignment changed. Refresh and try again.');
-                            abort_unless($reason !== null && $reason !== '', 422, 'A reason is required when changing a pickup rider.');
                         }
                     }
                 }
@@ -397,7 +396,6 @@ class LogisticsController extends Controller
             if ($courierChanged) {
                 abort_unless($request->filled('expected_courier_profile_id')
                     && (int) $values['expected_courier_profile_id'] === (int) $currentCourierId, 409, 'Pickup batch assignment changed. Refresh and try again.');
-                abort_unless($reason !== null && $reason !== '', 422, 'A reason is required when changing the pickup rider.');
             }
 
             $now = now();

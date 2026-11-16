@@ -39,14 +39,21 @@ test("batch pickup assignment submits its preselected courier without requiring 
     });
 });
 
-test("changing an existing pickup courier still requires a reason", () => {
+test("changing an existing pickup courier does not require a reason", () => {
     const result = preparePickupAssignment({
         selectedCourierId: "99",
         existingCourierProfileId: 42,
         scheduledAt,
+        includeExpectedCourierId: true,
     });
 
-    assert.equal(result.error, "Enter a reason to change the pickup rider.");
+    assert.deepEqual(result, {
+        payload: {
+            courier_profile_id: 99,
+            scheduled_at: scheduledAt,
+            expected_courier_profile_id: 42,
+        },
+    });
 });
 
 test("pickup assignment retains validation for missing courier or schedule", () => {

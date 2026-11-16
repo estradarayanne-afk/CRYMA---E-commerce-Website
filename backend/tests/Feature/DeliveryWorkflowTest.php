@@ -342,8 +342,29 @@ class DeliveryWorkflowTest extends TestCase
             ->where('courier_profile_id', $courierProfile->id)
             ->where('status', PickupAssignment::ASSIGNED)
             ->count());
+        [$replacementRider, $replacementProfile] = $this->eligibleCourier();
+        Address::create([
+            'user_id' => $replacementRider->id,
+            'is_default' => true,
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'municipality' => 'Talisay',
+            'barangay' => 'Luyang',
+        ]);
+        $this->actingAs($logistics, 'sanctum')->postJson("/api/logistics/pickup-batches/{$batchId}/assignment", [
+            'courier_profile_id' => $replacementProfile->id,
+            'expected_courier_profile_id' => $courierProfile->id,
+            'scheduled_at' => now()->addDays(2)->toISOString(),
+        ])->assertOk()->assertJsonPath('data.courier_profile_id', $replacementProfile->id);
+        $this->assertSame(0, PickupAssignment::where('pickup_batch_id', $batchId)
+            ->where('courier_profile_id', $courierProfile->id)
+            ->count());
+        $this->assertSame(2, PickupAssignment::where('pickup_batch_id', $batchId)
+            ->where('courier_profile_id', $replacementProfile->id)
+            ->where('status', PickupAssignment::ASSIGNED)
+            ->count());
 
-        $tasks = $this->actingAs($rider, 'sanctum')->getJson('/api/courier/pickups')
+        $tasks = $this->actingAs($replacementRider, 'sanctum')->getJson('/api/courier/pickups')
             ->assertOk()->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.pickup_batch.order_count', 2)
             ->json('data');
@@ -970,7 +991,7 @@ class DeliveryWorkflowTest extends TestCase
         $this->postJson("/api/products/{$product->id}/reviews", ['order_id' => $order->id, 'rating' => 5])->assertCreated();
     }
 
-    public function test_area_configuration_requires_admin_and_pickup_reassignment_requires_expected_state(): void
+    public function test_area_configuration_requires_admin_and_pickup_reassignment_needs_only_expected_state(): void
     {
         $admin = $this->admin();
         $buyer = User::factory()->create(['role' => 'buyer', 'status' => 'active']);
@@ -990,8 +1011,8 @@ class DeliveryWorkflowTest extends TestCase
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
         $assignment = $this->assignPickup($admin, $order, $profileOne);
 
-        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'scheduled_at' => now()->addDays(2)->toISOString(), 'expected_courier_profile_id' => 999, 'reason' => 'Changes'])->assertStatus(409);
-        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'scheduled_at' => now()->addDays(2)->toISOString(), 'expected_courier_profile_id' => $profileOne->id, 'reason' => 'Coverage change'])->assertOk();
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'scheduled_at' => now()->addDays(2)->toISOString(), 'expected_courier_profile_id' => 999])->assertStatus(409);
+        $this->postJson("/api/admin/orders/{$order->id}/pickup-assignment", ['courier_profile_id' => $profileTwo->id, 'scheduled_at' => now()->addDays(2)->toISOString(), 'expected_courier_profile_id' => $profileOne->id])->assertOk();
         $this->assertSame($profileTwo->id, $assignment->fresh()->courier_profile_id);
         $this->actingAs($riderOne, 'sanctum')->getJson('/api/admin/delivery-areas')->assertForbidden();
 

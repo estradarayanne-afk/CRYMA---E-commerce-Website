@@ -88,7 +88,6 @@ export default function Deliveries() {
             selectedCourierId: pickupChoices[orderId] ?? existing?.courier_profile_id,
             existingCourierProfileId: existing?.courier_profile_id,
             scheduledAt: pickupSchedules[`order-${orderId}`] || localDateTimeValue(existing?.scheduled_at),
-            reason: reasons[`pickup-${orderId}`],
             includeExpectedCourierId: Boolean(existing),
         });
         if (result.error) { setError(result.error); return; }
@@ -102,7 +101,6 @@ export default function Deliveries() {
             selectedCourierId: pickupChoices[batchKey] ?? existing.courier_profile_id,
             existingCourierProfileId: existing.courier_profile_id,
             scheduledAt: pickupSchedules[batchKey] || localDateTimeValue(existing.scheduled_at || existing.preferred_scheduled_at),
-            reason: reasons[batchKey],
             selectionMessage: "Select an eligible pickup rider for the batch.",
             scheduleMessage: "Choose a pickup date and time for the batch.",
         });
@@ -212,7 +210,6 @@ export default function Deliveries() {
                         {canAssign ? <div className="ad-actions">
                             {courierSelect(eligiblePickup, selectedCourierId, (value) => setPickupChoices((current) => ({ ...current, [batchKey]: value })), `Pickup rider for batch ${batchId}`)}
                             <input type="datetime-local" aria-label={`Pickup date and time for batch ${batchId}`} value={pickupSchedules[batchKey] ?? localDateTimeValue(batch.scheduled_at || batch.preferred_scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [batchKey]: event.target.value }))} />
-                            {batch.courier_profile_id && <input aria-label={`Pickup reassignment reason for batch ${batchId}`} maxLength={1000} value={reasons[batchKey] || ""} onChange={(event) => setReason(batchKey, event.target.value)} placeholder="Reason if changing rider"/>}
                             <button type="button" disabled={!!saving || !eligiblePickup.length || !selectedCourierId || !(pickupSchedules[batchKey] ?? batch.scheduled_at)} onClick={() => assignPickupBatch(batchId, rows)}>{saving === `pickup-batch-${batchId}` ? "Saving…" : batch.courier_profile_id ? "Save batch assignment" : "Assign batch"}</button>
                         </div> : <span className="ad-muted">{pendingRows.length ? "Accept every pickup request before assigning the batch." : rows.some((row) => row.status === "REJECTED_BY_LOGISTICS") ? "Some pickup requests were rejected; sellers may resubmit." : "Pickup batch in progress."}</span>}
                     </article>;
@@ -228,7 +225,6 @@ export default function Deliveries() {
                         {canAssign ? <div className="ad-actions">
                             {courierSelect(eligiblePickup, selectedCourierId, (value) => setPickupChoices((current) => ({ ...current, [row.order_id]: value })), `Pickup rider for order ${row.order_id}`)}
                             <input type="datetime-local" aria-label={`Pickup date and time for order ${row.order_id}`} value={pickupSchedules[scheduleKey] ?? localDateTimeValue(row.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [scheduleKey]: event.target.value }))} />
-                            {row.courier_profile_id && <input aria-label={`Pickup reassignment reason for order ${row.order_id}`} maxLength={1000} value={reasons[`pickup-${row.order_id}`] || ""} onChange={(event) => setReason(`pickup-${row.order_id}`, event.target.value)} placeholder="Reason if changing rider"/>}
                             <button type="button" disabled={!!saving || !eligiblePickup.length || !selectedCourierId || !(pickupSchedules[scheduleKey] ?? row.scheduled_at)} onClick={() => assignPickup(row.order_id, row)}>{saving === `pickup-${row.order_id}` ? "Saving…" : row.courier_profile_id ? "Save pickup assignment" : "Assign pickup"}</button>
                         </div> : row.status === "PICKUP_REQUESTED" ? null : <span className="ad-muted">{row.status === "REJECTED_BY_LOGISTICS" ? "Pickup request rejected; seller may submit another request." : "Pickup collected or sorting center received parcel."}</span>}
                     </article>;
