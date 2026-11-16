@@ -2,41 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import api from "../../shared/services/api";
 import { getPhilPostPostalCode } from "../utils/postalCode";
 import { normalizePsgcPlaceName } from "../utils/normalizePsgcPlaceName";
+import {
+    findPlace,
+    getAvailableRegions,
+    getSelectedRegionName,
+} from "../utils/philippineAddressOptions";
 
 const normalizePsgcPlaces = (places) =>
     places.map((place) => ({
         ...place,
         name: normalizePsgcPlaceName(place.name),
     }));
-
-const locationNameVariants = (value) => {
-    const name = normalizePsgcPlaceName(String(value ?? "")).trim().toLocaleLowerCase();
-    const parenthetical = name.match(/\(([^()]*)\)\s*$/u)?.[1]?.trim();
-
-    return new Set([
-        name,
-        name.replace(/^city of\s+/u, ""),
-        name.replace(/\s*\([^()]*\)\s*$/u, "").trim(),
-        parenthetical,
-    ].filter(Boolean));
-};
-
-const findPlace = (places, value) => {
-    const variants = locationNameVariants(value);
-
-    return places.find((place) => (
-        [...locationNameVariants(place.name)].some((variant) => variants.has(variant))
-    ));
-};
-
-const getAvailableRegions = (regions, allowedRegions) => {
-    if (!Array.isArray(allowedRegions)) return regions;
-
-    return regions.flatMap((place) => {
-        const allowedName = allowedRegions.find((name) => findPlace([place], name));
-        return allowedName ? [{ ...place, name: allowedName }] : [];
-    });
-};
 
 async function loadPsgcOptions(path) {
     const response = await api.get("/philippine-address-options", { params: { path } });
@@ -310,7 +286,7 @@ function PhilippineAddressFields({
                     setBarangays(loadedBarangays);
                     const current = addressValuesRef.current;
                     const nameMatches = loadedBarangays.filter((item) => (
-                        [...locationNameVariants(item.name)].some((variant) => locationNameVariants(current.barangay).has(variant))
+                        findPlace([item], current.barangay)
                     ));
                     const savedBarangay = current.psgcCode
                         ? loadedBarangays.find((item) => String(item.code) === String(current.psgcCode))
@@ -357,9 +333,7 @@ function PhilippineAddressFields({
     const handleRegionChange = (event) => {
         const selectedCode = event.target.value;
 
-        const selectedRegion = regions.find(
-            (item) => String(item.code) === String(selectedCode)
-        );
+        const selectedRegionName = getSelectedRegionName(regions, allowedRegions, selectedCode);
 
         setRegionCode(selectedCode);
         setProvinceCode("");
@@ -375,7 +349,7 @@ function PhilippineAddressFields({
         onPostalCodeChange?.("");
 
         onChange({
-            region: selectedRegion?.name || "",
+            region: selectedRegionName,
             province: "",
             city: "",
             barangay: "",

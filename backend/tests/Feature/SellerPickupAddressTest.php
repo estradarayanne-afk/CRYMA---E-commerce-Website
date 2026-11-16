@@ -48,4 +48,31 @@ class SellerPickupAddressTest extends TestCase
             'province' => null,
         ]);
     }
+
+    public function test_seller_can_save_a_pickup_address_using_the_shipping_zone_region_label(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);
+
+        $this->actingAs($seller, 'sanctum')
+            ->putJson('/api/seller/pickup-address', [
+                'recipient_name' => 'Seller Contact',
+                'phone' => '09171234567',
+                'region' => 'CALABARZON',
+                'province' => 'Cavite',
+                'municipality' => 'City of General Trias',
+                'barangay' => 'Tejero',
+                'street' => 'Rizal Street',
+                'house_number' => '65',
+                'building_name' => null,
+                'unit_number' => null,
+                'postal_code' => '4100',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.region', 'CALABARZON');
+
+        $this->assertDatabaseHas('seller_pickup_addresses', [
+            'user_id' => $seller->id,
+            'region' => 'CALABARZON',
+        ]);
+    }
 }
