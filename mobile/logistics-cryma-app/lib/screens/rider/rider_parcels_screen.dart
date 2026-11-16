@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,10 +19,7 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
   List<CourierParcel> _history = [];
   bool _showHistory = false;
   bool _loading = true;
-  bool _refreshing = false;
   String? _error;
-  String? _refreshError;
-  Timer? _refreshTimer;
 
   static const _navItems = [
     BottomNavigationBarItem(
@@ -54,16 +49,6 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
   void initState() {
     super.initState();
     _load();
-    _refreshTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _refreshActive(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -81,8 +66,6 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
         _active = results[0];
         _history = results[1];
         _loading = false;
-        _error = null;
-        _refreshError = null;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -90,24 +73,6 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
         _error = error.message;
         _loading = false;
       });
-    }
-  }
-
-  Future<void> _refreshActive() async {
-    if (_loading || _refreshing) return;
-    _refreshing = true;
-    try {
-      final active = await CourierService.instance.getActiveParcels();
-      if (!mounted) return;
-      setState(() {
-        _active = active;
-        _refreshError = null;
-      });
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      setState(() => _refreshError = error.message);
-    } finally {
-      _refreshing = false;
     }
   }
 
@@ -137,18 +102,6 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
                 )
               : Column(
                   children: [
-                    if (_refreshError != null)
-                      MaterialBanner(
-                        content: Text(
-                          'Could not refresh assigned pickups: $_refreshError',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: _refreshActive,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: SegmentedButton<bool>(

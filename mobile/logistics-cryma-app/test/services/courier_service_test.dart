@@ -21,19 +21,6 @@ class _MemoryTokenStore implements TokenStore {
 }
 
 void main() {
-  test('uses the production API by default', () async {
-    final client = ApiClient(
-      httpClient: MockClient((request) async {
-        expect(request.url.origin, 'https://api.cryma.store');
-        expect(request.url.path, '/api/courier/pickups');
-        return http.Response('{}', 200);
-      }),
-      tokenStore: _MemoryTokenStore(),
-    );
-
-    await client.get('courier/pickups');
-  });
-
   test('accepts a pickup with the Laravel courier status contract', () async {
     final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
     final client = MockClient((request) async {
@@ -55,56 +42,6 @@ void main() {
     );
 
     await service.acceptPickup(12);
-  });
-
-  test('submits the decoded parcel QR when confirming pickup', () async {
-    final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
-    const scannedCode = 'CRYMA-PCL-ABCDEFGHIJKLMNOPQRST';
-    final client = MockClient((request) async {
-      expect(request.method, 'PATCH');
-      expect(request.url.path, '/api/courier/pickups/12/status');
-      expect(request.headers['authorization'], 'Bearer local-test-token');
-      expect(jsonDecode(request.body), {
-        'status': 'PICKED_UP',
-        'expected_status': 'ACCEPTED_BY_PICKUP_RIDER',
-        'parcel_code': scannedCode,
-      });
-      return http.Response('{}', 200);
-    });
-    final service = CourierService(
-      apiClient: ApiClient(
-        httpClient: client,
-        tokenStore: tokenStore,
-        baseUrl: 'https://cryma.test/api',
-      ),
-    );
-
-    await service.collectPickup(12, scannedCode);
-  });
-
-  test('submits the decoded parcel QR when starting delivery', () async {
-    final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
-    const scannedCode = 'CRYMA-PCL-ABCDEFGHIJKLMNOPQRST';
-    final client = MockClient((request) async {
-      expect(request.method, 'PATCH');
-      expect(request.url.path, '/api/courier/deliveries/8/status');
-      expect(request.headers['authorization'], 'Bearer local-test-token');
-      expect(jsonDecode(request.body), {
-        'status': 'OUT_FOR_DELIVERY',
-        'expected_status': 'ASSIGNED_TO_RIDER',
-        'parcel_code': scannedCode,
-      });
-      return http.Response('{}', 200);
-    });
-    final service = CourierService(
-      apiClient: ApiClient(
-        httpClient: client,
-        tokenStore: tokenStore,
-        baseUrl: 'https://cryma.test/api',
-      ),
-    );
-
-    await service.startDelivery(8, scannedCode);
   });
 
   test('sends delivery proof as multipart with required backend fields',

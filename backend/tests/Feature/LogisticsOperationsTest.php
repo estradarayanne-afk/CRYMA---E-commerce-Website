@@ -69,31 +69,18 @@ class LogisticsOperationsTest extends TestCase
     public function test_logistics_can_assign_pickup_and_confirm_collected_parcel_receipt(): void
     {
         $logistics = $this->logisticsUser();
-        [$rider, $courierProfile] = $this->eligibleCourier();
+        [, $courierProfile] = $this->eligibleCourier();
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
-        $delivery = Delivery::create([
+        Delivery::create([
             'order_id' => $order->id,
             'status' => 'READY_FOR_PICKUP',
             'legacy_imported' => false,
         ]);
-        $seller = $order->items()->firstOrFail()->seller;
 
-        $requestResponse = $this->actingAs($seller, 'sanctum')
-            ->postJson("/api/seller/orders/{$order->id}/pickup-request")
-            ->assertOk()
-            ->assertJsonPath('data.delivery_id', $delivery->id)
-            ->assertJsonPath('data.status', PickupAssignment::REQUESTED);
-
-        $assignmentId = $requestResponse->json('data.id');
         $this->actingAs($logistics, 'sanctum')
             ->getJson('/api/logistics/operations')
             ->assertOk()
-            ->assertJsonPath('data.pickup_assignments.0.id', $assignmentId)
-            ->assertJsonPath('data.pickup_assignments.0.order_id', $order->id)
-            ->assertJsonPath('data.pickup_assignments.0.status', PickupAssignment::REQUESTED);
-        $this->getJson('/api/logistics/dashboard')
-            ->assertOk()
-            ->assertJsonPath('data.pickups_awaiting_assignment', 1);
+            ->assertJsonPath('data.pickup_orders.0.id', $order->id);
 
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
             'courier_profile_id' => $courierProfile->id,
@@ -101,11 +88,6 @@ class LogisticsOperationsTest extends TestCase
         ])->assertOk();
         $assignment = PickupAssignment::where('order_id', $order->id)->firstOrFail();
         $this->assertSame($logistics->id, $assignment->assigned_by);
-        $this->actingAs($rider, 'sanctum')
-            ->getJson('/api/courier/pickups')
-            ->assertOk()
-            ->assertJsonFragment(['id' => $assignment->id]);
-        $this->actingAs($logistics, 'sanctum');
         $this->assertStringContainsString('Luyang', $assignment->pickup_address);
         $this->assertStringContainsString('6005', $assignment->pickup_address);
 

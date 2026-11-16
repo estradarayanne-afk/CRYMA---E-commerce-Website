@@ -48,8 +48,8 @@ function StoreProductCard({ product }) {
     return (
         <article className="public-store-product">
             <Link className="public-store-product-link" to={`/products/${product.id}`}>
-                <div className="public-store-product-image">{product.seller?.is_on_vacation && <span className="public-store-vacation-badge">On vacation</span>}{image ? <img src={image} alt={product.name} loading="lazy" onError={() => setFailedImage(image)} /> : <span className="public-store-product-fallback">{product.name?.charAt(0)?.toUpperCase() || "C"}</span>}</div>
-                <div className="public-store-product-copy"><span>{product.store_category || product.category}</span><h3>{product.name}</h3><div className="public-store-product-pricing"><strong>{String.fromCharCode(8369)}{price.toLocaleString()}</strong>{originalPrice > price && <del>{String.fromCharCode(8369)}{originalPrice.toLocaleString()}</del>}</div></div>
+                <div className="public-store-product-image">{product.seller?.is_on_vacation && <span className="public-store-vacation-badge">On vacation</span>}<img src={image} alt={product.name} loading="lazy" onError={() => setFailedImage(image)} /></div>
+                <div className="public-store-product-copy"><span>{product.store_category || product.category}</span><h3>{product.name}</h3><strong>{String.fromCharCode(8369)}{price.toLocaleString()}</strong>{originalPrice > price && <del>{String.fromCharCode(8369)}{originalPrice.toLocaleString()}</del>}</div>
             </Link>
             <button type="button" className={`public-store-product-save${isSaved ? " saved" : ""}`} onClick={saveFavorite} aria-pressed={isSaved} aria-label={isSaved ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}><Heart size={16} fill={isSaved ? "currentColor" : "none"} /></button>
         </article>

@@ -72,12 +72,12 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
     }
   }
 
-  Future<String?> _scanParcel(CourierParcel parcel) async {
+  Future<bool> _scanParcel(CourierParcel parcel) async {
     if (parcel.parcelCode.isEmpty) {
       setState(() => _error = 'This assignment has no parcel code.');
-      return null;
+      return false;
     }
-    final scannedCode = await Navigator.of(context).push<String>(
+    final scanned = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => QrScannerScreen(
           expectedQrCode: parcel.parcelCode,
@@ -86,23 +86,19 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
         ),
       ),
     );
-    return mounted ? scannedCode : null;
+    return scanned == true && mounted;
   }
 
   Future<void> _collectPickup(CourierParcel parcel) async {
-    final scannedCode = await _scanParcel(parcel);
-    if (scannedCode == null || !mounted) return;
-    await _perform(
-      () => CourierService.instance.collectPickup(parcel.id, scannedCode),
-    );
+    if (!await _scanParcel(parcel) || !mounted) return;
+    await _perform(() => CourierService.instance
+        .collectPickup(parcel.id, parcel.parcelCode));
   }
 
   Future<void> _startDelivery(CourierParcel parcel) async {
-    final scannedCode = await _scanParcel(parcel);
-    if (scannedCode == null || !mounted) return;
-    await _perform(
-      () => CourierService.instance.startDelivery(parcel.id, scannedCode),
-    );
+    if (!await _scanParcel(parcel) || !mounted) return;
+    await _perform(() => CourierService.instance
+        .startDelivery(parcel.id, parcel.parcelCode));
   }
 
   Future<void> _completeDelivery(CourierParcel parcel) async {
@@ -189,8 +185,9 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
                 context,
                 _ProofDetails(
                   recipientName: recipientCtrl.text.trim(),
-                  codAmount:
-                      parcel.isCod ? double.parse(codCtrl.text.trim()) : null,
+                  codAmount: parcel.isCod
+                      ? double.parse(codCtrl.text.trim())
+                      : null,
                 ),
               );
             },
@@ -252,8 +249,7 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : parcel == null
-              ? _ErrorState(
-                  message: _error ?? 'Assignment not found.', onRetry: _load)
+              ? _ErrorState(message: _error ?? 'Assignment not found.', onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
@@ -268,8 +264,7 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(parcel.statusLabel,
-                                style: CrymaText.headingSmall),
+                            Text(parcel.statusLabel, style: CrymaText.headingSmall),
                             const SizedBox(height: 4),
                             Text(
                               parcel.isPickup

@@ -3,11 +3,10 @@
 There are two separate Flutter apps in this folder:
 
 - Shopper: `cryma-flutter-app-main`
-- Rider: `logistics-cryma-app`
+- Rider: `logistics_cryma_app/flutter_app`
 
-Both apps use the Laravel API in `ecommerce-system\backend`. The shopper app's
-`API_BASE_URL` is the server origin (without `/api`); the rider app's
-`API_BASE_URL` includes `/api`. Both default to the production API.
+Both apps use the Laravel API in `backend`. The API origin is configured with
+`API_BASE_URL` (the host and port only; do not add `/api`).
 
 ## Start the web/API backend
 
@@ -27,7 +26,7 @@ if you also want to open the website.
 Install dependencies once for each app:
 
 ```powershell
-cd C:\Code\e-commerce\mobile\cryma-flutter-app-main
+cd C:\Code\e-commerce\ecommerce-system\mobile\cryma-flutter-app-main
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```
@@ -35,9 +34,9 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 In another terminal, launch the rider app:
 
 ```powershell
-cd C:\Code\e-commerce\mobile\logistics-cryma-app
+cd C:\Code\e-commerce\ecommerce-system\mobile\logistics_cryma_app\flutter_app
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```
 
 `10.0.2.2` is the Android emulator's address for services running on the
@@ -51,17 +50,15 @@ development computer.
    through the computer's firewall on the private network if prompted.
 4. Enable Developer Options and USB debugging on the phone, then connect it
    with USB. Confirm the debugging prompt on the phone.
-5. From each app's folder, run `flutter devices` to find the device. For a
-   local backend, use the matching command:
+5. From each app's folder, run `flutter devices` to find the device, then run:
 
 ```powershell
 flutter run -d <device-id> --dart-define=API_BASE_URL=http://<computer-ip>:8000
 ```
 
-That command is for the shopper app. For the rider app, append `/api` to the
-URL. Replace `<computer-ip>` with the IPv4 address reported by `ipconfig`. The
-phone and computer must be on the same network, and the IP can change after
-reconnecting to Wi-Fi.
+For example, replace `<computer-ip>` with the IPv4 address reported by
+`ipconfig`. The phone and computer must be on the same network, and the IP can
+change after reconnecting to Wi-Fi.
 
 ### Use USB port forwarding instead of Wi-Fi
 
@@ -74,8 +71,6 @@ adb -s <device-id> reverse tcp:8000 tcp:8000
 flutter run -d <device-id> --dart-define=API_BASE_URL=http://127.0.0.1:8000
 ```
 
-For the rider app, append `/api` to the `API_BASE_URL`.
-
 Replace `<device-id>` with the ID from `flutter devices`. Keep the phone
 connected over USB and Laravel running while using the app. If `adb` is not
 recognized, run it from Android SDK's `platform-tools` directory or add that
@@ -87,9 +82,6 @@ To create an installable Android debug APK instead:
 ```powershell
 flutter build apk --debug --dart-define=API_BASE_URL=http://<computer-ip>:8000
 ```
-
-Use the same shopper/rider URL convention as above; the rider URL must end in
-`/api`.
 
 The APK is written to that app's `build\app\outputs\flutter-apk\` folder. Copy
 it to the Android phone and open it to install. For a release build or
@@ -107,11 +99,6 @@ cleartext HTTP for local development only.
 - The rider app signs in through Laravel and reads its courier pickup and
   delivery assignments. Pickup status updates and delivery proof (recipient
   name plus a camera photo) are submitted to the courier API.
-- The rider dashboard and parcel list refresh assignments every 20 seconds.
-  Pickup and delivery scans read the same parcel ID encoded by the website's
-  parcel QR label and submit the decoded ID to Laravel for verification before
-  the parcel status changes. Unassigned pickup requests remain in the
-  Logistics staff website queue; riders see a pickup after it is assigned.
 - Rider access is limited to active, verified rider accounts with approved
   required documents and an eligible vehicle. A buyer or seller account cannot
   log in to the rider app.

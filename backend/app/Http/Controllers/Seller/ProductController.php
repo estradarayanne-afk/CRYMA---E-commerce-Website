@@ -86,7 +86,7 @@ class ProductController extends Controller
             $query->orderByRaw('((products.id * ? + ?) % 2147483647) asc', [$multiplier, $offset])
                 ->orderBy('products.id');
         } else {
-            $query->orderByDesc('created_at')->orderByDesc('id');
+            $query->latest();
         }
 
         $products = $query->paginate($validated['per_page'] ?? 20);
@@ -842,9 +842,7 @@ class ProductController extends Controller
             'id' => $media->id,
             'url' => $media->url,
         ])->all();
-        $variantImage = collect($data['variants'])
-            ->first(fn (array $variant) => filled($variant['color_image_url'] ?? null));
-        $data['image'] = $images->first()?->url ?? ($variantImage['color_image_url'] ?? null);
+        $data['image'] = $images->first()?->url;
         if (!empty($product->variants)) {
             $variants = collect($product->variants);
             $lowest = $variants->sortBy(fn (array $variant) => $this->moneyToCents($variant['discounted_price'] ?? $variant['price']))->first();

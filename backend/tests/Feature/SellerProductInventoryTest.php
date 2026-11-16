@@ -362,36 +362,6 @@ class SellerProductInventoryTest extends TestCase
             ->assertJsonCount(12, 'data.data');
     }
 
-    public function test_public_newest_sort_returns_latest_products_first_with_stable_ties(): void
-    {
-        $seller = $this->seller();
-        $oldest = $this->createProduct($seller, [
-            'name' => 'Older product',
-            'review_status' => 'approved',
-        ]);
-        $this->attachImage($oldest);
-        $firstNewest = $this->createProduct($seller, [
-            'name' => 'First newest product',
-            'review_status' => 'approved',
-        ]);
-        $this->attachImage($firstNewest);
-        $secondNewest = $this->createProduct($seller, [
-            'name' => 'Second newest product',
-            'review_status' => 'approved',
-        ]);
-        $this->attachImage($secondNewest);
-
-        $oldest->forceFill(['created_at' => now()->subDay()])->save();
-        $firstNewest->forceFill(['created_at' => now()])->save();
-        $secondNewest->forceFill(['created_at' => now()])->save();
-
-        $this->getJson('/api/products?sort=newest&per_page=3')
-            ->assertOk()
-            ->assertJsonPath('data.data.0.id', $secondNewest->id)
-            ->assertJsonPath('data.data.1.id', $firstNewest->id)
-            ->assertJsonPath('data.data.2.id', $oldest->id);
-    }
-
     public function test_public_randomized_product_pages_keep_a_stable_daily_order(): void
     {
         $seller = $this->seller();
@@ -461,32 +431,20 @@ class SellerProductInventoryTest extends TestCase
         ]);
     }
 
-    public function test_public_storefront_lists_newest_products_and_hides_products_without_images(): void
+    public function test_public_storefront_hides_products_without_images(): void
     {
         $seller = $this->seller(['store_slug' => 'fixture-store']);
-        $oldest = $this->createProduct($seller, [
-            'name' => 'Older store product',
-            'review_status' => 'approved',
-        ]);
-        $this->attachImage($oldest);
-        $newest = $this->createProduct($seller, [
-            'name' => 'Newest store product',
-            'review_status' => 'approved',
-        ]);
-        $this->attachImage($newest);
-        $unpictured = $this->createProduct($seller, [
+        $visibleProduct = $this->createProduct($seller, ['review_status' => 'approved']);
+        $this->attachImage($visibleProduct);
+        $this->createProduct($seller, [
             'name' => 'Unpictured store sample',
             'review_status' => 'approved',
         ]);
-        $oldest->forceFill(['created_at' => now()->subDay()])->save();
-        $newest->forceFill(['created_at' => now()])->save();
 
         $this->getJson('/api/stores/fixture-store')
             ->assertOk()
-            ->assertJsonCount(2, 'data.products')
-            ->assertJsonPath('data.products.0.id', $newest->id)
-            ->assertJsonPath('data.products.1.id', $oldest->id)
-            ->assertJsonMissing(['id' => $unpictured->id]);
+            ->assertJsonCount(1, 'data.products')
+            ->assertJsonPath('data.products.0.id', $visibleProduct->id);
     }
 
     private function createProduct(User $seller, array $overrides = []): Product
