@@ -156,7 +156,7 @@ class LogisticsOperationsTest extends TestCase
         ])->assertStatus(409);
     }
 
-    public function test_logistics_can_see_and_assign_pickups_across_municipalities_to_available_riders(): void
+    public function test_logistics_can_assign_pickups_to_eligible_global_riders_without_presence(): void
     {
         $logistics = $this->logisticsUser('Talisay');
         [, $localProfile] = $this->eligibleCourier();
@@ -166,14 +166,17 @@ class LogisticsOperationsTest extends TestCase
         CourierPresence::create(['courier_profile_id' => $outsideProfile->id, 'is_available' => true]);
         [, $inactiveProfile] = $this->eligibleCourier('Carmen', 'suspended');
         $order = $this->orderWithPickupAddress('READY_FOR_PICKUP');
-        $outsideOrder = $this->orderWithPickupAddress('READY_FOR_PICKUP', 'Talisay');
+        $outsideOrder = $this->orderWithPickupAddress('READY_FOR_PICKUP');
 
         $response = $this->actingAs($logistics, 'sanctum')
             ->getJson('/api/logistics/operations')
             ->assertOk();
         $pickupCouriers = $response->json('data.eligible_pickup_couriers');
 
-        $this->assertEqualsCanonicalizing([$localProfile->id, $outsideProfile->id], array_column($pickupCouriers, 'id'));
+        $this->assertEqualsCanonicalizing(
+            [$localProfile->id, $unavailableProfile->id, $outsideProfile->id],
+            array_column($pickupCouriers, 'id'),
+        );
         $this->assertEqualsCanonicalizing(
             [$order->id, $outsideOrder->id],
             array_column($response->json('data.pickup_orders'), 'id'),
@@ -190,22 +193,31 @@ class LogisticsOperationsTest extends TestCase
         ])->assertUnprocessable();
         $this->postJson("/api/logistics/orders/{$order->id}/pickup-decision", ['decision' => 'accepted'])->assertOk();
         $assignmentResponse = $this->postJson("/api/logistics/orders/{$order->id}/pickup-assignment", [
-            'courier_profile_id' => $outsideProfile->id,
+            'courier_profile_id' => $unavailableProfile->id,
             'scheduled_at' => now()->addDay()->toISOString(),
         ]);
         $assignmentResponse->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
-        $assignmentId = $assignmentResponse->json('data.id');
         $this->assertDatabaseHas('pickup_assignments', [
             'order_id' => $order->id,
-            'courier_profile_id' => $outsideProfile->id,
+            'courier_profile_id' => $unavailableProfile->id,
             'assigned_by' => $logistics->id,
         ]);
+
+        $this->requestPickupFromSeller($outsideOrder);
+        $this->actingAs($logistics, 'sanctum')
+            ->postJson("/api/logistics/orders/{$outsideOrder->id}/pickup-decision", ['decision' => 'accepted'])
+            ->assertOk();
+        $outsideAssignment = $this->postJson("/api/logistics/orders/{$outsideOrder->id}/pickup-assignment", [
+            'courier_profile_id' => $outsideProfile->id,
+            'scheduled_at' => now()->addDay()->toISOString(),
+        ]);
+        $outsideAssignment->assertOk()->assertJsonPath('data.status', PickupAssignment::ASSIGNED);
         $this->actingAs($outsideRider, 'sanctum')
             ->getJson('/api/courier/pickups')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $assignmentId)
-            ->assertJsonPath('data.0.order_id', $order->id)
-            ->assertJsonPath('data.0.target_hub.id', $assignmentResponse->json('data.target_hub_id'));
+            ->assertJsonPath('data.0.id', $outsideAssignment->json('data.id'))
+            ->assertJsonPath('data.0.order_id', $outsideOrder->id)
+            ->assertJsonPath('data.0.target_hub.id', $outsideAssignment->json('data.target_hub_id'));
     }
 
     public function test_logistics_can_sort_and_assign_only_to_eligible_courier_in_configured_area(): void

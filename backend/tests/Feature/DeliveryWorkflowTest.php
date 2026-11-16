@@ -333,7 +333,6 @@ class DeliveryWorkflowTest extends TestCase
             'municipality' => 'Talisay',
             'barangay' => 'Luyang',
         ]);
-        CourierPresence::create(['courier_profile_id' => $courierProfile->id, 'is_available' => true]);
         $scheduledAt = now()->addDay()->toISOString();
         $this->actingAs($logistics, 'sanctum')->postJson("/api/logistics/pickup-batches/{$batchId}/assignment", [
             'courier_profile_id' => $courierProfile->id,
