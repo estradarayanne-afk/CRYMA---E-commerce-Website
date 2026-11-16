@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -21,7 +23,10 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   List<CourierParcel> _active = [];
   int _completedCount = 0;
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
+  String? _refreshError;
+  Timer? _refreshTimer;
 
   static const _navItems = [
     BottomNavigationBarItem(
@@ -51,13 +56,27 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   void initState() {
     super.initState();
     _load();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _load(quiet: true),
+    );
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    if (_refreshing || (quiet && _loading)) return;
+    _refreshing = true;
+    if (!quiet) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final results = await Future.wait([
         CourierService.instance.getActiveParcels(),
@@ -73,13 +92,21 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                 parcel.status == 'RECEIVED')
             .length;
         _loading = false;
+        _error = null;
+        _refreshError = null;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.message;
-        _loading = false;
+        if (quiet) {
+          _refreshError = error.message;
+        } else {
+          _error = error.message;
+          _loading = false;
+        }
       });
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -115,6 +142,20 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                         'Your assigned courier work, synced with CRYMA.',
                         style: CrymaText.bodyMedium,
                       ),
+                      if (_refreshError != null) ...[
+                        const SizedBox(height: 12),
+                        MaterialBanner(
+                          content: Text(
+                            'Could not refresh assigned work: $_refreshError',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => _load(quiet: true),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       Row(
                         children: [

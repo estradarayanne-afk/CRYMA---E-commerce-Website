@@ -34,7 +34,7 @@ class LogisticsController extends Controller
         $pickupOrders = Order::with($orderDetails)->where('status', 'READY_FOR_PICKUP')
             ->whereDoesntHave('pickupAssignment')
             ->where(fn ($query) => $query->whereDoesntHave('delivery')
-                ->orWhereHas('delivery', fn ($delivery) => $delivery->where('legacy_imported', true)->where('status', 'READY_FOR_PICKUP')))
+                ->orWhereHas('delivery', fn ($delivery) => $delivery->where('status', 'READY_FOR_PICKUP')))
             ->latest()->get();
         $pickups = PickupAssignment::with([
             'order.buyer:id,first_name,last_name', 'order.items.product:id,name',
@@ -239,7 +239,7 @@ class LogisticsController extends Controller
                         }
                     }
                 } else {
-                    abort_unless(!$delivery || ($delivery->legacy_imported && $delivery->status === 'READY_FOR_PICKUP'), 409, 'This order already has a delivery record and cannot enter pickup assignment automatically.');
+                    abort_unless(!$delivery || $delivery->status === 'READY_FOR_PICKUP', 409, 'This order already has an active shipment.');
                     $delivery ??= Delivery::create(['order_id' => $order->id, 'status' => 'READY_FOR_PICKUP', 'legacy_imported' => false]);
                     $assignment = new PickupAssignment(['order_id' => $order->id, 'delivery_id' => $delivery->id]);
                 }

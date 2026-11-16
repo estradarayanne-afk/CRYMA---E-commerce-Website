@@ -86,8 +86,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   // ── Shared result handler ──────────────────────────────────────────────────
   void _handleResult(String value) {
-    if (value == widget.expectedQrCode) {
-      Navigator.of(context).pop(true);
+    final scannedCode = value.trim();
+    if (scannedCode == widget.expectedQrCode.trim()) {
+      Navigator.of(context).pop(scannedCode);
     } else {
       _showError(
         title: 'Wrong QR Code',
@@ -116,7 +117,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              Navigator.of(context).pop(false);
+              Navigator.of(context).pop();
             },
             child: const Text('Cancel'),
           ),
@@ -140,7 +141,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text(widget.title),
-        leading: BackButton(onPressed: () => Navigator.of(context).pop(false)),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
         actions: [
           IconButton(
             icon: const Icon(Icons.flash_on),

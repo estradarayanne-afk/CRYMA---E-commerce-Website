@@ -127,9 +127,9 @@ export default function ParcelOperations({ section }) {
 
     useEffect(() => {
         const timer = window.setTimeout(() => void load(), 0);
-        const refresh = window.setInterval(() => { void load({ quiet: true }); }, 30_000);
+        const refresh = window.setInterval(() => { void load({ quiet: true }); }, section === "pickups" ? 10_000 : 30_000);
         return () => { window.clearTimeout(timer); window.clearInterval(refresh); };
-    }, [load]);
+    }, [load, section]);
 
     const mutate = async (key, task, message) => {
         setSaving(key);

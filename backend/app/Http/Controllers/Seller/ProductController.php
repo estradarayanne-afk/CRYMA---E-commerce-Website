@@ -41,6 +41,7 @@ class ProductController extends Controller
         $query = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,store_slug,store_logo_url,storefront_settings', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
+            ->hasDisplayableImage()
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'));
 
         if (!empty($validated['category']) && $validated['category'] !== 'All') {
@@ -149,6 +150,7 @@ class ProductController extends Controller
         $product = Product::with(['seller:id,first_name,last_name', 'seller.sellerProfile:id,user_id,business_name,store_slug,store_logo_url,storefront_settings', 'media'])
             ->where('status', 'active')
             ->where('review_status', 'approved')
+            ->hasDisplayableImage()
             ->whereHas('seller', fn ($seller) => $seller->where('role', 'seller')->where('status', 'active'))
             ->find($id);
 
@@ -840,7 +842,9 @@ class ProductController extends Controller
             'id' => $media->id,
             'url' => $media->url,
         ])->all();
-        $data['image'] = $images->first()?->url;
+        $variantImage = collect($data['variants'])
+            ->first(fn (array $variant) => filled($variant['color_image_url'] ?? null));
+        $data['image'] = $images->first()?->url ?? ($variantImage['color_image_url'] ?? null);
         if (!empty($product->variants)) {
             $variants = collect($product->variants);
             $lowest = $variants->sortBy(fn (array $variant) => $this->moneyToCents($variant['discounted_price'] ?? $variant['price']))->first();

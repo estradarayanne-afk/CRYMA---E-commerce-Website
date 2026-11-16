@@ -150,7 +150,9 @@ class StorefrontController extends Controller
             ->where('seller_id', $profile->user_id)
             ->where('status', 'active')
             ->where('review_status', 'approved')
-            ->latest()
+            ->hasDisplayableImage()
+            ->latest('created_at')
+            ->latest('id')
             ->get()
             ->map(fn (Product $product) => $this->publicProductData($product));
 
@@ -193,7 +195,10 @@ class StorefrontController extends Controller
         $data = $product->toArray();
         $images = $product->media->where('type', 'image')->values();
         $data['images'] = $images->map(fn ($media) => $media->url)->all();
-        $data['image'] = $images->first()?->url;
+        $variantImage = collect($product->variants ?? [])
+            ->first(fn (array $variant) => filled($variant['image'] ?? null));
+        $data['image'] = $images->first()?->url
+            ?? (filled($variantImage['image'] ?? null) ? PublicStorageUrl::url($variantImage['image']) : null);
         if ($product->discounted_price !== null) {
             $data['original_price'] = $product->price;
             $data['price'] = $product->discounted_price;

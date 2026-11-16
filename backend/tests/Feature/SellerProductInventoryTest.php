@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ProductMedia;
 use App\Models\SellerProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -364,14 +365,17 @@ class SellerProductInventoryTest extends TestCase
             'name' => 'Older product',
             'review_status' => 'approved',
         ]);
+        $this->attachImage($oldest);
         $firstNewest = $this->createProduct($seller, [
             'name' => 'First newest product',
             'review_status' => 'approved',
         ]);
+        $this->attachImage($firstNewest);
         $secondNewest = $this->createProduct($seller, [
             'name' => 'Second newest product',
             'review_status' => 'approved',
         ]);
+        $this->attachImage($secondNewest);
 
         $oldest->forceFill(['created_at' => now()->subDay()])->save();
         $firstNewest->forceFill(['created_at' => now()])->save();
@@ -389,10 +393,12 @@ class SellerProductInventoryTest extends TestCase
         $seller = $this->seller();
         $products = [];
         for ($index = 1; $index <= 9; $index++) {
-            $products[] = $this->createProduct($seller, [
+            $product = $this->createProduct($seller, [
                 'name' => "Daily mix product {$index}",
                 'review_status' => 'approved',
             ]);
+            $this->attachImage($product);
+            $products[] = $product;
         }
 
         $firstPage = $this->getJson('/api/products?category=Pet%20Supplies&sort=randomized&per_page=4')
@@ -427,6 +433,57 @@ class SellerProductInventoryTest extends TestCase
             ->assertJsonValidationErrors(['shuffle_day']);
     }
 
+    public function test_public_product_listings_hide_products_without_images_without_deleting_them(): void
+    {
+        $seller = $this->seller();
+        $visibleProduct = $this->createProduct($seller, ['review_status' => 'approved']);
+        $this->attachImage($visibleProduct);
+        $hiddenProduct = $this->createProduct($seller, [
+            'name' => 'Product without a photo',
+            'review_status' => 'approved',
+            'variants' => [['id' => 'variant-without-image']],
+        ]);
+
+        $this->getJson('/api/products?sort=newest')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.data')
+            ->assertJsonPath('data.data.0.id', $visibleProduct->id);
+
+        $this->getJson("/api/products/{$hiddenProduct->id}")
+            ->assertNotFound();
+        $this->assertDatabaseHas('products', [
+            'id' => $hiddenProduct->id,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_public_storefront_lists_newest_products_with_images_first(): void
+    {
+        $seller = $this->seller(['store_slug' => 'fixture-store']);
+        $oldest = $this->createProduct($seller, [
+            'name' => 'Older store product',
+            'review_status' => 'approved',
+        ]);
+        $this->attachImage($oldest);
+        $newest = $this->createProduct($seller, [
+            'name' => 'Newest store product',
+            'review_status' => 'approved',
+        ]);
+        $this->attachImage($newest);
+        $this->createProduct($seller, [
+            'name' => 'Unpictured store sample',
+            'review_status' => 'approved',
+        ]);
+        $oldest->forceFill(['created_at' => now()->subDay()])->save();
+        $newest->forceFill(['created_at' => now()])->save();
+
+        $this->getJson('/api/stores/fixture-store')
+            ->assertOk()
+            ->assertJsonCount(2, 'data.products')
+            ->assertJsonPath('data.products.0.id', $newest->id)
+            ->assertJsonPath('data.products.1.id', $oldest->id);
+    }
+
     private function createProduct(User $seller, array $overrides = []): Product
     {
         return Product::create(array_merge([
@@ -440,6 +497,16 @@ class SellerProductInventoryTest extends TestCase
             'category' => 'Pet Supplies',
             'status' => 'active',
         ], $overrides));
+    }
+
+    private function attachImage(Product $product): void
+    {
+        ProductMedia::create([
+            'product_id' => $product->id,
+            'type' => 'image',
+            'path' => "products/{$product->id}/front.jpg",
+            'position' => 0,
+        ]);
     }
 
     private function seller(array $profileOverrides = []): User
