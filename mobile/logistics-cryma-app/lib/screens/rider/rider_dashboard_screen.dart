@@ -27,6 +27,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   Set<String> _knownNotificationIds = {};
   bool _notificationsInitialized = false;
   String? _notificationError;
+  String? _assignmentRefreshError;
+  bool _refreshingAssignments = false;
   Timer? _notificationTimer;
   bool _loading = true;
   String? _error;
@@ -61,7 +63,10 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     _load();
     _notificationTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => _refreshNotifications(showNew: true),
+      (_) {
+        _refreshNotifications(showNew: true);
+        _refreshActiveAssignments();
+      },
     );
   }
 
@@ -90,6 +95,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                 parcel.status == 'COMPLETED' ||
                 parcel.status == 'RECEIVED')
             .length;
+        _assignmentRefreshError = null;
         _loading = false;
       });
       _refreshNotifications(showNew: false);
@@ -99,6 +105,23 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         _error = error.message;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _refreshActiveAssignments() async {
+    if (_refreshingAssignments) return;
+    _refreshingAssignments = true;
+    try {
+      final active = await CourierService.instance.getActiveParcels();
+      if (!mounted) return;
+      setState(() {
+        _active = active;
+        _assignmentRefreshError = null;
+      });
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _assignmentRefreshError = error.message);
+    } finally {
+      _refreshingAssignments = false;
     }
   }
 
@@ -123,6 +146,10 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       });
       if (showNew && newNotifications.isNotEmpty) {
         final notification = newNotifications.first;
+        if (newNotifications.any((item) =>
+            item.taskType == 'pickup' || item.taskType == 'delivery')) {
+          _refreshActiveAssignments();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${notification.title}: ${notification.message}'),
@@ -212,6 +239,30 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                         'Your assigned courier work, synced with CRYMA.',
                         style: CrymaText.bodyMedium,
                       ),
+                      if (_assignmentRefreshError != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: CrymaColors.errorSurface,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Assignments could not refresh: $_assignmentRefreshError',
+                                  style: CrymaText.bodyMedium,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _refreshActiveAssignments,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       Row(
                         children: [

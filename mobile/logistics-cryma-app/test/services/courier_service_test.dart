@@ -44,6 +44,55 @@ void main() {
     await service.acceptPickup(12);
   });
 
+  test('loads backend delivery assignments into the active rider parcel list',
+      () async {
+    final requestPaths = <String>[];
+    final client = MockClient((request) async {
+      requestPaths.add(request.url.path);
+      final deliveries = request.url.path.endsWith('/courier/deliveries')
+          ? <Map<String, dynamic>>[
+              {
+                'id': 42,
+                'order_id': 108,
+                'parcel_code': 'CRYMA-PCL-ABCDEFGHIJKLMNOPQRST',
+                'status': 'ASSIGNED_TO_RIDER',
+                'assigned_at': '2026-11-17T01:00:00Z',
+                'delivery_attempts': 0,
+                'order': {
+                  'payment_method': 'cash_on_delivery',
+                  'total_amount': '349.50',
+                  'delivery_address': '12 Main St, Makati',
+                  'items': [],
+                },
+              },
+            ]
+          : <Map<String, dynamic>>[];
+      return http.Response(
+        jsonEncode({'success': true, 'data': deliveries}),
+        200,
+      );
+    });
+    final service = CourierService(
+      apiClient: ApiClient(
+        httpClient: client,
+        tokenStore: _MemoryTokenStore()..token = 'local-test-token',
+        baseUrl: 'https://cryma.test/api',
+      ),
+    );
+
+    final assignments = await service.getActiveParcels();
+
+    expect(
+      requestPaths,
+      containsAll(['/api/courier/pickups', '/api/courier/deliveries']),
+    );
+    expect(assignments, hasLength(1));
+    expect(assignments.single.id, 42);
+    expect(assignments.single.orderId, 108);
+    expect(assignments.single.status, 'ASSIGNED_TO_RIDER');
+    expect(assignments.single.canStartDelivery, isTrue);
+  });
+
   test('loads and marks courier assignment notifications as read', () async {
     final requests = <http.Request>[];
     final tokenStore = _MemoryTokenStore()..token = 'local-test-token';

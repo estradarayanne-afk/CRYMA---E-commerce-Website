@@ -315,6 +315,10 @@ class LogisticsOperationsTest extends TestCase
             ->assertJsonPath('data.notifications.0.data.task_type', 'delivery')
             ->assertJsonPath('data.notifications.0.data.task_id', $delivery->id)
             ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
+        $this->getJson('/api/courier/deliveries')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $delivery->id);
     }
 
     public function test_parcel_flow_lists_all_hub_inventory_and_marks_transfer_requirements(): void
@@ -401,6 +405,10 @@ class LogisticsOperationsTest extends TestCase
             ->assertJsonPath('data.notifications.0.data.task_type', 'delivery')
             ->assertJsonPath('data.notifications.0.data.task_id', $delivery->id)
             ->assertJsonPath('data.notifications.0.data.order_id', $order->id);
+        $this->getJson('/api/courier/deliveries')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $delivery->id);
     }
 
     public function test_logistics_auto_routes_a_saved_barangay_to_its_delivery_hub(): void

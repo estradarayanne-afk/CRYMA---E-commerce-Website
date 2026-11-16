@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,7 +21,10 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
   List<CourierParcel> _history = [];
   bool _showHistory = false;
   bool _loading = true;
+  bool _refreshingAssignments = false;
   String? _error;
+  String? _refreshError;
+  Timer? _assignmentTimer;
 
   static const _navItems = [
     BottomNavigationBarItem(
@@ -49,6 +54,16 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
   void initState() {
     super.initState();
     _load();
+    _assignmentTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshActiveAssignments(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _assignmentTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -66,6 +81,7 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
         _active = results[0];
         _history = results[1];
         _loading = false;
+        _refreshError = null;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -73,6 +89,23 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
         _error = error.message;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _refreshActiveAssignments() async {
+    if (_refreshingAssignments) return;
+    _refreshingAssignments = true;
+    try {
+      final active = await CourierService.instance.getActiveParcels();
+      if (!mounted) return;
+      setState(() {
+        _active = active;
+        _refreshError = null;
+      });
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _refreshError = error.message);
+    } finally {
+      _refreshingAssignments = false;
     }
   }
 
@@ -102,6 +135,30 @@ class _RiderParcelsScreenState extends State<RiderParcelsScreen> {
                 )
               : Column(
                   children: [
+                    if (_refreshError != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Assignments could not refresh: $_refreshError',
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _refreshActiveAssignments,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: SegmentedButton<bool>(
