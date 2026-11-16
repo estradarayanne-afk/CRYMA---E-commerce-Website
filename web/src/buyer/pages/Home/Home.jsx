@@ -158,7 +158,7 @@ function Home() {
     ===================================================== */
 
     const featuredProducts = useMemo(
-        () => products.slice(0, 8),
+        () => products.slice(0, 12),
         [products]
     );
 
@@ -175,7 +175,7 @@ function Home() {
 
             try {
                 const response = await api.get(
-                    "/products?per_page=8&sort=newest",
+                    "/products?per_page=12&sort=newest",
                     {
                         signal: controller.signal,
                     }
