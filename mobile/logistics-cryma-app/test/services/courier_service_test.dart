@@ -190,6 +190,30 @@ void main() {
     await service.startDelivery(8, parcelCode);
   });
 
+  test('verifies a second parcel scan before delivery proof', () async {
+    const parcelCode = 'CRYMA-PCL-ABCDEFGHIJKLMNOPQRST';
+    final tokenStore = _MemoryTokenStore()..token = 'local-test-token';
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/courier/deliveries/8/proof-scan');
+      expect(request.headers['authorization'], 'Bearer local-test-token');
+      expect(jsonDecode(request.body), {
+        'expected_status': 'OUT_FOR_DELIVERY',
+        'parcel_code': parcelCode,
+      });
+      return http.Response('{}', 200);
+    });
+    final service = CourierService(
+      apiClient: ApiClient(
+        httpClient: client,
+        tokenStore: tokenStore,
+        baseUrl: 'https://cryma.test/api',
+      ),
+    );
+
+    await service.scanForDeliveryProof(8, parcelCode);
+  });
+
   test('sends explicit failed-delivery resolutions', () async {
     final requests = <Map<String, dynamic>>[];
     final client = MockClient((request) async {

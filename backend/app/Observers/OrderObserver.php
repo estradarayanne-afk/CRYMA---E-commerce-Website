@@ -53,11 +53,14 @@ class OrderObserver
                 continue;
             }
 
+            $delivered = $status === 'DELIVERED';
             $seller->notify(new SellerActivityNotification(
-                'Order status updated',
-                "Order #{$order->id} status changed to ".str_replace('_', ' ', strtolower($status)).'.',
-                'order_status_updated',
-                '/seller/orders',
+                $delivered ? 'Successful delivery confirmed' : 'Order status updated',
+                $delivered
+                    ? "Order #{$order->id} was successfully delivered. View the delivery photo in Parcel messages."
+                    : "Order #{$order->id} status changed to ".str_replace('_', ' ', strtolower($status)).'.',
+                $delivered ? 'delivery_completed' : 'order_status_updated',
+                $delivered ? '/seller/delivery-chats' : '/seller/orders',
                 ['order_id' => $order->id, 'order_status' => $status],
             ));
         }

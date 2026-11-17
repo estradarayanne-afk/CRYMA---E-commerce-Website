@@ -207,6 +207,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/courier/delivery-history', [CourierDeliveryController::class, 'history']);
         Route::get('/courier/deliveries/{id}', [CourierDeliveryController::class, 'show']);
         Route::patch('/courier/deliveries/{id}/status', [CourierDeliveryController::class, 'updateStatus']);
+        Route::post('/courier/deliveries/{id}/proof-scan', [CourierDeliveryController::class, 'scanForProof']);
         Route::post('/courier/deliveries/{id}/proof', [DeliveryProofController::class, 'store']);
         Route::get('/courier/deliveries/{id}/proof/{kind}', [DeliveryProofController::class, 'showForCourier']);
         Route::get('/courier/delivery-chats', [DeliveryConversationController::class, 'courierConversations']);

@@ -363,6 +363,8 @@ class LogisticsOperationsTest extends TestCase
     {
         $logistics = $this->logisticsUser();
         [$courier, $courierProfile] = $this->eligibleCourier('Talisay');
+        [$replacementCourier, $replacementProfile] = $this->eligibleCourier('Talisay');
+        CourierPresence::create(['courier_profile_id' => $courierProfile->id, 'is_available' => true]);
         $hub = LogisticsHub::where('is_active', true)->firstOrFail();
         $order = $this->order(Delivery::AT_SORTING_CENTER);
         $delivery = Delivery::create([
@@ -371,6 +373,12 @@ class LogisticsOperationsTest extends TestCase
             'current_hub_id' => $hub->id,
         ]);
         $this->actingAs($logistics, 'sanctum');
+        $courierAvailability = collect($this->getJson('/api/logistics/parcel-flow')
+            ->assertOk()
+            ->json('data.couriers'))
+            ->keyBy('id');
+        $this->assertTrue($courierAvailability[$courierProfile->id]['is_available']);
+        $this->assertFalse($courierAvailability[$replacementProfile->id]['is_available']);
 
         $this->postJson("/api/logistics/orders/{$order->id}/direct-delivery", [
             'courier_profile_id' => $courierProfile->id,
@@ -381,6 +389,11 @@ class LogisticsOperationsTest extends TestCase
             'expected_status' => Delivery::AT_SORTING_CENTER,
             'parcel_code' => $delivery->parcel_code,
         ])->assertOk();
+
+        $this->postJson("/api/logistics/orders/{$order->id}/direct-delivery", [
+            'courier_profile_id' => $replacementProfile->id,
+            'expected_status' => Delivery::AT_SORTING_CENTER,
+        ])->assertUnprocessable();
 
         $this->postJson("/api/logistics/orders/{$order->id}/direct-delivery", [
             'courier_profile_id' => $courierProfile->id,
@@ -409,6 +422,34 @@ class LogisticsOperationsTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $delivery->id);
+
+        CourierPresence::where('courier_profile_id', $courierProfile->id)->update(['is_available' => false]);
+        CourierPresence::create(['courier_profile_id' => $replacementProfile->id, 'is_available' => true]);
+        $this->actingAs($logistics, 'sanctum');
+        $this->postJson("/api/logistics/orders/{$order->id}/direct-delivery", [
+            'courier_profile_id' => $replacementProfile->id,
+            'expected_status' => Delivery::ASSIGNED,
+            'expected_courier_profile_id' => 999999,
+        ])->assertStatus(409);
+        $this->postJson("/api/logistics/orders/{$order->id}/direct-delivery", [
+            'courier_profile_id' => $replacementProfile->id,
+            'expected_status' => Delivery::ASSIGNED,
+            'expected_courier_profile_id' => $courierProfile->id,
+        ])->assertOk()
+            ->assertJsonPath('message', 'Direct delivery rider assignment updated.')
+            ->assertJsonPath('data.courier_profile_id', $replacementProfile->id);
+
+        $this->assertDatabaseHas('delivery_events', [
+            'delivery_id' => $delivery->id,
+            'event_type' => 'direct_delivery_reassigned',
+            'previous_courier_profile_id' => $courierProfile->id,
+            'courier_profile_id' => $replacementProfile->id,
+        ]);
+        $this->actingAs($courier, 'sanctum')->getJson('/api/courier/deliveries')
+            ->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($replacementCourier, 'sanctum')->getJson('/api/courier/deliveries')
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.parcel_code', $delivery->parcel_code);
     }
 
     public function test_bulk_shipment_inventory_uses_the_seller_and_buyer_municipality_hubs(): void

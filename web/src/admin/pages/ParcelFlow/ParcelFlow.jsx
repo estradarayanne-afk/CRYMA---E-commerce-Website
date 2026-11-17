@@ -91,6 +91,16 @@ export default function ParcelFlow({ base = "/admin" }) {
             ))}
         </>
     );
+    const availableDirectCourierOptions = (
+        <>
+            <option value="">Choose active, available courier</option>
+            {data.couriers.filter((courier) => courier.is_available).map((courier) => (
+                <option key={courier.id} value={courier.id}>
+                    {person(courier.user)}
+                </option>
+            ))}
+        </>
+    );
     const assign = (shipment, leg) =>
         run(
             () =>
@@ -508,7 +518,7 @@ export default function ParcelFlow({ base = "/admin" }) {
                     </article>;
                 })}
                 <h3>All available hub items ({data.deliveries.length})</h3>
-                <p>Items from every hub are listed below. Use a hub transfer when the buyer’s delivery hub is elsewhere, or choose Direct Delivery to assign any eligible rider globally.</p>
+                <p>Items from every hub are listed below. Use a hub transfer when the buyer’s delivery hub is elsewhere, or choose Direct Delivery to assign an active, available rider globally and skip the destination hub.</p>
                 {data.deliveries.map((d) => {
                     const route = d.destination_route;
                     const areaIsMapped = ["mapped", "mapping_conflict", "manual_route"].includes(route?.status);
@@ -589,14 +599,15 @@ export default function ParcelFlow({ base = "/admin" }) {
                                     </>
                                 ) : <p>This parcel is already at its delivery hub; no hub transfer is needed.</p>}
                                 <label>
-                                    Direct delivery rider (global)
+                                    Direct delivery rider (global, active and available)
                                     <select
                                         value={choices[`direct-delivery-${d.id}`] || ""}
                                         onChange={(event) => setChoices({ ...choices, [`direct-delivery-${d.id}`]: event.target.value })}
                                     >
-                                        {courierOptions}
+                                        {availableDirectCourierOptions}
                                     </select>
                                 </label>
+                                <small>Direct delivery goes from the current hub straight to the buyer; no destination hub transfer is created.</small>
                                 {!verifiedAtCurrentHub && <small className="lo-warning">Scan or receive this parcel at its current hub before assigning direct delivery.</small>}
                                 <button
                                     disabled={busy || !verifiedAtCurrentHub || !choices[`direct-delivery-${d.id}`]}

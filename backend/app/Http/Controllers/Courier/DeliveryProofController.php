@@ -60,6 +60,14 @@ class DeliveryProofController extends Controller
                 abort_unless($eligibility->isEligible($profile), 403, 'Courier eligibility changed. Contact an administrator.');
                 abort_unless($delivery->status === Delivery::OUT_FOR_DELIVERY, 409, 'Only an active delivery can be completed with proof.');
                 abort_unless($order->status === Delivery::OUT_FOR_DELIVERY, 409, 'Order and delivery status are out of sync. Contact an administrator.');
+                $proofScan = $delivery->events()
+                    ->where('event_type', 'delivery_item_scanned_for_proof')
+                    ->where('actor_id', $request->user()->id)
+                    ->where('courier_profile_id', $profile->id);
+                if ($delivery->delivery_picked_up_at) {
+                    $proofScan->where('created_at', '>=', $delivery->delivery_picked_up_at);
+                }
+                abort_unless($proofScan->exists(), 409, 'Scan this parcel before submitting delivery proof.');
                 abort_unless(!$delivery->proof()->exists(), 409, 'Proof of delivery has already been recorded.');
 
                 $codCollection = CodCollection::where('order_id', $order->id)->lockForUpdate()->first();

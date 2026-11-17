@@ -215,6 +215,15 @@ class ParcelFlowController extends Controller
                 ->values()
             : collect();
 
+        $couriers = $eligibility->profiles()
+            ->with(['user:id,first_name,last_name', 'presence'])
+            ->orderBy('id')
+            ->get();
+        $couriers->each(function (CourierProfile $courier): void {
+            $courier->setAttribute('is_available', (bool) $courier->presence?->is_available);
+            $courier->unsetRelation('presence');
+        });
+
         return response()->json(['success' => true, 'data' => [
             'hubs' => $hubs,
             'areas' => $areas,
@@ -223,7 +232,7 @@ class ParcelFlowController extends Controller
             'transfers' => $transfers,
             'returns' => ReturnShipment::with(['refundRequest:id,status,requested_amount,approved_amount','delivery:id,order_id,parcel_code','order.items.product:id,name','buyer:id,first_name,last_name','seller:id,first_name,last_name','pickupCourier.user:id,first_name,last_name','deliveryCourier.user:id,first_name,last_name','currentHub:id,name,code'])->latest()->limit(100)->get(),
             'deliveries' => $deliveries,
-            'couriers' => $eligibility->profiles()->with(['user:id,first_name,last_name'])->orderBy('id')->get(),
+            'couriers' => $couriers,
         ]]);
     }
 

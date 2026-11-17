@@ -814,6 +814,64 @@ class DeliveryWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('data.status', Delivery::OUT_FOR_DELIVERY);
     }
 
+    public function test_direct_delivery_acceptance_scans_at_the_current_hub_without_a_destination_hub_transfer(): void
+    {
+        [$courier, $profile] = $this->eligibleCourier();
+        $source = LogisticsHub::create(['name' => 'Direct source hub', 'code' => 'DIRECT-SOURCE', 'is_active' => true]);
+        $destination = LogisticsHub::create(['name' => 'Direct destination hub', 'code' => 'DIRECT-DESTINATION', 'is_active' => true]);
+        $area = DeliveryArea::create(['name' => 'Direct destination area', 'hub_id' => $destination->id, 'is_active' => true]);
+        $order = $this->order(Delivery::ASSIGNED);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'courier_profile_id' => $profile->id,
+            'delivery_area_id' => $area->id,
+            'current_hub_id' => $source->id,
+            'status' => Delivery::ASSIGNED,
+        ]);
+        $delivery->events()->create([
+            'actor_id' => $this->admin()->id,
+            'hub_id' => $source->id,
+            'event_type' => 'direct_delivery_assigned',
+            'previous_status' => Delivery::SORTED,
+            'new_status' => Delivery::ASSIGNED,
+            'courier_profile_id' => $profile->id,
+            'created_at' => now(),
+        ]);
+        $delivery->events()->create([
+            'actor_id' => $this->admin()->id,
+            'hub_id' => $source->id,
+            'event_type' => 'parcel_scanned',
+            'previous_status' => Delivery::SORTED,
+            'new_status' => Delivery::SORTED,
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($courier, 'sanctum')
+            ->patchJson("/api/courier/deliveries/{$delivery->id}/status", [
+                'status' => Delivery::OUT_FOR_DELIVERY,
+                'expected_status' => Delivery::ASSIGNED,
+                'parcel_code' => $delivery->parcel_code,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Delivery::OUT_FOR_DELIVERY);
+
+        $this->assertSame(Delivery::OUT_FOR_DELIVERY, $order->fresh()->status);
+        $this->assertDatabaseHas('delivery_events', [
+            'delivery_id' => $delivery->id,
+            'event_type' => 'direct_delivery_accepted',
+            'new_status' => Delivery::OUT_FOR_DELIVERY,
+            'courier_profile_id' => $profile->id,
+        ]);
+        $this->actingAs($order->buyer, 'sanctum')
+            ->getJson("/api/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonFragment([
+                'event_type' => 'direct_delivery_accepted',
+                'label' => 'Out for delivery',
+                'description' => 'Your parcel is with the delivery rider and on its way to you.',
+            ]);
+    }
+
     public function test_third_failed_delivery_attempt_automatically_returns_parcel_to_seller(): void
     {
         $seller = User::factory()->create(['role' => 'seller', 'status' => 'active']);

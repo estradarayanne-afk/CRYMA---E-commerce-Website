@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Models\Vehicle;
+use App\Notifications\SellerActivityNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -60,6 +61,12 @@ class DeliveryProofTest extends TestCase
             'recipient_full_name' => 'Maria Santos',
             'photo' => UploadedFile::fake()->image('delivery.jpg', 400, 300),
         ];
+        $this->postProof($delivery, $validRecipientAndPhoto)
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Scan this parcel before submitting delivery proof.');
+        $this->scanForProof($delivery, 'CRYMA-PCL-AAAAAAAAAAAAAAAAAAAA')
+            ->assertUnprocessable();
+        $this->scanForProof($delivery)->assertOk();
         $this->postProof($delivery, $validRecipientAndPhoto)
             ->assertStatus(422)->assertJsonPath('message', 'Confirm the cash collected from the buyer.');
         $this->postProof($delivery, [...$validRecipientAndPhoto, 'cod_amount_collected' => '9.99'])
@@ -133,6 +140,7 @@ class DeliveryProofTest extends TestCase
             ->post("/api/courier/deliveries/{$delivery->id}/proof", $this->proofInput(), ['Accept' => 'application/json'])
             ->assertNotFound();
         $this->actingAs($courier, 'sanctum');
+        $this->scanForProof($delivery)->assertOk();
         $this->post("/api/courier/deliveries/{$delivery->id}/proof", $this->proofInput(), ['Accept' => 'application/json'])
             ->assertOk();
 
@@ -186,6 +194,12 @@ class DeliveryProofTest extends TestCase
         ]);
 
         $this->actingAs($courier, 'sanctum')
+            ->postJson("/api/courier/deliveries/{$delivery->id}/proof-scan", [
+                'expected_status' => Delivery::OUT_FOR_DELIVERY,
+                'parcel_code' => $delivery->parcel_code,
+            ])
+            ->assertOk();
+        $this->actingAs($courier, 'sanctum')
             ->post("/api/courier/deliveries/{$delivery->id}/proof", $this->proofInput(), ['Accept' => 'application/json'])
             ->assertOk();
 
@@ -202,6 +216,12 @@ class DeliveryProofTest extends TestCase
         $this->assertSame($proof->id, $message->delivery_proof_id);
         $this->assertSame('Successful delivery confirmed. Proof of delivery photo attached.', $message->message);
         $this->assertSame(DeliveryConversation::SELLER_LOGISTICS, $conversation->type);
+        $sellerNotification = $seller->notifications()
+            ->where('type', SellerActivityNotification::class)
+            ->latest()
+            ->firstOrFail();
+        $this->assertSame('Successful delivery confirmed', $sellerNotification->data['title']);
+        $this->assertSame('/seller/delivery-chats', $sellerNotification->data['link']);
 
         $this->actingAs($seller, 'sanctum')
             ->getJson("/api/seller/delivery-chats/{$conversation->id}")
@@ -231,6 +251,7 @@ class DeliveryProofTest extends TestCase
 
         $order->update(['status' => Delivery::OUT_FOR_DELIVERY]);
         $delivery->update(['status' => Delivery::OUT_FOR_DELIVERY]);
+        $this->scanForProof($delivery)->assertOk();
         $this->postProof($delivery, $this->proofInput([
             'photo' => UploadedFile::fake()->create('document.pdf', 100, 'application/pdf'),
         ]))->assertUnprocessable()->assertJsonValidationErrors(['photo']);
@@ -242,6 +263,14 @@ class DeliveryProofTest extends TestCase
     private function postProof(Delivery $delivery, array $input = [])
     {
         return $this->post("/api/courier/deliveries/{$delivery->id}/proof", $input, ['Accept' => 'application/json']);
+    }
+
+    private function scanForProof(Delivery $delivery, ?string $parcelCode = null)
+    {
+        return $this->postJson("/api/courier/deliveries/{$delivery->id}/proof-scan", [
+            'expected_status' => Delivery::OUT_FOR_DELIVERY,
+            'parcel_code' => $parcelCode ?? $delivery->parcel_code,
+        ]);
     }
 
     private function proofInput(array $override = []): array

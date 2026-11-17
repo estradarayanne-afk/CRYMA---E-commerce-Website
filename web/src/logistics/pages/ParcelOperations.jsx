@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import api from "../../shared/services/api";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PrivateDeliveryProof from "../../shared/components/PrivateDeliveryProof";
@@ -64,7 +65,7 @@ const PAGE_CONFIG = {
     pickups: { eyebrow: "PICKUP QUEUE", title: "Seller pickup requests", description: "Review seller requests, record an acceptance or rejection, then assign an eligible courier to accepted pickups." },
     incoming: { eyebrow: "INBOUND PARCELS", title: "Incoming parcels", description: "Verify parcel handover and record sorting-center receipt." },
     sorting: { eyebrow: "SORTING CENTER", title: "Parcel sorting", description: "Scan each parcel to match its saved Philippine address to a configured delivery area and destination hub. Review routing exceptions; assign a final-mile courier only when the parcel is at that hub." },
-    assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Review the suggested area-qualified courier, ranked by availability, active delivery load, then hub proximity. Every eligible rider remains selectable." },
+    assignment: { eyebrow: "COURIER ROUTING", title: "Delivery assignment", description: "Assign final-mile deliveries to area-qualified couriers, or change a direct-delivery rider to any active, available courier before pickup." },
     monitoring: { eyebrow: "DELIVERY OPERATIONS", title: "Courier Deliveries", description: "Assign available riders to seller pickups and monitor delivery status, history, failed attempts, and returns." },
     reports: { eyebrow: "OPERATIONS SUMMARY", title: "Logistics reports", description: "Current counts derived from CRYMA order and delivery records." },
 };
@@ -418,6 +419,35 @@ export default function ParcelOperations({ section }) {
         );
     };
 
+    const reassignDirectDelivery = (order) => {
+        const delivery = order.delivery;
+        const availableCouriers = eligibleDelivery.filter((courier) => courier.is_available);
+        const courierProfileId = Number(
+            deliveryChoices[order.id]
+            || (availableCouriers.some((courier) => Number(courier.id) === Number(delivery.courier_profile_id))
+                ? delivery.courier_profile_id
+                : suggestedCourier(availableCouriers, delivery.current_hub_id)?.id
+                || 0),
+        );
+        if (!availableCouriers.some((courier) => Number(courier.id) === courierProfileId)) {
+            setError("Select an active, available courier for this direct delivery.");
+            return;
+        }
+        if (courierProfileId === Number(delivery.courier_profile_id)) {
+            setError("Choose a different courier before saving the direct-delivery change.");
+            return;
+        }
+        void mutate(
+            `direct-delivery-${order.id}`,
+            () => api.post(`/logistics/orders/${order.id}/direct-delivery`, {
+                courier_profile_id: courierProfileId,
+                expected_status: "ASSIGNED_TO_RIDER",
+                expected_courier_profile_id: delivery.courier_profile_id,
+            }),
+            `Direct delivery courier for order #${order.id} updated.`,
+        );
+    };
+
     const returnDelivery = (delivery) => {
         const reason = getReason(`return-${delivery.order_id}`).trim();
         if (!reason) {
@@ -447,6 +477,10 @@ export default function ParcelOperations({ section }) {
     const assignmentQueue = (queue.sorting_orders || []).filter((order) =>
         order.status === "SORTED"
         && Number(order.delivery?.deliveryArea?.hub_id || 0) === Number(order.delivery?.current_hub_id || 0));
+    const directAssignmentQueue = (queue.sorting_orders || []).filter((order) =>
+        order.status === "ASSIGNED_TO_RIDER"
+        && order.delivery?.events?.some((event) =>
+            ["direct_delivery_assigned", "direct_delivery_reassigned"].includes(event.event_type)));
     const scannedSortingCount = sortingQueue.filter((order) => order.delivery?.events?.some((event) => event.event_type === "parcel_scanned")).length;
     const unscannedSortingCount = sortingQueue.length - scannedSortingCount;
     const filteredDeliveries = deliveries.filter((delivery) => {
@@ -619,6 +653,60 @@ export default function ParcelOperations({ section }) {
                                 <div className="lo-actions">{courierSelect(eligibleCouriers, courierId, (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })), `Delivery courier for order ${order.id}`, false, order.delivery?.current_hub_id)}<button type="button" disabled={!!saving || !courierId} onClick={() => sortAndAssign(order)}>{saving === `sort-${order.id}` ? "Saving…" : "Assign delivery"}</button></div>
                             </article>;
                         })}</section>}
+
+                    {section === "assignment" && directAssignmentQueue.length > 0 && <section className="lo-panel lo-direct-assignment-panel">
+                        <div className="lo-panel-heading">
+                           <div>
+                               <h2>Direct delivery assignments</h2>
+                               <p>These parcels go from their current hub straight to the buyer. Change the rider any time before they scan and accept; no destination hub is used.</p>
+                           </div>
+                           <span className="lo-queue-count">{directAssignmentQueue.length} awaiting acceptance</span>
+                        </div>
+                        {directAssignmentQueue.map((order) => {
+                           const delivery = order.delivery;
+                           const availableCouriers = eligibleDelivery.filter((courier) => courier.is_available);
+                           const savedCourierIsAvailable = availableCouriers.some(
+                               (courier) => Number(courier.id) === Number(delivery.courier_profile_id),
+                           );
+                           const recommended = suggestedCourier(availableCouriers, delivery.current_hub_id);
+                           const courierId = deliveryChoices[order.id]
+                               || (savedCourierIsAvailable ? delivery.courier_profile_id : recommended?.id || "");
+                           const parcelCode = delivery.parcel_code || "";
+                           return <article className="lo-row lo-direct-assignment-row" key={`direct-${order.id}`}>
+                               <div>
+                                   <strong>Order #{order.id} · Awaiting rider acceptance</strong>
+                                   <span>Current hub: {delivery.currentHub?.name || "Source hub"} · Direct to buyer</span>
+                                   <small>{order.delivery_address || "Buyer address unavailable"}</small>
+                                   <small>Current rider: {courierName(delivery.courierProfile)}</small>
+                               </div>
+                               <div className="lo-direct-assignment-actions">
+                                   {parcelCode
+                                       ? <div className="lo-direct-assignment-qr">
+                                           <QRCodeSVG value={parcelCode} size={144} title={`Parcel QR code for order ${order.id}`} />
+                                           <small>Scan code: {parcelCode}</small>
+                                       </div>
+                                       : <small className="lo-warning">Parcel QR code is unavailable. Refresh or contact support.</small>}
+                                   <label className="lo-field-label">Global active, available rider
+                                       {courierSelect(
+                                           availableCouriers,
+                                           courierId,
+                                           (value) => setDeliveryChoices((current) => ({ ...current, [order.id]: value })),
+                                           `Direct delivery rider for order ${order.id}`,
+                                           !!saving,
+                                           delivery.current_hub_id,
+                                       )}
+                                   </label>
+                                   <button
+                                       type="button"
+                                       disabled={!!saving || !parcelCode || !courierId || Number(courierId) === Number(delivery.courier_profile_id)}
+                                       onClick={() => reassignDirectDelivery(order)}
+                                   >
+                                       {saving === `direct-delivery-${order.id}` ? "Saving…" : "Change direct-delivery rider"}
+                                   </button>
+                               </div>
+                           </article>;
+                        })}
+                    </section>}
 
                     {section === "monitoring" && <section className="lo-panel lo-monitoring-panel"><div className="lo-panel-heading"><div><h2>Parcel status and history</h2><p>Filter the delivery queue to focus on exceptions or review completed work.</p></div><span className="lo-queue-count">{deliveries.length} records</span></div>
                         <nav className="lo-queue-filters" aria-label="Filter courier deliveries">{MONITOR_FILTERS.map(({ key, label }) => <button type="button" key={key} className={monitorFilter === key ? "is-active" : ""} aria-pressed={monitorFilter === key} onClick={() => setMonitorFilter(key)}>{label}<span>{monitorFilterCount(key)}</span></button>)}</nav>

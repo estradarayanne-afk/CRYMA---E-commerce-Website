@@ -173,6 +173,24 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
   }
 
   Future<void> _completeDelivery(CourierParcel parcel) async {
+    if (!await _scanParcel(parcel) || !mounted) return;
+    setState(() {
+      _updating = true;
+      _error = null;
+    });
+    try {
+      await _courierService.scanForDeliveryProof(
+        parcel.id,
+        parcel.parcelCode,
+      );
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+      return;
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+    if (!mounted) return;
+
     final image = await ImagePicker().pickImage(
       source: ImageSource.camera,
       imageQuality: 85,
@@ -418,7 +436,7 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
     if (parcel.canStartDelivery) {
       return FilledButton(
         onPressed: () => _startDelivery(parcel),
-        child: const Text('Scan and start delivery'),
+        child: const Text('Scan and accept parcel'),
       );
     }
     if (parcel.canCompleteDelivery) {
@@ -427,7 +445,7 @@ class _RiderParcelDetailScreenState extends State<RiderParcelDetailScreen> {
         children: [
           FilledButton(
             onPressed: () => _completeDelivery(parcel),
-            child: const Text('Complete with proof'),
+            child: const Text('Scan item and complete delivery'),
           ),
           const SizedBox(height: 10),
           OutlinedButton(

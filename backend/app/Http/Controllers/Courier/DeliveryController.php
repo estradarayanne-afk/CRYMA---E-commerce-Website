@@ -137,6 +137,48 @@ class DeliveryController extends Controller
             : response()->json(['success' => false, 'message' => 'Assigned delivery not found.'], 404);
     }
 
+    public function scanForProof(Request $request, int $id, CourierEligibility $eligibility)
+    {
+        $values = $request->validate([
+            'expected_status' => ['required', 'in:OUT_FOR_DELIVERY'],
+            'parcel_code' => ['required', 'string', 'regex:/^CRYMA-PCL-[A-Z0-9]{20}$/'],
+        ]);
+        $profile = $this->profile($request->user(), $eligibility);
+
+        DB::transaction(function () use ($request, $id, $profile, $values, $eligibility) {
+            $initial = Delivery::where('courier_profile_id', $profile->id)->find($id);
+            abort_unless($initial, 404, 'Assigned delivery not found.');
+
+            $order = Order::whereKey($initial->order_id)->lockForUpdate()->firstOrFail();
+            $delivery = Delivery::where('courier_profile_id', $profile->id)->whereKey($id)->lockForUpdate()->first();
+            abort_unless($delivery, 404, 'Assigned delivery not found.');
+            abort_unless($eligibility->isEligible($profile), 403, 'Courier eligibility changed. Contact an administrator.');
+            abort_unless(
+                $delivery->status === Delivery::OUT_FOR_DELIVERY && $order->status === Delivery::OUT_FOR_DELIVERY,
+                409,
+                'Only an active delivery can be scanned for proof.',
+            );
+            abort_unless(
+                hash_equals((string) $delivery->parcel_code, $values['parcel_code']),
+                422,
+                'The scanned parcel does not match this delivery assignment.',
+            );
+
+            OrderDeliveryProjection::event($delivery, [
+                'actor_id' => $request->user()->id,
+                'event_type' => 'delivery_item_scanned_for_proof',
+                'previous_status' => Delivery::OUT_FOR_DELIVERY,
+                'new_status' => Delivery::OUT_FOR_DELIVERY,
+                'courier_profile_id' => $profile->id,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Parcel scan confirmed. Capture the delivery photo next.',
+        ]);
+    }
+
     public function updateStatus(Request $request, int $id, CourierEligibility $eligibility, DeliveryAreaResolver $areaResolver)
     {
         $validated = $request->validate([
@@ -182,29 +224,44 @@ class DeliveryController extends Controller
                 abort(409, 'Order and delivery status are out of sync. Contact an administrator.');
             }
 
+            $isDirectDelivery = $delivery->events()
+                ->whereIn('event_type', ['direct_delivery_assigned', 'direct_delivery_reassigned'])
+                ->exists();
             if ($next === Delivery::OUT_FOR_DELIVERY) {
                 abort_unless(
                     !$delivery->next_delivery_attempt_at || !$delivery->next_delivery_attempt_at->isFuture(),
                     422,
                     'This redelivery is scheduled for a later date.',
                 );
-                $area = $delivery->deliveryArea()->with('hub')->first();
-                if (!$area) {
-                    $route = $areaResolver->resolve($order->delivery_psgc_code);
-                    $area = $route['status'] === 'mapped' ? $route['area'] : null;
+                if ($isDirectDelivery) {
+                    abort_unless($delivery->current_hub_id, 409, 'The direct-delivery parcel is not assigned to a source hub.');
+                    abort_unless(
+                        $delivery->events()
+                            ->whereIn('event_type', ['parcel_scanned', 'hub_transfer_arrived'])
+                            ->where('hub_id', $delivery->current_hub_id)
+                            ->exists(),
+                        422,
+                        'Scan this parcel at its current hub before accepting direct delivery.',
+                    );
+                } else {
+                    $area = $delivery->deliveryArea()->with('hub')->first();
+                    if (!$area) {
+                        $route = $areaResolver->resolve($order->delivery_psgc_code);
+                        $area = $route['status'] === 'mapped' ? $route['area'] : null;
+                    }
+                    abort_unless($area && $area->is_active && $area->hub?->is_active, 409, 'The parcel has no active final delivery hub.');
+                    abort_unless(
+                        $delivery->current_hub_id && (int) $delivery->current_hub_id === (int) $area->hub_id,
+                        409,
+                        'The parcel has not arrived at its final delivery hub.',
+                    );
+                    abort_unless(
+                        $delivery->events()->where('event_type', 'parcel_scanned')
+                            ->where('hub_id', $area->hub_id)->whereNotNull('actor_id')->exists(),
+                        422,
+                        'Scan this parcel at its final delivery hub before starting delivery.',
+                    );
                 }
-                abort_unless($area && $area->is_active && $area->hub?->is_active, 409, 'The parcel has no active final delivery hub.');
-                abort_unless(
-                    $delivery->current_hub_id && (int) $delivery->current_hub_id === (int) $area->hub_id,
-                    409,
-                    'The parcel has not arrived at its final delivery hub.',
-                );
-                abort_unless(
-                    $delivery->events()->where('event_type', 'parcel_scanned')
-                        ->where('hub_id', $area->hub_id)->whereNotNull('actor_id')->exists(),
-                    422,
-                    'Scan this parcel at its final delivery hub before starting delivery.',
-                );
             }
 
             $previousStatus = $delivery->status;
@@ -231,7 +288,9 @@ class DeliveryController extends Controller
                 'actor_id' => $request->user()->id,
                 'event_type' => $returnToSeller
                     ? ($failureResolution === 'return_to_sender' ? 'returned_to_sender' : 'returned_after_max_delivery_attempts')
-                    : ($next === Delivery::FAILED ? 'failed' : ($next === Delivery::OUT_FOR_DELIVERY ? 'delivery_collected_from_sorting_center' : 'status_changed')),
+                    : ($next === Delivery::FAILED ? 'failed' : ($next === Delivery::OUT_FOR_DELIVERY
+                        ? ($isDirectDelivery ? 'direct_delivery_accepted' : 'delivery_collected_from_sorting_center')
+                        : 'status_changed')),
                 'previous_status' => $previousStatus,
                 'new_status' => $resultingStatus,
                 'previous_courier_profile_id' => $profile->id,
@@ -274,11 +333,15 @@ class DeliveryController extends Controller
         });
 
         $result->load(['order.items.product:id,name,image,weight_kg', 'deliveryArea:id,name', 'events']);
-        $message = $result->status === Delivery::RETURNED
+        $directDeliveryAccepted = $result->status === Delivery::OUT_FOR_DELIVERY
+            && $result->events->contains(fn ($event) => $event->event_type === 'direct_delivery_accepted');
+        $message = $directDeliveryAccepted
+            ? 'Direct delivery accepted. The parcel is now out for delivery.'
+            : ($result->status === Delivery::RETURNED
             ? (($validated['failure_resolution'] ?? null) === 'return_to_sender'
                 ? 'The parcel is being returned to the sender.'
                 : 'Three delivery attempts were unsuccessful. The parcel is being returned to the seller.')
-            : 'Delivery status updated.';
+            : 'Delivery status updated.');
 
         return response()->json(['success' => true, 'message' => $message, 'data' => $this->parcelData($result)]);
     }

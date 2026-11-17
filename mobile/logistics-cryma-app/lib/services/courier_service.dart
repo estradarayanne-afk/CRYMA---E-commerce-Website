@@ -127,6 +127,16 @@ class CourierService {
     );
   }
 
+  Future<void> scanForDeliveryProof(int id, String parcelCode) async {
+    await _api.post(
+      'courier/deliveries/$id/proof-scan',
+      body: {
+        'expected_status': 'OUT_FOR_DELIVERY',
+        'parcel_code': parcelCode,
+      },
+    );
+  }
+
   Future<void> failDelivery(
     int id,
     String reason, {

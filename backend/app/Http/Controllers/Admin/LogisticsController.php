@@ -566,18 +566,23 @@ class LogisticsController extends Controller
     {
         $values = $request->validate([
             'courier_profile_id' => ['required', 'integer', 'exists:courier_profiles,id'],
-            'expected_status' => ['required', Rule::in([Delivery::AT_SORTING_CENTER, Delivery::SORTED])],
+            'expected_status' => ['required', Rule::in([Delivery::AT_SORTING_CENTER, Delivery::SORTED, Delivery::ASSIGNED])],
+            'expected_courier_profile_id' => ['required_if:expected_status,'.Delivery::ASSIGNED, 'nullable', 'integer', 'min:1'],
         ]);
-        $courier = $eligibility->find((int) $values['courier_profile_id']);
-        abort_unless($courier, 422, 'Select an eligible courier.');
+        $courier = $eligibility->availableProfiles()
+            ->with('user:id,first_name,last_name,role,status,email_verified_at')
+            ->whereKey($values['courier_profile_id'])
+            ->first();
+        abort_unless($courier, 422, 'Select an active, available courier.');
+        $isReassignment = $values['expected_status'] === Delivery::ASSIGNED;
 
-        $delivery = DB::transaction(function () use ($request, $orderId, $values, $courier, $eligibility) {
+        $delivery = DB::transaction(function () use ($request, $orderId, $values, $courier, $eligibility, $isReassignment) {
             $order = Order::query()->whereKey($orderId)->lockForUpdate()->firstOrFail();
             $delivery = Delivery::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $order->status === $values['expected_status'] && $delivery->status === $order->status,
                 409,
-                'Parcel status changed. Refresh the transfer list.',
+                'Parcel status changed. Refresh the delivery assignment list.',
             );
             abort_unless($delivery->current_hub_id, 409, 'Parcel must be received at a hub before direct delivery.');
             abort_unless(
@@ -593,13 +598,34 @@ class LogisticsController extends Controller
                 409,
                 'This parcel already has an active hub transfer.',
             );
-            abort_unless(
-                $delivery->courier_profile_id === null && $delivery->delivery_picked_up_at === null,
-                409,
-                'This parcel already has a rider assignment or has been collected.',
-            );
-            $courier = $eligibility->find($courier->id);
-            abort_unless($courier, 422, 'The selected courier is no longer eligible.');
+            if ($isReassignment) {
+                abort_unless(
+                    $delivery->events()->whereIn('event_type', ['direct_delivery_assigned', 'direct_delivery_reassigned'])->exists(),
+                    422,
+                    'Only an unaccepted direct delivery can be reassigned here.',
+                );
+                abort_unless(
+                    (int) ($values['expected_courier_profile_id'] ?? 0) === (int) $delivery->courier_profile_id,
+                    409,
+                    'The direct delivery assignment changed. Refresh and try again.',
+                );
+                abort_unless(
+                    $delivery->courier_profile_id !== null && $delivery->delivery_picked_up_at === null,
+                    409,
+                    'This direct delivery has already been accepted by its rider.',
+                );
+            } else {
+                abort_unless(
+                    $delivery->courier_profile_id === null && $delivery->delivery_picked_up_at === null,
+                    409,
+                    'This parcel already has a rider assignment or has been collected.',
+                );
+            }
+            $courier = $eligibility->availableProfiles()
+                ->with('user:id,first_name,last_name,role,status,email_verified_at')
+                ->whereKey($courier->id)
+                ->first();
+            abort_unless($courier, 422, 'The selected courier is no longer active and available.');
 
             if ($delivery->status === Delivery::AT_SORTING_CENTER) {
                 app(\App\Services\ParcelSortingService::class)->transitionToSorted(
@@ -610,6 +636,7 @@ class LogisticsController extends Controller
             }
 
             $previousStatus = $delivery->status;
+            $previousCourierProfileId = $delivery->courier_profile_id;
             $currentHubId = (int) $delivery->current_hub_id;
             $delivery->update([
                 'courier_profile_id' => $courier->id,
@@ -622,17 +649,22 @@ class LogisticsController extends Controller
             OrderDeliveryProjection::event($delivery, [
                 'actor_id' => $request->user()->id,
                 'hub_id' => $currentHubId,
-                'event_type' => 'direct_delivery_assigned',
+                'event_type' => $isReassignment ? 'direct_delivery_reassigned' : 'direct_delivery_assigned',
                 'previous_status' => $previousStatus,
                 'new_status' => Delivery::ASSIGNED,
+                'previous_courier_profile_id' => $previousCourierProfileId,
                 'courier_profile_id' => $courier->id,
-                'reason' => 'Assigned for direct delivery from the current hub without a hub-to-hub transfer.',
+                'reason' => $isReassignment
+                    ? 'Courier changed before accepting direct delivery.'
+                    : 'Assigned for direct delivery from the current hub without a hub-to-hub transfer.',
             ]);
-            $courier->user?->notify(new CourierParcelAssignedNotification(
-                'delivery',
-                (int) $delivery->id,
-                (int) $order->id,
-            ));
+            if ((int) $previousCourierProfileId !== (int) $courier->id) {
+                $courier->user?->notify(new CourierParcelAssignedNotification(
+                    'delivery',
+                    (int) $delivery->id,
+                    (int) $order->id,
+                ));
+            }
 
             return $delivery->fresh()->load([
                 'order',
@@ -645,7 +677,9 @@ class LogisticsController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Parcel assigned for direct delivery to the buyer.',
+            'message' => $isReassignment
+                ? 'Direct delivery rider assignment updated.'
+                : 'Parcel assigned for direct delivery to the buyer.',
             'data' => $delivery,
         ]);
     }
