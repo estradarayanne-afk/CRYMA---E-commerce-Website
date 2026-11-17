@@ -6,6 +6,14 @@ export function buildPickupDecisionPayload(decision, reason = "") {
     return { decision: "rejected", reason: normalizedReason };
 }
 
+export function getFuturePickupSchedule(value, now = new Date()) {
+    const scheduledAt = value ? new Date(value) : null;
+    if (scheduledAt && !Number.isNaN(scheduledAt.getTime()) && scheduledAt > now) {
+        return scheduledAt;
+    }
+    return new Date(now.getTime() + 30 * 60 * 1000);
+}
+
 export function buildThirdPartyShipmentPayload({
     deliveryIds,
     fromHubId,

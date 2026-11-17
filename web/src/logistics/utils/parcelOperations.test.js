@@ -4,6 +4,7 @@ import {
     buildPickupDecisionPayload,
     buildThirdPartyReceivePayload,
     buildThirdPartyShipmentPayload,
+    getFuturePickupSchedule,
     getTransferableDeliveries,
     groupThirdPartyShipments,
     parcelCodeMatches,
@@ -16,6 +17,15 @@ test("pickup decisions use the API payload and require a rejection reason", () =
         reason: "Seller unavailable",
     });
     assert.throws(() => buildPickupDecisionPayload("rejected", "  "), /reason is required/);
+});
+
+test("expired or missing pickup schedules default to a future time and preserve valid schedules", () => {
+    const now = new Date("2026-11-17T08:48:00.000Z");
+    const fallback = new Date("2026-11-17T09:18:00.000Z");
+
+    assert.equal(getFuturePickupSchedule("2026-11-17T08:44:00.000Z", now).getTime(), fallback.getTime());
+    assert.equal(getFuturePickupSchedule(null, now).getTime(), fallback.getTime());
+    assert.equal(getFuturePickupSchedule("2026-11-17T09:30:00.000Z", now).toISOString(), "2026-11-17T09:30:00.000Z");
 });
 
 test("bulk third-party transfer payload matches the backend field names", () => {

@@ -5,7 +5,7 @@ import ConfirmationModal from "../components/ConfirmationModal";
 import PrivateDeliveryProof from "../../shared/components/PrivateDeliveryProof";
 import ParcelQrScanner from "../../shared/components/ParcelQrScanner";
 import { recommendCouriersForDelivery, sortCouriersByHubDistance } from "../utils/courierProximity";
-import { buildPickupDecisionPayload } from "../utils/parcelOperations.js";
+import { buildPickupDecisionPayload, getFuturePickupSchedule } from "../utils/parcelOperations.js";
 import "./ParcelOperations.css";
 
 const DEFAULT_QUEUE = {
@@ -28,6 +28,8 @@ const localDateTimeValue = (value) => {
     const pad = (part) => String(part).padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
+const pickupScheduleValue = (value) => localDateTimeValue(getFuturePickupSchedule(value));
+const PICKUP_TIME_ERROR = "Choose a pickup date and time in the future.";
 const formatPickupAddress = (address) => address ? [
     address.recipient_name ? `Contact: ${address.recipient_name}` : "",
     address.phone ? `Phone: ${address.phone}` : "",
@@ -250,6 +252,11 @@ export default function ParcelOperations({ section }) {
         );
     };
 
+    const updatePickupSchedule = (orderId, value) => {
+        setPickupSchedules((current) => ({ ...current, [orderId]: value }));
+        setError((current) => current === PICKUP_TIME_ERROR ? "" : current);
+    };
+
     const assignPickup = (orderId, existing = null) => {
         if (!existing || existing.status === "PICKUP_REQUESTED") {
             setError("Accept the seller pickup request before assigning a courier.");
@@ -263,14 +270,14 @@ export default function ParcelOperations({ section }) {
         const existingCourierIsEligible = eligiblePickup.some((courier) =>
             Number(courier.id) === Number(existing?.courier_profile_id));
         const courierProfileId = Number(pickupChoices[orderId] || (existingCourierIsEligible ? existing?.courier_profile_id : 0));
-        const localSchedule = pickupSchedules[orderId] ?? localDateTimeValue(existing?.scheduled_at);
+        const localSchedule = pickupSchedules[orderId] ?? pickupScheduleValue(existing?.scheduled_at);
         if (!courierProfileId || !eligiblePickup.some((courier) => Number(courier.id) === courierProfileId)) {
             setError("Choose an eligible courier for this pickup.");
             return;
         }
         const scheduledAt = new Date(localSchedule);
         if (!localSchedule || Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
-            setError("Choose a pickup date and time in the future.");
+            setError(PICKUP_TIME_ERROR);
             return;
         }
         const payload = { courier_profile_id: courierProfileId, scheduled_at: scheduledAt.toISOString() };
@@ -507,7 +514,7 @@ export default function ParcelOperations({ section }) {
                                             <button className="lo-button-danger" type="button" disabled={!!saving} onClick={() => decidePickup(assignment, "rejected")}>Reject request</button>
                                         </div>}
                                         {canAssign && <div className="lo-actions">
-                                            <label className="lo-field-label">Pickup date and time<input type="datetime-local" value={pickupSchedules[assignment.order_id] ?? localDateTimeValue(assignment.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [assignment.order_id]: event.target.value }))} /></label>
+                                            <label className="lo-field-label">Pickup date and time<input type="datetime-local" value={pickupSchedules[assignment.order_id] ?? pickupScheduleValue(assignment.scheduled_at)} onChange={(event) => updatePickupSchedule(assignment.order_id, event.target.value)} /></label>
                                             {courierSelect(eligiblePickup, pickupChoices[assignment.order_id] ?? assignment.courier_profile_id, (value) => setPickupChoices((current) => ({ ...current, [assignment.order_id]: value })), `Reassign pickup for order ${assignment.order_id}`)}
                                             <button type="button" disabled={!!saving || !eligiblePickup.length} onClick={() => assignPickup(assignment.order_id, assignment)}>{assignment.status === "ACCEPTED_BY_LOGISTICS" ? "Assign courier" : "Save assignment"}</button>
                                         </div>}
@@ -647,7 +654,7 @@ export default function ParcelOperations({ section }) {
                                                     !!saving,
                                                 )}
                                             </label>
-                                            <label className="lo-monitor-schedule">Pickup date and time<input type="datetime-local" value={pickupSchedules[delivery.order_id] ?? localDateTimeValue(pickupAssignment.scheduled_at)} onChange={(event) => setPickupSchedules((current) => ({ ...current, [delivery.order_id]: event.target.value }))} /></label>
+                                            <label className="lo-monitor-schedule">Pickup date and time<input type="datetime-local" value={pickupSchedules[delivery.order_id] ?? pickupScheduleValue(pickupAssignment.scheduled_at)} onChange={(event) => updatePickupSchedule(delivery.order_id, event.target.value)} /></label>
                                             <button type="button" disabled={!!saving || !eligiblePickup.some((courier) => Number(courier.id) === Number(pickupCourierId))} onClick={() => assignPickup(delivery.order_id, pickupAssignment)}>{saving === `pickup-${delivery.order_id}` ? "Saving?" : pickupAssignment.status === "ACCEPTED_BY_LOGISTICS" ? "Assign pickup courier" : "Save pickup assignment"}</button>
                                         </>}
                                     </div>
